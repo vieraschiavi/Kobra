@@ -102,11 +102,36 @@ def run():
         json.dump(bundle, f, ensure_ascii=False)
         f.write(";")
 
+    # 6) Historial de gestiones + analítica por gestor/mes
+    _analitica_gestiones()
+
     print(f"[pipeline] Exports listos en {OUT_DIR}/")
     print(f"           - kobra_scored.csv / .xlsx")
     print(f"           - kobra_bundle.json (dashboard)")
     _print_kpis(bundle["kpis"])
     return full, model
+
+
+def _analitica_gestiones():
+    """Genera (si falta) el historial de gestiones y exporta la analítica."""
+    from kobra import analitica
+    gest_csv = os.path.join(ROOT, "data", "kobra_gestiones.csv")
+    if not os.path.exists(gest_csv):
+        from data.generate_gestiones import generar as gen_g
+        gen_g(42).to_csv(gest_csv, index=False)
+    g = pd.read_csv(gest_csv)
+    with pd.ExcelWriter(os.path.join(OUT_DIR, "kobra_analitica_gestion.xlsx"),
+                        engine="xlsxwriter") as xl:
+        analitica.ranking_gestores(g).to_excel(xl, sheet_name="Ranking_gestores", index=False)
+        analitica.mejora_por_gestor(g).to_excel(xl, sheet_name="Mejora_gestores", index=False)
+        analitica.evolucion_mensual(g).to_excel(xl, sheet_name="Evolucion_mensual", index=False)
+        analitica.caracteristicas_por(g, "tramo_mora").to_excel(xl, sheet_name="Por_tramo", index=False)
+        analitica.caracteristicas_por(g, "segmento").to_excel(xl, sheet_name="Por_segmento", index=False)
+    with open(os.path.join(OUT_DIR, "impacto_kobra.json"), "w", encoding="utf-8") as f:
+        json.dump(analitica.impacto_kobra(g), f, ensure_ascii=False, indent=2)
+    ik = analitica.impacto_kobra(g)
+    print(f"[pipeline] Analítica de gestión · uplift conversión con Kobra: "
+          f"+{ik['uplift_conversion']*100:.1f}pp · calidad: +{ik['uplift_calidad']:.1f}")
 
 
 def _kpis(df):

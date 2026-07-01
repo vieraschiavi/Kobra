@@ -218,6 +218,10 @@ def build():
          "Ranking por valor esperado y exportación a Excel/CSV para reporting."),
         ("dashboard_copiloto_detalle.png", "Copiloto de Negociación en Vivo",
          "Sentimiento del cliente turno a turno, técnicas del gestor y la próxima jugada sugerida."),
+        ("realtime_copiloto.png", "Asistencia en vivo durante la llamada",
+         "Escucha la llamada telefónica, transcribe y asesora al gestor en tiempo real."),
+        ("dashboard_gestores.png", "Gestores & Evolución",
+         "Impacto de Kobra en calidad, conversión y recupero; evolución mes a mes por gestor."),
     ]
     for img, title, sub in shots:
         s = prs.slides.add_slide(blank); _bg(s)
@@ -230,6 +234,43 @@ def build():
             _box(s, Inches(0.55), Inches(1.55), Inches(12.25), Inches(5.55),
                  fill=None, line=PURPLE)
             s.shapes.add_picture(path, Inches(0.7), Inches(1.7), width=Inches(11.95))
+
+    # ---------- 8b · Impacto de Kobra en la gestión ------------------------
+    imp_path = os.path.join(ROOT, "outputs", "impacto_kobra.json")
+    if os.path.exists(imp_path):
+        with open(imp_path, encoding="utf-8") as fh:
+            ik = json.load(fh)
+        s = prs.slides.add_slide(blank); _bg(s)
+        _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
+              "Impacto de Kobra en la gestión", size=32, color=WHITE, bold=True)
+        _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
+        _text(s, Inches(0.9), Inches(1.7), Inches(11.5), Inches(0.6),
+              "Gestores que usan Kobra vs. grupo de control (mismo período)",
+              size=15, color=GREY)
+        cards = [
+            (f"+{ik['uplift_calidad']:.1f}", "puntos de calidad de gestión", GREEN),
+            (f"+{ik['uplift_conversion']*100:.1f} pp", "tasa de conversión", PURPLE),
+            (f"+{ik['uplift_recupero']*100:.1f} pp", "tasa de recupero", YELLOW),
+        ]
+        cw = Inches(3.9); gap = Inches(0.25); x0 = Inches(0.7); y0 = Inches(2.6)
+        for i, (val, lbl, col) in enumerate(cards):
+            x = x0 + i * (cw + gap)
+            _box(s, x, y0, cw, Inches(2.4), fill=PANEL, line=col)
+            _text(s, x, y0 + Inches(0.55), cw, Inches(1), val, size=44,
+                  color=col, bold=True, align=PP_ALIGN.CENTER)
+            _text(s, x, y0 + Inches(1.7), cw, Inches(0.5), lbl, size=15,
+                  color=GREY, align=PP_ALIGN.CENTER)
+        _text(s, Inches(0.9), Inches(5.6), Inches(11.5), Inches(1),
+              f"Con Kobra: calidad {ik['con_kobra']['calidad_prom']:.0f} · "
+              f"conversión {ik['con_kobra']['tasa_conversion']:.0%} · "
+              f"recupero {ik['con_kobra']['tasa_recupero']:.0%}   |   "
+              f"Sin Kobra: calidad {ik['sin_kobra']['calidad_prom']:.0f} · "
+              f"conversión {ik['sin_kobra']['tasa_conversion']:.0%} · "
+              f"recupero {ik['sin_kobra']['tasa_recupero']:.0%}",
+              size=14, color=WHITE, align=PP_ALIGN.CENTER)
+        _text(s, Inches(0.9), Inches(6.4), Inches(11.5), Inches(0.6),
+              "Y la mejora se sostiene y crece mes a mes con la adopción de las herramientas.",
+              size=14, color=GREEN, align=PP_ALIGN.CENTER)
 
     # ---------- 9 · Por qué Kobra / diferenciales --------------------------
     s = prs.slides.add_slide(blank); _bg(s)

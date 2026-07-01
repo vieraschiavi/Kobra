@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data.generate_dataset import generar
 from kobra.probpago import ProbPagoModel
-from kobra import negociador, copiloto
+from kobra import negociador, copiloto, analitica
 
 
 def _df():
@@ -75,3 +75,35 @@ def test_copiloto_parser_plano():
         canal="llamada")
     assert conv.total_mensajes == 3
     assert conv.nombre_gestor == "Gestor"
+
+
+def _gestiones():
+    ruta = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "data", "kobra_gestiones.csv")
+    if os.path.exists(ruta):
+        return pd.read_csv(ruta)
+    from data.generate_gestiones import generar as gen_g
+    return gen_g(7)
+
+
+def test_analitica_caracteristicas():
+    g = _gestiones()
+    car = analitica.caracteristicas_por(g, "tramo_mora")
+    assert {"gestiones", "calidad_prom", "tasa_conversion", "emocion_top"} <= set(car.columns)
+    assert (car["tasa_conversion"].between(0, 1)).all()
+
+
+def test_analitica_impacto_kobra():
+    g = _gestiones()
+    ik = analitica.impacto_kobra(g)
+    # los gestores con Kobra tienen mejor calidad que los del grupo control
+    assert ik["con_kobra"]["calidad_prom"] > ik["sin_kobra"]["calidad_prom"]
+    assert "uplift_conversion" in ik
+
+
+def test_analitica_evolucion_y_mejora():
+    g = _gestiones()
+    ev = analitica.evolucion_mensual(g)
+    assert ev["mes"].is_monotonic_increasing
+    mej = analitica.mejora_por_gestor(g)
+    assert {"delta_calidad", "usa_kobra"} <= set(mej.columns)

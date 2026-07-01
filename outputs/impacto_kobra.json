@@ -1,0 +1,19 @@
+{
+  "con_kobra": {
+    "gestiones": 3336,
+    "calidad_prom": 69.7,
+    "tasa_conversion": 0.683,
+    "tasa_recupero": 0.447,
+    "sentimiento_prom": -0.031
+  },
+  "sin_kobra": {
+    "gestiones": 2183,
+    "calidad_prom": 59.5,
+    "tasa_conversion": 0.615,
+    "tasa_recupero": 0.396,
+    "sentimiento_prom": -0.087
+  },
+  "uplift_conversion": 0.068,
+  "uplift_calidad": 10.2,
+  "uplift_recupero": 0.051
+}

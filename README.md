@@ -36,6 +36,9 @@ Cartera (CSV)
    ├─►  Agente Negociador (kobra/negociador.py)   estrategia + descuento + canal + guion
    │
    ├─►  Copiloto en Vivo (kobra/copiloto.py)       sentimiento + técnicas + asesoría en tiempo real
+   │        └─ realtime/  (FastAPI + WebSocket)     audio en vivo durante la llamada
+   │
+   ├─►  Analítica de gestión (kobra/analitica.py)  por gestor/mes/tramo/segmento + impacto Kobra
    │
    ├─►  Entrenamiento ML (kobra/train.py)          selección de modelos + calibración (ProbPago)
    │
@@ -134,6 +137,50 @@ evaluación cualitativa (Claude). Es una adaptación generalizada del motor de
 evaluación de llamadas/WhatsApp incluido en `referencia_R/` (marca removida,
 de evaluación *post-mortem* a **asistencia en vivo**).
 
+Disponible en tres lugares:
+- **Dashboard Streamlit** → pestaña *Copiloto en Vivo* (pegar/subir conversación).
+- **Dashboard estático** → sección *Copiloto (offline)* — motor portado a JS,
+  corre en el navegador sin backend (`dashboard_estatico/copiloto.js`).
+- **Audio en tiempo real** → `realtime/` (ver más abajo).
+
+### 🎙️ Audio en vivo durante la llamada (`realtime/`)
+
+Backend **FastAPI + WebSocket** que asiste al gestor **mientras** habla:
+
+```
+Micrófono/llamada → transcripción en vivo → Copiloto → asesoría en pantalla
+```
+
+- El navegador transcribe con la **Web Speech API** (español, sin API key) o,
+  del lado del servidor, con **Whisper** (`POST /transcribe`) si hay
+  `OPENAI_API_KEY`.
+- Cada turno viaja por WebSocket; el servidor corre el Copiloto y devuelve en
+  milisegundos: sentimiento, emoción, técnicas, calidad, sugerencias y la
+  próxima frase.
+- Incluye un modo **“Simular llamada”** para demostrar sin micrófono.
+
+```bash
+python -m realtime.server     # http://localhost:8000
+```
+
+**En producción telefónica** el audio se toma del softphone/PBX (grabación o
+media stream del canal), no del micrófono; el resto del flujo es idéntico.
+
+## 📇 Analítica por gestor y por mes (`kobra/analitica.py`)
+
+Sobre el historial de gestiones (`data/generate_gestiones.py`) responde:
+
+- **Qué características suceden más** por tramo de mora, segmento, canal o
+  producto (emoción dominante del cliente, calidad, conversión, recupero) y una
+  **matriz de emociones** por tramo/segmento.
+- **Cómo evolucionan mes a mes** (calidad, sentimiento, conversión, recupero).
+- **Impacto en la cobranza**: a mayor calidad de gestión, mayor conversión y
+  recupero.
+- **Si los gestores mejoran con el tiempo** usando Kobra: comparación
+  *con vs. sin Kobra* y evolución por gestor (primeros vs. últimos meses).
+
+Todo en la pestaña **Gestores & Evolución** del dashboard, con export a Excel.
+
 ## 🔬 Entrenamiento ML (mejora de ProbPago)
 
 `kobra/train.py` eleva ProbPago a una **selección de modelos**: compara
@@ -161,10 +208,12 @@ Kobra/
 │   ├── probpago.py                 # modelo de probabilidad de pago
 │   ├── negociador.py               # agente IA negociador
 │   ├── copiloto.py                 # copiloto de negociación en vivo (sentimiento)
+│   ├── analitica.py                # analítica por gestor / mes / tramo / segmento
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports
-├── app/app.py                      # dashboard Streamlit (incluye Copiloto en Vivo)
-├── dashboard_estatico/index.html   # dashboard zero-install (offline)
+├── realtime/                       # copiloto de audio en vivo (FastAPI + WebSocket)
+├── app/app.py                      # dashboard Streamlit (6 pestañas)
+├── dashboard_estatico/             # dashboard + copiloto zero-install (offline)
 ├── presentation/build_ppt.py       # generador de presentación gerencial
 ├── tests/test_kobra.py             # pruebas del pipeline y el copiloto
 ├── referencia_R/                   # motor R original adaptado (referencia)

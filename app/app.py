@@ -23,6 +23,7 @@ sys.path.insert(0, ROOT)
 from kobra.probpago import ProbPagoModel      # noqa: E402
 from kobra import negociador                  # noqa: E402
 from kobra import copiloto                    # noqa: E402
+from kobra import analitica                   # noqa: E402
 
 # ----------------------------------------------------------------------------
 # Config & estilo
@@ -77,6 +78,18 @@ def cargar():
 
 
 df, metrics, importancia = cargar()
+
+
+@st.cache_data(show_spinner="Cargando historial de gestiones…")
+def cargar_gestiones():
+    csv = os.path.join(ROOT, "data", "kobra_gestiones.csv")
+    if os.path.exists(csv):
+        return pd.read_csv(csv)
+    from data.generate_gestiones import generar as gen_g
+    return gen_g(42)
+
+
+gest = cargar_gestiones()
 
 # ----------------------------------------------------------------------------
 # Header
@@ -148,9 +161,9 @@ st.markdown("---")
 # ----------------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
     ["📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
-     "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo"])
+     "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo", "📇 Gestores & Evolución"])
 
 # ---- Tab 1: Visión general -------------------------------------------------
 with tab1:
@@ -419,6 +432,164 @@ with tab5:
                 st.caption("💡 Configurá `ANTHROPIC_API_KEY` (evaluación Claude) u "
                            "`OPENAI_API_KEY` (transcripción Whisper) para enriquecer el análisis. "
                            "El copiloto funciona sin claves.")
+
+# ---- Tab 6: Gestores & Evolución ------------------------------------------
+with tab6:
+    st.subheader("📇 Gestores & Evolución de la gestión")
+    st.caption("Qué características suceden más por tramo/segmento, cómo evolucionan mes a mes, "
+               "su impacto en la cobranza y si los gestores mejoran con las herramientas de Kobra.")
+
+    # Filtros propios del historial
+    fg = st.columns(4)
+    with fg[0]:
+        g_meses = sorted(gest["mes"].unique())
+        rango_m = st.select_slider("Rango de meses", options=g_meses,
+                                   value=(g_meses[0], g_meses[-1]))
+    with fg[1]:
+        g_seg = st.multiselect("Segmento ", sorted(gest["segmento"].unique()),
+                               default=sorted(gest["segmento"].unique()))
+    with fg[2]:
+        g_can = st.multiselect("Canal", sorted(gest["canal"].unique()),
+                               default=sorted(gest["canal"].unique()))
+    with fg[3]:
+        g_gestor = st.multiselect("Gestor", sorted(gest["gestor"].unique()),
+                                  default=sorted(gest["gestor"].unique()))
+
+    mask = (gest["mes"].between(rango_m[0], rango_m[1]) &
+            gest["segmento"].isin(g_seg) & gest["canal"].isin(g_can) &
+            gest["gestor"].isin(g_gestor))
+    gf = gest[mask].copy()
+
+    if gf.empty:
+        st.warning("No hay gestiones para los filtros seleccionados.")
+    else:
+        # --- Impacto Kobra (KPIs) ---
+        ik = analitica.impacto_kobra(gf)
+        st.markdown("#### 🚀 Impacto de las herramientas Kobra")
+        ck = st.columns(4)
+        ck[0].metric("Calidad de gestión", f"{ik['con_kobra']['calidad_prom']:.0f}",
+                     f"+{ik['uplift_calidad']:.1f} vs sin Kobra")
+        ck[1].metric("Tasa de conversión", f"{ik['con_kobra']['tasa_conversion']:.0%}",
+                     f"+{ik['uplift_conversion']*100:.1f} pp")
+        ck[2].metric("Tasa de recupero", f"{ik['con_kobra']['tasa_recupero']:.0%}",
+                     f"+{ik['uplift_recupero']*100:.1f} pp")
+        ck[3].metric("Sentimiento cliente", f"{ik['con_kobra']['sentimiento_prom']:+.2f}",
+                     f"{(ik['con_kobra']['sentimiento_prom']-ik['sin_kobra']['sentimiento_prom']):+.2f}")
+
+        # --- Evolución temporal ---
+        st.markdown("#### 📈 Evolución mes a mes")
+        ev = analitica.evolucion_mensual(gf)
+        ev_kobra = analitica.evolucion_mensual(gf, por="usa_kobra")
+        e1, e2 = st.columns(2)
+        with e1:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=ev["mes"], y=ev["calidad_prom"], mode="lines+markers",
+                                     name="Calidad", line=dict(color=PRIMARY, width=3)))
+            fig.add_trace(go.Scatter(x=ev["mes"], y=ev["tasa_conversion"]*100, mode="lines+markers",
+                                     name="Conversión %", line=dict(color=ACCENT, width=3), yaxis="y2"))
+            fig.update_layout(template="plotly_dark", height=340,
+                              title="Calidad y conversión en el tiempo",
+                              yaxis=dict(title="Calidad"),
+                              yaxis2=dict(title="Conversión %", overlaying="y", side="right"),
+                              legend=dict(orientation="h", y=1.15))
+            st.plotly_chart(fig, use_container_width=True)
+        with e2:
+            fig = px.line(ev_kobra, x="mes", y="calidad_prom", color="usa_kobra",
+                          markers=True, color_discrete_map={True: PRIMARY, False: "#FF7675"},
+                          title="Calidad: con Kobra vs. sin Kobra",
+                          labels={"usa_kobra": "Usa Kobra"})
+            fig.update_layout(template="plotly_dark", height=340,
+                              legend=dict(orientation="h", y=1.15))
+            st.plotly_chart(fig, use_container_width=True)
+
+        # --- Características por dimensión ---
+        st.markdown("#### 🔍 Características más frecuentes")
+        dim = st.selectbox("Analizar por", ["tramo_mora", "segmento", "canal", "producto"])
+        c1, c2 = st.columns([0.55, 0.45])
+        with c1:
+            car = analitica.caracteristicas_por(gf, dim)
+            car_show = car[[dim, "gestiones", "calidad_prom", "tasa_conversion",
+                            "tasa_recupero", "emocion_top"]].copy()
+            car_show["tasa_conversion"] = (car_show["tasa_conversion"] * 100).round(0)
+            car_show["tasa_recupero"] = (car_show["tasa_recupero"] * 100).round(0)
+            st.dataframe(
+                car_show, use_container_width=True, hide_index=True,
+                column_config={
+                    "tasa_conversion": st.column_config.NumberColumn("Conversión", format="%.0f%%"),
+                    "tasa_recupero": st.column_config.NumberColumn("Recupero", format="%.0f%%"),
+                    "calidad_prom": st.column_config.NumberColumn("Calidad", format="%.0f"),
+                })
+        with c2:
+            mat = analitica.matriz_emociones(gf, dim if dim in
+                                             ("tramo_mora", "segmento") else "tramo_mora")
+            mcol = mat.columns[0]
+            fig = px.imshow(mat.set_index(mcol).T, text_auto=".0f", aspect="auto",
+                            color_continuous_scale="Teal",
+                            title=f"Emociones del cliente por {mcol} (%)")
+            fig.update_layout(template="plotly_dark", height=340, coloraxis_showscale=False)
+            st.plotly_chart(fig, use_container_width=True)
+
+        # --- Impacto de la calidad en el recupero ---
+        st.markdown("#### 💥 Impacto de la calidad de gestión en la cobranza")
+        ic = analitica.impacto_calidad(gf)
+        i1, i2 = st.columns([0.6, 0.4])
+        with i1:
+            fig = go.Figure()
+            fig.add_bar(x=ic["rango_calidad"].astype(str), y=ic["tasa_conversion"]*100,
+                        marker_color=PRIMARY, name="Conversión %")
+            fig.add_trace(go.Scatter(x=ic["rango_calidad"].astype(str), y=ic["tasa_recupero"]*100,
+                                     mode="lines+markers", name="Recupero %",
+                                     line=dict(color=YELLOW, width=3)))
+            fig.update_layout(template="plotly_dark", height=330,
+                              title="A mayor calidad de gestión, mayor conversión y recupero",
+                              xaxis_title="Rango de calidad", legend=dict(orientation="h", y=1.2))
+            st.plotly_chart(fig, use_container_width=True)
+        with i2:
+            st.metric("Correlación calidad ↔ conversión",
+                      f"{ic.attrs['correlacion_calidad_conversion']:.2f}")
+            st.info("La calidad de gestión (medida por el Copiloto) se traduce en "
+                    "más conversión y más recupero. Kobra la mejora sistemáticamente.")
+
+        # --- Ranking y mejora por gestor ---
+        st.markdown("#### 🏆 Ranking de gestores y mejora en el tiempo")
+        r1, r2 = st.columns(2)
+        with r1:
+            rk = analitica.ranking_gestores(gf)[
+                ["gestor", "gestiones", "calidad_prom", "tasa_conversion",
+                 "recupero", "usa_kobra"]].copy()
+            rk["tasa_conversion"] = (rk["tasa_conversion"] * 100).round(0)
+            st.dataframe(
+                rk, use_container_width=True, hide_index=True, height=330,
+                column_config={
+                    "recupero": st.column_config.NumberColumn("Recupero (UYU)", format="%.0f"),
+                    "tasa_conversion": st.column_config.NumberColumn("Conversión", format="%.0f%%"),
+                    "calidad_prom": st.column_config.NumberColumn("Calidad", format="%.0f"),
+                    "usa_kobra": st.column_config.CheckboxColumn("Kobra"),
+                })
+        with r2:
+            mej = analitica.mejora_por_gestor(gf)
+            if not mej.empty:
+                fig = px.bar(mej, x="delta_calidad", y="gestor", orientation="h",
+                             color="usa_kobra", color_discrete_map={True: PRIMARY, False: "#FF7675"},
+                             title="Mejora de calidad (últimos 3m vs. primeros 3m)",
+                             labels={"delta_calidad": "Δ calidad", "usa_kobra": "Usa Kobra"})
+                fig.update_layout(template="plotly_dark", height=330,
+                                  yaxis=dict(autorange="reversed"),
+                                  legend=dict(orientation="h", y=1.15))
+                st.plotly_chart(fig, use_container_width=True)
+
+        # --- Export ---
+        st.markdown("#### ⬇️ Exportar analítica")
+        xbuf2 = io.BytesIO()
+        with pd.ExcelWriter(xbuf2, engine="xlsxwriter") as xl:
+            analitica.ranking_gestores(gf).to_excel(xl, sheet_name="Ranking_gestores", index=False)
+            analitica.mejora_por_gestor(gf).to_excel(xl, sheet_name="Mejora_gestores", index=False)
+            analitica.evolucion_mensual(gf).to_excel(xl, sheet_name="Evolucion_mensual", index=False)
+            analitica.caracteristicas_por(gf, "tramo_mora").to_excel(xl, sheet_name="Por_tramo", index=False)
+            analitica.caracteristicas_por(gf, "segmento").to_excel(xl, sheet_name="Por_segmento", index=False)
+        st.download_button("📊 Descargar analítica (Excel)", xbuf2.getvalue(),
+                           "kobra_analitica_gestion.xlsx",
+                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 st.markdown("---")
 st.caption("Kobra · Plataforma de Cobranzas Inteligente · Demo con datos sintéticos (Uruguay). "
