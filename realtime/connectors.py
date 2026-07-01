@@ -47,13 +47,17 @@ def pcm16_to_float(payload: bytes) -> np.ndarray:
 class StreamSession:
     """Estado de una llamada en vivo (acumula por hablante y asesora por turno)."""
 
-    def __init__(self, sr=8000, probpago=None, estrategia=None, min_seg=0.6):
+    def __init__(self, sr=8000, probpago=None, estrategia=None, min_seg=0.6,
+                 id_deudor=None, gestor_id="G01"):
         self.sr = sr
         self.probpago = probpago
         self.estrategia = estrategia
         self.min_muestras = int(min_seg * sr)
         self.buffers = {"gestor": [], "cliente": []}
         self.turnos = []          # líneas "Gestor: …" / "Cliente: …"
+        self.id_deudor = id_deudor
+        self.gestor_id = gestor_id
+        self.ultimo_estado = None   # último resultado del copiloto (para el cierre)
 
     def agregar(self, canal: str, samples: np.ndarray):
         if canal not in self.buffers:
@@ -107,7 +111,7 @@ class StreamSession:
                 nombre_gestor="Gestor")
             cop, cal, tec = res["copiloto"], res["calidad"], res["tecnicas"]
 
-        return {
+        resultado = {
             "turno": {
                 "canal": canal, "texto": texto,
                 "emocion_voz": emo.emocion, "arousal": emo.arousal,
@@ -120,6 +124,23 @@ class StreamSession:
             "calidad": cal["score_total"] if cal else None,
             "sugerencias": cop["sugerencias"] if cop else [],
             "proxima_frase": cop["proxima_frase"] if cop else None,
+        }
+        self.ultimo_estado = resultado
+        return resultado
+
+    def resumen_final(self) -> dict | None:
+        """Estado final de la negociación, para persistir al colgar."""
+        if not self.ultimo_estado:
+            return None
+        u = self.ultimo_estado
+        return {
+            "id_deudor": self.id_deudor,
+            "gestor_id": self.gestor_id,
+            "calidad": u["calidad"],
+            "clima": u["clima"],
+            "emociones": u["emociones_cliente"],
+            "tecnicas": u["tecnicas"],
+            "turnos": len(self.turnos),
         }
 
 

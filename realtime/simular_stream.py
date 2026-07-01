@@ -41,10 +41,18 @@ async def main():
         tt = [{"emisor": t.emisor, "texto": t.texto} for t in conv.turnos]
     segmentos, _modo = voz.transcribir_llamada(WAV, transcript_turnos=tt)
 
-    print(f"[sim] Conectando a {URL} … streaming {len(segmentos)} turnos\n")
+    # Deudor real de la cartera scoreada → briefing + registro post-llamada
+    id_deudor = os.getenv("KOBRA_DEUDOR", "KB-100773")
+
+    print(f"[sim] Conectando a {URL} … streaming {len(segmentos)} turnos "
+          f"(deudor {id_deudor})\n")
     async with websockets.connect(URL) as ws:
         await ws.send(json.dumps({"tipo": "start", "sr": sr,
-                                  "probpago": 0.72, "estrategia": "Plan de cuotas"}))
+                                  "id_deudor": id_deudor, "gestor_id": "G03"}))
+        primero = json.loads(await ws.recv())
+        if primero.get("tipo") == "brief":
+            b = primero["brief"]
+            print(f"📋 BRIEF pre-llamada: {b['resumen']}\n")
         for s in segmentos:
             canal = "gestor" if s["hablante"].lower().startswith("gestor") else "cliente"
             ch = 0 if canal == "gestor" else 1
@@ -63,6 +71,11 @@ async def main():
                 print(f"   💡 {r['sugerencias'][-1][0]}: {r['sugerencias'][-1][1][:70]}")
             await asyncio.sleep(0.2)
         await ws.send(json.dumps({"tipo": "stop"}))
+        fin = json.loads(await ws.recv())
+        g = fin.get("gestion")
+        if g:
+            print(f"\n💾 Gestión registrada: {g['id_gestion']} · resultado={g['resultado']} "
+                  f"· calidad={g['calidad_gestion']} · recupero=$U {g['recupero']:,.0f}")
     print("\n[sim] Fin del stream.")
 
 

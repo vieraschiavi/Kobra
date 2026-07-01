@@ -292,6 +292,25 @@ python -m realtime.simular_stream    # stremea la grabación demo a /ws_audio
 o configurá SIPREC/DMCC para reenviar el media a `wss://<host>/ws_audio`. La
 asesoría se enruta a la pantalla del gestor (WS `/ws`).
 
+### 🔁 Ciclo completo de la negociación (pre → en vivo → post)
+
+1. **Antes de llamar** — `GET /brief/{id_deudor}`: briefing para el screen-pop
+   del CTI (Avaya Workspaces, etc.): ProbPago, estrategia, descuento máximo,
+   plan, canal, guion y prioridad, calculados por el pipeline. El marcador
+   (p. ej. Avaya Proactive Outreach) puede tomar la lista priorizada exportada.
+2. **Durante** — el mensaje `start` de `/ws_audio` acepta `id_deudor` y
+   `gestor_id`: Kobra carga solo el briefing y ajusta la propuesta turno a
+   turno según el sentimiento (voz + texto) del cliente.
+3. **Al colgar** — el mensaje `stop` (acepta `resultado` con la tipificación
+   real del CRM; si falta, se infiere del clima + intención de pago) **persiste
+   la negociación** en `data/kobra_gestiones.csv` vía `kobra/registro.py`:
+   calidad, sentimiento, emoción dominante, técnicas, resultado y recupero.
+   Esa es la misma base que alimenta la pestaña **Gestores & Evolución**, así
+   el dashboard pasa de la demo a **llamadas reales** sin ningún cambio.
+
+Probalo end-to-end sin central: `python -m realtime.simular_stream` (muestra el
+brief, la asesoría en vivo y la gestión registrada al final).
+
 ## 📇 Analítica por gestor y por mes (`kobra/analitica.py`)
 
 Sobre el historial de gestiones (`data/generate_gestiones.py`) responde:
@@ -336,6 +355,7 @@ Kobra/
 │   ├── copiloto.py                 # copiloto de negociación en vivo (sentimiento)
 │   ├── voz.py                      # diarización + emoción acústica de voz
 │   ├── analitica.py                # analítica por gestor / mes / tramo / segmento
+│   ├── registro.py                 # briefing pre-llamada + registro post-llamada
 │   ├── config.py                   # API keys persistentes (Configuración)
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports
