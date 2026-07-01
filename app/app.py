@@ -724,17 +724,6 @@ with tab7:
                "cada arranque. Habilitan la transcripción real (Whisper) y la evaluación "
                "con Claude. El resto de Kobra funciona sin keys.")
 
-    est = kconfig.estado()
-    guardadas = kconfig.cargar()
-    cc = st.columns(2)
-    for i, (clave, desc) in enumerate(kconfig.CLAVES.items()):
-        with cc[i]:
-            activo = est.get(clave)
-            st.markdown(f"**{desc}**")
-            st.markdown(("🟢 Configurada" if activo else "⚪ No configurada") +
-                        (f" · `{kconfig.enmascarar(guardadas.get(clave,''))}`"
-                         if guardadas.get(clave) else ""))
-
     with st.form("form_config"):
         nuevos = {}
         for clave, desc in kconfig.CLAVES.items():
@@ -746,17 +735,28 @@ with tab7:
         guardar_btn = b1.form_submit_button("💾 Guardar", type="primary")
         limpiar_btn = b2.form_submit_button("🗑️ Borrar guardadas")
 
+    # Se procesan antes de mostrar el estado, sin recargar (se queda en la pestaña)
     if guardar_btn:
         if any(v.strip() for v in nuevos.values()):
             kconfig.guardar(nuevos)
             st.success("✅ Configuración guardada. Ya se usa en esta sesión y en próximos arranques.")
-            st.rerun()
         else:
             st.info("Ingresá al menos una key para guardar.")
     if limpiar_btn:
         kconfig.limpiar()
         st.warning("🗑️ Configuración borrada.")
-        st.rerun()
+
+    # Estado actual (refleja lo recién guardado/borrado)
+    est = kconfig.estado()
+    guardadas = kconfig.cargar()
+    cc = st.columns(2)
+    for i, (clave, desc) in enumerate(kconfig.CLAVES.items()):
+        with cc[i]:
+            activo = est.get(clave)
+            st.markdown(f"**{desc}**")
+            st.markdown(("🟢 Configurada" if activo else "⚪ No configurada") +
+                        (f" · `{kconfig.enmascarar(guardadas.get(clave,''))}`"
+                         if guardadas.get(clave) else ""))
 
     st.markdown("---")
     st.markdown(f"📁 Se guardan en `{kconfig.CONFIG_FILE}` (fuera del repo, permisos 600). "
