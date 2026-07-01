@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kobra · Cobranzas Inteligente</title>
+<script src="chart.umd.min.js"></script>
+<script src="xlsx.full.min.js"></script>
+<script src="kobra_data.js"></script>
+<script src="copiloto.js"></script>
+<style>
+  :root{--green:#00C896;--purple:#6C5CE7;--yellow:#FDCB6E;--red:#FF7675;
+        --bg:#0E1117;--panel:#1a1f2e;--border:#262b3d;--txt:#F5F6FA;--muted:#9aa4b2;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:linear-gradient(180deg,#0E1117,#12151f);color:var(--txt);
+       font-family:'Segoe UI',system-ui,sans-serif;padding:20px 26px;}
+  header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+  h1{font-size:2rem;}
+  .badge{background:var(--green);color:#08110d;padding:3px 12px;border-radius:20px;
+         font-size:.72rem;font-weight:700;vertical-align:middle;margin-left:6px;}
+  .sub{color:var(--muted);font-size:.9rem;margin-top:2px;}
+  .model{color:var(--muted);font-size:.85rem;text-align:right;}
+  .model b{color:var(--green);}
+  .filters{display:flex;gap:12px;flex-wrap:wrap;background:var(--panel);
+           border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:18px 0;}
+  .filters label{font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px;}
+  select,input[type=range]{background:#0b0e16;color:var(--txt);border:1px solid var(--border);
+          border-radius:8px;padding:7px 9px;font-size:.85rem;min-width:150px;}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:18px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 16px;}
+  .kpi .v{color:var(--green);font-size:1.5rem;font-weight:700;}
+  .kpi .l{color:var(--muted);font-size:.78rem;margin-top:4px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;}
+  .card h3{font-size:1rem;margin-bottom:10px;color:var(--txt);}
+  canvas{max-height:300px;}
+  .toolbar{display:flex;gap:10px;align-items:center;margin:6px 0 12px;}
+  button{background:var(--green);color:#08110d;border:none;border-radius:9px;
+         padding:9px 16px;font-weight:700;cursor:pointer;font-size:.85rem;}
+  button.alt{background:var(--purple);color:#fff;}
+  table{width:100%;border-collapse:collapse;font-size:.82rem;}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+  th{color:var(--muted);position:sticky;top:0;background:var(--panel);}
+  .tablewrap{max-height:440px;overflow:auto;}
+  .pill{padding:2px 9px;border-radius:12px;font-size:.72rem;font-weight:700;}
+  .Alta{background:rgba(0,200,150,.18);color:var(--green);}
+  .Media{background:rgba(253,203,110,.18);color:var(--yellow);}
+  .Baja{background:rgba(255,118,117,.18);color:var(--red);}
+  footer{color:var(--muted);font-size:.78rem;margin-top:20px;text-align:center;}
+  @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr);}.grid2{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🐍 Kobra <span class="badge">Cobranzas Inteligente</span></h1>
+    <div class="sub">ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero</div>
+  </div>
+  <div class="model" id="modelInfo"></div>
+</header>
+
+<div class="filters" id="filters"></div>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="grid2">
+  <div class="card"><h3>Cartera vs. recupero esperado por tramo de mora (M$U)</h3><canvas id="chartTramo"></canvas></div>
+  <div class="card"><h3>Distribución por propensión de pago</h3><canvas id="chartProp"></canvas></div>
+</div>
+<div class="grid2">
+  <div class="card"><h3>Recupero esperado por segmento (UYU)</h3><canvas id="chartSeg"></canvas></div>
+  <div class="card"><h3>Recupero esperado por estrategia (UYU)</h3><canvas id="chartEst"></canvas></div>
+</div>
+
+<div class="card">
+  <h3>Cartera priorizada</h3>
+  <div class="toolbar">
+    <button onclick="exportCSV()">📄 Exportar CSV</button>
+    <button class="alt" onclick="exportXLSX()">📊 Exportar Excel</button>
+    <span class="sub" id="rowInfo"></span>
+  </div>
+  <div class="tablewrap"><table id="tabla"></table></div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h3>🎧 Copiloto de Negociación (offline)</h3>
+  <p class="sub" style="margin-bottom:10px;">Pegá una conversación (WhatsApp o transcripción) y obtené sentimiento, técnicas y la próxima jugada — todo en tu navegador, sin conexión.</p>
+  <textarea id="convText" style="width:100%;height:150px;background:#0b0e16;color:var(--txt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.85rem;"></textarea>
+  <div class="toolbar"><button onclick="analizarCopiloto()">⚡ Analizar</button>
+    <span class="sub" id="copInfo"></span></div>
+  <div id="copResult" style="display:none;">
+    <div class="kpis" id="copKpis" style="grid-template-columns:repeat(4,1fr);"></div>
+    <div class="grid2">
+      <div><h4 style="color:var(--muted);font-size:.85rem;margin-bottom:8px;">Sentimiento del cliente turno a turno</h4><canvas id="copSpark" style="max-height:180px;"></canvas>
+        <div style="margin-top:8px;"><b class="sub">Emociones:</b> <span id="copEmos"></span></div>
+        <div style="margin-top:4px;"><b class="sub">Técnicas del gestor:</b> <span id="copTecs"></span></div>
+      </div>
+      <div id="copTips"></div>
+    </div>
+  </div>
+</div>
+
+<footer>Kobra · Plataforma de Cobranzas Inteligente · Demo con datos sintéticos (Uruguay). Sin nombres de clientes.</footer>
+
+<script>
+const D = (window.KOBRA && window.KOBRA.registros) ? window.KOBRA : {registros:[],kpis:{},metrics:{}};
+const ALL = D.registros;
+const fmt = n => new Intl.NumberFormat('es-UY',{maximumFractionDigits:0}).format(n);
+const fmtM = n => '$U '+ (n/1e6).toLocaleString('es-UY',{maximumFractionDigits:1})+'M';
+const uniq = key => [...new Set(ALL.map(r=>r[key]))].filter(x=>x!=null).sort();
+const TRAMOS=["1-30","31-60","61-90","91-180","180+"];
+let charts={};
+
+document.getElementById('modelInfo').innerHTML =
+  `Modelo ProbPago · <b>AUC ${D.metrics.auc_roc??'—'}</b> · Lift decil 10: <b>${D.metrics.lift_decil10??'—'}x</b>`;
+
+// ---- Filtros ----
+const FILTERS=[
+  {k:'segmento',label:'Segmento'},{k:'producto',label:'Producto'},
+  {k:'tramo_mora',label:'Tramo de mora',opts:TRAMOS},
+  {k:'segmento_propension',label:'Propensión',opts:['Alta','Media','Baja']},
+  {k:'departamento',label:'Departamento'},
+];
+const fc=document.getElementById('filters');
+FILTERS.forEach(f=>{
+  const opts=f.opts||uniq(f.k);
+  const div=document.createElement('div');
+  div.innerHTML=`<label>${f.label}</label><select id="f_${f.k}">
+    <option value="">Todos</option>${opts.map(o=>`<option>${o}</option>`).join('')}</select>`;
+  fc.appendChild(div);
+});
+const pmDiv=document.createElement('div');
+pmDiv.innerHTML=`<label>ProbPago mínima: <span id="pmVal">0%</span></label>
+  <input type="range" id="f_prob" min="0" max="100" value="0">`;
+fc.appendChild(pmDiv);
+fc.addEventListener('input',render);
+
+function current(){
+  const g=k=>document.getElementById('f_'+k).value;
+  const pm=+document.getElementById('f_prob').value/100;
+  document.getElementById('pmVal').textContent=Math.round(pm*100)+'%';
+  return ALL.filter(r=>
+    (!g('segmento')||r.segmento===g('segmento'))&&
+    (!g('producto')||r.producto===g('producto'))&&
+    (!g('tramo_mora')||r.tramo_mora===g('tramo_mora'))&&
+    (!g('segmento_propension')||r.segmento_propension===g('segmento_propension'))&&
+    (!g('departamento')||r.departamento===g('departamento'))&&
+    (r.probpago>=pm));
+}
+
+const C={green:'#00C896',purple:'#6C5CE7',yellow:'#FDCB6E',red:'#FF7675',grey:'#3a4157'};
+Chart.defaults.color='#9aa4b2';Chart.defaults.borderColor='#262b3d';
+
+function sumBy(rows,key,val){const m={};rows.forEach(r=>{m[r[key]]=(m[r[key]]||0)+(+r[val]||0);});return m;}
+
+function render(){
+  const rows=current();
+  // KPIs
+  const cartera=rows.reduce((a,r)=>a+r.monto_deuda,0);
+  const recu=rows.reduce((a,r)=>a+r.valor_esperado_recupero,0);
+  const riesgo=rows.filter(r=>r.segmento_propension==='Baja').reduce((a,r)=>a+r.monto_deuda,0);
+  const prob=rows.length?rows.reduce((a,r)=>a+r.probpago,0)/rows.length:0;
+  const mora=rows.length?rows.reduce((a,r)=>a+r.dias_mora,0)/rows.length:0;
+  const K=[
+    [fmt(rows.length),'Deudores'],[fmtM(cartera),'Cartera (UYU)'],
+    [fmtM(recu),`Recupero esp. (${cartera?Math.round(recu/cartera*100):0}%)`],
+    [Math.round(prob*100)+'%','ProbPago promedio'],
+    [Math.round(mora)+' días','Mora promedio'],[fmtM(riesgo),'Cartera en riesgo'],
+  ];
+  document.getElementById('kpis').innerHTML=K.map(k=>`<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
+
+  // Charts
+  const cTr={},rTr={};TRAMOS.forEach(t=>{cTr[t]=0;rTr[t]=0;});
+  rows.forEach(r=>{if(cTr[r.tramo_mora]!=null){cTr[r.tramo_mora]+=r.monto_deuda;rTr[r.tramo_mora]+=r.valor_esperado_recupero;}});
+  drawBar('chartTramo',TRAMOS,[
+    {label:'Cartera',data:TRAMOS.map(t=>cTr[t]/1e6),backgroundColor:C.grey},
+    {label:'Recupero esperado',data:TRAMOS.map(t=>rTr[t]/1e6),backgroundColor:C.green}],true);
+
+  const props=['Alta','Media','Baja'];
+  const pc=props.map(p=>rows.filter(r=>r.segmento_propension===p).length);
+  drawDoughnut('chartProp',props,pc,[C.green,C.yellow,C.red]);
+
+  const seg=sumBy(rows,'segmento','valor_esperado_recupero');
+  drawBar('chartSeg',Object.keys(seg),[{label:'Recupero',data:Object.values(seg),
+    backgroundColor:[C.green,C.purple,C.yellow]}],false);
+
+  const est=sumBy(rows,'estrategia','valor_esperado_recupero');
+  const estE=Object.entries(est).sort((a,b)=>b[1]-a[1]);
+  drawBarH('chartEst',estE.map(e=>e[0]),estE.map(e=>e[1]));
+
+  // Tabla (top 300 por prioridad)
+  const cols=['prioridad','id_deudor','segmento','producto','departamento','tramo_mora',
+    'monto_deuda','probpago','segmento_propension','estrategia','descuento_recomendado',
+    'canal_recomendado','valor_esperado_recupero'];
+  const head=['#','ID','Segmento','Producto','Depto','Tramo','Monto','ProbPago','Prop.','Estrategia','Desc.','Canal','Recupero esp.'];
+  const sorted=[...rows].sort((a,b)=>a.prioridad-b.prioridad).slice(0,300);
+  let html='<thead><tr>'+head.map(h=>`<th>${h}</th>`).join('')+'</tr></thead><tbody>';
+  sorted.forEach(r=>{html+='<tr>'+cols.map(c=>{
+    if(c==='monto_deuda'||c==='valor_esperado_recupero')return `<td>${fmt(r[c])}</td>`;
+    if(c==='probpago')return `<td>${Math.round(r[c]*100)}%</td>`;
+    if(c==='descuento_recomendado')return `<td>${Math.round(r[c]*100)}%</td>`;
+    if(c==='segmento_propension')return `<td><span class="pill ${r[c]}">${r[c]}</span></td>`;
+    return `<td>${r[c]}</td>`;}).join('')+'</tr>';});
+  document.getElementById('tabla').innerHTML=html+'</tbody>';
+  document.getElementById('rowInfo').textContent=`${fmt(rows.length)} registros filtrados · mostrando top 300 por prioridad`;
+  window._filtered=rows;
+}
+
+function drawBar(id,labels,ds,stacked){
+  if(charts[id])charts[id].destroy();
+  charts[id]=new Chart(document.getElementById(id),{type:'bar',
+    data:{labels,datasets:ds},options:{responsive:true,plugins:{legend:{display:ds.length>1}},
+    scales:{x:{stacked},y:{stacked}}}});
+}
+function drawBarH(id,labels,data){
+  if(charts[id])charts[id].destroy();
+  charts[id]=new Chart(document.getElementById(id),{type:'bar',
+    data:{labels,datasets:[{data,backgroundColor:'#00C896'}]},
+    options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}}}});
+}
+function drawDoughnut(id,labels,data,colors){
+  if(charts[id])charts[id].destroy();
+  charts[id]=new Chart(document.getElementById(id),{type:'doughnut',
+    data:{labels,datasets:[{data,backgroundColor:colors}]},
+    options:{responsive:true,plugins:{legend:{position:'right'}}}});
+}
+
+function exportRows(){return (window._filtered||ALL).slice().sort((a,b)=>a.prioridad-b.prioridad);}
+function exportCSV(){
+  const rows=exportRows();const cols=Object.keys(rows[0]||{});
+  const csv=[cols.join(',')].concat(rows.map(r=>cols.map(c=>{
+    const v=(''+r[c]).replace(/"/g,'""');return /[",\n]/.test(v)?`"${v}"`:v;}).join(','))).join('\n');
+  dl(new Blob(['﻿'+csv],{type:'text/csv'}),'kobra_cartera.csv');
+}
+function exportXLSX(){
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(exportRows()),'Cartera');
+  XLSX.writeFile(wb,'kobra_cartera.xlsx');
+}
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=name;a.click();URL.revokeObjectURL(a.href);}
+
+render();
+
+// ---- Copiloto offline ----
+const CONV_DEMO = `[01/06/2026, 10:15:23] Gestor: Buenos días! Le escribo del área de cobranzas. ¿Hablo con el titular?
+[01/06/2026, 10:31:45] Cliente: Hola sí soy yo. Qué necesitan ahora?
+[01/06/2026, 10:33:12] Gestor: Le confirmo su identidad. Tiene una cuota vencida, entiendo que puede ser un mal momento, ¿lo resolvemos juntos hoy?
+[01/06/2026, 10:40:30] Cliente: La verdad estoy cansado de que me llamen. Este mes no tengo el dinero completo, estoy sin trabajo.
+[01/06/2026, 10:41:05] Gestor: Comprendo su situación y le agradezco la sinceridad. Busquemos algo acorde, ¿cuánto podría afrontar este mes?
+[01/06/2026, 10:45:15] Cliente: No sé, quizás una parte nada más. Es mucha plata.
+[01/06/2026, 10:46:40] Gestor: Le ofrezco dos opciones: pagar el 50% ahora y el resto en 15 días, o dividir todo en 3 cuotas cómodas. ¿Cuál le sirve?
+[01/06/2026, 10:52:15] Cliente: La de las 3 cuotas me viene mejor.
+[01/06/2026, 10:53:45] Gestor: Perfecto, quedamos en 3 cuotas. Le envío el link de pago ahora y le llega el comprobante. ¿Arrancamos hoy?
+[01/06/2026, 10:55:02] Cliente: Dale, gracias por entender. Acepto.`;
+document.getElementById('convText').value = CONV_DEMO;
+
+function analizarCopiloto(){
+  const txt = document.getElementById('convText').value;
+  if(!txt.trim()){ document.getElementById('copInfo').textContent='Pegá una conversación.'; return; }
+  const r = KobraCopiloto.analizar(txt);
+  const cop = r.copiloto;
+  document.getElementById('copResult').style.display='block';
+  const emoji = {positivo:'🟢',neutro:'🟡',negativo:'🔴'}[cop.clima_etiqueta];
+  const K=[[Math.round(r.calidad.score_total)+'/100','Calidad de gestión'],
+    [emoji+' '+cop.clima_etiqueta,'Clima del cliente'],
+    [(cop.emociones_cliente[0]||'—').replace(/_/g,' '),'Emoción dominante'],
+    [Object.values(r.tecnicas).filter(Boolean).length,'Técnicas usadas']];
+  document.getElementById('copKpis').innerHTML=K.map(k=>`<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
+  document.getElementById('copEmos').innerHTML = cop.emociones_cliente.length
+    ? cop.emociones_cliente.map(e=>`<span class="pill Baja">${e.replace(/_/g,' ')}</span>`).join(' ') : '—';
+  const tec = Object.keys(r.tecnicas).filter(k=>r.tecnicas[k]);
+  document.getElementById('copTecs').innerHTML = tec.length
+    ? tec.map(t=>`<span class="pill" style="background:rgba(108,92,231,.2);color:#b3a9f7;">${t}</span>`).join(' ') : '—';
+  let tips = cop.sugerencias.map(s=>`<div style="background:#141b2d;border-left:4px solid var(--green);border-radius:8px;padding:11px 13px;margin:8px 0;font-size:.88rem;"><b style="color:var(--green);">${s[0]}</b><br>${s[1]}</div>`).join('');
+  tips += `<h4 style="color:var(--muted);font-size:.85rem;margin:10px 0 6px;">💬 Próxima frase sugerida</h4><div style="background:#14261f;border:1px dashed var(--green);border-radius:10px;padding:12px;font-size:.92rem;">${cop.proxima_frase}</div>`;
+  document.getElementById('copTips').innerHTML = tips;
+  document.getElementById('copInfo').textContent = `${r.turnos.length} turnos analizados`;
+
+  const cli = r.turnos.map((t,i)=>({t,s:r.sents[i]})).filter(x=>x.t.emisor==='cliente');
+  if(charts.copSpark) charts.copSpark.destroy();
+  charts.copSpark = new Chart(document.getElementById('copSpark'),{type:'line',
+    data:{labels:cli.map((_,i)=>'T'+(i+1)),datasets:[{data:cli.map(x=>x.s.score),
+      borderColor:'#00C896',borderWidth:3,pointBackgroundColor:cli.map(x=>x.s.score>0.15?'#00C896':x.s.score<-0.15?'#FF7675':'#FDCB6E'),tension:.3,fill:false}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{min:-1,max:1}}}});
+}
+analizarCopiloto();
+</script>
+</body>
+</html>
