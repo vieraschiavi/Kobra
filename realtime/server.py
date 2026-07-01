@@ -32,7 +32,10 @@ sys.path.insert(0, ROOT)
 import base64               # noqa: E402
 from kobra import copiloto   # noqa: E402
 from kobra import voz        # noqa: E402
+from kobra import config as kconfig   # noqa: E402
 from realtime import connectors   # noqa: E402
+
+kconfig.aplicar()   # carga API keys guardadas al entorno
 
 app = FastAPI(title="Kobra · Copiloto en Vivo")
 HERE = os.path.dirname(os.path.abspath(__file__))

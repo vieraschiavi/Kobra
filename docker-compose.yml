@@ -1,0 +1,49 @@
+# Kobra · despliegue de producción (dashboard + servicio realtime)
+# Uso:
+#   docker compose up --build
+#   Dashboard:  http://localhost:8501
+#   Realtime:   http://localhost:8000   (copiloto de audio en vivo)
+#
+# Las API keys se pueden cargar de 3 formas (prioridad de arriba a abajo):
+#   1) variables de entorno / archivo .env (OPENAI_API_KEY, ANTHROPIC_API_KEY)
+#   2) desde el dashboard → pestaña "Configuración" (se guardan en el volumen kobra-config)
+#   3) sin keys: Kobra funciona igual (sin transcripción Whisper ni Claude)
+
+services:
+  dashboard:
+    build: .
+    image: kobra:latest
+    command: ["dashboard"]
+    ports:
+      - "8501:8501"
+    environment:
+      - KOBRA_CONFIG_DIR=/config
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - kobra-config:/config
+      - kobra-data:/app/data
+      - kobra-outputs:/app/outputs
+    restart: unless-stopped
+
+  realtime:
+    build: .
+    image: kobra:latest
+    command: ["realtime"]
+    environment:
+      - PORT=8000
+      - KOBRA_CONFIG_DIR=/config
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - kobra-config:/config
+      - kobra-data:/app/data
+      - kobra-outputs:/app/outputs
+    restart: unless-stopped
+
+volumes:
+  kobra-config:
+  kobra-data:
+  kobra-outputs:

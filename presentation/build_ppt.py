@@ -293,6 +293,27 @@ def build():
     ]
     _bullets(s, Inches(0.9), Inches(2.0), Inches(11.5), Inches(4.5), why, size=19, gap=14)
 
+    # ---------- 9b · Listo para producción ---------------------------------
+    s = prs.slides.add_slide(blank); _bg(s)
+    _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
+          "Listo para producción", size=32, color=WHITE, bold=True)
+    _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
+    prod = [
+        ("🐳 Despliegue en 1 comando", "docker compose up: dashboard + servicio de audio en vivo, con datos y modelo autogenerados."),
+        ("🔑 API keys persistentes", "Se cargan una vez desde la pestaña Configuración (o por variables de entorno) y quedan guardadas."),
+        ("☎️ Integración telefónica", "Conectores para Avaya/Genesys/Twilio (SIPREC · Media Streams · DMCC) — grabación o streaming en vivo."),
+        ("✅ Calidad asegurada", "Suite de tests + CI (GitHub Actions) y reentrenamiento programado del modelo ProbPago."),
+        ("🔒 Sin datos sensibles", "Dataset sintético, sin nombres de clientes. Reemplazable por la cartera real de la empresa."),
+    ]
+    y = Inches(2.0)
+    for titulo, desc, in [(p[0], p[1]) for p in prod]:
+        _box(s, Inches(0.9), y, Inches(4.6), Inches(0.86), fill=PANEL, line=GREEN)
+        _text(s, Inches(1.1), y + Inches(0.16), Inches(4.3), Inches(0.6),
+              titulo, size=15, color=GREEN, bold=True)
+        _text(s, Inches(5.8), y + Inches(0.1), Inches(6.8), Inches(0.7),
+              desc, size=14, color=WHITE)
+        y += Inches(0.98)
+
     # ---------- 10 · Cierre -------------------------------------------------
     s = prs.slides.add_slide(blank); _bg(s)
     _text(s, Inches(1), Inches(2.5), Inches(11.3), Inches(1),

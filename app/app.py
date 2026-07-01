@@ -25,6 +25,9 @@ from kobra.probpago import ProbPagoModel      # noqa: E402
 from kobra import negociador                  # noqa: E402
 from kobra import copiloto                    # noqa: E402
 from kobra import analitica                   # noqa: E402
+from kobra import config as kconfig           # noqa: E402
+
+kconfig.aplicar()   # carga API keys guardadas al entorno
 
 # ----------------------------------------------------------------------------
 # Config & estilo
@@ -163,9 +166,10 @@ st.markdown("---")
 # ----------------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------------
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
     ["📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
-     "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo", "📇 Gestores & Evolución"])
+     "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo", "📇 Gestores & Evolución",
+     "⚙️ Configuración"])
 
 # ---- Tab 1: Visión general -------------------------------------------------
 with tab1:
@@ -712,6 +716,52 @@ with tab6:
         st.download_button("📊 Descargar analítica (Excel)", xbuf2.getvalue(),
                            "kobra_analitica_gestion.xlsx",
                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+# ---- Tab 7: Configuración (API keys persistentes) -------------------------
+with tab7:
+    st.subheader("⚙️ Configuración de API keys")
+    st.caption("Ingresá las keys una sola vez: quedan **guardadas** y se cargan solas en "
+               "cada arranque. Habilitan la transcripción real (Whisper) y la evaluación "
+               "con Claude. El resto de Kobra funciona sin keys.")
+
+    est = kconfig.estado()
+    guardadas = kconfig.cargar()
+    cc = st.columns(2)
+    for i, (clave, desc) in enumerate(kconfig.CLAVES.items()):
+        with cc[i]:
+            activo = est.get(clave)
+            st.markdown(f"**{desc}**")
+            st.markdown(("🟢 Configurada" if activo else "⚪ No configurada") +
+                        (f" · `{kconfig.enmascarar(guardadas.get(clave,''))}`"
+                         if guardadas.get(clave) else ""))
+
+    with st.form("form_config"):
+        nuevos = {}
+        for clave, desc in kconfig.CLAVES.items():
+            nuevos[clave] = st.text_input(
+                clave, value="", type="password",
+                placeholder=("sk-… " if clave == "OPENAI_API_KEY" else "sk-ant-…"),
+                help=desc + " · dejá vacío para conservar la guardada")
+        b1, b2, _ = st.columns([0.25, 0.25, 0.5])
+        guardar_btn = b1.form_submit_button("💾 Guardar", type="primary")
+        limpiar_btn = b2.form_submit_button("🗑️ Borrar guardadas")
+
+    if guardar_btn:
+        if any(v.strip() for v in nuevos.values()):
+            kconfig.guardar(nuevos)
+            st.success("✅ Configuración guardada. Ya se usa en esta sesión y en próximos arranques.")
+            st.rerun()
+        else:
+            st.info("Ingresá al menos una key para guardar.")
+    if limpiar_btn:
+        kconfig.limpiar()
+        st.warning("🗑️ Configuración borrada.")
+        st.rerun()
+
+    st.markdown("---")
+    st.markdown(f"📁 Se guardan en `{kconfig.CONFIG_FILE}` (fuera del repo, permisos 600). "
+                "En producción podés inyectarlas por variables de entorno / secretos de "
+                "Docker; el entorno tiene prioridad sobre el archivo.")
 
 st.markdown("---")
 st.caption("Kobra · Plataforma de Cobranzas Inteligente · Demo con datos sintéticos (Uruguay). "

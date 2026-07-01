@@ -172,6 +172,25 @@ def test_stream_session():
     assert r["calidad"] is not None and r["proxima_frase"]
 
 
+def test_config_persistencia(tmp_path, monkeypatch):
+    monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path))
+    import importlib
+    from kobra import config as c
+    importlib.reload(c)          # recalcula CONFIG_DIR con el tmp_path
+    c.limpiar()
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    c.guardar({"OPENAI_API_KEY": "sk-abcdefgh1234"})
+    assert os.environ.get("OPENAI_API_KEY") == "sk-abcdefgh1234"
+    # simula reinicio: sin la var en entorno, aplicar() la recupera del archivo
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    c.aplicar()
+    assert os.environ.get("OPENAI_API_KEY") == "sk-abcdefgh1234"
+    assert c.estado()["OPENAI_API_KEY"] is True
+    c.limpiar()
+    assert c.estado()["OPENAI_API_KEY"] is False
+    importlib.reload(c)
+
+
 def test_stream_decoders():
     import audioop
     import numpy as np

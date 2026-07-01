@@ -75,6 +75,31 @@ python presentation/build_ppt.py                      # presentación gerencial 
 Abrí `dashboard_estatico/index.html` en cualquier navegador (funciona
 offline, con librerías locales). Ideal para demos y para compartir por mail.
 
+### 🐳 Despliegue con Docker (producción)
+
+```bash
+docker compose up --build
+#  Dashboard:  http://localhost:8501
+#  Realtime :  http://localhost:8000   (copiloto de audio en vivo)
+```
+
+Una sola imagen sirve ambos servicios (dashboard Streamlit y API realtime). Los
+datos/modelo se generan en el primer arranque; los volúmenes persisten datos,
+outputs y la **configuración de API keys** entre reinicios.
+
+### 🔑 Configuración de API keys (persistente)
+
+Las keys se cargan de tres formas (prioridad de arriba hacia abajo):
+
+1. **Variables de entorno / `.env`** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) — ideal en producción.
+2. **Dashboard → pestaña “Configuración”**: se ingresan una vez y quedan
+   **guardadas** (`$KOBRA_CONFIG_DIR/config.json`, por defecto `~/.kobra`), así
+   se cargan solas en cada arranque sin reingresarlas.
+3. **Sin keys**: Kobra funciona igual (sin transcripción Whisper ni evaluación Claude).
+
+Con `OPENAI_API_KEY` se habilita la transcripción real (Whisper) y con
+`ANTHROPIC_API_KEY` la evaluación cualitativa con Claude.
+
 ---
 
 ## 📊 El dashboard
@@ -307,6 +332,7 @@ Kobra/
 │   ├── copiloto.py                 # copiloto de negociación en vivo (sentimiento)
 │   ├── voz.py                      # diarización + emoción acústica de voz
 │   ├── analitica.py                # analítica por gestor / mes / tramo / segmento
+│   ├── config.py                   # API keys persistentes (Configuración)
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports
 ├── realtime/                       # copiloto de audio en vivo (FastAPI + WebSocket)
@@ -316,6 +342,7 @@ Kobra/
 ├── tests/test_kobra.py             # pruebas del pipeline y el copiloto
 ├── referencia_R/                   # motor R original adaptado (referencia)
 ├── .github/workflows/              # CI (tests) + entrenamiento ML programado
+├── Dockerfile · docker-compose.yml # despliegue de producción (dashboard + realtime)
 ├── outputs/                        # CSV, Excel, JSON y modelo generados
 ├── assets/                         # capturas del dashboard
 ├── requirements.txt
