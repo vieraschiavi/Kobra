@@ -18,6 +18,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCRATCH = os.path.join(ROOT, ".uploads")
 sys.path.insert(0, ROOT)
 
 from kobra.probpago import ProbPagoModel      # noqa: E402
@@ -34,6 +35,7 @@ st.set_page_config(page_title="Kobra · Cobranzas Inteligente",
 PRIMARY = "#00C896"       # verde Kobra
 DARK = "#0E1117"
 ACCENT = "#6C5CE7"
+YELLOW = "#FDCB6E"
 SEQ = ["#00C896", "#6C5CE7", "#FDCB6E", "#FF7675", "#74B9FF"]
 
 st.markdown(f"""
@@ -432,6 +434,87 @@ with tab5:
                 st.caption("💡 Configurá `ANTHROPIC_API_KEY` (evaluación Claude) u "
                            "`OPENAI_API_KEY` (transcripción Whisper) para enriquecer el análisis. "
                            "El copiloto funciona sin claves.")
+
+    # --- Análisis de VOZ: diarización + emoción acústica ---
+    st.markdown("---")
+    st.markdown("### 🎙️ Analizar grabación de la llamada (voz)")
+    st.caption("Diarización (quién habla) + emoción acústica por prosodia (tono, energía, "
+               "ritmo). Detecta la tensión del cliente en la voz, más allá de las palabras.")
+    from kobra import voz as kvoz
+    audio_up = st.file_uploader("Subir grabación (.wav)", type=["wav"], key="audio_up")
+    audio_demo = os.path.join(ROOT, "data", "ejemplo_llamada.wav")
+    usar_demo = st.checkbox("Usar grabación de demo (dual-channel)", value=not audio_up)
+
+    audio_path = None
+    if audio_up:
+        audio_path = os.path.join(SCRATCH, "subida.wav")
+        os.makedirs(SCRATCH, exist_ok=True)
+        with open(audio_path, "wb") as fh:
+            fh.write(audio_up.read())
+    elif usar_demo and os.path.exists(audio_demo):
+        audio_path = audio_demo
+
+    if audio_path and os.path.exists(audio_path):
+        try:
+            va = kvoz.analizar_llamada(audio_path)
+        except Exception as e:
+            va = None
+            st.error(f"No se pudo analizar el audio: {e}")
+        if va:
+            st.audio(audio_path)
+            vm = st.columns(4)
+            vm[0].metric("Canales", va["canales"])
+            vm[1].metric("Diarización", va["modo_diarizacion"])
+            vm[2].metric("Duración", f"{va['duracion_seg']:.0f}s")
+            vm[3].metric("Segmentos", len(va["timeline"]))
+
+            tl = pd.DataFrame(va["timeline"])
+            EMO_COL = {"enojo": "#FF4757", "frustracion": "#FF7675", "ansiedad": "#FDCB6E",
+                       "resignacion": "#a29bfe", "neutro": "#74B9FF", "positivo": PRIMARY}
+            v1, v2 = st.columns([0.6, 0.4])
+            with v1:
+                fig = go.Figure()
+                vistos = set()
+                for _, r in tl.iterrows():
+                    emo = r["emocion_voz"]
+                    fig.add_trace(go.Bar(
+                        y=[r["hablante"]], x=[r["fin"] - r["inicio"]], base=[r["inicio"]],
+                        orientation="h", marker_color=EMO_COL.get(emo, "#74B9FF"),
+                        name=emo, legendgroup=emo, showlegend=emo not in vistos,
+                        hovertemplate=(f"{r['hablante']} · {emo}<br>"
+                                       f"{r['inicio']}-{r['fin']}s<br>"
+                                       f"arousal {r['arousal']:.2f} · val {r['valencia']:+.2f}"
+                                       "<extra></extra>")))
+                    vistos.add(emo)
+                fig.update_layout(template="plotly_dark", height=300, barmode="overlay",
+                                  title="Diarización + emoción acústica en el tiempo",
+                                  xaxis_title="segundos", legend=dict(orientation="h", y=1.3))
+                st.plotly_chart(fig, use_container_width=True)
+            with v2:
+                fig = go.Figure()
+                for h, col in [("Cliente", "#FF7675"), ("Gestor", PRIMARY)]:
+                    d = tl[tl["hablante"] == h]
+                    if not d.empty:
+                        fig.add_trace(go.Scatter(
+                            x=d["inicio"], y=d["valencia"], mode="lines+markers",
+                            name=h, line=dict(color=col, width=3)))
+                fig.add_hline(y=0, line_dash="dot", line_color="#555")
+                fig.update_layout(template="plotly_dark", height=300,
+                                  title="Valencia (voz) por hablante",
+                                  yaxis=dict(title="valencia", range=[-1, 1]),
+                                  xaxis_title="segundos", legend=dict(orientation="h", y=1.25))
+                st.plotly_chart(fig, use_container_width=True)
+
+            st.markdown("**Emoción de voz dominante por hablante:**")
+            rp = st.columns(len(va["resumen_por_hablante"]) or 1)
+            for i, (h, r) in enumerate(va["resumen_por_hablante"].items()):
+                rp[i].metric(f"🗣️ {h}", r["emocion_dominante"],
+                             f"arousal {r['arousal_prom']:.2f} · val {r['valencia_prom']:+.2f}")
+            st.info("**Fusión voz + texto:** el motor combina esta señal acústica con el "
+                    "sentimiento del texto (`copiloto.analizar_sentimiento(texto, voz=…)`). "
+                    "Así, aunque las palabras sean neutras, la **voz tensa del cliente** "
+                    "adelanta la alerta al gestor. En producción se conecta al audio del "
+                    "softphone/PBX (dual-channel) o a un modelo SER entrenado.")
 
 # ---- Tab 6: Gestores & Evolución ------------------------------------------
 with tab6:

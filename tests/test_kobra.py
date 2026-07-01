@@ -107,3 +107,31 @@ def test_analitica_evolucion_y_mejora():
     assert ev["mes"].is_monotonic_increasing
     mej = analitica.mejora_por_gestor(g)
     assert {"delta_calidad", "usa_kobra"} <= set(mej.columns)
+
+
+def test_voz_diarizacion_y_emocion(tmp_path):
+    pytest = __import__("pytest")
+    try:
+        import soundfile  # noqa: F401
+    except Exception:
+        pytest.skip("soundfile no disponible")
+    from kobra import voz
+    from data.generate_audio_demo import generar
+    wav = str(tmp_path / "call.wav")
+    generar(seed=1, out=wav)
+    res = voz.analizar_llamada(wav)
+    # dual-channel → separa exactamente 2 hablantes
+    assert res["canales"] == 2
+    assert set(res["resumen_por_hablante"].keys()) == {"Gestor", "Cliente"}
+    # la voz del cliente en los tramos difíciles marca emoción negativa (arousal alto)
+    emos_cli = [t["emocion_voz"] for t in res["timeline"] if t["hablante"] == "Cliente"]
+    assert any(e in ("enojo", "frustracion", "ansiedad") for e in emos_cli)
+
+
+def test_voz_fusion_texto():
+    from kobra import copiloto
+    base = copiloto.analizar_sentimiento("está todo bien, coordinamos")
+    tenso = copiloto.analizar_sentimiento(
+        "está todo bien, coordinamos", voz={"energia": 0.9, "pitch_var": 0.9, "ritmo": 0.8})
+    # misma frase, pero voz tensa empuja el sentimiento hacia abajo
+    assert tenso.score < base.score

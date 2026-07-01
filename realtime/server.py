@@ -30,6 +30,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from kobra import copiloto   # noqa: E402
+from kobra import voz        # noqa: E402
 
 app = FastAPI(title="Kobra · Copiloto en Vivo")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -62,6 +63,23 @@ async def transcribe(audio: UploadFile = File(...)):
             {"error": "Transcripción no disponible (configurá OPENAI_API_KEY)"},
             status_code=503)
     return {"texto": texto}
+
+
+@app.post("/analizar_audio")
+async def analizar_audio(audio: UploadFile = File(...)):
+    """Diarización + emoción acústica de una grabación (.wav)."""
+    tmp = os.path.join("/tmp", audio.filename or "call.wav")
+    with open(tmp, "wb") as f:
+        f.write(await audio.read())
+    try:
+        return voz.analizar_llamada(tmp)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 @app.websocket("/ws")

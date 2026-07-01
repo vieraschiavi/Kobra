@@ -36,7 +36,8 @@ Cartera (CSV)
    ├─►  Agente Negociador (kobra/negociador.py)   estrategia + descuento + canal + guion
    │
    ├─►  Copiloto en Vivo (kobra/copiloto.py)       sentimiento + técnicas + asesoría en tiempo real
-   │        └─ realtime/  (FastAPI + WebSocket)     audio en vivo durante la llamada
+   │        ├─ realtime/  (FastAPI + WebSocket)     audio en vivo durante la llamada
+   │        └─ voz (kobra/voz.py)                   diarización + emoción acústica de voz
    │
    ├─►  Analítica de gestión (kobra/analitica.py)  por gestor/mes/tramo/segmento + impacto Kobra
    │
@@ -166,6 +167,55 @@ python -m realtime.server     # http://localhost:8000
 **En producción telefónica** el audio se toma del softphone/PBX (grabación o
 media stream del canal), no del micrófono; el resto del flujo es idéntico.
 
+### 🗣️ Diarización + emoción acústica de voz (`kobra/voz.py`)
+
+Analiza la **señal de voz** de la llamada, no solo las palabras:
+
+- **Diarización** (quién habla):
+  - *Dual-channel* (lo habitual en grabación de call center): una pata por
+    interlocutor → separación **exacta** por canal.
+  - *Mono*: segmentación por energía (VAD) + clustering de 2 hablantes (KMeans
+    sobre features espectrales). Offline, sin modelos pesados.
+- **Emoción acústica (prosodia)**: a partir de energía, tono (F0), variación de
+  tono, ritmo del habla y brillo espectral estima *arousal*/*valencia* y una
+  etiqueta (enojo, frustración, ansiedad, resignación, neutro, positivo).
+- **Fusión voz + texto**: el sentimiento acústico se combina con el de texto
+  (`copiloto.analizar_sentimiento(texto, voz=…)`), de modo que una **voz tensa
+  del cliente adelanta la alerta** aunque las palabras sean neutras.
+
+Probalo con la grabación de demo (dual-channel sintética):
+
+```bash
+python data/generate_audio_demo.py      # crea data/ejemplo_llamada.wav
+# En el dashboard → pestaña "Copiloto en Vivo" → "Analizar grabación (voz)"
+# o por API:  POST /analizar_audio  al servidor realtime
+```
+
+En producción se puede reemplazar el estimador heurístico por un modelo SER
+entrenado (wav2vec2 / SpeechBrain) manteniendo la misma interfaz, y la
+diarización mono por pyannote.audio.
+
+### ☎️ Integración con telefonía (softphone / PBX)
+
+Un **PBX** es la central telefónica de la empresa; un **softphone** es el
+teléfono por software del gestor. Kobra **no los reemplaza**: se conecta al
+**audio** que ya manejan. Kobra es **agnóstico de la plataforma** — funciona
+con Avaya, Genesys, Cisco, 3CX, Asterisk/FreePBX, Twilio, etc. — porque toma el
+audio por mecanismos estándar:
+
+| Plataforma | Cómo se obtiene el audio |
+|---|---|
+| **Avaya** | Grabación dual-channel (Avaya AES/DMCC) o media stream vía SIPREC |
+| **Genesys** | AudioHook / SIPREC / grabación por agente |
+| **Cisco** | Built-in Bridge / Network-Based Recording (SIPREC) |
+| **Asterisk / 3CX** | `MixMonitor` (dual-channel) o forking de RTP |
+| **Twilio / nube** | Media Streams (WebSocket de audio en vivo) |
+| **Cualquiera** | Archivo de grabación `.wav` dual-channel post-llamada |
+
+Recomendado: **grabación dual-channel** (una pata por interlocutor) → la
+diarización es exacta y la emoción por hablante es más precisa. El resto del
+pipeline (transcripción → copiloto → asesoría) es idéntico en todos los casos.
+
 ## 📇 Analítica por gestor y por mes (`kobra/analitica.py`)
 
 Sobre el historial de gestiones (`data/generate_gestiones.py`) responde:
@@ -208,6 +258,7 @@ Kobra/
 │   ├── probpago.py                 # modelo de probabilidad de pago
 │   ├── negociador.py               # agente IA negociador
 │   ├── copiloto.py                 # copiloto de negociación en vivo (sentimiento)
+│   ├── voz.py                      # diarización + emoción acústica de voz
 │   ├── analitica.py                # analítica por gestor / mes / tramo / segmento
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports

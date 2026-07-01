@@ -10,7 +10,8 @@ cd "$(dirname "$0")"
 
 install()  { pip3 install -q -r requirements.txt; }
 data()     { python3 data/generate_dataset.py --n 12000 --seed 42; \
-             python3 data/generate_gestiones.py --seed 42; }
+             python3 data/generate_gestiones.py --seed 42; \
+             python3 data/generate_audio_demo.py; }
 pipeline() { python3 -m kobra.pipeline; }
 train()    { python3 -m kobra.train; }
 test_()    { python3 -m pytest -q tests/; }

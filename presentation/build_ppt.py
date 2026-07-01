@@ -220,6 +220,8 @@ def build():
          "Sentimiento del cliente turno a turno, técnicas del gestor y la próxima jugada sugerida."),
         ("realtime_copiloto.png", "Asistencia en vivo durante la llamada",
          "Escucha la llamada telefónica, transcribe y asesora al gestor en tiempo real."),
+        ("dashboard_voz2.png", "Voz: diarización + emoción acústica",
+         "Separa quién habla y detecta la tensión del cliente en la voz, más allá de las palabras."),
         ("dashboard_gestores.png", "Gestores & Evolución",
          "Impacto de Kobra en calidad, conversión y recupero; evolución mes a mes por gestor."),
     ]
