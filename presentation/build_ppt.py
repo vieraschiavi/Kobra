@@ -222,6 +222,8 @@ def build():
          "Escucha la llamada telefónica, transcribe y asesora al gestor en tiempo real."),
         ("dashboard_voz2.png", "Voz: diarización + emoción acústica",
          "Separa quién habla y detecta la tensión del cliente en la voz, más allá de las palabras."),
+        ("realtime_telefonia.png", "Integración telefónica + transcripción por hablante",
+         "Conecta al audio de la central (Avaya, Genesys…); transcribe por hablante y fusiona voz + texto."),
         ("dashboard_gestores.png", "Gestores & Evolución",
          "Impacto de Kobra en calidad, conversión y recupero; evolución mes a mes por gestor."),
     ]

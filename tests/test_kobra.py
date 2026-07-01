@@ -128,6 +128,29 @@ def test_voz_diarizacion_y_emocion(tmp_path):
     assert any(e in ("enojo", "frustracion", "ansiedad") for e in emos_cli)
 
 
+def test_voz_transcripcion_alineada(tmp_path):
+    pytest = __import__("pytest")
+    try:
+        import soundfile  # noqa: F401
+    except Exception:
+        pytest.skip("soundfile no disponible")
+    from kobra import voz, copiloto
+    from data.generate_audio_demo import generar
+    wav = str(tmp_path / "call.wav")
+    generar(seed=2, out=wav)
+    conv = copiloto.parsear_conversacion(
+        open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          "data", "ejemplo_whatsapp.txt"), encoding="utf-8").read(),
+        nombre_gestor="Gestor")
+    tt = [{"emisor": t.emisor, "texto": t.texto} for t in conv.turnos]
+    res = voz.copiloto_desde_audio(wav, transcript_turnos=tt, probpago=0.7)
+    assert res["modo_transcripcion"] in ("alineado", "whisper")
+    assert res["turnos"] and all("hablante" in t and "texto" in t for t in res["turnos"])
+    # la fusión voz+texto existe y el copiloto produjo asesoría
+    assert any(t["sent_fusion"] is not None for t in res["turnos"])
+    assert res["copiloto"] and res["copiloto"]["sugerencias"]
+
+
 def test_voz_fusion_texto():
     from kobra import copiloto
     base = copiloto.analizar_sentimiento("está todo bien, coordinamos")

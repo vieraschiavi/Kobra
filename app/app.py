@@ -455,10 +455,19 @@ with tab5:
         audio_path = audio_demo
 
     if audio_path and os.path.exists(audio_path):
+        # Transcripción: Whisper si hay OPENAI_API_KEY; si no, alinea el texto
+        # de la conversación pegada arriba a los hablantes diarizados.
+        tt = None
+        if texto_conv.strip():
+            _c = copiloto.parsear_conversacion(texto_conv, nombre_gestor="Gestor")
+            tt = [{"emisor": t.emisor, "texto": t.texto} for t in _c.turnos]
         try:
-            va = kvoz.analizar_llamada(audio_path)
+            res_audio = kvoz.copiloto_desde_audio(
+                audio_path, transcript_turnos=tt, probpago=probpago_ref,
+                estrategia=estrategia_ref)
+            va = res_audio["voz"]
         except Exception as e:
-            va = None
+            va = res_audio = None
             st.error(f"No se pudo analizar el audio: {e}")
         if va:
             st.audio(audio_path)
@@ -510,11 +519,41 @@ with tab5:
             for i, (h, r) in enumerate(va["resumen_por_hablante"].items()):
                 rp[i].metric(f"🗣️ {h}", r["emocion_dominante"],
                              f"arousal {r['arousal_prom']:.2f} · val {r['valencia_prom']:+.2f}")
-            st.info("**Fusión voz + texto:** el motor combina esta señal acústica con el "
-                    "sentimiento del texto (`copiloto.analizar_sentimiento(texto, voz=…)`). "
-                    "Así, aunque las palabras sean neutras, la **voz tensa del cliente** "
-                    "adelanta la alerta al gestor. En producción se conecta al audio del "
-                    "softphone/PBX (dual-channel) o a un modelo SER entrenado.")
+            # --- Transcripción alineada por hablante + fusión voz/texto ---
+            if res_audio and res_audio.get("turnos"):
+                modo = res_audio["modo_transcripcion"]
+                etiqueta_modo = {"whisper": "Whisper (timestamps reales)",
+                                 "alineado": "alineada al texto provisto",
+                                 "sin_texto": "sin texto"}.get(modo, modo)
+                st.markdown(f"##### 📝 Transcripción alineada por hablante · *{etiqueta_modo}*")
+                if modo == "alineado":
+                    st.caption("Sin `OPENAI_API_KEY`: se alineó el texto de la conversación de "
+                               "arriba a los hablantes. Con Whisper configurado, se transcribe el "
+                               "audio real con marcas de tiempo por segmento.")
+                trn = pd.DataFrame(res_audio["turnos"])
+                if not trn.empty:
+                    trn_show = trn[["inicio", "fin", "hablante", "texto",
+                                    "emocion_voz", "sent_texto", "sent_fusion"]].copy()
+                    st.dataframe(
+                        trn_show, use_container_width=True, hide_index=True,
+                        column_config={
+                            "inicio": st.column_config.NumberColumn("Ini (s)", format="%.1f"),
+                            "fin": st.column_config.NumberColumn("Fin (s)", format="%.1f"),
+                            "emocion_voz": "Emoción (voz)",
+                            "sent_texto": st.column_config.NumberColumn("Sent. texto", format="%.2f"),
+                            "sent_fusion": st.column_config.NumberColumn("Sent. voz+texto", format="%.2f"),
+                        })
+                if res_audio.get("copiloto"):
+                    st.markdown("##### 🧭 Asesoría del copiloto (sobre la transcripción real)")
+                    for titulo, detalle in res_audio["copiloto"]["sugerencias"]:
+                        st.markdown(f"<div class='guion-box'><b>{titulo}</b><br>{detalle}</div>",
+                                    unsafe_allow_html=True)
+
+            st.info("**Fusión voz + texto:** el motor combina la señal acústica con el "
+                    "sentimiento del texto — la columna *Sent. voz+texto* muestra cómo la "
+                    "**voz tensa del cliente** empuja la alerta más allá de las palabras. "
+                    "En producción se conecta al audio del **softphone/PBX (Avaya, Genesys…)** "
+                    "por dual-channel/SIPREC, no al micrófono de la PC.")
 
 # ---- Tab 6: Gestores & Evolución ------------------------------------------
 with tab6:

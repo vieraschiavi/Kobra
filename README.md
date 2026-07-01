@@ -216,6 +216,28 @@ Recomendado: **grabación dual-channel** (una pata por interlocutor) → la
 diarización es exacta y la emoción por hablante es más precisa. El resto del
 pipeline (transcripción → copiloto → asesoría) es idéntico en todos los casos.
 
+> ⚠️ **Micrófono de la PC ≠ telefonía.** El micrófono solo capta el audio de la
+> PC (útil para VoIP en la PC o pruebas). Para una llamada por central (Avaya,
+> etc.) el audio va por la telefonía: usá la opción **“Central telefónica /
+> grabación”**. En la app realtime hay un selector **“Fuente de audio”** que
+> separa ambos modos.
+
+### 📝 Transcripción alineada por hablante
+
+`voz.transcribir_llamada()` / `voz.copiloto_desde_audio()` producen la
+transcripción **por turno y por hablante**:
+
+- Con **`OPENAI_API_KEY`** → Whisper transcribe el audio real con **marcas de
+  tiempo por segmento**, y cada segmento se asigna al hablante diarizado con
+  mayor solapamiento temporal.
+- Sin key → se **alinea** una transcripción provista (o la del chat) a los
+  hablantes diarizados por orden.
+
+Cada turno se fusiona con la **emoción acústica** de ese tramo, de modo que la
+tabla muestra `Sent. texto` vs `Sent. voz+texto` — la voz tensa del cliente
+empuja la alerta más allá de las palabras. Endpoints:
+`POST /copiloto_audio` (subir grabación) y `GET /copiloto_demo`.
+
 ## 📇 Analítica por gestor y por mes (`kobra/analitica.py`)
 
 Sobre el historial de gestiones (`data/generate_gestiones.py`) responde:

@@ -23,7 +23,7 @@ Ejecutar:
 import os
 import sys
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form
 from fastapi.responses import FileResponse, JSONResponse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -73,6 +73,47 @@ async def analizar_audio(audio: UploadFile = File(...)):
         f.write(await audio.read())
     try:
         return voz.analizar_llamada(tmp)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
+@app.get("/copiloto_demo")
+def copiloto_demo():
+    """Corre el pipeline sobre la grabación demo dual-channel del repo."""
+    wav = os.path.join(ROOT, "data", "ejemplo_llamada.wav")
+    if not os.path.exists(wav):
+        from data.generate_audio_demo import generar
+        generar()
+    tt = None
+    txt_path = os.path.join(ROOT, "data", "ejemplo_whatsapp.txt")
+    if os.path.exists(txt_path):
+        with open(txt_path, encoding="utf-8") as f:
+            conv = copiloto.parsear_conversacion(f.read(), nombre_gestor="Gestor")
+        tt = [{"emisor": t.emisor, "texto": t.texto} for t in conv.turnos]
+    return voz.copiloto_desde_audio(wav, transcript_turnos=tt)
+
+
+@app.post("/copiloto_audio")
+async def copiloto_audio(audio: UploadFile = File(...), transcript: str = Form("")):
+    """
+    Ingesta de grabación (Avaya/PBX dual-channel o cualquier .wav):
+    diarización + transcripción por hablante (Whisper si hay key, o alineación
+    del texto provisto) + emoción acústica + asesoría del copiloto.
+    """
+    tmp = os.path.join("/tmp", audio.filename or "call.wav")
+    with open(tmp, "wb") as f:
+        f.write(await audio.read())
+    tt = None
+    if transcript.strip():
+        conv = copiloto.parsear_conversacion(transcript, nombre_gestor="Gestor")
+        tt = [{"emisor": t.emisor, "texto": t.texto} for t in conv.turnos]
+    try:
+        return voz.copiloto_desde_audio(tmp, transcript_turnos=tt)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     finally:

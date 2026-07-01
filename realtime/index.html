@@ -51,15 +51,47 @@
   <div class="sub">Escucha la llamada, analiza el sentimiento del cliente en tiempo real y le sugiere al gestor la próxima jugada.</div>
 
   <div class="bar">
-    <span><span class="dot" id="recdot"></span><span id="status">Detenido</span></span>
-    <button id="btnMic" class="rec">🎙️ Escuchar llamada</button>
-    <label>Habla: <select id="emisor"><option value="cliente">Cliente</option><option value="gestor">Gestor</option></select></label>
-    <button id="btnSim" class="alt">▶️ Simular llamada (demo)</button>
-    <button id="btnReset" class="ghost">↺ Reiniciar</button>
-    <input id="manual" placeholder="…o escribí lo que dijo y Enter" style="flex:1;min-width:220px;">
+    <label>Fuente de audio:
+      <select id="fuente">
+        <option value="tel">☎️ Central telefónica / grabación (Avaya, Genesys…)</option>
+        <option value="mic">🎙️ Micrófono (PC / VoIP en la PC)</option>
+      </select>
+    </label>
   </div>
-  <div class="warn" id="micwarn"></div>
 
+  <!-- MODO MICRÓFONO (solo audio de la PC) -->
+  <div id="panelMic" style="display:none;">
+    <div class="bar">
+      <span><span class="dot" id="recdot"></span><span id="status">Detenido</span></span>
+      <button id="btnMic" class="rec">🎙️ Escuchar</button>
+      <label>Habla: <select id="emisor"><option value="cliente">Cliente</option><option value="gestor">Gestor</option></select></label>
+      <button id="btnSim" class="alt">▶️ Simular llamada (demo)</button>
+      <button id="btnReset" class="ghost">↺ Reiniciar</button>
+      <input id="manual" placeholder="…o escribí lo que dijo y Enter" style="flex:1;min-width:220px;">
+    </div>
+    <div class="warn">⚠️ El micrófono capta solo el audio de la PC. Para una llamada por central (Avaya, etc.) usá la opción «Central telefónica / grabación».</div>
+    <div class="warn" id="micwarn"></div>
+  </div>
+
+  <!-- MODO TELEFONÍA (Avaya/PBX): grabación dual-channel -->
+  <div id="panelTel" class="card">
+    <h3>☎️ Central telefónica / grabación (Avaya, Genesys, Cisco, Asterisk, Twilio…)</h3>
+    <p class="sub">En telefonía el audio NO está en el micrófono de la PC: viaja por la central. Kobra se conecta a ese audio de dos formas:</p>
+    <ul class="sub" style="margin:0 0 10px 20px;line-height:1.6;">
+      <li><b>Grabación</b> dual-channel de la central (recomendado) → subís el <code>.wav</code> post-llamada o cada pocos segundos para near-real-time.</li>
+      <li><b>Streaming en vivo</b> vía <b>SIPREC</b> / <b>Media Streams</b> (Twilio) / <b>DMCC-AES</b> (Avaya) → el audio llega al servidor por WebSocket. (Conector de producción.)</li>
+    </ul>
+    <div class="bar">
+      <input type="file" id="wav" accept=".wav">
+      <button id="btnUseDemo" class="ghost">Usar grabación demo</button>
+      <button id="btnAnalizar" class="alt">⚡ Analizar grabación</button>
+    </div>
+    <textarea id="tel_trans" placeholder="Opcional: transcripción por turnos (Gestor: … / Cliente: …). Si configurás OPENAI_API_KEY, se transcribe el audio real con Whisper y podés dejar esto vacío." style="width:100%;height:90px;background:#0b0e16;color:var(--txt);border:1px solid var(--border);border-radius:8px;padding:9px;font-size:.82rem;"></textarea>
+    <div class="warn" id="telinfo"></div>
+    <div id="telResult"></div>
+  </div>
+
+  <div id="micResults">
   <div class="kpis">
     <div class="kpi"><div class="v" id="kCalidad">—</div><div class="l">Calidad de gestión</div></div>
     <div class="kpi"><div class="v" id="kClima">—</div><div class="l">Clima del cliente</div></div>
@@ -87,6 +119,7 @@
       </div>
     </div>
   </div>
+  </div><!-- /micResults -->
 
 <script>
 const $ = id => document.getElementById(id);
@@ -180,6 +213,59 @@ $('btnSim').onclick = async ()=>{
   $('btnReset').click(); $('btnSim').disabled=true; $('status').textContent='Simulando llamada…';
   for(const [emisor,texto] of DEMO){ sendTurn(emisor,texto); await new Promise(r=>setTimeout(r,1200)); }
   $('status').textContent='Simulación finalizada'; $('btnSim').disabled=false;
+};
+
+// --- Selector de fuente de audio (telefonía vs micrófono) ---
+function aplicarFuente(){
+  const tel = $('fuente').value==='tel';
+  $('panelTel').style.display = tel?'block':'none';
+  $('panelMic').style.display = tel?'none':'block';
+  $('micResults').style.display = tel?'none':'block';
+}
+$('fuente').addEventListener('change', aplicarFuente);
+$('tel_trans').value = DEMO.map(([e,t])=>`${e==='gestor'?'Gestor':'Cliente'}: ${t}`).join('\n');
+aplicarFuente();
+
+const EMO_COL = {enojo:'#FF4757',frustracion:'#FF7675',ansiedad:'#FDCB6E',resignacion:'#a29bfe',neutro:'#74B9FF',positivo:'#00C896'};
+function renderTel(res){
+  if(res.error){ $('telinfo').textContent='⚠️ '+res.error; return; }
+  const v = res.voz, modo = {whisper:'Whisper (timestamps reales)',alineado:'alineada al texto provisto',sin_texto:'sin texto'}[res.modo_transcripcion]||res.modo_transcripcion;
+  let html = `<div class="kpis" style="margin-top:12px;">
+    <div class="kpi"><div class="v">${res.calidad?Math.round(res.calidad.score_total):'—'}/100</div><div class="l">Calidad de gestión</div></div>
+    <div class="kpi"><div class="v">${v.canales}</div><div class="l">Canales (${v.modo_diarizacion})</div></div>
+    <div class="kpi"><div class="v">${v.duracion_seg.toFixed(0)}s</div><div class="l">Duración</div></div>
+    <div class="kpi"><div class="v">${res.turnos.length}</div><div class="l">Turnos</div></div></div>`;
+  html += `<h3 style="margin-top:12px;">📝 Transcripción por hablante · <span class="sub">${modo}</span></h3>`;
+  html += `<div class="tablewrap" style="max-height:none;overflow:visible;"><table><thead><tr><th>Ini</th><th>Hablante</th><th>Texto</th><th>Emoción voz</th><th>Sent. texto</th><th>Sent. voz+texto</th></tr></thead><tbody>`;
+  for(const t of res.turnos){
+    const col = EMO_COL[t.emocion_voz]||'#74B9FF';
+    const st_ = t.sent_texto==null?'—':t.sent_texto.toFixed(2);
+    const sf = t.sent_fusion==null?'—':t.sent_fusion.toFixed(2);
+    html += `<tr><td>${t.inicio}s</td><td>${t.hablante}</td><td>${t.texto||'—'}</td>
+      <td><span class="pill" style="background:${col}33;color:${col};">${t.emocion_voz}</span></td>
+      <td>${st_}</td><td><b>${sf}</b></td></tr>`;
+  }
+  html += `</tbody></table></div>`;
+  if(res.copiloto){
+    html += `<h3 style="margin-top:12px;">🧭 Asesoría del copiloto (sobre la transcripción real)</h3>`;
+    html += res.copiloto.sugerencias.map(s=>`<div class="tip"><b>${s[0]}</b><br>${s[1]}</div>`).join('');
+    html += `<div class="next" style="margin-top:8px;"><b>💬 Próxima frase:</b> ${res.copiloto.proxima_frase}</div>`;
+  }
+  $('telResult').innerHTML = html;
+}
+
+$('btnUseDemo').onclick = async ()=>{
+  $('telinfo').textContent='Analizando grabación demo…';
+  try{ const r = await fetch('/copiloto_demo'); renderTel(await r.json()); $('telinfo').textContent=''; }
+  catch(e){ $('telinfo').textContent='⚠️ '+e; }
+};
+$('btnAnalizar').onclick = async ()=>{
+  const f = $('wav').files[0];
+  if(!f){ $('telinfo').textContent='Elegí un archivo .wav o usá la grabación demo.'; return; }
+  $('telinfo').textContent='Analizando grabación…';
+  const fd = new FormData(); fd.append('audio', f); fd.append('transcript', $('tel_trans').value||'');
+  try{ const r = await fetch('/copiloto_audio',{method:'POST',body:fd}); renderTel(await r.json()); $('telinfo').textContent=''; }
+  catch(e){ $('telinfo').textContent='⚠️ '+e; }
 };
 </script>
 </body>
