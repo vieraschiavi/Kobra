@@ -11,6 +11,10 @@ dashboard gerencial con KPIs, filtros, gráficos y exportación a Excel/CSV.
 > financieras, retail, telco, utilities, fintech). Pensada para **Uruguay**,
 > con **datos sintéticos y sin nombres de clientes** — sin problemas legales.
 
+**Presentación gerencial:** `presentation/Kobra_Presentacion_Gerencial.pptx`
+(generada con `python presentation/build_ppt.py`) · versión **Canva** editable:
+<https://www.canva.com/d/MUuxAHhku6oIR0x> (exportable a PDF/PPTX).
+
 ---
 
 ## 🎯 Qué resuelve
