@@ -238,6 +238,31 @@ tabla muestra `Sent. texto` vs `Sent. voz+texto` — la voz tensa del cliente
 empuja la alerta más allá de las palabras. Endpoints:
 `POST /copiloto_audio` (subir grabación) y `GET /copiloto_demo`.
 
+### 📡 Streaming en vivo (conectores) — `realtime/connectors.py`
+
+Para asesorar **mientras la llamada ocurre**, el audio de la central entra por
+WebSocket y el copiloto responde turno a turno:
+
+| Fuente | Endpoint | Formato |
+|---|---|---|
+| **Twilio Media Streams** | `WS /twilio` | μ-law 8 kHz; `track` inbound→cliente, outbound→gestor (protocolo real de Twilio) |
+| **SIPREC** (Avaya/Genesys/Cisco) | `WS /ws_audio` | el SBC/grabador forkea el RTP a un media server que reenvía **PCM16** |
+| **Avaya DMCC/AES** | `WS /ws_audio` | el SDK entrega el audio del canal y se reenvía como PCM16 |
+
+`StreamSession` acumula audio por hablante y, al cerrar cada turno (silencio /
+cambio de interlocutor), transcribe (Whisper si hay key), calcula emoción
+acústica, fusiona voz+texto y devuelve la asesoría. Probalo sin central real:
+
+```bash
+python -m realtime.server            # levanta el servidor
+python -m realtime.simular_stream    # stremea la grabación demo a /ws_audio
+# o en el navegador: modo "Central telefónica" → "📡 Simular stream en vivo"
+```
+
+**Para conectar tu central**: apuntá el `<Stream>` de Twilio a `wss://<host>/twilio`,
+o configurá SIPREC/DMCC para reenviar el media a `wss://<host>/ws_audio`. La
+asesoría se enruta a la pantalla del gestor (WS `/ws`).
+
 ## 📇 Analítica por gestor y por mes (`kobra/analitica.py`)
 
 Sobre el historial de gestiones (`data/generate_gestiones.py`) responde:

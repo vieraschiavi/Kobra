@@ -29,8 +29,10 @@ from fastapi.responses import FileResponse, JSONResponse
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
+import base64               # noqa: E402
 from kobra import copiloto   # noqa: E402
 from kobra import voz        # noqa: E402
+from realtime import connectors   # noqa: E402
 
 app = FastAPI(title="Kobra · Copiloto en Vivo")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -166,6 +168,84 @@ async def ws(sock: WebSocket):
                 "sugerencias": cop["sugerencias"],
                 "proxima_frase": cop["proxima_frase"],
             })
+    except WebSocketDisconnect:
+        return
+
+
+@app.websocket("/ws_audio")
+async def ws_audio(sock: WebSocket):
+    """
+    Streaming genérico (SIPREC / Avaya DMCC / media server → PCM16).
+    Mensajes JSON:
+      {"tipo":"start","sr":8000,"probpago":0.7,"estrategia":"..."}
+      {"tipo":"media","canal":"gestor|cliente","pcm_b64":"<PCM16 LE base64>","texto":"(opcional)","fin_turno":false}
+      {"tipo":"flush","canal":"gestor|cliente","texto":"(opcional)"}
+      {"tipo":"stop"}
+    Responde, al cerrar cada turno, con la asesoría del copiloto en vivo.
+    """
+    await sock.accept()
+    sess = connectors.StreamSession()
+    try:
+        while True:
+            m = await sock.receive_json()
+            t = m.get("tipo")
+            if t == "start":
+                sess = connectors.StreamSession(
+                    sr=int(m.get("sr", 8000)), probpago=m.get("probpago"),
+                    estrategia=m.get("estrategia"))
+            elif t == "media":
+                canal = m.get("canal", "cliente")
+                if m.get("pcm_b64"):
+                    sess.agregar(canal, connectors.pcm16_to_float(
+                        base64.b64decode(m["pcm_b64"])))
+                if m.get("fin_turno"):
+                    r = sess.cerrar_turno(canal, m.get("texto"))
+                    if r:
+                        await sock.send_json(r)
+            elif t == "flush":
+                r = sess.cerrar_turno(m.get("canal", "cliente"), m.get("texto"))
+                if r:
+                    await sock.send_json(r)
+            elif t == "stop":
+                await sock.send_json({"tipo": "fin"})
+                break
+    except WebSocketDisconnect:
+        return
+
+
+@app.websocket("/twilio")
+async def twilio_media(sock: WebSocket):
+    """
+    Twilio Media Streams (μ-law 8 kHz). Protocolo real de Twilio:
+      event: connected / start / media / stop
+      media.payload = base64 μ-law; media.track = inbound(cliente)/outbound(gestor)
+    Cierra el turno de un track cuando el otro empieza a hablar (turn-taking).
+    La asesoría se emite por este socket (en producción se enruta a la pantalla
+    del gestor vía /ws).
+    """
+    await sock.accept()
+    sess = connectors.StreamSession(sr=8000)
+    ultimo = None
+    try:
+        while True:
+            m = await sock.receive_json()
+            ev = m.get("event")
+            if ev == "media":
+                track = m["media"].get("track", "inbound")
+                canal = connectors.TWILIO_TRACK.get(track, "cliente")
+                sess.agregar(canal, connectors.ulaw_to_float(
+                    base64.b64decode(m["media"]["payload"])))
+                if ultimo and ultimo != canal:      # cambió quien habla → cerrar turno previo
+                    r = sess.cerrar_turno(ultimo)
+                    if r:
+                        await sock.send_json(r)
+                ultimo = canal
+            elif ev == "stop":
+                if ultimo:
+                    r = sess.cerrar_turno(ultimo)
+                    if r:
+                        await sock.send_json(r)
+                break
     except WebSocketDisconnect:
         return
 

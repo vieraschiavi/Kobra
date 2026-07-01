@@ -158,3 +158,26 @@ def test_voz_fusion_texto():
         "está todo bien, coordinamos", voz={"energia": 0.9, "pitch_var": 0.9, "ritmo": 0.8})
     # misma frase, pero voz tensa empuja el sentimiento hacia abajo
     assert tenso.score < base.score
+
+
+def test_stream_session():
+    import numpy as np
+    from realtime import connectors
+    sess = connectors.StreamSession(sr=8000, probpago=0.7, estrategia="Plan de cuotas")
+    tono = (0.2 * np.sin(2 * np.pi * 180 * np.arange(8000) / 8000)).astype("float32")
+    sess.agregar("cliente", tono)
+    r = sess.cerrar_turno("cliente", texto_hint="estoy sin trabajo, no puedo pagar")
+    assert r["turno"]["canal"] == "cliente"
+    assert r["turno"]["sent_fusion"] is not None
+    assert r["calidad"] is not None and r["proxima_frase"]
+
+
+def test_stream_decoders():
+    import audioop
+    import numpy as np
+    from realtime import connectors
+    pcm = (np.array([0, 16000, -16000, 8000], dtype="int16")).tobytes()
+    f = connectors.pcm16_to_float(pcm)
+    assert f.shape[0] == 4 and -1.0 <= f.min() and f.max() <= 1.0
+    u = connectors.ulaw_to_float(audioop.lin2ulaw(pcm, 2))
+    assert u.shape[0] == 4

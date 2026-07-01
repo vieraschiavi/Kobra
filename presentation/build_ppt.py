@@ -224,6 +224,8 @@ def build():
          "Separa quién habla y detecta la tensión del cliente en la voz, más allá de las palabras."),
         ("realtime_telefonia.png", "Integración telefónica + transcripción por hablante",
          "Conecta al audio de la central (Avaya, Genesys…); transcribe por hablante y fusiona voz + texto."),
+        ("realtime_stream.png", "Streaming en vivo durante la llamada",
+         "SIPREC / Twilio Media Streams / Avaya DMCC: asesoría turno a turno mientras la llamada ocurre."),
         ("dashboard_gestores.png", "Gestores & Evolución",
          "Impacto de Kobra en calidad, conversión y recupero; evolución mes a mes por gestor."),
     ]
