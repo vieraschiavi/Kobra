@@ -1,0 +1,263 @@
+"""
+Kobra · Generador de presentación gerencial (PPTX)
+==================================================
+Crea un deck comercial atractivo para vender Kobra a la gerencia de cualquier
+empresa con cartera de cobranzas. Toma los KPIs reales del pipeline
+(outputs/kobra_bundle.json) y capturas del dashboard (assets/).
+
+Uso:
+    python presentation/build_ppt.py
+"""
+import json
+import os
+
+from pptx import Presentation
+from pptx.util import Inches, Pt, Emu
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ASSETS = os.path.join(ROOT, "assets")
+OUT = os.path.join(ROOT, "presentation", "Kobra_Presentacion_Gerencial.pptx")
+
+# Paleta de marca
+DARK = RGBColor(0x0E, 0x11, 0x17)
+PANEL = RGBColor(0x1A, 0x1F, 0x2E)
+GREEN = RGBColor(0x00, 0xC8, 0x96)
+PURPLE = RGBColor(0x6C, 0x5C, 0xE7)
+WHITE = RGBColor(0xF5, 0xF6, 0xFA)
+GREY = RGBColor(0x9A, 0xA4, 0xB2)
+YELLOW = RGBColor(0xFD, 0xCB, 0x6E)
+
+W, H = Inches(13.333), Inches(7.5)
+
+
+def _load_kpis():
+    p = os.path.join(ROOT, "outputs", "kobra_bundle.json")
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    return {"kpis": {}, "metrics": {}}
+
+
+def _bg(slide, color=DARK):
+    slide.background.fill.solid()
+    slide.background.fill.fore_color.rgb = color
+
+
+def _box(slide, x, y, w, h, fill=None, line=None):
+    from pptx.enum.shapes import MSO_SHAPE
+    shp = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h)
+    if fill is None:
+        shp.fill.background()
+    else:
+        shp.fill.solid(); shp.fill.fore_color.rgb = fill
+    if line is None:
+        shp.line.fill.background()
+    else:
+        shp.line.color.rgb = line; shp.line.width = Pt(1)
+    shp.shadow.inherit = False
+    return shp
+
+
+def _text(slide, x, y, w, h, text, size=18, color=WHITE, bold=False,
+          align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP, font="Segoe UI"):
+    tb = slide.shapes.add_textbox(x, y, w, h)
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = anchor
+    lines = text.split("\n")
+    for i, ln in enumerate(lines):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.alignment = align
+        r = p.add_run(); r.text = ln
+        r.font.size = Pt(size); r.font.bold = bold
+        r.font.color.rgb = color; r.font.name = font
+    return tb
+
+
+def _bullets(slide, x, y, w, h, items, size=17, color=WHITE, gap=6):
+    tb = slide.shapes.add_textbox(x, y, w, h)
+    tf = tb.text_frame; tf.word_wrap = True
+    for i, (txt, c) in enumerate(items):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.space_after = Pt(gap)
+        r = p.add_run(); r.text = "▸  " + txt
+        r.font.size = Pt(size); r.font.color.rgb = c or color; r.font.name = "Segoe UI"
+    return tb
+
+
+def _fmt_m(v):
+    return f"$U {v/1e6:,.1f}M" if v else "—"
+
+
+def build():
+    data = _load_kpis()
+    k = data.get("kpis", {})
+    m = data.get("metrics", {})
+    prs = Presentation()
+    prs.slide_width = W; prs.slide_height = H
+    blank = prs.slide_layouts[6]
+
+    # ---------- 1 · Portada -------------------------------------------------
+    s = prs.slides.add_slide(blank); _bg(s)
+    _box(s, 0, Inches(3.15), W, Inches(1.2), fill=None)
+    _text(s, Inches(1), Inches(2.4), Inches(11.3), Inches(1.2),
+          "🐍 Kobra", size=66, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
+    _text(s, Inches(1), Inches(3.7), Inches(11.3), Inches(0.7),
+          "Plataforma de Cobranzas Inteligente", size=28, color=WHITE,
+          align=PP_ALIGN.CENTER)
+    _text(s, Inches(1), Inches(4.5), Inches(11.3), Inches(0.6),
+          "ProbPago · Agente IA Negociador · Priorización por valor esperado",
+          size=17, color=GREY, align=PP_ALIGN.CENTER)
+    _text(s, Inches(1), Inches(6.6), Inches(11.3), Inches(0.5),
+          "Propuesta gerencial · Uruguay · Demo con datos sintéticos (sin datos de clientes)",
+          size=12, color=GREY, align=PP_ALIGN.CENTER)
+
+    # ---------- 2 · El problema --------------------------------------------
+    s = prs.slides.add_slide(blank); _bg(s)
+    _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
+          "El problema de la cobranza tradicional", size=32, color=WHITE, bold=True)
+    _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
+    problems = [
+        ("Se gestiona por igual a todos los deudores → se malgasta tiempo en casos irrecuperables.", GREY),
+        ("Las decisiones de descuento y planes se toman \"a ojo\", sin datos.", GREY),
+        ("No se sabe a quién llamar primero ni por qué canal.", GREY),
+        ("Los guiones de negociación no están estandarizados ni optimizados.", GREY),
+        ("El reporting gerencial es lento, manual y poco accionable.", GREY),
+    ]
+    _bullets(s, Inches(0.9), Inches(2.0), Inches(11.5), Inches(4.5), problems, size=20, gap=14)
+    _text(s, Inches(0.9), Inches(6.3), Inches(11.5), Inches(0.8),
+          "Resultado: menor recupero, más costo operativo y peor experiencia del cliente.",
+          size=18, color=YELLOW, bold=True)
+
+    # ---------- 3 · La solución (3 pilares) --------------------------------
+    s = prs.slides.add_slide(blank); _bg(s)
+    _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
+          "La solución: Kobra", size=32, color=WHITE, bold=True)
+    _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
+    cards = [
+        ("🧠 ProbPago", GREEN,
+         "Modelo de Machine Learning que estima la probabilidad de pago de cada deudor.",
+         f"AUC {m.get('auc_roc','0.87')} · Lift {m.get('lift_decil10','1.7')}x en el top decil"),
+        ("🤖 Agente IA Negociador", PURPLE,
+         "Recomienda la estrategia óptima (descuento, plan, canal) y genera el guion listo para enviar.",
+         "Maximiza recupero minimizando la quita"),
+        ("📊 Dashboard Gerencial", YELLOW,
+         "KPIs, filtros, gráficos y priorización de cartera por valor esperado de recupero.",
+         "Exportable a Excel / CSV para reporting"),
+    ]
+    cw = Inches(3.9); gap = Inches(0.25); x0 = Inches(0.7); y0 = Inches(2.1)
+    for i, (title, col, desc, foot) in enumerate(cards):
+        x = x0 + i * (cw + gap)
+        _box(s, x, y0, cw, Inches(4.2), fill=PANEL, line=col)
+        _text(s, x + Inches(0.3), y0 + Inches(0.35), cw - Inches(0.6), Inches(0.8),
+              title, size=22, color=col, bold=True)
+        _text(s, x + Inches(0.3), y0 + Inches(1.4), cw - Inches(0.6), Inches(2),
+              desc, size=16, color=WHITE)
+        _text(s, x + Inches(0.3), y0 + Inches(3.4), cw - Inches(0.6), Inches(0.7),
+              foot, size=13, color=col, bold=True)
+
+    # ---------- 4 · Cómo funciona (flujo) ----------------------------------
+    s = prs.slides.add_slide(blank); _bg(s)
+    _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
+          "Cómo funciona · flujo end-to-end", size=32, color=WHITE, bold=True)
+    _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
+    steps = [
+        ("1 · Cartera", "Se carga la base de deudores (o se conecta al core).", GREEN),
+        ("2 · ProbPago", "El modelo asigna probabilidad de pago a cada caso.", PURPLE),
+        ("3 · Negociador IA", "Define estrategia, descuento, canal y guion.", YELLOW),
+        ("4 · Priorización", "Ordena por valor esperado de recupero (UYU).", GREEN),
+        ("5 · Acción + Reporting", "Gestores ejecutan; gerencia mide en el dashboard.", PURPLE),
+    ]
+    y = Inches(2.1)
+    for title, desc, col in steps:
+        _box(s, Inches(0.9), y, Inches(3.2), Inches(0.82), fill=PANEL, line=col)
+        _text(s, Inches(1.1), y + Inches(0.12), Inches(3), Inches(0.6),
+              title, size=17, color=col, bold=True)
+        _text(s, Inches(4.4), y + Inches(0.12), Inches(8), Inches(0.6),
+              desc, size=17, color=WHITE)
+        y += Inches(0.98)
+
+    # ---------- 5 · Resultados / KPIs --------------------------------------
+    s = prs.slides.add_slide(blank); _bg(s)
+    _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
+          "Impacto sobre la cartera (demo)", size=32, color=WHITE, bold=True)
+    _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
+    kpis = [
+        (f"{k.get('deudores',0):,}", "Deudores analizados", GREEN),
+        (_fmt_m(k.get('cartera_total_uyu',0)), "Cartera total", WHITE),
+        (_fmt_m(k.get('recupero_esperado_uyu',0)),
+         f"Recupero esperado ({k.get('tasa_recupero_esperada',0):.0%})", GREEN),
+        (f"{k.get('probpago_promedio',0):.0%}", "ProbPago promedio", PURPLE),
+        (_fmt_m(k.get('en_riesgo_uyu',0)), "Cartera en riesgo (baja prop.)", YELLOW),
+        (f"{m.get('lift_decil10','1.7')}x", "Lift del top decil vs. base", GREEN),
+    ]
+    cw = Inches(3.9); ch = Inches(1.9); gx = Inches(0.25); gy = Inches(0.3)
+    x0 = Inches(0.7); y0 = Inches(2.1)
+    for i, (val, lbl, col) in enumerate(kpis):
+        r, c = divmod(i, 3)
+        x = x0 + c * (cw + gx); yy = y0 + r * (ch + gy)
+        _box(s, x, yy, cw, ch, fill=PANEL, line=None)
+        _text(s, x, yy + Inches(0.3), cw, Inches(0.9), val, size=34,
+              color=col, bold=True, align=PP_ALIGN.CENTER)
+        _text(s, x, yy + Inches(1.25), cw, Inches(0.5), lbl, size=14,
+              color=GREY, align=PP_ALIGN.CENTER)
+    _text(s, Inches(0.7), Inches(6.7), Inches(12), Inches(0.5),
+          "Priorizando por ProbPago, el equipo concentra el esfuerzo donde está el valor recuperable.",
+          size=14, color=GREY, align=PP_ALIGN.CENTER)
+
+    # ---------- 6/7/8 · Capturas del dashboard -----------------------------
+    shots = [
+        ("dashboard_overview.png", "Dashboard · Visión general",
+         "KPIs en vivo, filtros dinámicos y gráficos de cartera vs. recupero."),
+        ("dashboard_negociador.png", "Agente IA Negociador",
+         "Estrategias recomendadas y simulador de negociación con guion por deudor."),
+        ("dashboard_cartera.png", "Cartera priorizada + Export",
+         "Ranking por valor esperado y exportación a Excel/CSV para reporting."),
+    ]
+    for img, title, sub in shots:
+        s = prs.slides.add_slide(blank); _bg(s)
+        _text(s, Inches(0.7), Inches(0.35), Inches(12), Inches(0.7),
+              title, size=28, color=GREEN, bold=True)
+        _text(s, Inches(0.7), Inches(1.0), Inches(12), Inches(0.5),
+              sub, size=15, color=GREY)
+        path = os.path.join(ASSETS, img)
+        if os.path.exists(path):
+            _box(s, Inches(0.55), Inches(1.55), Inches(12.25), Inches(5.55),
+                 fill=None, line=PURPLE)
+            s.shapes.add_picture(path, Inches(0.7), Inches(1.7), width=Inches(11.95))
+
+    # ---------- 9 · Por qué Kobra / diferenciales --------------------------
+    s = prs.slides.add_slide(blank); _bg(s)
+    _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
+          "Por qué Kobra", size=32, color=WHITE, bold=True)
+    _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
+    why = [
+        ("Más recupero: prioriza por valor esperado, no por antigüedad de la deuda.", GREEN),
+        ("Menos costo: automatiza estrategia y guiones; el gestor solo ejecuta.", GREEN),
+        ("Decisiones con datos: descuentos y planes basados en probabilidad de pago.", GREEN),
+        ("Listo para Uruguay: pensado para el mercado local, sin datos personales sensibles.", GREEN),
+        ("Agnóstico de industria: banca, financieras, retail, telco, utilities, fintech.", GREEN),
+        ("Rápido de implementar: mismo esquema de datos, reemplazable por la cartera real.", GREEN),
+    ]
+    _bullets(s, Inches(0.9), Inches(2.0), Inches(11.5), Inches(4.5), why, size=19, gap=14)
+
+    # ---------- 10 · Cierre -------------------------------------------------
+    s = prs.slides.add_slide(blank); _bg(s)
+    _text(s, Inches(1), Inches(2.5), Inches(11.3), Inches(1),
+          "Convierta su cartera en recupero.", size=40, color=WHITE, bold=True,
+          align=PP_ALIGN.CENTER)
+    _text(s, Inches(1), Inches(3.7), Inches(11.3), Inches(0.8),
+          "🐍 Kobra · Cobranzas Inteligente", size=26, color=GREEN, bold=True,
+          align=PP_ALIGN.CENTER)
+    _text(s, Inches(1), Inches(4.6), Inches(11.3), Inches(0.6),
+          "Demo lista para ejecutar · Solicite una prueba con su propia cartera.",
+          size=16, color=GREY, align=PP_ALIGN.CENTER)
+
+    prs.save(OUT)
+    print(f"[OK] Presentación generada: {OUT}  ({len(prs.slides.__iter__.__self__._sldIdLst)} slides)")
+
+
+if __name__ == "__main__":
+    build()
