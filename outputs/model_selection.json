@@ -1,0 +1,58 @@
+{
+  "mejor_modelo": "LogisticRegression",
+  "ranking": [
+    {
+      "modelo": "LogisticRegression",
+      "cv_auc_mean": 0.8728,
+      "cv_auc_std": 0.0049,
+      "test_auc_roc": 0.8742,
+      "test_auc_pr": 0.9075,
+      "test_brier": 0.1417
+    },
+    {
+      "modelo": "GradientBoosting",
+      "cv_auc_mean": 0.8675,
+      "cv_auc_std": 0.0055,
+      "test_auc_roc": 0.8705,
+      "test_auc_pr": 0.9045,
+      "test_brier": 0.1441
+    },
+    {
+      "modelo": "HistGradientBoosting",
+      "cv_auc_mean": 0.8635,
+      "cv_auc_std": 0.0055,
+      "test_auc_roc": 0.8678,
+      "test_auc_pr": 0.9015,
+      "test_brier": 0.1455
+    },
+    {
+      "modelo": "RandomForest",
+      "cv_auc_mean": 0.8583,
+      "cv_auc_std": 0.004,
+      "test_auc_roc": 0.8614,
+      "test_auc_pr": 0.8979,
+      "test_brier": 0.1575
+    }
+  ],
+  "n_muestras": 12000,
+  "features_num": [
+    "monto_deuda",
+    "dias_mora",
+    "cuotas_atrasadas",
+    "antiguedad_cliente_meses",
+    "score_buro",
+    "ingreso_estimado",
+    "pagos_ultimos_12m",
+    "promesas_cumplidas",
+    "promesas_incumplidas",
+    "contactabilidad",
+    "gestiones_previas"
+  ],
+  "features_cat": [
+    "segmento",
+    "producto",
+    "departamento",
+    "canal_preferido"
+  ],
+  "modelo_persistido": "outputs/probpago_model.joblib"
+}

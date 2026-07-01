@@ -2,9 +2,10 @@
 
 **Kobra** convierte una cartera de cobranzas en un plan de acción priorizado.
 Combina un modelo de **probabilidad de pago (ProbPago)** con un **Agente IA
-Negociador** que recomienda la mejor estrategia, descuento, canal y hasta el
-guion listo para enviar — todo dentro de un dashboard gerencial con KPIs,
-filtros, gráficos y exportación a Excel/CSV.
+Negociador** que recomienda la mejor estrategia, descuento, canal y guion, y un
+**Copiloto de Negociación en Vivo** que analiza el **sentimiento del cliente**
+(voz o WhatsApp) y asesora al gestor en tiempo real — todo dentro de un
+dashboard gerencial con KPIs, filtros, gráficos y exportación a Excel/CSV.
 
 > Demo lista para vender a cualquier empresa con cartera vencida (banca,
 > financieras, retail, telco, utilities, fintech). Pensada para **Uruguay**,
@@ -20,6 +21,7 @@ filtros, gráficos y exportación a Excel/CSV.
 | Descuentos y planes "a ojo" | Decisiones según **probabilidad de pago** |
 | No se sabe a quién contactar primero | Ranking operativo automático |
 | Guiones de negociación improvisados | **Guion generado** por el agente IA |
+| El gestor negocia "a ciegas" | **Copiloto en vivo**: sentimiento + próxima jugada |
 | Reporting manual y lento | **Dashboard + export a Excel/CSV** |
 
 ---
@@ -32,6 +34,10 @@ Cartera (CSV)
    ├─►  ProbPago  (kobra/probpago.py)      Gradient Boosting → probabilidad de pago
    │
    ├─►  Agente Negociador (kobra/negociador.py)   estrategia + descuento + canal + guion
+   │
+   ├─►  Copiloto en Vivo (kobra/copiloto.py)       sentimiento + técnicas + asesoría en tiempo real
+   │
+   ├─►  Entrenamiento ML (kobra/train.py)          selección de modelos + calibración (ProbPago)
    │
    ├─►  Pipeline (kobra/pipeline.py)       orquesta todo y exporta
    │        ├─ outputs/kobra_scored.csv / .xlsx
@@ -106,6 +112,44 @@ quita:
 - **Guion** parametrizado listo para enviar (sin nombres reales).
 - **Prioridad** operativa por valor esperado (UYU).
 
+## 🎧 Copiloto de Negociación en Vivo
+
+Asiste al gestor **durante** la negociación telefónica o por WhatsApp
+(`kobra/copiloto.py`):
+
+- **Análisis de sentimiento** turno a turno (léxico español rioplatense, con
+  manejo de negación e intensificadores). Acepta además señales de voz
+  (energía, variabilidad de pitch, ritmo) para negociación telefónica.
+- **Detección de emociones** del cliente (enojo, frustración, ansiedad,
+  dificultad económica, intención de pago, objeción…).
+- **Detección de técnicas** del gestor (anclaje, fraccionamiento, alternativas,
+  reciprocidad, urgencia, escasez, validación, cierre…).
+- **Scoring de calidad** de la gestión (16 criterios ponderados).
+- **Asesoría en tiempo real**: sugerencias accionables + la **próxima frase**
+  sugerida, ligadas a la ProbPago del deudor.
+
+Funciona **100% offline**. Si hay claves en el entorno se enriquece solo:
+`OPENAI_API_KEY` → transcripción de audio (Whisper); `ANTHROPIC_API_KEY` →
+evaluación cualitativa (Claude). Es una adaptación generalizada del motor de
+evaluación de llamadas/WhatsApp incluido en `referencia_R/` (marca removida,
+de evaluación *post-mortem* a **asistencia en vivo**).
+
+## 🔬 Entrenamiento ML (mejora de ProbPago)
+
+`kobra/train.py` eleva ProbPago a una **selección de modelos**: compara
+Regresión Logística, Random Forest, Gradient Boosting e HistGradientBoosting
+con **validación cruzada (5 folds)**, elige el mejor por ROC-AUC, lo
+**calibra** (isotónica) y lo persiste:
+
+```bash
+python -m kobra.train
+# → outputs/probpago_model.joblib  y  outputs/model_selection.json
+```
+
+Se reentrena en CI vía **GitHub Actions** (`.github/workflows/train.yml`,
+manual o semanal). El workflow `ci.yml` corre los tests y un smoke test del
+pipeline en cada push/PR.
+
 ---
 
 ## 📁 Estructura
@@ -116,11 +160,16 @@ Kobra/
 ├── kobra/
 │   ├── probpago.py                 # modelo de probabilidad de pago
 │   ├── negociador.py               # agente IA negociador
+│   ├── copiloto.py                 # copiloto de negociación en vivo (sentimiento)
+│   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports
-├── app/app.py                      # dashboard Streamlit
+├── app/app.py                      # dashboard Streamlit (incluye Copiloto en Vivo)
 ├── dashboard_estatico/index.html   # dashboard zero-install (offline)
 ├── presentation/build_ppt.py       # generador de presentación gerencial
-├── outputs/                        # CSV, Excel, JSON generados
+├── tests/test_kobra.py             # pruebas del pipeline y el copiloto
+├── referencia_R/                   # motor R original adaptado (referencia)
+├── .github/workflows/              # CI (tests) + entrenamiento ML programado
+├── outputs/                        # CSV, Excel, JSON y modelo generados
 ├── assets/                         # capturas del dashboard
 ├── requirements.txt
 └── run.sh

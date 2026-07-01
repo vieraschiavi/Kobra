@@ -1,0 +1,11 @@
+[01/06/2026, 10:15:23] Gestor: Buenos días! Le escribo del área de cobranzas. ¿Hablo con el titular de la cuenta KB-100773?
+[01/06/2026, 10:31:45] Cliente: Hola sí soy yo. Qué necesitan ahora?
+[01/06/2026, 10:33:12] Gestor: Le confirmo su identidad y le comento: tiene una cuota vencida. Entiendo que puede ser un mal momento, ¿lo podemos resolver juntos hoy?
+[01/06/2026, 10:40:30] Cliente: La verdad estoy cansado de que me llamen. Este mes no tengo el dinero completo, estoy sin trabajo.
+[01/06/2026, 10:41:05] Gestor: Comprendo su situación y le agradezco la sinceridad. Busquemos algo acorde. ¿Cuánto podría afrontar este mes?
+[01/06/2026, 10:45:15] Cliente: No sé, quizás una parte nada más. Es mucha plata.
+[01/06/2026, 10:46:40] Gestor: Le ofrezco dos opciones: pagar el 50% ahora y el resto en 15 días, o dividir todo en 3 cuotas cómodas. ¿Cuál le sirve más?
+[01/06/2026, 10:52:15] Cliente: La de las 3 cuotas me viene mejor.
+[01/06/2026, 10:53:45] Gestor: Perfecto, quedamos en 3 cuotas. Le envío ahora el link de pago de la primera y le llega el comprobante por escrito. ¿Le queda cómodo arrancar hoy?
+[01/06/2026, 10:55:02] Cliente: Dale, gracias por entender. Acepto.
+[01/06/2026, 10:55:30] Gestor: Excelente, muchas gracias a usted. Le envío el QR ahora mismo y le confirmo el acuerdo por escrito.

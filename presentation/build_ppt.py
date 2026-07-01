@@ -140,8 +140,9 @@ def build():
         ("🧠 ProbPago", GREEN,
          "Modelo de Machine Learning que estima la probabilidad de pago de cada deudor.",
          f"AUC {m.get('auc_roc','0.87')} · Lift {m.get('lift_decil10','1.7')}x en el top decil"),
-        ("🤖 Agente IA Negociador", PURPLE,
-         "Recomienda la estrategia óptima (descuento, plan, canal) y genera el guion listo para enviar.",
+        ("🤖 Agente + Copiloto en Vivo", PURPLE,
+         "Recomienda estrategia, descuento, canal y guion. En vivo: analiza el sentimiento del "
+         "cliente (voz/WhatsApp) y asesora al gestor en tiempo real.",
          "Maximiza recupero minimizando la quita"),
         ("📊 Dashboard Gerencial", YELLOW,
          "KPIs, filtros, gráficos y priorización de cartera por valor esperado de recupero.",
@@ -215,6 +216,8 @@ def build():
          "Estrategias recomendadas y simulador de negociación con guion por deudor."),
         ("dashboard_cartera.png", "Cartera priorizada + Export",
          "Ranking por valor esperado y exportación a Excel/CSV para reporting."),
+        ("dashboard_copiloto_detalle.png", "Copiloto de Negociación en Vivo",
+         "Sentimiento del cliente turno a turno, técnicas del gestor y la próxima jugada sugerida."),
     ]
     for img, title, sub in shots:
         s = prs.slides.add_slide(blank); _bg(s)
@@ -235,11 +238,11 @@ def build():
     _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
     why = [
         ("Más recupero: prioriza por valor esperado, no por antigüedad de la deuda.", GREEN),
+        ("Asistencia en vivo: análisis de sentimiento de voz/WhatsApp que guía al gestor en la negociación.", GREEN),
         ("Menos costo: automatiza estrategia y guiones; el gestor solo ejecuta.", GREEN),
-        ("Decisiones con datos: descuentos y planes basados en probabilidad de pago.", GREEN),
+        ("Decisiones con datos: ML de probabilidad de pago con selección de modelos y calibración.", GREEN),
         ("Listo para Uruguay: pensado para el mercado local, sin datos personales sensibles.", GREEN),
         ("Agnóstico de industria: banca, financieras, retail, telco, utilities, fintech.", GREEN),
-        ("Rápido de implementar: mismo esquema de datos, reemplazable por la cartera real.", GREEN),
     ]
     _bullets(s, Inches(0.9), Inches(2.0), Inches(11.5), Inches(4.5), why, size=19, gap=14)
 

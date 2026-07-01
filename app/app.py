@@ -22,6 +22,7 @@ sys.path.insert(0, ROOT)
 
 from kobra.probpago import ProbPagoModel      # noqa: E402
 from kobra import negociador                  # noqa: E402
+from kobra import copiloto                    # noqa: E402
 
 # ----------------------------------------------------------------------------
 # Config & estilo
@@ -147,8 +148,9 @@ st.markdown("---")
 # ----------------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export", "🧠 Modelo ProbPago"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
+     "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo"])
 
 # ---- Tab 1: Visión general -------------------------------------------------
 with tab1:
@@ -309,6 +311,114 @@ with tab4:
             "El **Agente Negociador** usa esa probabilidad + monto + mora para elegir "
             "la estrategia que **maximiza el recupero esperado minimizando la quita**, "
             "y prioriza la cartera por valor esperado (UYU).")
+
+# ---- Tab 5: Copiloto de Negociación en Vivo -------------------------------
+with tab5:
+    st.subheader("🎧 Copiloto de Negociación en Vivo")
+    st.caption("Analiza la conversación (WhatsApp o transcripción de llamada) en tiempo real: "
+               "sentimiento del cliente, técnicas del gestor, calidad y la próxima jugada sugerida.")
+
+    ejemplo_path = os.path.join(ROOT, "data", "ejemplo_whatsapp.txt")
+    ejemplo_txt = ""
+    if os.path.exists(ejemplo_path):
+        with open(ejemplo_path, encoding="utf-8") as fh:
+            ejemplo_txt = fh.read()
+
+    cfg = st.columns([0.5, 0.25, 0.25])
+    with cfg[0]:
+        up = st.file_uploader("Subir conversación (.txt export de WhatsApp o transcripción)",
+                              type=["txt"])
+    with cfg[1]:
+        canal = st.selectbox("Canal", ["whatsapp", "llamada"])
+    with cfg[2]:
+        deudor_ref = st.selectbox(
+            "Vincular deudor (ProbPago)",
+            ["(ninguno)"] + f.nsmallest(100, "prioridad")["id_deudor"].tolist())
+
+    texto_conv = up.read().decode("utf-8", errors="ignore") if up else st.text_area(
+        "…o pegá la conversación acá", value=ejemplo_txt, height=220,
+        help="Formato WhatsApp: [DD/MM/AAAA, HH:MM:SS] Nombre: mensaje  ·  "
+             "o transcripción: 'Gestor: …' / 'Cliente: …'")
+
+    probpago_ref, estrategia_ref = None, None
+    if deudor_ref != "(ninguno)":
+        rr = f[f["id_deudor"] == deudor_ref].iloc[0]
+        probpago_ref, estrategia_ref = float(rr["probpago"]), rr["estrategia"]
+
+    if st.button("⚡ Analizar negociación", type="primary") or texto_conv:
+        if not texto_conv.strip():
+            st.info("Cargá o pegá una conversación para analizar.")
+        else:
+            res = copiloto.analizar_conversacion(
+                texto_conv, canal=canal, probpago=probpago_ref, estrategia=estrategia_ref)
+            cop = res["copiloto"]
+            meta = res["meta"]
+
+            mc = st.columns(5)
+            mc[0].metric("Calidad de gestión", f"{res['calidad']['score_total']:.0f}/100")
+            clima_emoji = {"positivo": "🟢", "neutro": "🟡", "negativo": "🔴"}[cop["clima_etiqueta"]]
+            mc[1].metric("Clima del cliente", f"{clima_emoji} {cop['clima_etiqueta']}",
+                         f"{cop['clima_emocional']:+.2f}")
+            mc[2].metric("Mensajes", meta["mensajes"])
+            mc[3].metric("1ª respuesta",
+                         f"{meta['tiempo_primera_respuesta_min']:.0f} min"
+                         if meta["tiempo_primera_respuesta_min"] else "—")
+            tec_on = [k for k, v in res["tecnicas"].items() if v]
+            mc[4].metric("Técnicas usadas", len(tec_on))
+
+            cL, cR = st.columns([0.58, 0.42])
+            with cL:
+                st.markdown("##### 📈 Sentimiento turno a turno")
+                turnos = cop["sentimientos_turnos"]
+                dft = pd.DataFrame(turnos)
+                dft["Turno"] = dft["orden"] + 1
+                fig = go.Figure()
+                for emisor, col in [("cliente", "#FF7675"), ("gestor", PRIMARY)]:
+                    d = dft[dft["emisor"] == emisor]
+                    fig.add_trace(go.Scatter(
+                        x=d["Turno"], y=d["score"], mode="lines+markers",
+                        name=emisor.capitalize(), line=dict(color=col, width=3),
+                        hovertext=d["texto"], hoverinfo="text+y"))
+                fig.add_hline(y=0, line_dash="dot", line_color="#555")
+                fig.update_layout(template="plotly_dark", height=330,
+                                  yaxis=dict(title="Sentimiento", range=[-1, 1]),
+                                  legend=dict(orientation="h", y=1.15))
+                st.plotly_chart(fig, use_container_width=True)
+
+                if cop["emociones_cliente"]:
+                    st.markdown("**Emociones detectadas en el cliente:** " +
+                                " ".join(f"`{e}`" for e in cop["emociones_cliente"]))
+                if tec_on:
+                    st.markdown("**Técnicas de negociación del gestor:** " +
+                                " ".join(f"`{t}`" for t in tec_on))
+
+            with cR:
+                st.markdown("##### 🧭 Sugerencias para el gestor")
+                for titulo, detalle in cop["sugerencias"]:
+                    st.markdown(
+                        f"<div class='guion-box'><b>{titulo}</b><br>{detalle}</div>",
+                        unsafe_allow_html=True)
+                st.markdown("##### 💬 Próxima frase sugerida")
+                st.markdown(f"<div class='guion-box'>{cop['proxima_frase']}</div>",
+                            unsafe_allow_html=True)
+
+            with st.expander("🔎 Detalle de criterios de calidad"):
+                crit = pd.DataFrame([
+                    {"Criterio": c["nombre"], "Peso %": c["peso"],
+                     "Score": c["score"], "Cumple": "✅" if c["cumple"] else "⚠️"}
+                    for c in res["calidad"]["criterios"].values()])
+                st.dataframe(crit, use_container_width=True, hide_index=True)
+
+            if os.getenv("ANTHROPIC_API_KEY"):
+                with st.spinner("Enriqueciendo con Claude…"):
+                    extra = copiloto.evaluar_con_claude(texto_conv)
+                if extra:
+                    st.success("Evaluación cualitativa (Claude)")
+                    st.json(extra)
+            else:
+                st.caption("💡 Configurá `ANTHROPIC_API_KEY` (evaluación Claude) u "
+                           "`OPENAI_API_KEY` (transcripción Whisper) para enriquecer el análisis. "
+                           "El copiloto funciona sin claves.")
 
 st.markdown("---")
 st.caption("Kobra · Plataforma de Cobranzas Inteligente · Demo con datos sintéticos (Uruguay). "
