@@ -138,8 +138,9 @@ def build():
     _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
     cards = [
         ("🧠 ProbPago", GREEN,
-         "Modelo de Machine Learning que estima la probabilidad de pago de cada deudor.",
-         f"AUC {m.get('auc_roc','0.87')} · Lift {m.get('lift_decil10','1.7')}x en el top decil"),
+         "Modelo de Machine Learning que estima la probabilidad de pago de cada deudor. "
+         "Selección de modelos con validación cruzada + calibración.",
+         "Se entrena y valida con la cartera real del cliente"),
         ("🤖 Agente + Copiloto en Vivo", PURPLE,
          "Recomienda estrategia, descuento, canal y guion. En vivo: analiza el sentimiento del "
          "cliente (voz/WhatsApp) y asesora al gestor en tiempo real.",
@@ -205,7 +206,8 @@ def build():
         _text(s, x, yy + Inches(1.25), cw, Inches(0.5), lbl, size=14,
               color=GREY, align=PP_ALIGN.CENTER)
     _text(s, Inches(0.7), Inches(6.7), Inches(12), Inches(0.5),
-          "Priorizando por ProbPago, el equipo concentra el esfuerzo donde está el valor recuperable.",
+          "Datos sintéticos ilustrativos: muestran cómo Kobra prioriza el esfuerzo donde está "
+          "el valor recuperable. Con la cartera real, estos KPIs se calculan de verdad.",
           size=14, color=GREY, align=PP_ALIGN.CENTER)
 
     # ---------- 6/7/8 · Capturas del dashboard -----------------------------
@@ -248,11 +250,12 @@ def build():
             ik = json.load(fh)
         s = prs.slides.add_slide(blank); _bg(s)
         _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
-              "Impacto de Kobra en la gestión", size=32, color=WHITE, bold=True)
+              "Cómo se mide el impacto de Kobra", size=32, color=WHITE, bold=True)
         _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
         _text(s, Inches(0.9), Inches(1.7), Inches(11.5), Inches(0.6),
-              "Gestores que usan Kobra vs. grupo de control (mismo período)",
-              size=15, color=GREY)
+              "Metodología: gestores con Kobra vs. grupo de control, mismo período. "
+              "Cifras ILUSTRATIVAS sobre datos sintéticos — no son resultados medidos.",
+              size=15, color=YELLOW)
         cards = [
             (f"+{ik['uplift_calidad']:.1f}", "puntos de calidad de gestión", GREEN),
             (f"+{ik['uplift_conversion']*100:.1f} pp", "tasa de conversión", PURPLE),
@@ -275,7 +278,8 @@ def build():
               f"recupero {ik['sin_kobra']['tasa_recupero']:.0%}",
               size=14, color=WHITE, align=PP_ALIGN.CENTER)
         _text(s, Inches(0.9), Inches(6.4), Inches(11.5), Inches(0.6),
-              "Y la mejora se sostiene y crece mes a mes con la adopción de las herramientas.",
+              "En un piloto real, este mismo análisis (control vs. adopción) produce el impacto "
+              "MEDIDO — esa es la evidencia que se presenta, no esta simulación.",
               size=14, color=GREEN, align=PP_ALIGN.CENTER)
 
     # ---------- 9 · Por qué Kobra / diferenciales --------------------------

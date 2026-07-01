@@ -6,10 +6,12 @@ vinculado a la cartera. Cada gestión trae la calidad de la gestión, el
 sentimiento del cliente, la emoción dominante, las técnicas usadas, el
 resultado y el recupero.
 
-Incluye un efecto realista de **adopción de Kobra**: los gestores que empiezan
-a usar las herramientas de Kobra mejoran su calidad y conversión mes a mes.
-Esto permite analizar evolución temporal, impacto en cobranza y mejora con el
-tiempo. Datos 100% sintéticos, sin nombres reales.
+Incluye un efecto de **adopción de Kobra** INYECTADO POR DISEÑO: los gestores
+que "adoptan" mejoran su calidad mes a mes según una curva codificada abajo
+(variable `efecto`). En consecuencia, cualquier "uplift con vs. sin Kobra"
+calculado sobre estos datos es CIRCULAR: sirve para demostrar la METODOLOGÍA
+de medición (grupo de control, cohortes, evolución temporal), nunca como
+evidencia de impacto real. Datos 100% sintéticos, sin nombres reales.
 
 Uso:
     python data/generate_gestiones.py --seed 42
