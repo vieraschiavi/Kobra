@@ -1,5 +1,5 @@
 """
-Kobra · Dashboard Gerencial de Cobranzas Inteligente
+Kobra IA · Dashboard Gerencial de Cobranzas Inteligentes
 ====================================================
 App Streamlit end-to-end: ProbPago + Agente IA Negociador sobre una cartera
 de cobranzas. Filtros, KPIs, gráficos, tablas y exportación a Excel/CSV.
@@ -33,7 +33,7 @@ kconfig.aplicar()   # carga API keys guardadas al entorno
 # Config & estilo
 # ----------------------------------------------------------------------------
 _ICON_PATH = os.path.join(ROOT, "assets", "brand", "kobra_icon_64.png")
-st.set_page_config(page_title="Kobra · Cobranzas Inteligente",
+st.set_page_config(page_title="Kobra IA · Cobranzas Inteligentes",
                    page_icon=_ICON_PATH if os.path.exists(_ICON_PATH) else "🐍",
                    layout="wide", initial_sidebar_state="expanded")
 
@@ -110,7 +110,7 @@ with c1:
             _logo_html = (f"<img src='data:image/png;base64,"
                           f"{_b64.b64encode(_f.read()).decode()}' "
                           f"style='height:52px;vertical-align:-12px;margin-right:10px;'>")
-    st.markdown(f"# {_logo_html}Kobra <span class='kobra-badge'>Cobranzas Inteligente</span>",
+    st.markdown(f"# {_logo_html}Kobra IA <span class='kobra-badge'>Cobranzas Inteligentes</span>",
                 unsafe_allow_html=True)
     st.caption("ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero")
 with c2:
@@ -785,5 +785,5 @@ with tab7:
                 "Docker; el entorno tiene prioridad sobre el archivo.")
 
 st.markdown("---")
-st.caption("Kobra · Plataforma de Cobranzas Inteligente · Demo con datos sintéticos (Uruguay). "
+st.caption("Kobra IA · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). "
            "Sin nombres de clientes. Reemplazable por la cartera real de cualquier empresa.")
