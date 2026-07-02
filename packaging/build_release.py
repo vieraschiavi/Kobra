@@ -27,11 +27,11 @@ DIST = os.path.join(ROOT, "dist")
 # ---------------------------------------------------------------------------
 # Textos comunes
 # ---------------------------------------------------------------------------
-LICENCIA_DEMO = f"""KOBRA · LICENCIA DE EVALUACIÓN (DEMO) · v{VERSION}
+LICENCIA_DEMO = f"""KOBRA IA · LICENCIA DE EVALUACIÓN (DEMO) · v{VERSION}
 =====================================================
 
-Este paquete es una DEMOSTRACIÓN de Kobra, Plataforma de Cobranzas
-Inteligente, con DATOS 100% SINTÉTICOS (sin datos de personas reales).
+Este paquete es una DEMOSTRACIÓN de Kobra IA, Plataforma de Cobranzas
+Inteligentes, con DATOS 100% SINTÉTICOS (sin datos de personas reales).
 
 1. Se concede permiso de uso únicamente para EVALUACIÓN interna del
    producto. No incluye derecho de uso productivo ni comercial.
@@ -45,12 +45,12 @@ Inteligente, con DATOS 100% SINTÉTICOS (sin datos de personas reales).
 (Borrador comercial: revisar con asesoría legal antes de distribuir.)
 """
 
-LICENCIA_PROD = f"""KOBRA · CONTRATO DE LICENCIA DE USO (EULA) · v{VERSION}
+LICENCIA_PROD = f"""KOBRA IA · CONTRATO DE LICENCIA DE USO (EULA) · v{VERSION}
 ========================================================
 
 1. OBJETO. El titular de Kobra concede al cliente una licencia de uso, no
-   exclusiva e intransferible, del software Kobra (Plataforma de Cobranzas
-   Inteligente) para uso interno, según la propuesta comercial acordada.
+   exclusiva e intransferible, del software Kobra IA (Plataforma de Cobranzas
+   Inteligentes) para uso interno, según la propuesta comercial acordada.
 2. PROPIEDAD. El software, su código, diseño y documentación son propiedad
    del titular. Esta licencia no transfiere titularidad alguna.
 3. DATOS. El cliente es responsable de los datos que cargue (incl. Ley
@@ -153,10 +153,10 @@ def build_demo(tmp):
     # por seguridad desde Win7); se incluye por compatibilidad con medios ópticos.
     _write(os.path.join(stage, "autorun.inf"),
            "[autorun]\r\nopen=INICIAR_DEMO.bat\r\nicon=kobra.ico\r\n"
-           "label=Kobra Demo\r\n")
+           "label=Kobra IA Demo\r\n")
 
-    _write(os.path.join(stage, "LEEME.txt"), crlf=True, content=f"""KOBRA · DEMO v{VERSION}
-Plataforma de Cobranzas Inteligente
+    _write(os.path.join(stage, "LEEME.txt"), crlf=True, content=f"""KOBRA IA · DEMO v{VERSION}
+Plataforma de Cobranzas Inteligentes
 =====================================
 
 CÓMO VER LA DEMO (no requiere instalar nada):
@@ -193,7 +193,7 @@ Licencia de evaluación: ver LICENCIA.txt
 """)
     _write(os.path.join(stage, "LICENCIA.txt"), LICENCIA_DEMO, crlf=True)
     _write(os.path.join(stage, "VERSION.txt"),
-           f"Kobra Demo v{VERSION}\nDatos sintéticos · sin información personal real\n",
+           f"Kobra IA Demo v{VERSION}\nDatos sintéticos · sin información personal real\n",
            crlf=True)
 
     os.chmod(os.path.join(stage, "iniciar_demo.sh"), 0o755)
@@ -269,8 +269,8 @@ def build_prod(tmp):
            "  streamlit run app/app.py\n"
            "fi\n")
 
-    _write(os.path.join(stage, "LEEME_PRIMERO.txt"), crlf=True, content=f"""KOBRA · PRODUCCIÓN v{VERSION}
-Plataforma de Cobranzas Inteligente
+    _write(os.path.join(stage, "LEEME_PRIMERO.txt"), crlf=True, content=f"""KOBRA IA · PRODUCCIÓN v{VERSION}
+Plataforma de Cobranzas Inteligentes
 =====================================
 
 INSTALACIÓN EN 1 PASO
@@ -305,7 +305,7 @@ Licencia de uso: ver LICENCIA.txt
 """)
     _write(os.path.join(stage, "LICENCIA.txt"), LICENCIA_PROD, crlf=True)
     _write(os.path.join(stage, "VERSION.txt"),
-           f"Kobra Producción v{VERSION}\n", crlf=True)
+           f"Kobra IA Producción v{VERSION}\n", crlf=True)
 
     os.chmod(os.path.join(stage, "instalar_y_ejecutar.sh"), 0o755)
     sh = os.path.join(stage, "kobra_software", "run.sh")

@@ -1,4 +1,4 @@
-# 🐍 Kobra · Plataforma de Cobranzas Inteligente
+# 🐍 Kobra IA · Plataforma de Cobranzas Inteligentes
 
 **Kobra** convierte una cartera de cobranzas en un plan de acción priorizado.
 Combina un modelo de **probabilidad de pago (ProbPago)** con un **Agente IA

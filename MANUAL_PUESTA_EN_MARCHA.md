@@ -1,4 +1,4 @@
-# 🐍 Kobra · Manual de Puesta en Marcha (1 página)
+# 🐍 Kobra IA · Manual de Puesta en Marcha (1 página)
 
 Guía rápida para dejar Kobra operativo con un cliente. Tiempo estimado: **~30 min**.
 

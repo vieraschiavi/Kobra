@@ -106,9 +106,9 @@ def build():
     if os.path.exists(logo):
         s.shapes.add_picture(logo, Inches(5.92), Inches(0.85), height=Inches(1.5))
     _text(s, Inches(1), Inches(2.4), Inches(11.3), Inches(1.2),
-          "Kobra", size=66, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
+          "Kobra IA", size=66, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
     _text(s, Inches(1), Inches(3.7), Inches(11.3), Inches(0.7),
-          "Plataforma de Cobranzas Inteligente", size=28, color=WHITE,
+          "Plataforma de Cobranzas Inteligentes", size=28, color=WHITE,
           align=PP_ALIGN.CENTER)
     _text(s, Inches(1), Inches(4.5), Inches(11.3), Inches(0.6),
           "ProbPago · Agente IA Negociador · Priorización por valor esperado",
@@ -329,7 +329,7 @@ def build():
           "Convierta su cartera en recupero.", size=40, color=WHITE, bold=True,
           align=PP_ALIGN.CENTER)
     _text(s, Inches(1), Inches(3.7), Inches(11.3), Inches(0.8),
-          "Kobra · Cobranzas Inteligente", size=26, color=GREEN, bold=True,
+          "Kobra IA · Cobranzas Inteligentes", size=26, color=GREEN, bold=True,
           align=PP_ALIGN.CENTER)
     _text(s, Inches(1), Inches(4.6), Inches(11.3), Inches(0.6),
           "Demo lista para ejecutar · Solicite una prueba con su propia cartera.",
