@@ -35,9 +35,15 @@ Para reentrenar/comparar modelos ML: `python -m kobra.train`.
 
 ## 5. Conectar la telefonía (opcional, para copiloto en vivo)
 El audio va por la central, **no** por el micrófono de la PC. Según la plataforma:
+- **Avaya / Genesys / Cisco (SIPREC o DMCC/AES):** usar el **conector incluido**
+  — la central forkea el RTP (G.711 μ-law/A-law) a los puertos del conector:
+  ```bash
+  python -m realtime.conector_avaya --deudor <ID_DEL_CTI> --gestor <GESTOR>
+  # RTP gestor → udp:5004 · RTP cliente → udp:5006 (configurables)
+  ```
+  Prueba sin central física: `python -m realtime.simular_rtp --codec alaw`.
 - **Twilio:** apuntar el `<Stream>` a `wss://SERVIDOR:8000/twilio`.
-- **Avaya / Genesys / Cisco (SIPREC o DMCC/AES):** reenviar el media (PCM16) a
-  `wss://SERVIDOR:8000/ws_audio`.
+- **Genérico:** reenviar el media (PCM16) a `wss://SERVIDOR:8000/ws_audio`.
 - **Sin integración:** subir la grabación `.wav` (dual-channel) en el dashboard
   → pestaña *Copiloto en Vivo* → *Analizar grabación*.
 
