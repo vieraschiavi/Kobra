@@ -460,6 +460,6 @@ una cartera real basta con respetar las mismas columnas
 (`data/generate_dataset.py` documenta el esquema). Apto para demo comercial en
 Uruguay sin exponer información sensible.
 
-> Nota de origen: el copiloto adapta criterios de evaluación de gestiones de
-> un motor de referencia (`referencia_R/`). Antes de comercializar, revisar la
-> titularidad/cláusulas de propiedad intelectual aplicables a ese material.
+> Origen: el copiloto adapta y generaliza criterios de evaluación de gestiones
+> de un motor de referencia de **autoría propia** (`referencia_R/`), sin marcas
+> ni datos de terceros.
