@@ -239,11 +239,18 @@ def test_stream_session_resumen_final():
 
 
 def test_stream_decoders():
-    import audioop
     import numpy as np
     from realtime import connectors
     pcm = (np.array([0, 16000, -16000, 8000], dtype="int16")).tobytes()
     f = connectors.pcm16_to_float(pcm)
     assert f.shape[0] == 4 and -1.0 <= f.min() and f.max() <= 1.0
-    u = connectors.ulaw_to_float(audioop.lin2ulaw(pcm, 2))
-    assert u.shape[0] == 4
+    # μ-law: decodificador numpy propio (audioop no existe en Python 3.13+)
+    u = connectors.ulaw_to_float(bytes(range(256)))
+    assert u.shape[0] == 256 and -1.0 <= u.min() and u.max() <= 1.0
+    try:
+        import audioop
+        ref = (np.frombuffer(audioop.ulaw2lin(bytes(range(256)), 2), dtype=np.int16)
+               .astype(np.float32) / 32768.0)
+        assert np.array_equal(u, ref)          # bit-exacto vs. audioop
+    except ImportError:
+        pass

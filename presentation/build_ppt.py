@@ -102,8 +102,11 @@ def build():
     # ---------- 1 · Portada -------------------------------------------------
     s = prs.slides.add_slide(blank); _bg(s)
     _box(s, 0, Inches(3.15), W, Inches(1.2), fill=None)
+    logo = os.path.join(ROOT, "assets", "brand", "kobra_icon.png")
+    if os.path.exists(logo):
+        s.shapes.add_picture(logo, Inches(5.92), Inches(0.85), height=Inches(1.5))
     _text(s, Inches(1), Inches(2.4), Inches(11.3), Inches(1.2),
-          "🐍 Kobra", size=66, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
+          "Kobra", size=66, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
     _text(s, Inches(1), Inches(3.7), Inches(11.3), Inches(0.7),
           "Plataforma de Cobranzas Inteligente", size=28, color=WHITE,
           align=PP_ALIGN.CENTER)
@@ -320,11 +323,13 @@ def build():
 
     # ---------- 10 · Cierre -------------------------------------------------
     s = prs.slides.add_slide(blank); _bg(s)
+    if os.path.exists(logo):
+        s.shapes.add_picture(logo, Inches(6.17), Inches(1.15), height=Inches(1.0))
     _text(s, Inches(1), Inches(2.5), Inches(11.3), Inches(1),
           "Convierta su cartera en recupero.", size=40, color=WHITE, bold=True,
           align=PP_ALIGN.CENTER)
     _text(s, Inches(1), Inches(3.7), Inches(11.3), Inches(0.8),
-          "🐍 Kobra · Cobranzas Inteligente", size=26, color=GREEN, bold=True,
+          "Kobra · Cobranzas Inteligente", size=26, color=GREEN, bold=True,
           align=PP_ALIGN.CENTER)
     _text(s, Inches(1), Inches(4.6), Inches(11.3), Inches(0.6),
           "Demo lista para ejecutar · Solicite una prueba con su propia cartera.",

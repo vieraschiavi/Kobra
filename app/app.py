@@ -32,8 +32,10 @@ kconfig.aplicar()   # carga API keys guardadas al entorno
 # ----------------------------------------------------------------------------
 # Config & estilo
 # ----------------------------------------------------------------------------
+_ICON_PATH = os.path.join(ROOT, "assets", "brand", "kobra_icon_64.png")
 st.set_page_config(page_title="Kobra · Cobranzas Inteligente",
-                   page_icon="🐍", layout="wide", initial_sidebar_state="expanded")
+                   page_icon=_ICON_PATH if os.path.exists(_ICON_PATH) else "🐍",
+                   layout="wide", initial_sidebar_state="expanded")
 
 PRIMARY = "#00C896"       # verde Kobra
 DARK = "#0E1117"
@@ -101,7 +103,14 @@ gest = cargar_gestiones()
 # ----------------------------------------------------------------------------
 c1, c2 = st.columns([0.7, 0.3])
 with c1:
-    st.markdown(f"# 🐍 Kobra <span class='kobra-badge'>Cobranzas Inteligente</span>",
+    _logo_html = "🐍 "
+    if os.path.exists(_ICON_PATH):
+        import base64 as _b64
+        with open(_ICON_PATH, "rb") as _f:
+            _logo_html = (f"<img src='data:image/png;base64,"
+                          f"{_b64.b64encode(_f.read()).decode()}' "
+                          f"style='height:52px;vertical-align:-12px;margin-right:10px;'>")
+    st.markdown(f"# {_logo_html}Kobra <span class='kobra-badge'>Cobranzas Inteligente</span>",
                 unsafe_allow_html=True)
     st.caption("ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero")
 with c2:

@@ -47,6 +47,11 @@ def index():
     return FileResponse(os.path.join(HERE, "index.html"))
 
 
+@app.get("/kobra_icon.png")
+def icono():
+    return FileResponse(os.path.join(HERE, "kobra_icon.png"))
+
+
 @app.get("/health")
 def health():
     return {"ok": True, "whisper": bool(os.getenv("OPENAI_API_KEY")),

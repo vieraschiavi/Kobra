@@ -70,7 +70,9 @@ LICENCIA_PROD = f"""KOBRA · CONTRATO DE LICENCIA DE USO (EULA) · v{VERSION}
 """
 
 
-def _write(path, content, crlf=False):
+def _write(path, content=None, crlf=False, **kw):
+    if content is None:
+        content = kw["content"]
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if crlf:
         content = content.replace("\n", "\r\n")
@@ -129,6 +131,12 @@ def build_demo(tmp):
     for img in ("dashboard_overview.png", "dashboard_negociador.png",
                 "realtime_copiloto.png", "dashboard_gestores.png"):
         _copy(f"assets/{img}", os.path.join(stage, "capturas", img))
+    # Video demo del copiloto en vivo + identidad de marca
+    _copy("assets/video/Kobra_Copiloto_Demo.mp4",
+          os.path.join(stage, "video", "Kobra_Copiloto_Demo.mp4"))
+    _copy("assets/brand/kobra.ico", os.path.join(stage, "kobra.ico"))
+    _copy("assets/brand/kobra_wordmark.png",
+          os.path.join(stage, "kobra_logo.png"))
 
     # Lanzadores
     _write(os.path.join(stage, "INICIAR_DEMO.bat"),
@@ -144,9 +152,10 @@ def build_demo(tmp):
     # autorun.inf: solo surte efecto en CD/DVD (Windows lo bloquea en USB/carpetas
     # por seguridad desde Win7); se incluye por compatibilidad con medios ópticos.
     _write(os.path.join(stage, "autorun.inf"),
-           "[autorun]\r\nopen=INICIAR_DEMO.bat\r\nlabel=Kobra Demo\r\n")
+           "[autorun]\r\nopen=INICIAR_DEMO.bat\r\nicon=kobra.ico\r\n"
+           "label=Kobra Demo\r\n")
 
-    _write(os.path.join(stage, "LEEME.txt"), f"""KOBRA · DEMO v{VERSION}
+    _write(os.path.join(stage, "LEEME.txt"), crlf=True, content=f"""KOBRA · DEMO v{VERSION}
 Plataforma de Cobranzas Inteligente
 =====================================
 
@@ -161,10 +170,13 @@ QUÉ INCLUYE
                     cartera priorizada, export a Excel/CSV y el Copiloto de
                     Negociación (análisis de sentimiento) corriendo en su
                     navegador, sin conexión.
+  video/            Video demo del Copiloto EN VIVO asesorando durante una
+                    llamada (KPIs, sentimiento y próxima frase en tiempo real).
   reportes_excel/   Reportes de ejemplo listos para abrir en Excel.
   presentacion/     Presentación gerencial (PPTX).
   capturas/         Vistas del producto completo (copiloto de voz en vivo,
                     analítica de gestores, integración telefónica).
+  kobra_logo.png / kobra.ico   Identidad de marca.
 
 IMPORTANTE — HONESTIDAD DE LOS DATOS
   Esta demo usa datos 100% SINTÉTICOS (sin personas reales). Las métricas de
@@ -179,9 +191,10 @@ VERSIÓN COMPLETA
 
 Licencia de evaluación: ver LICENCIA.txt
 """)
-    _write(os.path.join(stage, "LICENCIA.txt"), LICENCIA_DEMO)
+    _write(os.path.join(stage, "LICENCIA.txt"), LICENCIA_DEMO, crlf=True)
     _write(os.path.join(stage, "VERSION.txt"),
-           f"Kobra Demo v{VERSION}\nDatos sintéticos · sin información personal real\n")
+           f"Kobra Demo v{VERSION}\nDatos sintéticos · sin información personal real\n",
+           crlf=True)
 
     os.chmod(os.path.join(stage, "iniciar_demo.sh"), 0o755)
     return _zipdir(stage, os.path.join(DIST, f"Kobra_Demo_v{VERSION}.zip"))
@@ -194,7 +207,7 @@ PROD_ITEMS = [
     "kobra", "app", "realtime", "tests", "dashboard_estatico",
     "data/generate_dataset.py", "data/generate_gestiones.py",
     "data/generate_audio_demo.py", "data/ejemplo_whatsapp.txt",
-    "presentation/build_ppt.py",
+    "presentation/build_ppt.py", "assets/brand",
     "requirements.txt", "run.sh", "Dockerfile", "docker-compose.yml",
     "docker-entrypoint.sh", ".dockerignore", "README.md",
     "MANUAL_PUESTA_EN_MARCHA.md", ".github",
@@ -256,7 +269,7 @@ def build_prod(tmp):
            "  streamlit run app/app.py\n"
            "fi\n")
 
-    _write(os.path.join(stage, "LEEME_PRIMERO.txt"), f"""KOBRA · PRODUCCIÓN v{VERSION}
+    _write(os.path.join(stage, "LEEME_PRIMERO.txt"), crlf=True, content=f"""KOBRA · PRODUCCIÓN v{VERSION}
 Plataforma de Cobranzas Inteligente
 =====================================
 
@@ -290,9 +303,9 @@ HONESTIDAD DE LOS DATOS
 
 Licencia de uso: ver LICENCIA.txt
 """)
-    _write(os.path.join(stage, "LICENCIA.txt"), LICENCIA_PROD)
+    _write(os.path.join(stage, "LICENCIA.txt"), LICENCIA_PROD, crlf=True)
     _write(os.path.join(stage, "VERSION.txt"),
-           f"Kobra Producción v{VERSION}\n")
+           f"Kobra Producción v{VERSION}\n", crlf=True)
 
     os.chmod(os.path.join(stage, "instalar_y_ejecutar.sh"), 0o755)
     sh = os.path.join(stage, "kobra_software", "run.sh")
