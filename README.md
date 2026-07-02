@@ -19,7 +19,7 @@ dashboard gerencial con KPIs, filtros, gráficos y exportación a Excel/CSV.
 **Presentación gerencial:** `presentation/Kobra_Presentacion_Gerencial.pptx`
 (generada con `python presentation/build_ppt.py`) · versión **Canva** editable
 (reetiquetada, cifras marcadas como ilustrativas):
-<https://www.canva.com/d/_n2AjNIURuCpi_c> (exportable a PDF/PPTX).
+<https://www.canva.com/d/VJ__8kGcZ2M3Q7D> (exportable a PDF/PPTX).
 
 ---
 
