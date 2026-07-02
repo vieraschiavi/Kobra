@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "dashboard_estatico/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/", "dest": "/dashboard_estatico/index.html" },
+    { "src": "/(.*)", "dest": "/dashboard_estatico/$1" }
+  ]
+}
