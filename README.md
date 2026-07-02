@@ -367,6 +367,41 @@ python -m realtime.simular_stream    # stremea la grabación demo a /ws_audio
 o configurá SIPREC/DMCC para reenviar el media a `wss://<host>/ws_audio`. La
 asesoría se enruta a la pantalla del gestor (WS `/ws`).
 
+### ☎️ Conector Avaya / SIPREC (`realtime/conector_avaya.py`)
+
+Puente **RTP → Kobra** listo para producción: recibe el audio que la central
+forkea por RTP (**G.711 μ-law o A-law** — A-law es el estándar en Uruguay —,
+paquetes de 20 ms, una pata por puerto UDP), hace VAD por energía, corta cada
+turno al silencio y lo envía al Copiloto, que devuelve la asesoría en vivo y
+registra la gestión al colgar.
+
+```bash
+python -m realtime.conector_avaya --deudor KB-100773 --gestor G03
+#   --puerto-gestor 5004 --puerto-cliente 5006 --silencio 0.6
+#   --transcript <archivo del CTI>   (opcional, enriquece sin Whisper)
+```
+
+- **Codecs bit-exactos**: decodificadores μ-law/A-law propios en numpy,
+  verificados byte a byte contra la referencia G.711 en todo el rango int16
+  (sin depender de `audioop`, eliminado en Python 3.13).
+- **Auto-detección de codec** por payload type RTP (0 = PCMU, 8 = PCMA).
+- **Lado Avaya**: SIPREC en el SBC/Aura apuntando al host del conector, o
+  DMCC/AES dirigiendo el RTP de la estación virtual. El `id_deudor` llega por
+  el CTI (UUI/header SIP) y se pasa con `--deudor`.
+
+**Probalo sin central física** con el simulador de RTP incluido (emite la
+llamada demo como paquetes RTP reales, igual que un SBC):
+
+```bash
+python -m realtime.server                                 # terminal 1
+python -m realtime.conector_avaya --deudor KB-100773      # terminal 2
+python -m realtime.simular_rtp --codec alaw               # terminal 3
+```
+
+Verificado end-to-end: los 10 turnos llegan separados por pata, con emoción
+de voz detectada (enojo/frustración del cliente), brief pre-llamada, asesoría
+turno a turno y gestión registrada al cortar.
+
 ### 🔁 Ciclo completo de la negociación (pre → en vivo → post)
 
 1. **Antes de llamar** — `GET /brief/{id_deudor}`: briefing para el screen-pop

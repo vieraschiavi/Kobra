@@ -238,6 +238,45 @@ def test_stream_session_resumen_final():
     assert fin["calidad"] is not None and fin["turnos"] == 1
 
 
+def test_g711_codecs_bit_exactos():
+    """Codecs G.711 propios (μ-law y A-law) idénticos a la referencia."""
+    import numpy as np
+    from realtime.connectors import ulaw_to_float, alaw_to_float
+    from realtime.simular_rtp import lin_a_ulaw, lin_a_alaw
+    xs = np.arange(-32768, 32768, dtype=np.int32).astype(np.float32) / 32767.0
+    # round-trip: error acotado a la cuantización G.711
+    assert np.max(np.abs(ulaw_to_float(lin_a_ulaw(xs)) - xs)) < 0.04
+    assert np.max(np.abs(alaw_to_float(lin_a_alaw(xs)) - xs)) < 0.04
+    try:
+        import audioop                     # referencia (no existe en 3.13+)
+        pcm = (np.clip(np.arange(-32768, 32768, dtype=np.int32), -32767, 32767)
+               .astype(np.int16).tobytes())
+        assert lin_a_ulaw(xs) == audioop.lin2ulaw(pcm, 2)
+        assert lin_a_alaw(xs) == audioop.lin2alaw(pcm, 2)
+        assert alaw_to_float(bytes(range(256))).tobytes() == (
+            np.frombuffer(audioop.alaw2lin(bytes(range(256)), 2), dtype=np.int16)
+            .astype(np.float32) / 32768.0).tobytes()
+    except ImportError:
+        pass
+
+
+def test_conector_avaya_rtp():
+    """Parseo RTP y decodificación por payload type (0=PCMU, 8=PCMA)."""
+    import numpy as np
+    from realtime.simular_rtp import rtp_packet, lin_a_alaw, lin_a_ulaw
+    from realtime.conector_avaya import parse_rtp, decodificar
+    x = (0.3 * np.sin(2 * np.pi * 200 * np.arange(160) / 8000)).astype("float32")
+    for pt, enc in ((8, lin_a_alaw), (0, lin_a_ulaw)):
+        pkt = rtp_packet(pt, 7, 1600, 0xABCD, enc(x))
+        pt2, seq, payload = parse_rtp(pkt)
+        assert (pt2, seq) == (pt, 7)
+        dec = decodificar(pt2, payload)
+        assert dec.shape[0] == 160
+        assert np.max(np.abs(dec - x)) < 0.01
+    assert parse_rtp(b"corto") is None                 # basura → ignorada
+    assert parse_rtp(bytes(20)) is None                # versión RTP inválida
+
+
 def test_stream_decoders():
     import numpy as np
     from realtime import connectors

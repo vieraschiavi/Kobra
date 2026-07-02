@@ -41,7 +41,27 @@ def _ulaw_tabla() -> np.ndarray:
     return (sign * (magnitud - 0x84)).astype(np.int16)
 
 
+def _alaw_tabla() -> np.ndarray:
+    """Tabla de decodificación A-law (G.711) en numpy puro.
+    A-law es el estándar en Uruguay/Europa; μ-law en Norteamérica/Japón."""
+    a = np.arange(256, dtype=np.uint8) ^ 0x55
+    sign = np.where(a & 0x80, 1, -1).astype(np.int32)
+    seg = ((a & 0x70) >> 4).astype(np.int32)
+    t = ((a & 0x0F) << 4).astype(np.int32)
+    mag = np.where(seg == 0, t + 8, (t + 0x108) << np.maximum(seg - 1, 0))
+    return (sign * mag).astype(np.int16)
+
+
 _ULAW = _ulaw_tabla()
+_ALAW = _alaw_tabla()
+
+
+def alaw_to_float(payload: bytes) -> np.ndarray:
+    """Decodifica A-law (G.711, 8 kHz) a float [-1,1]."""
+    if not payload:
+        return np.zeros(0, dtype=np.float32)
+    idx = np.frombuffer(payload, dtype=np.uint8)
+    return _ALAW[idx].astype(np.float32) / 32768.0
 
 
 def ulaw_to_float(payload: bytes) -> np.ndarray:
