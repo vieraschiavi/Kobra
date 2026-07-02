@@ -7,13 +7,83 @@ Negociador** que recomienda la mejor estrategia, descuento, canal y guion, y un
 (voz o WhatsApp) y asesora al gestor en tiempo real — todo dentro de un
 dashboard gerencial con KPIs, filtros, gráficos y exportación a Excel/CSV.
 
-> Demo lista para vender a cualquier empresa con cartera vencida (banca,
-> financieras, retail, telco, utilities, fintech). Pensada para **Uruguay**,
-> con **datos sintéticos y sin nombres de clientes** — sin problemas legales.
+> **Qué es esto (léase primero).** Kobra es una **demo comercial funcional**
+> construida sobre **datos 100% sintéticos** (sin nombres de clientes, apta
+> para mostrar sin problemas legales). Todo lo que ves funcionar es real:
+> el pipeline, el copiloto, la integración telefónica, el dashboard. Pero
+> **ninguna métrica de impacto o de modelo mostrada acá es evidencia de
+> resultados reales** — son **ilustrativas de la metodología**. La sección
+> [Honestidad de los números](#-honestidad-de-los-números-leer-antes-de-vender)
+> explica exactamente qué es demostración y qué se valida con datos reales.
 
 **Presentación gerencial:** `presentation/Kobra_Presentacion_Gerencial.pptx`
-(generada con `python presentation/build_ppt.py`) · versión **Canva** editable:
-<https://www.canva.com/d/MUuxAHhku6oIR0x> (exportable a PDF/PPTX).
+(generada con `python presentation/build_ppt.py`) · versión **Canva** editable
+(reetiquetada, cifras marcadas como ilustrativas):
+<https://www.canva.com/d/VJ__8kGcZ2M3Q7D> (exportable a PDF/PPTX).
+
+---
+
+## ⚖️ Honestidad de los números (leer antes de vender)
+
+Esta demo genera sus propios datos, y eso tiene una consecuencia directa sobre
+qué se puede afirmar frente a un cliente:
+
+1. **El "impacto de Kobra" (+pp de conversión/recupero) es un supuesto
+   programado, no un resultado medido.** El generador de gestiones
+   (`data/generate_gestiones.py`) **inyecta por diseño** una mejora progresiva
+   en los gestores que "adoptan Kobra" (una curva de aprendizaje codificada).
+   La pestaña *Gestores & Evolución* y `outputs/impacto_kobra.json` después
+   "recuperan" ese efecto. Es **circular a propósito**: demuestra *cómo se
+   mediría* el impacto (grupo con vs. sin herramienta, evolución mensual,
+   uplift por cohorte), no *cuánto* mejora Kobra. **Nunca presentar esos
+   números como ROI medido.**
+
+2. **El AUC del modelo tampoco prueba desempeño real.** La etiqueta `pago` del
+   dataset sintético se genera con una función logística conocida; que un
+   modelo la reaprenda con AUC ≈ 0.87 es **trivial y esperable por
+   construcción**. De hecho, en la selección de modelos el mejor resultó la
+   **Regresión Logística** (ver `outputs/model_selection.json`) — coherente con
+   que los datos son, literalmente, logísticos. Con una cartera real, el
+   algoritmo ganador y el AUC serán otros. Lo que vale acá es la
+   **metodología** (comparación de modelos con validación cruzada +
+   calibración), no el número.
+
+3. **El sentimiento y la emoción de voz son heurísticos**, no modelos de deep
+   learning entrenados: léxico en español con negación/intensificadores para
+   texto, y prosodia (energía, F0, ritmo) para voz. Funcionan bien para la demo
+   y para casos claros; en producción se reemplazan por modelos entrenados
+   (SER tipo wav2vec2/SpeechBrain, diarización pyannote) **manteniendo las
+   mismas interfaces**, que para eso están diseñadas.
+
+4. **Streamlit es front de demo/piloto**, no de SaaS multi-tenant. Aguanta un
+   piloto con un equipo; para cientos de gestores concurrentes con aislamiento
+   de datos por cliente, la capa de UI se reescribe (el motor — `kobra/` y
+   `realtime/` — se conserva).
+
+### 🧪 Cómo se validaría con datos reales
+
+Al implementar con la cartera real de un cliente, la evidencia se construye
+así (y solo entonces se pueden afirmar números):
+
+- **Validación temporal (walk-forward):** entrenar con los meses 1…N y evaluar
+  en el mes N+1, deslizando la ventana — nunca validación aleatoria que mezcle
+  pasado y futuro.
+- **Anti-leakage:** cada feature debe estar disponible **al momento de la
+  gestión** (nada posterior al contacto: sin pagos futuros, sin promesas aún
+  no ocurridas, sin campos que se completan al cierre).
+- **Calibración medida, no asumida:** curvas de confiabilidad y Brier score
+  sobre datos reales; recalibración periódica.
+- **Uplift causal con grupo de control:** asignación aleatoria de gestores o
+  subcarteras a "con Kobra" vs. "sin Kobra" durante el piloto; la diferencia
+  de tasa de cura / $ recuperado por hora de gestor / promesas cumplidas es el
+  impacto real — exactamente el análisis que la pestaña *Gestores & Evolución*
+  ya sabe hacer.
+- **Monitoreo de drift** y reentrenamiento programado (el workflow
+  `train.yml` ya existe).
+
+**Camino comercial honesto:** demo con datos sintéticos → **piloto pago
+acotado** sobre una subcartera real → caso testigo con números medidos → ahí sí,
+implementación completa con evidencia propia.
 
 ---
 
@@ -35,7 +105,7 @@ dashboard gerencial con KPIs, filtros, gráficos y exportación a Excel/CSV.
 ```
 Cartera (CSV)
    │
-   ├─►  ProbPago  (kobra/probpago.py)      Gradient Boosting → probabilidad de pago
+   ├─►  ProbPago  (kobra/probpago.py)      modelo de probabilidad de pago (ML)
    │
    ├─►  Agente Negociador (kobra/negociador.py)   estrategia + descuento + canal + guion
    │
@@ -43,7 +113,7 @@ Cartera (CSV)
    │        ├─ realtime/  (FastAPI + WebSocket)     audio en vivo durante la llamada
    │        └─ voz (kobra/voz.py)                   diarización + emoción acústica de voz
    │
-   ├─►  Analítica de gestión (kobra/analitica.py)  por gestor/mes/tramo/segmento + impacto Kobra
+   ├─►  Analítica de gestión (kobra/analitica.py)  por gestor/mes/tramo/segmento + medición de impacto
    │
    ├─►  Entrenamiento ML (kobra/train.py)          selección de modelos + calibración (ProbPago)
    │
@@ -79,7 +149,7 @@ python presentation/build_ppt.py                      # presentación gerencial 
 Abrí `dashboard_estatico/index.html` en cualquier navegador (funciona
 offline, con librerías locales). Ideal para demos y para compartir por mail.
 
-### 🐳 Despliegue con Docker (producción)
+### 🐳 Despliegue con Docker (piloto/producción)
 
 ```bash
 docker compose up --build
@@ -108,30 +178,38 @@ Con `OPENAI_API_KEY` se habilita la transcripción real (Whisper) y con
 
 ## 📊 El dashboard
 
-Cuatro secciones, todas con **filtros dinámicos** (segmento, producto, tramo
-de mora, propensión, departamento, monto y ProbPago mínima):
+Siete pestañas, con **filtros dinámicos** (segmento, producto, tramo de mora,
+propensión, departamento, monto y ProbPago mínima):
 
 1. **Visión general** — 6 KPIs, cartera vs. recupero por tramo, propensión,
    recupero por segmento y top departamentos.
 2. **Agente Negociador** — estrategias recomendadas, recupero por estrategia y
    un **simulador por deudor** con el guion listo para enviar.
 3. **Cartera & Export** — tabla priorizada + descarga a **CSV / Excel**.
-4. **Modelo ProbPago** — métricas (AUC, lift), drivers del modelo y
-   distribución de la probabilidad de pago.
-
-![Dashboard](assets/dashboard_overview.png)
+4. **Modelo ProbPago** — métricas de la demo, drivers y distribución.
+5. **Copiloto en Vivo** — análisis de conversaciones y de grabaciones (voz).
+6. **Gestores & Evolución** — metodología de medición de impacto (ilustrativa).
+7. **Configuración** — API keys persistentes.
 
 ---
 
 ## 🧠 ProbPago (el modelo)
 
-- **Algoritmo:** Gradient Boosting (scikit-learn).
+- **Metodología:** selección de modelos con **validación cruzada (5 folds)** —
+  Regresión Logística, Random Forest, Gradient Boosting, HistGradientBoosting —
+  elección por ROC-AUC, **calibración isotónica** y persistencia
+  (`python -m kobra.train` → `outputs/probpago_model.joblib` +
+  `outputs/model_selection.json`).
+- **En el dataset sintético de la demo ganó la Regresión Logística**
+  (esperable: la etiqueta se genera con una función logística — ver
+  [Honestidad de los números](#-honestidad-de-los-números-leer-antes-de-vender)).
+  Con datos reales, el ganador y las métricas se determinan de nuevo con
+  validación temporal.
 - **Features:** monto, días de mora, score de buró, contactabilidad,
   historial de pagos y promesas, antigüedad, gestiones previas, segmento,
-  producto, departamento y canal.
-- **Salida:** probabilidad de pago (0–1), decil y segmento de propensión
-  (Alta / Media / Baja).
-- **Desempeño (demo):** AUC-ROC ≈ 0.87 · Lift del top decil ≈ 1.7x vs. base.
+  producto, departamento y canal — todas disponibles al momento de la gestión.
+- **Salida:** probabilidad de pago (0–1), decil y propensión (Alta/Media/Baja).
+- Reentrenamiento programado vía GitHub Actions (`.github/workflows/train.yml`).
 
 ## 🤖 Agente IA Negociador
 
@@ -150,22 +228,20 @@ quita:
 Asiste al gestor **durante** la negociación telefónica o por WhatsApp
 (`kobra/copiloto.py`):
 
-- **Análisis de sentimiento** turno a turno (léxico español rioplatense, con
-  manejo de negación e intensificadores). Acepta además señales de voz
-  (energía, variabilidad de pitch, ritmo) para negociación telefónica.
+- **Análisis de sentimiento** turno a turno (léxico español rioplatense con
+  negación e intensificadores — heurístico, reemplazable por un modelo
+  entrenado con la misma interfaz).
 - **Detección de emociones** del cliente (enojo, frustración, ansiedad,
   dificultad económica, intención de pago, objeción…).
 - **Detección de técnicas** del gestor (anclaje, fraccionamiento, alternativas,
   reciprocidad, urgencia, escasez, validación, cierre…).
-- **Scoring de calidad** de la gestión (16 criterios ponderados).
+- **Scoring de calidad** de la gestión (criterios ponderados).
 - **Asesoría en tiempo real**: sugerencias accionables + la **próxima frase**
   sugerida, ligadas a la ProbPago del deudor.
 
 Funciona **100% offline**. Si hay claves en el entorno se enriquece solo:
 `OPENAI_API_KEY` → transcripción de audio (Whisper); `ANTHROPIC_API_KEY` →
-evaluación cualitativa (Claude). Es una adaptación generalizada del motor de
-evaluación de llamadas/WhatsApp incluido en `referencia_R/` (marca removida,
-de evaluación *post-mortem* a **asistencia en vivo**).
+evaluación cualitativa (Claude).
 
 Disponible en tres lugares:
 - **Dashboard Streamlit** → pestaña *Copiloto en Vivo* (pegar/subir conversación).
@@ -208,6 +284,9 @@ Analiza la **señal de voz** de la llamada, no solo las palabras:
 - **Emoción acústica (prosodia)**: a partir de energía, tono (F0), variación de
   tono, ritmo del habla y brillo espectral estima *arousal*/*valencia* y una
   etiqueta (enojo, frustración, ansiedad, resignación, neutro, positivo).
+  **Heurística fundada en prosodia** — suficiente para demo; en producción se
+  reemplaza por un modelo SER entrenado (wav2vec2/SpeechBrain) y la
+  diarización mono por pyannote.audio, con la misma interfaz.
 - **Fusión voz + texto**: el sentimiento acústico se combina con el de texto
   (`copiloto.analizar_sentimiento(texto, voz=…)`), de modo que una **voz tensa
   del cliente adelanta la alerta** aunque las palabras sean neutras.
@@ -219,10 +298,6 @@ python data/generate_audio_demo.py      # crea data/ejemplo_llamada.wav
 # En el dashboard → pestaña "Copiloto en Vivo" → "Analizar grabación (voz)"
 # o por API:  POST /analizar_audio  al servidor realtime
 ```
-
-En producción se puede reemplazar el estimador heurístico por un modelo SER
-entrenado (wav2vec2 / SpeechBrain) manteniendo la misma interfaz, y la
-diarización mono por pyannote.audio.
 
 ### ☎️ Integración con telefonía (softphone / PBX)
 
@@ -292,27 +367,49 @@ python -m realtime.simular_stream    # stremea la grabación demo a /ws_audio
 o configurá SIPREC/DMCC para reenviar el media a `wss://<host>/ws_audio`. La
 asesoría se enruta a la pantalla del gestor (WS `/ws`).
 
+### 🔁 Ciclo completo de la negociación (pre → en vivo → post)
+
+1. **Antes de llamar** — `GET /brief/{id_deudor}`: briefing para el screen-pop
+   del CTI (Avaya Workspaces, etc.): ProbPago, estrategia, descuento máximo,
+   plan, canal, guion y prioridad, calculados por el pipeline. El marcador
+   (p. ej. Avaya Proactive Outreach) puede tomar la lista priorizada exportada.
+2. **Durante** — el mensaje `start` de `/ws_audio` acepta `id_deudor` y
+   `gestor_id`: Kobra carga solo el briefing y ajusta la propuesta turno a
+   turno según el sentimiento (voz + texto) del cliente.
+3. **Al colgar** — el mensaje `stop` (acepta `resultado` con la tipificación
+   real del CRM; si falta, se infiere del clima + intención de pago) **persiste
+   la negociación** en `data/kobra_gestiones.csv` vía `kobra/registro.py`:
+   calidad, sentimiento, emoción dominante, técnicas, resultado y recupero.
+   Esa es la misma base que alimenta la pestaña **Gestores & Evolución**, así
+   el dashboard pasa de la demo a **llamadas reales** sin ningún cambio.
+
+Probalo end-to-end sin central: `python -m realtime.simular_stream` (muestra el
+brief, la asesoría en vivo y la gestión registrada al final).
+
 ## 📇 Analítica por gestor y por mes (`kobra/analitica.py`)
 
-Sobre el historial de gestiones (`data/generate_gestiones.py`) responde:
+Sobre el historial de gestiones responde:
 
 - **Qué características suceden más** por tramo de mora, segmento, canal o
   producto (emoción dominante del cliente, calidad, conversión, recupero) y una
   **matriz de emociones** por tramo/segmento.
 - **Cómo evolucionan mes a mes** (calidad, sentimiento, conversión, recupero).
-- **Impacto en la cobranza**: a mayor calidad de gestión, mayor conversión y
-  recupero.
-- **Si los gestores mejoran con el tiempo** usando Kobra: comparación
-  *con vs. sin Kobra* y evolución por gestor (primeros vs. últimos meses).
+- **Relación calidad de gestión ↔ conversión/recupero.**
+- **Medición de impacto con grupo de control** (*con vs. sin Kobra*) y
+  evolución por gestor — la mecánica exacta que se usaría en un piloto real.
 
-Todo en la pestaña **Gestores & Evolución** del dashboard, con export a Excel.
+> ⚠️ En la demo, el historial de gestiones es **sintético** y el "efecto
+> Kobra" está **inyectado por el generador** para ilustrar la metodología.
+> Los uplifts que muestra la pestaña *Gestores & Evolución* **no son
+> resultados medidos**. Con el registro post-llamada (`kobra/registro.py`)
+> la misma pestaña se alimenta de llamadas reales, y ahí los números sí
+> significan algo.
 
-## 🔬 Entrenamiento ML (mejora de ProbPago)
+## 🔬 Entrenamiento ML (`kobra/train.py`)
 
-`kobra/train.py` eleva ProbPago a una **selección de modelos**: compara
-Regresión Logística, Random Forest, Gradient Boosting e HistGradientBoosting
-con **validación cruzada (5 folds)**, elige el mejor por ROC-AUC, lo
-**calibra** (isotónica) y lo persiste:
+Selección de modelos con **validación cruzada (5 folds)**: compara Regresión
+Logística, Random Forest, Gradient Boosting e HistGradientBoosting, elige el
+mejor por ROC-AUC, lo **calibra** (isotónica) y lo persiste:
 
 ```bash
 python -m kobra.train
@@ -336,17 +433,18 @@ Kobra/
 │   ├── copiloto.py                 # copiloto de negociación en vivo (sentimiento)
 │   ├── voz.py                      # diarización + emoción acústica de voz
 │   ├── analitica.py                # analítica por gestor / mes / tramo / segmento
+│   ├── registro.py                 # briefing pre-llamada + registro post-llamada
 │   ├── config.py                   # API keys persistentes (Configuración)
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports
 ├── realtime/                       # copiloto de audio en vivo (FastAPI + WebSocket)
-├── app/app.py                      # dashboard Streamlit (6 pestañas)
+├── app/app.py                      # dashboard Streamlit (7 pestañas)
 ├── dashboard_estatico/             # dashboard + copiloto zero-install (offline)
 ├── presentation/build_ppt.py       # generador de presentación gerencial
 ├── tests/test_kobra.py             # pruebas del pipeline y el copiloto
 ├── referencia_R/                   # motor R original adaptado (referencia)
 ├── .github/workflows/              # CI (tests) + entrenamiento ML programado
-├── Dockerfile · docker-compose.yml # despliegue de producción (dashboard + realtime)
+├── Dockerfile · docker-compose.yml # despliegue (dashboard + realtime)
 ├── outputs/                        # CSV, Excel, JSON y modelo generados
 ├── assets/                         # capturas del dashboard
 ├── requirements.txt
@@ -362,3 +460,7 @@ datos personales de clientes reales**. El esquema es genérico: para usarlo con
 una cartera real basta con respetar las mismas columnas
 (`data/generate_dataset.py` documenta el esquema). Apto para demo comercial en
 Uruguay sin exponer información sensible.
+
+> Origen: el copiloto adapta y generaliza criterios de evaluación de gestiones
+> de un motor de referencia de **autoría propia** (`referencia_R/`), sin marcas
+> ni datos de terceros.

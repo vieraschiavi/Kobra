@@ -1,4 +1,5 @@
 {
+  "NOTA": "ILUSTRATIVO: datos sintéticos con efecto de adopción inyectado por el generador (data/generate_gestiones.py). Demuestra la metodología de medición, NO es impacto medido.",
   "con_kobra": {
     "gestiones": 3336,
     "calidad_prom": 69.7,

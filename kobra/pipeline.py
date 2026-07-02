@@ -127,11 +127,17 @@ def _analitica_gestiones():
         analitica.evolucion_mensual(g).to_excel(xl, sheet_name="Evolucion_mensual", index=False)
         analitica.caracteristicas_por(g, "tramo_mora").to_excel(xl, sheet_name="Por_tramo", index=False)
         analitica.caracteristicas_por(g, "segmento").to_excel(xl, sheet_name="Por_segmento", index=False)
-    with open(os.path.join(OUT_DIR, "impacto_kobra.json"), "w", encoding="utf-8") as f:
-        json.dump(analitica.impacto_kobra(g), f, ensure_ascii=False, indent=2)
     ik = analitica.impacto_kobra(g)
-    print(f"[pipeline] Analítica de gestión · uplift conversión con Kobra: "
-          f"+{ik['uplift_conversion']*100:.1f}pp · calidad: +{ik['uplift_calidad']:.1f}")
+    ik_out = {"NOTA": ("ILUSTRATIVO: datos sintéticos con efecto de adopción "
+                       "inyectado por el generador (data/generate_gestiones.py). "
+                       "Demuestra la metodología de medición, NO es impacto medido."),
+              **ik}
+    with open(os.path.join(OUT_DIR, "impacto_kobra.json"), "w", encoding="utf-8") as f:
+        json.dump(ik_out, f, ensure_ascii=False, indent=2)
+    print(f"[pipeline] Analítica de gestión (datos sintéticos ilustrativos) · "
+          f"uplift conversión: +{ik['uplift_conversion']*100:.1f}pp · "
+          f"calidad: +{ik['uplift_calidad']:.1f} — efecto inyectado por el "
+          f"generador para demostrar la metodología, no un resultado medido")
 
 
 def _kpis(df):

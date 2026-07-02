@@ -33,6 +33,7 @@ import base64               # noqa: E402
 from kobra import copiloto   # noqa: E402
 from kobra import voz        # noqa: E402
 from kobra import config as kconfig   # noqa: E402
+from kobra import registro            # noqa: E402
 from realtime import connectors   # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
@@ -44,6 +45,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 @app.get("/")
 def index():
     return FileResponse(os.path.join(HERE, "index.html"))
+
+
+@app.get("/kobra_icon.png")
+def icono():
+    return FileResponse(os.path.join(HERE, "kobra_icon.png"))
 
 
 @app.get("/health")
@@ -85,6 +91,22 @@ async def analizar_audio(audio: UploadFile = File(...)):
             os.remove(tmp)
         except OSError:
             pass
+
+
+@app.get("/brief/{id_deudor}")
+def brief_deudor(id_deudor: str):
+    """
+    Briefing pre-llamada para el screen-pop del CTI (Avaya Workspaces, etc.):
+    ProbPago, estrategia, descuento máx., plan, canal, guion y prioridad del
+    deudor, calculados por el pipeline. El marcador/CTI lo consulta al asignar
+    la llamada y se lo muestra al gestor ANTES de atender.
+    """
+    b = registro.brief(id_deudor)
+    if b is None:
+        return JSONResponse(
+            {"error": f"Deudor {id_deudor} no encontrado (¿corriste kobra.pipeline?)"},
+            status_code=404)
+    return b
 
 
 @app.get("/copiloto_demo")
@@ -193,9 +215,18 @@ async def ws_audio(sock: WebSocket):
             m = await sock.receive_json()
             t = m.get("tipo")
             if t == "start":
+                # Con id_deudor, el briefing (ProbPago/estrategia) se carga solo
+                probpago, estrategia = m.get("probpago"), m.get("estrategia")
+                b = registro.brief(m["id_deudor"]) if m.get("id_deudor") else None
+                if b:
+                    probpago = probpago if probpago is not None else b["probpago"]
+                    estrategia = estrategia or b["estrategia"]
                 sess = connectors.StreamSession(
-                    sr=int(m.get("sr", 8000)), probpago=m.get("probpago"),
-                    estrategia=m.get("estrategia"))
+                    sr=int(m.get("sr", 8000)), probpago=probpago,
+                    estrategia=estrategia, id_deudor=m.get("id_deudor"),
+                    gestor_id=m.get("gestor_id", "G01"))
+                if b:
+                    await sock.send_json({"tipo": "brief", "brief": b})
             elif t == "media":
                 canal = m.get("canal", "cliente")
                 if m.get("pcm_b64"):
@@ -210,7 +241,16 @@ async def ws_audio(sock: WebSocket):
                 if r:
                     await sock.send_json(r)
             elif t == "stop":
-                await sock.send_json({"tipo": "fin"})
+                # Persistir la negociación real → alimenta "Gestores & Evolución"
+                fin = sess.resumen_final()
+                gestion = None
+                if fin and fin.get("id_deudor"):
+                    gestion = registro.registrar_gestion(
+                        id_deudor=fin["id_deudor"], gestor_id=fin["gestor_id"],
+                        canal=m.get("canal", "Llamada"), calidad=fin["calidad"],
+                        clima=fin["clima"], emociones=fin["emociones"],
+                        tecnicas=fin["tecnicas"], resultado=m.get("resultado"))
+                await sock.send_json({"tipo": "fin", "gestion": gestion})
                 break
     except WebSocketDisconnect:
         return

@@ -32,8 +32,10 @@ kconfig.aplicar()   # carga API keys guardadas al entorno
 # ----------------------------------------------------------------------------
 # Config & estilo
 # ----------------------------------------------------------------------------
+_ICON_PATH = os.path.join(ROOT, "assets", "brand", "kobra_icon_64.png")
 st.set_page_config(page_title="Kobra · Cobranzas Inteligente",
-                   page_icon="🐍", layout="wide", initial_sidebar_state="expanded")
+                   page_icon=_ICON_PATH if os.path.exists(_ICON_PATH) else "🐍",
+                   layout="wide", initial_sidebar_state="expanded")
 
 PRIMARY = "#00C896"       # verde Kobra
 DARK = "#0E1117"
@@ -101,14 +103,22 @@ gest = cargar_gestiones()
 # ----------------------------------------------------------------------------
 c1, c2 = st.columns([0.7, 0.3])
 with c1:
-    st.markdown(f"# 🐍 Kobra <span class='kobra-badge'>Cobranzas Inteligente</span>",
+    _logo_html = "🐍 "
+    if os.path.exists(_ICON_PATH):
+        import base64 as _b64
+        with open(_ICON_PATH, "rb") as _f:
+            _logo_html = (f"<img src='data:image/png;base64,"
+                          f"{_b64.b64encode(_f.read()).decode()}' "
+                          f"style='height:52px;vertical-align:-12px;margin-right:10px;'>")
+    st.markdown(f"# {_logo_html}Kobra <span class='kobra-badge'>Cobranzas Inteligente</span>",
                 unsafe_allow_html=True)
     st.caption("ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero")
 with c2:
     st.markdown(
         f"<div style='text-align:right;color:#9aa4b2;margin-top:18px'>"
         f"Modelo ProbPago · <b style='color:{PRIMARY}'>AUC {metrics['auc_roc']}</b> · "
-        f"Lift decil 10: <b style='color:{PRIMARY}'>{metrics['lift_decil10']}x</b></div>",
+        f"Lift decil 10: <b style='color:{PRIMARY}'>{metrics['lift_decil10']}x</b> · "
+        f"<i>demo sintética</i></div>",
         unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
@@ -308,7 +318,13 @@ with tab4:
     mc[2].metric("Lift decil 10", f"{metrics['lift_decil10']}x")
     mc[3].metric("Tasa pago base", f"{metrics['tasa_pago_base']:.1%}")
     st.caption(f"Entrenado con {metrics['n_train']:,} casos · validado con "
-               f"{metrics['n_test']:,} · Gradient Boosting.")
+               f"{metrics['n_test']:,} · Gradient Boosting (esta vista). "
+               "`kobra.train` compara además LogReg/RF/GBM/HistGB con CV y calibración.")
+    st.warning("⚠️ **Métricas sobre datos sintéticos (demo).** La etiqueta de pago se genera "
+               "con una función conocida, así que un AUC alto acá es esperable por construcción "
+               "y **no es evidencia de desempeño real**. Con la cartera real del cliente, el "
+               "modelo se selecciona y valida de nuevo con **validación temporal (walk-forward)** "
+               "y features sin leakage. Lo demostrable es la metodología, no este número.")
 
     ci1, ci2 = st.columns(2)
     with ci1:
@@ -564,6 +580,11 @@ with tab6:
     st.subheader("📇 Gestores & Evolución de la gestión")
     st.caption("Qué características suceden más por tramo/segmento, cómo evolucionan mes a mes, "
                "su impacto en la cobranza y si los gestores mejoran con las herramientas de Kobra.")
+    st.warning("⚠️ **Datos ilustrativos (demo).** El historial de gestiones es sintético y el "
+               "\"efecto Kobra\" está inyectado por el generador para demostrar la **metodología "
+               "de medición** (grupo con vs. sin herramienta, evolución por cohorte). Los uplifts "
+               "que ves acá **no son resultados medidos**. Con el registro post-llamada, esta "
+               "misma pestaña se alimenta de llamadas reales y los números pasan a ser evidencia.")
 
     # Filtros propios del historial
     fg = st.columns(4)
@@ -591,7 +612,7 @@ with tab6:
     else:
         # --- Impacto Kobra (KPIs) ---
         ik = analitica.impacto_kobra(gf)
-        st.markdown("#### 🚀 Impacto de las herramientas Kobra")
+        st.markdown("#### 🚀 Impacto de las herramientas Kobra *(ilustrativo · datos sintéticos)*")
         ck = st.columns(4)
         ck[0].metric("Calidad de gestión", f"{ik['con_kobra']['calidad_prom']:.0f}",
                      f"+{ik['uplift_calidad']:.1f} vs sin Kobra")

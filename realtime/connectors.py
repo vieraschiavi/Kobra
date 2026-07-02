@@ -29,14 +29,27 @@ sys.path.insert(0, ROOT)
 from kobra import copiloto, voz   # noqa: E402
 
 
+def _ulaw_tabla() -> np.ndarray:
+    """Tabla de decodificación μ-law (G.711) en numpy puro.
+    `audioop` fue eliminado en Python 3.13, así que no dependemos de él."""
+    u = np.arange(256, dtype=np.uint8)
+    u = ~u
+    sign = np.where(u & 0x80, -1, 1).astype(np.int32)
+    exponente = (u >> 4) & 0x07
+    mantisa = (u & 0x0F).astype(np.int32)
+    magnitud = ((mantisa << 3) + 0x84) << exponente
+    return (sign * (magnitud - 0x84)).astype(np.int16)
+
+
+_ULAW = _ulaw_tabla()
+
+
 def ulaw_to_float(payload: bytes) -> np.ndarray:
     """Decodifica μ-law (G.711, 8 kHz) a float [-1,1]. Usado por Twilio."""
-    try:
-        import audioop
-        pcm16 = audioop.ulaw2lin(payload, 2)
-        return np.frombuffer(pcm16, dtype=np.int16).astype(np.float32) / 32768.0
-    except Exception:
+    if not payload:
         return np.zeros(0, dtype=np.float32)
+    idx = np.frombuffer(payload, dtype=np.uint8)
+    return _ULAW[idx].astype(np.float32) / 32768.0
 
 
 def pcm16_to_float(payload: bytes) -> np.ndarray:
@@ -47,13 +60,17 @@ def pcm16_to_float(payload: bytes) -> np.ndarray:
 class StreamSession:
     """Estado de una llamada en vivo (acumula por hablante y asesora por turno)."""
 
-    def __init__(self, sr=8000, probpago=None, estrategia=None, min_seg=0.6):
+    def __init__(self, sr=8000, probpago=None, estrategia=None, min_seg=0.6,
+                 id_deudor=None, gestor_id="G01"):
         self.sr = sr
         self.probpago = probpago
         self.estrategia = estrategia
         self.min_muestras = int(min_seg * sr)
         self.buffers = {"gestor": [], "cliente": []}
         self.turnos = []          # líneas "Gestor: …" / "Cliente: …"
+        self.id_deudor = id_deudor
+        self.gestor_id = gestor_id
+        self.ultimo_estado = None   # último resultado del copiloto (para el cierre)
 
     def agregar(self, canal: str, samples: np.ndarray):
         if canal not in self.buffers:
@@ -107,7 +124,7 @@ class StreamSession:
                 nombre_gestor="Gestor")
             cop, cal, tec = res["copiloto"], res["calidad"], res["tecnicas"]
 
-        return {
+        resultado = {
             "turno": {
                 "canal": canal, "texto": texto,
                 "emocion_voz": emo.emocion, "arousal": emo.arousal,
@@ -120,6 +137,23 @@ class StreamSession:
             "calidad": cal["score_total"] if cal else None,
             "sugerencias": cop["sugerencias"] if cop else [],
             "proxima_frase": cop["proxima_frase"] if cop else None,
+        }
+        self.ultimo_estado = resultado
+        return resultado
+
+    def resumen_final(self) -> dict | None:
+        """Estado final de la negociación, para persistir al colgar."""
+        if not self.ultimo_estado:
+            return None
+        u = self.ultimo_estado
+        return {
+            "id_deudor": self.id_deudor,
+            "gestor_id": self.gestor_id,
+            "calidad": u["calidad"],
+            "clima": u["clima"],
+            "emociones": u["emociones_cliente"],
+            "tecnicas": u["tecnicas"],
+            "turnos": len(self.turnos),
         }
 
 

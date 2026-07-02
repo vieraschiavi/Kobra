@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320">
+  <rect width="1200" height="320" fill="#0E1117"/>
+  <g transform="translate(36,36) scale(0.485)">
+    <defs>
+      <linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="120" y1="100" x2="440" y2="420">
+        <stop offset="0" stop-color="#00E5A8"/><stop offset="1" stop-color="#00A876"/>
+      </linearGradient>
+    </defs>
+    <rect x="8" y="8" width="496" height="496" rx="116" fill="#10151f" stroke="#00C896" stroke-width="10"/>
+    <path d="M158 138 L158 374" stroke="url(#g2)" stroke-width="54" stroke-linecap="round" fill="none"/>
+    <path d="M196 262 L330 380" stroke="url(#g2)" stroke-width="54" stroke-linecap="round" fill="none"/>
+    <path d="M196 262 C 258 212, 282 196, 318 176" stroke="url(#g2)" stroke-width="54" stroke-linecap="round" fill="none"/>
+    <path d="M318 176 C 306 128, 344 96, 384 110 C 424 124, 430 176, 396 200 C 372 217, 338 210, 318 176 Z" fill="url(#g2)"/>
+    <circle cx="382" cy="148" r="13" fill="#0B0F16"/>
+    <path d="M414 186 L448 206 M448 206 L462 194 M448 206 L456 222" stroke="#6C5CE7" stroke-width="11" stroke-linecap="round" fill="none"/>
+  </g>
+  <text x="330" y="172" font-family="Segoe UI, Arial, sans-serif" font-size="128" font-weight="800" fill="#F5F6FA" letter-spacing="6">KOBRA</text>
+  <text x="336" y="236" font-family="Segoe UI, Arial, sans-serif" font-size="40" font-weight="600" fill="#00C896" letter-spacing="14">COBRANZAS INTELIGENTE</text>
+</svg>

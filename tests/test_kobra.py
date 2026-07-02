@@ -191,12 +191,66 @@ def test_config_persistencia(tmp_path, monkeypatch):
     importlib.reload(c)
 
 
+def test_brief_pre_llamada():
+    from kobra import registro
+    df = registro._scored()
+    if df is None:
+        __import__("pytest").skip("outputs/kobra_scored.csv no generado")
+    algun_id = df["id_deudor"].iloc[0]
+    b = registro.brief(algun_id)
+    assert b is not None
+    for campo in ("probpago", "estrategia", "descuento_recomendado",
+                  "canal_recomendado", "guion", "prioridad", "resumen"):
+        assert campo in b
+    assert 0 <= b["probpago"] <= 1
+    assert registro.brief("KB-NOEXISTE") is None
+
+
+def test_registrar_gestion(tmp_path):
+    from kobra import registro
+    df = registro._scored()
+    if df is None:
+        __import__("pytest").skip("outputs/kobra_scored.csv no generado")
+    archivo = str(tmp_path / "gestiones.csv")
+    algun_id = df["id_deudor"].iloc[0]
+    g = registro.registrar_gestion(
+        id_deudor=algun_id, gestor_id="G03", calidad=88.0, clima=0.4,
+        emociones=["intencion_pago"], tecnicas=["Cierre", "Alternativas"],
+        archivo=archivo)
+    assert g["resultado"] == "Promesa"          # clima positivo + cierre
+    assert g["recupero"] > 0 and g["usa_kobra"] is True
+    guardado = pd.read_csv(archivo)
+    assert len(guardado) == 1
+    assert list(guardado.columns) == registro.GESTION_COLS
+    # segunda gestión: id incremental y append sin duplicar header
+    registro.registrar_gestion(id_deudor=algun_id, archivo=archivo, clima=-0.5)
+    guardado = pd.read_csv(archivo)
+    assert len(guardado) == 2
+    assert guardado["resultado"].iloc[1] == "Sin acuerdo"
+
+
+def test_stream_session_resumen_final():
+    from realtime import connectors
+    sess = connectors.StreamSession(id_deudor="KB-100773", gestor_id="G05")
+    sess.cerrar_turno("cliente", texto_hint="dale, acepto, gracias")
+    fin = sess.resumen_final()
+    assert fin["id_deudor"] == "KB-100773" and fin["gestor_id"] == "G05"
+    assert fin["calidad"] is not None and fin["turnos"] == 1
+
+
 def test_stream_decoders():
-    import audioop
     import numpy as np
     from realtime import connectors
     pcm = (np.array([0, 16000, -16000, 8000], dtype="int16")).tobytes()
     f = connectors.pcm16_to_float(pcm)
     assert f.shape[0] == 4 and -1.0 <= f.min() and f.max() <= 1.0
-    u = connectors.ulaw_to_float(audioop.lin2ulaw(pcm, 2))
-    assert u.shape[0] == 4
+    # μ-law: decodificador numpy propio (audioop no existe en Python 3.13+)
+    u = connectors.ulaw_to_float(bytes(range(256)))
+    assert u.shape[0] == 256 and -1.0 <= u.min() and u.max() <= 1.0
+    try:
+        import audioop
+        ref = (np.frombuffer(audioop.ulaw2lin(bytes(range(256)), 2), dtype=np.int16)
+               .astype(np.float32) / 32768.0)
+        assert np.array_equal(u, ref)          # bit-exacto vs. audioop
+    except ImportError:
+        pass

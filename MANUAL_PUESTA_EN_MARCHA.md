@@ -43,6 +43,15 @@ El audio va por la central, **no** por el micrófono de la PC. Según la platafo
 
 Prueba sin central real: `docker compose exec realtime python -m realtime.simular_stream`.
 
+**Ciclo completo con el CTI:**
+- *Antes de llamar:* el screen-pop consulta `GET /brief/{id_deudor}` → muestra al
+  gestor ProbPago, estrategia, descuento máximo y guion inicial.
+- *Durante:* el conector abre `/ws_audio` con `{"tipo":"start","id_deudor":…,"gestor_id":…}`
+  y Kobra ajusta la propuesta turno a turno.
+- *Al colgar:* envía `{"tipo":"stop","resultado":"<tipificación del CRM>"}` y la
+  negociación queda **registrada automáticamente** en la base de gestiones →
+  aparece en la pestaña *Gestores & Evolución* del dashboard.
+
 ## 6. Uso diario
 | Rol | Qué usa |
 |---|---|
