@@ -17,8 +17,9 @@ dashboard gerencial con KPIs, filtros, gráficos y exportación a Excel/CSV.
 > explica exactamente qué es demostración y qué se valida con datos reales.
 
 **Presentación gerencial:** `presentation/Kobra_Presentacion_Gerencial.pptx`
-(generada con `python presentation/build_ppt.py`) · versión **Canva** editable:
-<https://www.canva.com/d/MUuxAHhku6oIR0x> (exportable a PDF/PPTX).
+(generada con `python presentation/build_ppt.py`) · versión **Canva** editable
+(reetiquetada, cifras marcadas como ilustrativas):
+<https://www.canva.com/d/_n2AjNIURuCpi_c> (exportable a PDF/PPTX).
 
 ---
 
