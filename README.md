@@ -492,6 +492,97 @@ pipeline en cada push/PR.
 
 ---
 
+## 🛡️ Cumplimiento, explicabilidad y caso de negocio
+
+Tres capas que hacen a Kobra vendible a una entidad regulada (banco, financiera,
+cooperativa, estudio de cobranzas) y no solo demostrable.
+
+### ⚖️ Cumplimiento normativo — `kobra/cumplimiento.py`
+
+Gobierna **cuándo y cómo** se puede contactar a cada deudor, para que la
+cobranza —humana o del Gestor IA— opere dentro de la ley y las buenas
+prácticas. Es la capa que legal/compliance exige antes de dejar que un bot
+llame a una cartera:
+
+- **Horario permitido**: bloquea contactos fuera de franja (default 09–20),
+  en domingos o **feriados de Uruguay** (fijos + Semana de Turismo/Carnaval
+  derivados de Pascua).
+- **Tope de frecuencia** por deudor (anti-hostigamiento): máximos por día y por
+  7 días.
+- **Lista "No Contactar" / opt-out**: si el deudor pide no ser contactado, el
+  Gestor IA lo **detecta, lo registra y no lo vuelve a llamar** (`es_pedido_no_contactar`
+  → `registrar_no_contactar`). El voicebot **filtra la base** antes de marcar.
+- **Política 100 % configurable** por empresa/país (`PoliticaContacto`).
+
+```python
+from kobra import cumplimiento as cp
+d = cp.puede_contactar("KB-100773", "Llamada")   # Decision(permitido, codigo, motivo)
+```
+
+> ⚠️ Herramienta de **apoyo al cumplimiento, no asesoría legal**: cada empresa
+> fija su política con su asesoría jurídica; Kobra provee el mecanismo para
+> hacerla cumplir y auditar.
+
+### 🔍 Explicabilidad de ProbPago — `kobra/explicabilidad.py`
+
+Para cada deudor responde **por qué** el modelo le asignó esa probabilidad:
+qué características la suben y cuáles la bajan, en puntos porcentuales
+(atribución por **oclusión**, model-agnostic — funciona con cualquier modelo
+del pipeline). El pipeline agrega la columna `motivo_probpago` a la cartera
+scoreada y al **brief pre-llamada**, p. ej.:
+
+```
+KB-111022 · ProbPago 99% → Score de buró (+3.9 pp) · Promesas cumplidas (+0.5 pp)
+KB-106556 · ProbPago  1% → Promesas incumplidas (-1.1 pp) · Días de mora (-1.0 pp)
+```
+
+Convierte a ProbPago de "caja negra" en una **decisión automatizada auditable
+y defendible** — lo que exigen la Ley 18.331 de Uruguay y marcos equivalentes.
+
+### 💰 Caso de negocio (ROI) — `kobra/roi.py`
+
+Traduce la cartera del comprador en un rango de valor bajo distintos supuestos
+de *uplift*, para dimensionar el premio y justificar un piloto pago:
+
+```bash
+python -m kobra.roi --cartera 100000000 --tasa-base 0.30 --costo-mensual 100000
+#  [conservador] +2 pp → adicional $U 2.000.000 …
+#  [       base] +5 pp → adicional $U 5.000.000 · ROI … · payback … m
+```
+
+> ⚠️ El *uplift* es un **supuesto que carga el usuario, no un resultado
+> medido**. El módulo proyecta *cuánto valdría*, no afirma cuánto sube Kobra —
+> coherente con la sección [Honestidad de los números](#-honestidad-de-los-números-leer-antes-de-vender).
+
+### 🧪 Probar con tu propia cartera — **desde el dashboard** (sin código)
+
+En el dashboard, pestaña **"🧪 Probar mi cartera"**: cargás tus contactos
+—**escribiéndolos en una tabla** o **subiendo un CSV/Excel**— y el Gestor IA
+negocia cada caso (ProbPago + el porqué, estrategia, chequeo de cumplimiento y
+la conversación completa). Los resultados se **descargan** a CSV/Excel. Todo por
+menús; no hace falta correr nada.
+
+La pestaña **"💰 Caso de negocio"** calcula el ROI sobre tu cartera con tus
+supuestos y también se descarga.
+
+> También hay un CLI equivalente (`python -m realtime.mi_cartera`) para quien
+> prefiera consola. El CSV con datos reales queda **privado** (`.gitignore`).
+
+La conversación se **simula**. Para **llamar de verdad** hace falta telefonía
+(tu cuenta de Twilio con un número, o tu central Avaya/Asterisk) y el
+**consentimiento** de la persona — guía paso a paso en
+[`docs/GUIA_LLAMADA_REAL_TWILIO.md`](docs/GUIA_LLAMADA_REAL_TWILIO.md).
+
+> ⚖️ **Proteger Kobra en Uruguay** (derecho de autor + marca, con costos):
+> [`docs/GUIA_REGISTRO_LEGAL_URUGUAY.md`](docs/GUIA_REGISTRO_LEGAL_URUGUAY.md).
+
+> 🔒 **Privacidad.** Un CSV con nombres/teléfonos **reales** es privado:
+> `data/mi_cartera_prueba.csv` y `data/*_prueba.csv` están en `.gitignore` y
+> **no se suben al repo**. El producto que se vende sigue siendo 100 %
+> sintético (Ley 18.331). Para llamar a un tercero necesitás su consentimiento.
+
+---
+
 ## 📁 Estructura
 
 ```
@@ -503,6 +594,10 @@ Kobra/
 │   ├── copiloto.py                 # copiloto de negociación en vivo (sentimiento)
 │   ├── voz.py                      # diarización + emoción acústica de voz
 │   ├── analitica.py                # analítica por gestor / mes / tramo / segmento
+│   ├── cumplimiento.py             # cumplimiento normativo (horarios, topes, no-contactar)
+│   ├── explicabilidad.py           # reason codes por deudor (por qué esta ProbPago)
+│   ├── roi.py                      # estimador de caso de negocio (ROI)
+│   ├── cartera_manual.py           # cargar tu propia cartera de prueba
 │   ├── registro.py                 # briefing pre-llamada + registro post-llamada
 │   ├── config.py                   # API keys persistentes (Configuración)
 │   ├── train.py                    # entrenamiento ML (selección de modelos)

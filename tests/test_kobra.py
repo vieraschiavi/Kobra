@@ -346,3 +346,205 @@ def test_stream_decoders():
         assert np.array_equal(u, ref)          # bit-exacto vs. audioop
     except ImportError:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Cumplimiento normativo (contact governance)
+# ---------------------------------------------------------------------------
+def test_cumplimiento_horario_y_dia():
+    from datetime import datetime
+    from kobra import cumplimiento as cp
+    pol = cp.PoliticaContacto(permitir_feriados=True)   # aislar del calendario
+    # Lunes 10:00 → permitido
+    assert cp.puede_contactar("KB-1", "Llamada", datetime(2026, 7, 6, 10, 0),
+                              politica=pol).permitido
+    # Lunes 22:00 → fuera de horario
+    d = cp.puede_contactar("KB-1", "Llamada", datetime(2026, 7, 6, 22, 0), politica=pol)
+    assert not d.permitido and d.codigo == "FUERA_HORARIO"
+    # Domingo 10:00 → día no hábil
+    d = cp.puede_contactar("KB-1", "Llamada", datetime(2026, 7, 5, 10, 0), politica=pol)
+    assert not d.permitido and d.codigo == "DIA_NO_HABIL"
+
+
+def test_cumplimiento_feriado():
+    from datetime import datetime
+    from kobra import cumplimiento as cp
+    # 25 de agosto (Declaratoria de la Independencia) → feriado, un martes en 2026
+    d = cp.puede_contactar("KB-1", "Llamada", datetime(2026, 8, 25, 10, 0))
+    assert not d.permitido and d.codigo == "FERIADO"
+    # Semana de Turismo derivada de Pascua (2026: Pascua = 5 de abril)
+    fer = cp.feriados_uruguay(2026)
+    assert cp._pascua(2026).isoformat() == "2026-04-05"
+    assert any("Turismo" in n for n in fer.values())
+
+
+def test_cumplimiento_topes_frecuencia():
+    from datetime import datetime, timedelta
+    from kobra import cumplimiento as cp
+    pol = cp.PoliticaContacto(permitir_feriados=True, max_por_dia=1, max_por_semana=3)
+    ahora = datetime(2026, 7, 6, 11, 0)           # lunes
+    # ya lo contacté hoy → tope diario
+    d = cp.puede_contactar("KB-1", "Llamada", ahora,
+                           contactos_previos=[ahora - timedelta(hours=2)], politica=pol)
+    assert not d.permitido and d.codigo == "TOPE_DIARIO"
+    # 3 contactos en la semana (días distintos) → tope semanal
+    previos = [ahora - timedelta(days=k) for k in (1, 2, 3)]
+    d = cp.puede_contactar("KB-1", "Llamada", ahora, contactos_previos=previos, politica=pol)
+    assert not d.permitido and d.codigo == "TOPE_SEMANAL"
+
+
+def test_cumplimiento_opt_out(tmp_path):
+    from kobra import cumplimiento as cp
+    dnc = str(tmp_path / "no_contactar.csv")
+    assert not cp.esta_en_no_contactar("KB-9", archivo=dnc)
+    assert cp.es_pedido_no_contactar("por favor no me llamen más, sáquenme de la lista")
+    assert not cp.es_pedido_no_contactar("no tengo la plata ahora")
+    cp.registrar_no_contactar("KB-9", motivo="pedido del deudor", archivo=dnc)
+    assert cp.esta_en_no_contactar("KB-9", "Llamada", archivo=dnc)
+    d = cp.puede_contactar("KB-9", "Llamada", archivo_dnc=dnc)
+    assert not d.permitido and d.codigo == "OPT_OUT"
+
+
+def test_gestor_ia_opt_out_registra(tmp_path):
+    from kobra import cumplimiento as cp
+    from kobra.gestor_ia import SesionGestorIA
+    dnc = str(tmp_path / "dnc.csv")
+    ses = SesionGestorIA(id_deudor="KB-100773", gestor_id="IA01",
+                         usar_claude=False, dnc_archivo=dnc)
+    ses.responder(None)                                  # saludo
+    r = ses.responder("No me llamen más, no quiero que me contacten")
+    assert r["fin"] and ses.campos_erp.get("opt_out") is True
+    assert cp.esta_en_no_contactar("KB-100773", "Llamada", archivo=dnc)
+
+
+def test_voicebot_respeta_no_contactar(tmp_path):
+    import asyncio
+    from kobra import cumplimiento as cp
+    from realtime.voicebot import correr_campania
+    dnc = str(tmp_path / "dnc.csv")
+    gest = str(tmp_path / "g.csv")
+    cp.registrar_no_contactar("KB-100000", motivo="opt-out", archivo=dnc)
+    ids = ["KB-100000", "KB-100001", "KB-100002"]
+    m = asyncio.run(correr_campania(ids, lineas=5, archivo_gestiones=gest,
+                                    usar_claude=False, archivo_dnc=dnc))
+    assert m["bloqueados_no_contactar"] == 1 and m["total"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Explicabilidad de ProbPago
+# ---------------------------------------------------------------------------
+def _prep_scored():
+    """Genera outputs/kobra_scored.csv si falta (para brief/registro/voicebot)."""
+    from kobra import registro
+    if registro._scored() is not None:
+        return
+    from kobra import pipeline
+    pipeline.run()
+    registro._scored(refrescar=True)
+
+
+def test_explicabilidad_reason_codes():
+    from kobra import explicabilidad as ex
+    df = _df()
+    model = ProbPagoModel().fit(df)
+    scored = model.score(df)
+    base = ex.baseline_cartera(df)
+    # deudor con score de buró alto y sin promesas incumplidas → drivers positivos
+    fila = df.iloc[int(scored["probpago"].idxmax())]
+    drivers = ex.explicar(model, fila, base, top=3)
+    assert 1 <= len(drivers) <= 3
+    assert all("delta_pp" in d and "etiqueta" in d for d in drivers)
+    # el texto del brief menciona al menos un driver
+    txt = ex.explicar_texto(model, fila, base)
+    assert isinstance(txt, str) and len(txt) > 0
+    # vectorizado sobre la cartera: una reason code por fila
+    serie = ex.explicar_cartera(model, df.head(50))
+    assert len(serie) == 50 and serie.notna().all()
+
+
+# ---------------------------------------------------------------------------
+# Caso de negocio (ROI)
+# ---------------------------------------------------------------------------
+def test_roi_estimador():
+    from kobra import roi
+    r = roi.estimar(cartera_total_uyu=100_000_000, tasa_recupero_base=0.30,
+                    meses=12, costo_mensual_uyu=100_000)
+    esc = r["escenarios"]
+    # más uplift ⇒ más recupero adicional (monotonía)
+    assert (esc["conservador"]["recupero_adicional_uyu"]
+            < esc["base"]["recupero_adicional_uyu"]
+            < esc["optimista"]["recupero_adicional_uyu"])
+    # +5 pp sobre 100M = 5M adicionales
+    assert abs(esc["base"]["recupero_adicional_uyu"] - 5_000_000) < 1
+    # payback positivo y ROI coherente
+    assert esc["base"]["payback_meses"] > 0 and esc["base"]["roi"] > 0
+    assert "SUPUESTO" in r["NOTA"]
+
+
+# ---------------------------------------------------------------------------
+# Modo "mi cartera de prueba" (cliente carga sus propios contactos)
+# ---------------------------------------------------------------------------
+def test_cartera_manual_y_gestor():
+    from kobra import cartera_manual as cm
+    from kobra import negociador
+    from kobra.gestor_ia import SesionGestorIA
+    df = _df()
+    model = ProbPagoModel().fit(df)
+    # contactos ficticios (sin datos reales) con perfiles distintos
+    contactos = [
+        {"nombre": "Contacto A", "telefono": "099000001", "monto_deuda": 10000, "dias_mora": 20},
+        {"nombre": "Contacto B", "telefono": "099000002", "monto_deuda": 6000, "dias_mora": 150},
+    ]
+    cart = cm.cargar_manual(contactos)
+    assert list(cart["id_deudor"]) == ["MP-001", "MP-002"]
+    cart = cm.puntuar(model, cart)               # sin qcut (pocas filas)
+    assert cart["probpago"].between(0, 1).all()
+    cart = negociador.recomendar(cart)
+    # el brief pre-cargado se respeta (no lo pisa el lookup de la cartera scoreada)
+    brief = cm.brief_desde_fila(cart.iloc[0])
+    ses = SesionGestorIA(id_deudor="MP-001", usar_claude=False, brief=brief)
+    assert ses.brief["monto_deuda"] == 10000
+    r = ses.responder(None)
+    assert r["texto"] and not r["fin"]
+
+
+def test_leer_csv_preserva_telefono(tmp_path):
+    from kobra import cartera_manual as cm
+    p = tmp_path / "c.csv"
+    p.write_text("nombre,telefono,deuda\nWendy,095779569,10000\n", encoding="utf-8")
+    contactos = cm.leer_csv(str(p))
+    assert contactos[0]["telefono"] == "095779569"      # conserva el 0 inicial
+    assert contactos[0]["monto_deuda"] == 10000
+
+
+def test_procesar_cartera_end_to_end():
+    """procesar(): score + reason codes + cumplimiento + negociación por contacto."""
+    from realtime.mi_cartera import procesar, resultados_a_dataframe
+    from kobra.probpago import ProbPagoModel
+    from kobra import explicabilidad
+    df = _df()
+    model = ProbPagoModel().fit(df)
+    base = explicabilidad.baseline_cartera(df)
+    contactos = [
+        {"nombre": "A", "telefono": "099000001", "monto_deuda": 10000, "dias_mora": 20},
+        {"nombre": "B", "telefono": "099000002", "monto_deuda": 15000, "dias_mora": 160},
+    ]
+    res = procesar(contactos, model, base, usar_claude=False)
+    assert len(res) == 2
+    for r in res:
+        assert 0 <= r["probpago"] <= 1
+        assert r["motivo_probpago"] and r["transcript"]
+        assert r["resultado"] in ("Promesa", "Sin acuerdo", "No contactar", "Derivado a humano")
+        assert r["transcript"][0][0] == "gestor"      # arranca el bot
+    tabla = resultados_a_dataframe(res)
+    assert "transcript" not in tabla.columns and len(tabla) == 2
+
+
+def test_desde_dataframe_tolerante():
+    from kobra import cartera_manual as cm
+    df = pd.DataFrame({"nombre": ["A", "B"], "telefono": ["099000001", "099000002"],
+                       "deuda": ["10000", ""], "dias_mora": ["30", ""]})
+    contactos = cm.desde_dataframe(df)
+    assert len(contactos) == 1                         # descarta la fila sin deuda
+    assert contactos[0]["telefono"] == "099000001"
+    assert contactos[0]["monto_deuda"] == 10000 and contactos[0]["dias_mora"] == 30

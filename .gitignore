@@ -6,3 +6,9 @@ __pycache__/
 .uploads/
 presentation/canva/
 dist/
+
+# Datos personales/privados de prueba — NUNCA se commitean (Ley 18.331).
+# El producto vendible sigue siendo 100% sintético; esto queda solo en tu máquina.
+data/mi_cartera_prueba.csv
+data/*_prueba.csv
+data/no_contactar.csv

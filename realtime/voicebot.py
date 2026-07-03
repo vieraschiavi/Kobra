@@ -41,7 +41,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from kobra.gestor_ia import SesionGestorIA        # noqa: E402
-from kobra import registro                        # noqa: E402
+from kobra import cumplimiento, registro          # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -129,9 +129,20 @@ async def _llamada(id_deudor: str, gestor_id: str, sem: asyncio.Semaphore,
 
 async def correr_campania(ids: list, lineas: int = 50, gestor_id: str = "IA01",
                           archivo_gestiones: str | None = None,
-                          usar_claude: bool = True) -> dict:
+                          usar_claude: bool = True,
+                          respetar_no_contactar: bool = True,
+                          archivo_dnc: str = cumplimiento.NO_CONTACTAR_CSV) -> dict:
+    solicitados = len(ids)
+    bloqueados = 0
+    if respetar_no_contactar:
+        permitidos = [i for i in ids
+                      if not cumplimiento.esta_en_no_contactar(i, "Llamada", archivo_dnc)]
+        bloqueados = solicitados - len(permitidos)
+        ids = permitidos
     sem = asyncio.Semaphore(lineas)
-    metricas = {"total": len(ids), "ok": 0, "errores": 0, "en_curso": 0, "pico": 0}
+    metricas = {"total": len(ids), "solicitados": solicitados,
+                "bloqueados_no_contactar": bloqueados,
+                "ok": 0, "errores": 0, "en_curso": 0, "pico": 0}
     t0 = time.perf_counter()
     await asyncio.gather(*[
         _llamada(i, gestor_id, sem, metricas, archivo_gestiones, usar_claude)
@@ -173,6 +184,9 @@ def main():
     m = asyncio.run(correr_campania(
         ids, lineas=lineas, gestor_id=args.gestor,
         usar_claude=not args.sin_claude))
+    if m.get("bloqueados_no_contactar"):
+        print(f"[voicebot] Cumplimiento: {m['bloqueados_no_contactar']} deudor(es) "
+              f"omitido(s) por estar en la lista de No Contactar (opt-out).")
     print(f"[voicebot] Listo en {m['segundos']}s · concurrencia pico: {m['pico']} · "
           f"OK {m['ok']}/{m['total']} · errores {m['errores']}")
     for k in ("Promesa", "Sin acuerdo"):

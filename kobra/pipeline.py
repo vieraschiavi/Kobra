@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from kobra.probpago import ProbPagoModel               # noqa: E402
 from kobra import negociador                            # noqa: E402
+from kobra import explicabilidad                        # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_CSV = os.path.join(ROOT, "data", "kobra_cartera.csv")
@@ -61,6 +62,10 @@ def run():
     full = negociador.recomendar(scored)
     print(f"[pipeline] Negociador aplicado sobre {len(full):,} casos")
 
+    # 2b) Explicabilidad: reason codes por deudor (por qué esta ProbPago)
+    full["motivo_probpago"] = explicabilidad.explicar_cartera(model, full)
+    print(f"[pipeline] Explicabilidad: reason codes generados por deudor")
+
     # 3) Exports tabulares
     cols_export = [
         "id_deudor", "segmento", "producto", "departamento", "tramo_mora",
@@ -68,6 +73,7 @@ def run():
         "probpago", "decil", "segmento_propension", "estrategia",
         "descuento_recomendado", "plan_cuotas", "canal_recomendado",
         "valor_esperado_recupero", "prioridad", "pago", "guion",
+        "motivo_probpago",
     ]
     export = full[cols_export].copy()
     export.round(4).to_csv(os.path.join(OUT_DIR, "kobra_scored.csv"), index=False)

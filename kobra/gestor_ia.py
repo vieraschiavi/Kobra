@@ -27,7 +27,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from kobra import copiloto, registro
+from kobra import copiloto, cumplimiento, registro
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +52,7 @@ def interpretar(texto: str) -> dict:
         "pide_humano": bool(re.search(PEDIDO_HUMANO, t)),
         "pide_cuotas": bool(re.search(PIDE_CUOTAS, t)),
         "pide_menos": bool(re.search(PIDE_MENOS, t)),
+        "pide_no_contactar": cumplimiento.es_pedido_no_contactar(texto),
         "dificultad": "dificultad_economica" in s.emociones,
         "enojo": bool({"enojo", "frustracion"} & set(s.emociones)),
     }
@@ -98,13 +99,17 @@ class SesionGestorIA:
     historial: list = field(default_factory=list)   # [(quien, texto)]
     campos_erp: dict = field(default_factory=dict)
     brief: dict | None = None
+    dnc_archivo: str | None = None    # lista "No contactar" (default: la del módulo)
 
     def __post_init__(self):
-        self.brief = registro.brief(self.id_deudor) or {
-            "monto_deuda": 0, "probpago": 0.5, "estrategia": "Plan de cuotas",
-            "descuento_recomendado": 0.1, "plan_cuotas": 3,
-            "segmento_propension": "Media",
-        }
+        # Si ya viene un brief (p. ej. de una cartera manual), se respeta;
+        # si no, se busca en la cartera scoreada; si tampoco, defaults neutros.
+        if self.brief is None:
+            self.brief = registro.brief(self.id_deudor) or {
+                "monto_deuda": 0, "probpago": 0.5, "estrategia": "Plan de cuotas",
+                "descuento_recomendado": 0.1, "plan_cuotas": 3,
+                "segmento_propension": "Media",
+            }
 
     # --- escalera de ofertas (nunca supera el tope del negociador) ----------
     def _oferta(self) -> dict:
@@ -166,6 +171,16 @@ class SesionGestorIA:
                 "Gracias por su tiempo.",
                 "El cliente pidió hablar con una persona: despedite y confirmá la derivación."), True
 
+        if i.get("pide_no_contactar"):
+            self.estado = "no_contactar"
+            self.campos_erp["resultado"] = "No contactar"
+            self._registrar_opt_out("el deudor pidió no ser contactado")
+            return self._pulir(
+                "Entendido, respeto su decisión. Registro que no desea ser contactado y "
+                "damos de baja las comunicaciones. Disculpe la molestia. Que tenga buen día.",
+                "El cliente pidió que no lo contacten más: confirmá el registro del opt-out "
+                "y despedite con respeto."), True
+
         if i.get("negativa_dura"):
             self.estado = "sin_acuerdo"
             return self._pulir(
@@ -215,6 +230,14 @@ class SesionGestorIA:
 
         # estado terminal alcanzado
         return "Gracias por su tiempo. ¡Buen día!", True
+
+    def _registrar_opt_out(self, motivo: str):
+        """Anota al deudor en la lista de No Contactar (cumplimiento normativo)."""
+        self.campos_erp["opt_out"] = True
+        kwargs = dict(id_deudor=self.id_deudor, canal="todos", motivo=motivo)
+        if self.dnc_archivo:
+            kwargs["archivo"] = self.dnc_archivo
+        cumplimiento.registrar_no_contactar(**kwargs)
 
     def _pulir(self, plantilla: str, instruccion: str) -> str:
         """Con Claude redacta natural; sin key usa la plantilla local."""
