@@ -298,6 +298,204 @@ async def ws_audio(sock: WebSocket):
         return
 
 
+# ---------------------------------------------------------------------------
+# Llamada de VOZ autónoma con el Gestor IA (TwiML <Say>/<Gather>)
+# ---------------------------------------------------------------------------
+# El Gestor IA HABLA por teléfono usando el TTS y el reconocimiento de voz en
+# español de Twilio — sin componentes locales ni streaming bidireccional.
+#   1) Twilio llama al número y pide TwiML a  /voz/entrante
+#   2) el bot saluda dentro de un <Gather input="speech">
+#   3) Twilio transcribe lo que dice el cliente y lo postea a /voz/turno
+#   4) el Gestor IA responde; se repite hasta cerrar (promesa / sin acuerdo)
+import html as _html                                    # noqa: E402
+from urllib.parse import quote                          # noqa: E402
+from fastapi import Request                             # noqa: E402
+from fastapi.responses import Response, HTMLResponse    # noqa: E402
+
+_SESIONES_VOZ: dict = {}
+_TTS_VOICE = os.getenv("TWILIO_TTS_VOICE", "")          # ej. "Polly.Mia-Neural"
+_LANG_TTS = os.getenv("TWILIO_TTS_LANG", "es-MX")
+_LANG_ASR = os.getenv("TWILIO_ASR_LANG", "es-MX")
+
+
+def _say(texto: str) -> str:
+    v = f' voice="{_TTS_VOICE}"' if _TTS_VOICE else ""
+    return f'<Say{v} language="{_LANG_TTS}">{_html.escape(texto or "", quote=True)}</Say>'
+
+
+def _gather(action: str, prompt: str) -> str:
+    return (f'<Gather input="speech" language="{_LANG_ASR}" speechTimeout="auto" '
+            f'action="{action}" method="POST">{_say(prompt)}</Gather>')
+
+
+def _twiml(*cuerpo: str) -> Response:
+    xml = ('<?xml version="1.0" encoding="UTF-8"?><Response>'
+           + "".join(cuerpo) + "</Response>")
+    return Response(content=xml, media_type="application/xml")
+
+
+def _brief_para_voz(id_deudor: str, monto) -> dict:
+    """Brief para la llamada: del pipeline si el deudor existe; si no, uno
+    armado con el monto que se pasa (perfil medio)."""
+    b = registro.brief(id_deudor) if id_deudor else None
+    if b:
+        return b
+    from kobra import negociador
+    try:
+        monto = float(monto or 0)
+    except (TypeError, ValueError):
+        monto = 0.0
+    est, desc, cuotas = negociador._estrategia(0.5, 60, monto)
+    return {"id_deudor": id_deudor or "TEL", "monto_deuda": monto, "probpago": 0.5,
+            "estrategia": est, "descuento_recomendado": desc, "plan_cuotas": cuotas,
+            "segmento_propension": "Media"}
+
+
+@app.api_route("/voz/entrante", methods=["GET", "POST"])
+async def voz_entrante(request: Request):
+    """TwiML inicial: el Gestor IA saluda y abre el <Gather> de voz."""
+    from kobra.gestor_ia import SesionGestorIA
+    qp = dict(request.query_params)
+    form = dict(await request.form()) if request.method == "POST" else {}
+    call_sid = form.get("CallSid") or qp.get("CallSid") or qp.get("call") or "sin-sid"
+    id_deudor = qp.get("id_deudor", "") or form.get("id_deudor", "")
+    gestor = qp.get("gestor", "IA01")
+    brief = _brief_para_voz(id_deudor, qp.get("monto"))
+    ses = SesionGestorIA(id_deudor=id_deudor or "TEL", canal="Llamada",
+                         gestor_id=gestor, brief=brief,
+                         usar_claude=bool(os.getenv("ANTHROPIC_API_KEY")))
+    _SESIONES_VOZ[call_sid] = ses
+    r = ses.responder(None)                              # saludo
+    action = f"/voz/turno?call={quote(call_sid)}"
+    return _twiml(_gather(action, r["texto"]),
+                  _say("No lo escuché. Lo llamaremos en otro momento. Hasta luego."))
+
+
+@app.post("/voz/turno")
+async def voz_turno(request: Request):
+    """Cada turno: recibe lo que dijo el cliente (SpeechResult) y responde."""
+    form = dict(await request.form())
+    call_sid = request.query_params.get("call") or form.get("CallSid") or "sin-sid"
+    ses = _SESIONES_VOZ.get(call_sid)
+    if ses is None:
+        return _twiml(_say("Disculpe, se interrumpió la comunicación. Hasta luego."))
+    speech = (form.get("SpeechResult") or "").strip()
+    r = ses.responder(speech)
+    if r["fin"]:
+        try:
+            ses.registrar()                              # persiste la gestión real
+        except Exception:
+            pass
+        _SESIONES_VOZ.pop(call_sid, None)
+        return _twiml(_say(r["texto"]))
+    action = f"/voz/turno?call={quote(call_sid)}"
+    return _twiml(_gather(action, r["texto"]),
+                  _say("Si sigue en línea, dígame. Si no, hasta luego."))
+
+
+def _public_base(request: Request) -> str:
+    env = os.getenv("PUBLIC_BASE_URL")
+    if env:
+        return env.rstrip("/")
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme or "https")
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    return f"{proto}://{host}"
+
+
+@app.post("/voz/llamar")
+async def voz_llamar(request: Request):
+    """Dispara una llamada saliente real vía la API de Twilio."""
+    form = dict(await request.form())
+    sid = os.getenv("TWILIO_ACCOUNT_SID")
+    token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_ = form.get("from") or os.getenv("TWILIO_FROM")
+    to = (form.get("telefono") or form.get("to") or "").strip()
+    if not (sid and token and from_ and to):
+        return JSONResponse(
+            {"error": "Faltan credenciales de Twilio (cargalas en Configuración) "
+                      "o el número de destino."}, status_code=400)
+    base = _public_base(request)
+    url = (f"{base}/voz/entrante?id_deudor={quote(form.get('id_deudor', ''))}"
+           f"&monto={quote(str(form.get('monto', '')))}&gestor=IA01")
+    try:
+        import requests
+        resp = requests.post(
+            f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Calls.json",
+            data={"To": to, "From": from_, "Url": url}, auth=(sid, token), timeout=30)
+        ok = resp.status_code in (200, 201)
+        cuerpo = resp.json() if ok else {}
+        return JSONResponse(
+            {"ok": ok, "status": resp.status_code, "sid": cuerpo.get("sid"),
+             "detalle": None if ok else resp.text[:400]},
+            status_code=200 if ok else 400)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=502)
+
+
+@app.get("/llamar")
+def pagina_llamar():
+    """Página con formulario para disparar una llamada real (sin consola)."""
+    return HTMLResponse(_HTML_LLAMAR)
+
+
+_HTML_LLAMAR = """<!doctype html><html lang=es><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Kobra IA · Llamar</title>
+<style>
+ body{font-family:Segoe UI,system-ui,sans-serif;background:#0E1117;color:#e9edf5;
+   margin:0;padding:32px;display:flex;justify-content:center}
+ .card{background:#161c2b;border:1px solid #26304a;border-radius:16px;max-width:460px;
+   width:100%;padding:26px 26px 30px;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+ h1{font-size:1.25rem;margin:0 0 4px} p.sub{color:#93a0b5;margin:0 0 18px;font-size:.9rem}
+ label{display:block;font-size:.8rem;color:#aeb7c7;margin:12px 0 4px}
+ input{width:100%;box-sizing:border-box;background:#0f1523;border:1px solid #2b3550;
+   border-radius:9px;color:#eef2f8;padding:10px 12px;font-size:.95rem}
+ button{margin-top:20px;width:100%;background:#00C896;color:#062018;font-weight:700;
+   border:0;border-radius:10px;padding:13px;font-size:1rem;cursor:pointer}
+ button:disabled{opacity:.5;cursor:default}
+ .out{margin-top:16px;font-size:.9rem;white-space:pre-wrap;padding:12px;border-radius:9px}
+ .ok{background:#0d2a20;border:1px solid #1f6d51;color:#7ff0c6}
+ .err{background:#2a1414;border:1px solid #7a2b2b;color:#ffb3b3}
+ .note{color:#7f8aa0;font-size:.78rem;margin-top:16px;line-height:1.4}
+</style>
+<div class=card>
+ <h1>📞 Llamar con el Gestor IA</h1>
+ <p class=sub>El bot llama, negocia y registra la gestión. Requiere Twilio configurado.</p>
+ <label>Teléfono a llamar (formato internacional, ej. +59809…)</label>
+ <input id=tel placeholder="+59809XXXXXXX">
+ <label>Nombre / referencia (opcional)</label>
+ <input id=idd placeholder="Wendy">
+ <label>Monto de la deuda (UYU)</label>
+ <input id=monto type=number placeholder="10000">
+ <label>Número emisor Twilio (dejalo vacío para usar el de Configuración)</label>
+ <input id=from placeholder="+1XXXXXXXXXX">
+ <button id=btn onclick=llamar()>📞 Llamar ahora</button>
+ <div id=out></div>
+ <p class=note>⚠️ Necesitás consentimiento de la persona. Empezá probando con tu
+   propio celular. Cargá Account SID / Auth Token / número Twilio en la pestaña
+   Configuración del dashboard. El servidor debe ser accesible desde internet
+   (ngrok o despliegue).</p>
+</div>
+<script>
+async function llamar(){
+ const b=document.getElementById('btn'),o=document.getElementById('out');
+ b.disabled=true;o.className='';o.textContent='Llamando…';
+ const d=new FormData();
+ d.append('telefono',document.getElementById('tel').value);
+ d.append('id_deudor',document.getElementById('idd').value);
+ d.append('monto',document.getElementById('monto').value);
+ d.append('from',document.getElementById('from').value);
+ try{
+  const r=await fetch('/voz/llamar',{method:'POST',body:d});
+  const j=await r.json();
+  if(j.ok){o.className='out ok';o.textContent='✅ Llamada iniciada. SID: '+j.sid;}
+  else{o.className='out err';o.textContent='⛔ '+(j.error||j.detalle||('HTTP '+j.status));}
+ }catch(e){o.className='out err';o.textContent='⛔ '+e;}
+ b.disabled=false;
+}
+</script></html>"""
+
+
 @app.websocket("/twilio")
 async def twilio_media(sock: WebSocket):
     """

@@ -22,6 +22,9 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 CLAVES = {
     "OPENAI_API_KEY": "OpenAI · transcripción Whisper (voz → texto)",
     "ANTHROPIC_API_KEY": "Anthropic · evaluación con Claude",
+    "TWILIO_ACCOUNT_SID": "Twilio · Account SID (llamadas reales)",
+    "TWILIO_AUTH_TOKEN": "Twilio · Auth Token (llamadas reales)",
+    "TWILIO_FROM": "Twilio · número emisor (ej. +1…) para llamar",
 }
 
 
