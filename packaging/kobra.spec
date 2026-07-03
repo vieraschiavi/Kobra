@@ -63,7 +63,7 @@ _icon = _ICON if os.path.exists(_ICON) else None
 block_cipher = None
 
 a = Analysis(
-    [os.path.join("packaging", "kobra_launcher.py")],
+    [os.path.join(ROOT, "packaging", "kobra_launcher.py")],
     pathex=[ROOT],
     binaries=binaries,
     datas=datas,
