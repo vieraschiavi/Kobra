@@ -119,6 +119,35 @@ def mejora_por_gestor(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(filas).sort_values("delta_calidad", ascending=False)
 
 
+def comparativa_ia(df: pd.DataFrame) -> dict | None:
+    """Gestor IA vs. gestores humanos, sobre los meses en que conviven."""
+    es_ia = df["gestor_id"].astype(str).str.startswith("IA")
+    if not es_ia.any():
+        return None
+    meses_ia = sorted(df.loc[es_ia, "mes"].unique())
+    d = df[df["mes"].isin(meses_ia)]
+    es_ia = d["gestor_id"].astype(str).str.startswith("IA")
+
+    def resumen(sub, gestores):
+        meses = sub["mes"].nunique() or 1
+        return dict(
+            gestiones=int(len(sub)),
+            gestiones_por_gestor_mes=round(len(sub) / max(gestores, 1) / meses, 1),
+            calidad_prom=round(float(sub["calidad_gestion"].mean()), 1),
+            tasa_conversion=round(float(_tasa_conversion(sub["resultado"])), 3),
+            tasa_recupero=round(float(sub["recupero"].sum()
+                                      / max(sub["monto_gestionado"].sum(), 1)), 3),
+            sentimiento_prom=round(float(sub["sentimiento_cliente"].mean()), 3),
+            recupero_total=float(sub["recupero"].sum()),
+        )
+
+    ia = resumen(d[es_ia], d.loc[es_ia, "gestor_id"].nunique())
+    hum = resumen(d[~es_ia], d.loc[~es_ia, "gestor_id"].nunique())
+    return {"ia": ia, "humanos": hum, "meses": meses_ia,
+            "volumen_x": round(ia["gestiones_por_gestor_mes"]
+                               / max(hum["gestiones_por_gestor_mes"], 0.1), 1)}
+
+
 def impacto_kobra(df: pd.DataFrame) -> dict:
     """Compara gestiones con vs. sin Kobra."""
     def resumen(sub):

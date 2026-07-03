@@ -197,6 +197,48 @@ async def ws(sock: WebSocket):
         return
 
 
+# ---------------------------------------------------------------------------
+# Chatbot de WhatsApp con Gestor IA (para quien no quiere hablar por teléfono)
+# ---------------------------------------------------------------------------
+_SESIONES_WA: dict = {}
+
+
+@app.post("/whatsapp/webhook")
+async def whatsapp_webhook(payload: dict):
+    """
+    Webhook del chatbot WhatsApp. El proxy del canal (WhatsApp Business
+    Cloud API, Twilio WhatsApp, etc. — infraestructura del cliente) postea:
+
+        {"sesion": "<telefono o id único>", "id_deudor": "KB-…", "mensaje": "…"}
+
+    (en el primer mensaje puede omitirse "mensaje" → el Gestor IA saluda).
+    Devuelve {"respuesta", "estado", "fin", "campos_erp"}. Al cerrar, la
+    gestión queda registrada como canal WhatsApp del gestor IA.
+    """
+    from kobra.gestor_ia import SesionGestorIA
+    sesion_id = str(payload.get("sesion") or payload.get("telefono") or "anon")
+    ses = _SESIONES_WA.get(sesion_id)
+    if ses is None:
+        if not payload.get("id_deudor"):
+            return JSONResponse({"error": "falta id_deudor para abrir la sesión"},
+                                status_code=400)
+        ses = SesionGestorIA(id_deudor=str(payload["id_deudor"]),
+                             canal="WhatsApp",
+                             gestor_id=str(payload.get("gestor_id", "IA01")))
+        _SESIONES_WA[sesion_id] = ses
+        r = ses.responder(None)                      # saludo inicial
+        if payload.get("mensaje"):
+            r = ses.responder(str(payload["mensaje"]))
+    else:
+        r = ses.responder(str(payload.get("mensaje", "")))
+    if r["fin"]:
+        gestion = ses.registrar()
+        _SESIONES_WA.pop(sesion_id, None)
+        return {"respuesta": r["texto"], "estado": r["estado"], "fin": True,
+                "campos_erp": r["campos_erp"], "gestion": gestion}
+    return {"respuesta": r["texto"], "estado": r["estado"], "fin": False}
+
+
 @app.websocket("/ws_audio")
 async def ws_audio(sock: WebSocket):
     """

@@ -697,6 +697,44 @@ with tab6:
             st.info("La calidad de gestión (medida por el Copiloto) se traduce en "
                     "más conversión y más recupero. Kobra la mejora sistemáticamente.")
 
+        # --- Gestor IA vs. humanos ---
+        comp = analitica.comparativa_ia(gf)
+        if comp:
+            st.markdown("#### 🤖 Gestor IA vs. gestores humanos "
+                        "*(ilustrativo · datos sintéticos)*")
+            st.caption("El Gestor IA atiende/llama por voz o WhatsApp, negocia según "
+                       "ProbPago, completa los campos ERP y registra cada gestión — "
+                       "hasta 50 conversaciones simultáneas. Acá se mide contra los "
+                       "humanos en los mismos meses.")
+            ci_ = st.columns(4)
+            ci_[0].metric("Gestiones / gestor / mes",
+                          f"{comp['ia']['gestiones_por_gestor_mes']:,.0f}",
+                          f"{comp['volumen_x']}x vs humano")
+            ci_[1].metric("Conversión IA", f"{comp['ia']['tasa_conversion']:.0%}",
+                          f"{(comp['ia']['tasa_conversion']-comp['humanos']['tasa_conversion'])*100:+.1f} pp vs humanos")
+            ci_[2].metric("Calidad IA", f"{comp['ia']['calidad_prom']:.0f}",
+                          f"{comp['ia']['calidad_prom']-comp['humanos']['calidad_prom']:+.1f} vs humanos")
+            ci_[3].metric("Recupero IA (período)",
+                          f"$U {comp['ia']['recupero_total']/1e6:,.1f}M")
+            comp_df = pd.DataFrame({
+                "Métrica": ["Conversión %", "Calidad", "Gestiones/gestor/mes"],
+                "Gestor IA": [comp["ia"]["tasa_conversion"] * 100,
+                              comp["ia"]["calidad_prom"],
+                              comp["ia"]["gestiones_por_gestor_mes"]],
+                "Humanos": [comp["humanos"]["tasa_conversion"] * 100,
+                            comp["humanos"]["calidad_prom"],
+                            comp["humanos"]["gestiones_por_gestor_mes"]],
+            })
+            fig = go.Figure()
+            fig.add_bar(x=comp_df["Métrica"], y=comp_df["Gestor IA"],
+                        name="Gestor IA", marker_color=ACCENT)
+            fig.add_bar(x=comp_df["Métrica"], y=comp_df["Humanos"],
+                        name="Humanos", marker_color=PRIMARY)
+            fig.update_layout(template="plotly_dark", height=300, barmode="group",
+                              title="Gestor IA vs. humanos (mismos meses)",
+                              legend=dict(orientation="h", y=1.2))
+            st.plotly_chart(fig, use_container_width=True)
+
         # --- Ranking y mejora por gestor ---
         st.markdown("#### 🏆 Ranking de gestores y mejora en el tiempo")
         r1, r2 = st.columns(2)

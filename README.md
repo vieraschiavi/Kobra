@@ -421,6 +421,41 @@ turno a turno y gestión registrada al cortar.
 Probalo end-to-end sin central: `python -m realtime.simular_stream` (muestra el
 brief, la asesoría en vivo y la gestión registrada al final).
 
+## 🤖 Gestor IA · agente autónomo de negociación (`kobra/gestor_ia.py`)
+
+El **gestor virtual** conduce la negociación completa igual que un humano —
+por **voz** (voicebot) o por **WhatsApp** (chatbot): saluda, valida identidad,
+propone según ProbPago/estrategia, maneja objeciones con **concesiones
+escalonadas dentro del tope autorizado**, cierra, **completa los campos ERP** y
+registra la gestión. Aparece en *Gestores & Evolución* como gestor `IA…`, así
+su desempeño se **mide contra los humanos**.
+
+- **Dependencias externas mínimas por diseño**: el cerebro (diálogo,
+  intención, sentimiento) corre **100% local**. **Claude (Anthropic) es la
+  única IA externa y es opcional**: si hay `ANTHROPIC_API_KEY` redacta más
+  natural; sin key usa plantillas (funciona igual).
+- **Voz local, sin nube**: adaptadores para **Piper TTS** (voz neuronal
+  es-AR/es-ES, baja latencia) y **faster-whisper STT**; si no están instalados,
+  corre en modo texto (mismo diálogo).
+- **Campañas concurrentes** (`realtime/voicebot.py`): **hasta 50 llamadas
+  simultáneas** (verificado: 50 líneas, pico 50, 0 errores). El canal de voz
+  real lo pone la telefonía del cliente (Twilio `<Connect>`, Avaya/SIPREC con
+  el conector incluido, Asterisk…); en demo hay un cliente simulado.
+- **Chatbot WhatsApp** (`POST /whatsapp/webhook`): para quien no quiere hablar
+  por teléfono. El proxy del canal (WhatsApp Cloud API / Twilio WhatsApp del
+  cliente) postea `{sesion, id_deudor, mensaje}` y el Gestor IA negocia y
+  registra la gestión como canal WhatsApp.
+
+```bash
+python -m realtime.voicebot --lineas 50 --llamadas 50   # campaña saliente
+# chatbot WhatsApp: POST /whatsapp/webhook  (ver realtime/server.py)
+```
+
+> Nota: en la demo, la cohorte del Gestor IA en *Gestores & Evolución* es
+> **sintética e ilustrativa** (como el resto). Con la operación real, cada
+> conversación del Gestor IA registra su gestión y el dashboard compara IA vs.
+> humanos con datos medidos.
+
 ## 📇 Analítica por gestor y por mes (`kobra/analitica.py`)
 
 Sobre el historial de gestiones responde:
