@@ -69,23 +69,34 @@ def generar(seed=42, gestiones_por_gestor_mes=42):
         else:
             adopcion[g] = int(rng.integers(1, 6))   # adopta entre mes 1 y 5
 
-    rows = []
-    gid = 0
+    # Plan de gestión: humanos + Gestor IA. El Gestor IA (INYECTADO POR DISEÑO,
+    # igual de ilustrativo que el resto) se incorpora en 2026-02 con calidad
+    # alta y estable y ~4x el volumen humano (no duerme, 50 líneas en paralelo).
+    plan = []
     for mi, mes in enumerate(MESES):
         for g in gestores:
             usa_kobra = adopcion[g] is not None and mi >= adopcion[g]
             meses_con_kobra = (mi - adopcion[g]) if usa_kobra else 0
             # Efecto Kobra: mejora progresiva de la calidad (curva con techo)
             efecto = 14 * (1 - np.exp(-meses_con_kobra / 3)) if usa_kobra else 0
-
             n = gestiones_por_gestor_mes + int(rng.integers(-6, 7))
+            plan.append((g, f"Gestor {g[1:]}", mes, usa_kobra,
+                         skill[g] + efecto, 8.0, n))
+        if mi >= 6:
+            for gia in ("IA01", "IA02"):
+                plan.append((gia, f"Gestor {gia}", mes, True, 84.0, 4.0,
+                             gestiones_por_gestor_mes * 4))
+
+    rows = []
+    gid = 0
+    for gestor_id, gestor_nombre, mes, usa_kobra, calidad_media, calidad_sd, n in plan:
             muestra = cartera.sample(n=n, replace=True, random_state=int(rng.integers(1e9)))
             for _, d in muestra.iterrows():
                 gid += 1
                 prob = _prob_proxy(d)
                 canal = rng.choice(["Llamada", "WhatsApp"], p=[0.55, 0.45])
 
-                calidad = np.clip(rng.normal(skill[g] + efecto, 8), 20, 100)
+                calidad = np.clip(rng.normal(calidad_media, calidad_sd), 20, 100)
                 emo = _pick(rng, EMO_POR_TRAMO.get(d["tramo_mora"], EMO_POR_TRAMO["61-90"]))
 
                 # Sentimiento del cliente: peor en emociones negativas
@@ -122,8 +133,8 @@ def generar(seed=42, gestiones_por_gestor_mes=42):
 
                 rows.append(dict(
                     id_gestion=f"GE-{gid:07d}",
-                    gestor_id=g,
-                    gestor=f"Gestor {g[1:]}",
+                    gestor_id=gestor_id,
+                    gestor=gestor_nombre,
                     mes=mes,
                     id_deudor=d["id_deudor"],
                     segmento=d["segmento"],

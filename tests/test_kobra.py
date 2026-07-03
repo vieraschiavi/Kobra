@@ -160,6 +160,59 @@ def test_voz_fusion_texto():
     assert tenso.score < base.score
 
 
+def test_gestor_ia_negocia_y_cierra():
+    from kobra.gestor_ia import SesionGestorIA
+    ses = SesionGestorIA(id_deudor="KB-100000", canal="Llamada",
+                         gestor_id="IA01", usar_claude=False)
+    r = ses.responder(None)                       # saludo
+    assert not r["fin"] and r["texto"]
+    guion = ["Sí, soy yo", "es mucha plata, no me alcanza", "en cuotas dale", "acepto"]
+    for m in guion:
+        if r["fin"]:
+            break
+        r = ses.responder(m)
+    assert r["fin"] and r["campos_erp"]["resultado"] in ("Promesa", "Sin acuerdo")
+    # nunca supera el descuento máximo autorizado del brief
+    assert r["campos_erp"]["descuento_aplicado"] <= ses.brief["descuento_recomendado"] + 1e-9
+
+
+def test_gestor_ia_deriva_a_humano():
+    from kobra.gestor_ia import SesionGestorIA
+    ses = SesionGestorIA(id_deudor="KB-100000", usar_claude=False)
+    ses.responder(None)
+    r = ses.responder("quiero hablar con una persona")
+    assert r["fin"] and ses.campos_erp["resultado"] == "Derivado a humano"
+
+
+def test_voicebot_campania_concurrente(tmp_path):
+    import asyncio
+    from realtime import voicebot
+    from kobra import registro
+    df = registro._scored()
+    if df is None:
+        __import__("pytest").skip("outputs/kobra_scored.csv no generado")
+    ids = df["id_deudor"].head(30).tolist()
+    archivo = str(tmp_path / "g.csv")
+    m = asyncio.run(voicebot.correr_campania(
+        ids, lineas=25, gestor_id="IA09", archivo_gestiones=archivo,
+        usar_claude=False))
+    assert m["ok"] == 30 and m["errores"] == 0
+    assert m["pico"] <= 25                          # respeta el límite de líneas
+    guardado = pd.read_csv(archivo)
+    assert len(guardado) == 30
+    assert (guardado["gestor_id"] == "IA09").all()
+
+
+def test_comparativa_ia():
+    from kobra import analitica
+    g = _gestiones()
+    if not g["gestor_id"].astype(str).str.startswith("IA").any():
+        __import__("pytest").skip("dataset sin cohorte IA")
+    comp = analitica.comparativa_ia(g)
+    assert comp and comp["ia"]["gestiones"] > 0 and comp["humanos"]["gestiones"] > 0
+    assert comp["volumen_x"] > 1                    # la IA hace más volumen
+
+
 def test_stream_session():
     import numpy as np
     from realtime import connectors
