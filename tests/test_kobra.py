@@ -548,3 +548,60 @@ def test_desde_dataframe_tolerante():
     assert len(contactos) == 1                         # descarta la fila sin deuda
     assert contactos[0]["telefono"] == "099000001"
     assert contactos[0]["monto_deuda"] == 10000 and contactos[0]["dias_mora"] == 30
+
+
+# ---------------------------------------------------------------------------
+# Llamada de voz autónoma con el Gestor IA (TwiML Twilio)
+# ---------------------------------------------------------------------------
+def test_voz_twiml_negociacion(tmp_path):
+    """El Gestor IA conduce la llamada por TwiML: saludo → oferta → cierre."""
+    import asyncio, os
+    from types import SimpleNamespace
+    from realtime import server
+
+    class FakeReq:
+        def __init__(self, method="POST", query=None, form=None, headers=None):
+            self.method = method
+            self.query_params = query or {}
+            self._form = form or {}
+            self.headers = headers or {"host": "t.ngrok.app", "x-forwarded-proto": "https"}
+            self.url = SimpleNamespace(scheme="https")
+        async def form(self):
+            return self._form
+
+    run = asyncio.new_event_loop().run_until_complete
+
+    r = run(server.voz_entrante(FakeReq(query={"id_deudor": "", "monto": "10000"},
+                                        form={"CallSid": "CAX"})))
+    t = r.body.decode()
+    assert r.status_code == 200 and "<Gather" in t and "<Say" in t
+
+    r = run(server.voz_turno(FakeReq(query={"call": "CAX"},
+                                     form={"SpeechResult": "Sí, soy yo"})))
+    assert "saldo" in r.body.decode().lower() or "pag" in r.body.decode().lower()
+
+    r = run(server.voz_turno(FakeReq(query={"call": "CAX"},
+                                     form={"SpeechResult": "Dale, acepto, me sirve"})))
+    t = r.body.decode()
+    assert "<Gather" not in t and "<Say" in t          # cierre: habla y cuelga
+    assert "CAX" not in server._SESIONES_VOZ           # sesión liberada
+
+
+def test_voz_llamar_sin_credenciales():
+    """El disparador de llamada exige credenciales de Twilio (falla claro)."""
+    import asyncio, os
+    from types import SimpleNamespace
+    from realtime import server
+    for k in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM"):
+        os.environ.pop(k, None)
+
+    class FakeReq:
+        method = "POST"
+        query_params = {}
+        headers = {"host": "t.app"}
+        url = SimpleNamespace(scheme="https")
+        async def form(self):
+            return {"telefono": "+59809000000"}
+
+    r = asyncio.new_event_loop().run_until_complete(server.voz_llamar(FakeReq()))
+    assert r.status_code == 400
