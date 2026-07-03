@@ -346,3 +346,136 @@ def test_stream_decoders():
         assert np.array_equal(u, ref)          # bit-exacto vs. audioop
     except ImportError:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Cumplimiento normativo (contact governance)
+# ---------------------------------------------------------------------------
+def test_cumplimiento_horario_y_dia():
+    from datetime import datetime
+    from kobra import cumplimiento as cp
+    pol = cp.PoliticaContacto(permitir_feriados=True)   # aislar del calendario
+    # Lunes 10:00 → permitido
+    assert cp.puede_contactar("KB-1", "Llamada", datetime(2026, 7, 6, 10, 0),
+                              politica=pol).permitido
+    # Lunes 22:00 → fuera de horario
+    d = cp.puede_contactar("KB-1", "Llamada", datetime(2026, 7, 6, 22, 0), politica=pol)
+    assert not d.permitido and d.codigo == "FUERA_HORARIO"
+    # Domingo 10:00 → día no hábil
+    d = cp.puede_contactar("KB-1", "Llamada", datetime(2026, 7, 5, 10, 0), politica=pol)
+    assert not d.permitido and d.codigo == "DIA_NO_HABIL"
+
+
+def test_cumplimiento_feriado():
+    from datetime import datetime
+    from kobra import cumplimiento as cp
+    # 25 de agosto (Declaratoria de la Independencia) → feriado, un martes en 2026
+    d = cp.puede_contactar("KB-1", "Llamada", datetime(2026, 8, 25, 10, 0))
+    assert not d.permitido and d.codigo == "FERIADO"
+    # Semana de Turismo derivada de Pascua (2026: Pascua = 5 de abril)
+    fer = cp.feriados_uruguay(2026)
+    assert cp._pascua(2026).isoformat() == "2026-04-05"
+    assert any("Turismo" in n for n in fer.values())
+
+
+def test_cumplimiento_topes_frecuencia():
+    from datetime import datetime, timedelta
+    from kobra import cumplimiento as cp
+    pol = cp.PoliticaContacto(permitir_feriados=True, max_por_dia=1, max_por_semana=3)
+    ahora = datetime(2026, 7, 6, 11, 0)           # lunes
+    # ya lo contacté hoy → tope diario
+    d = cp.puede_contactar("KB-1", "Llamada", ahora,
+                           contactos_previos=[ahora - timedelta(hours=2)], politica=pol)
+    assert not d.permitido and d.codigo == "TOPE_DIARIO"
+    # 3 contactos en la semana (días distintos) → tope semanal
+    previos = [ahora - timedelta(days=k) for k in (1, 2, 3)]
+    d = cp.puede_contactar("KB-1", "Llamada", ahora, contactos_previos=previos, politica=pol)
+    assert not d.permitido and d.codigo == "TOPE_SEMANAL"
+
+
+def test_cumplimiento_opt_out(tmp_path):
+    from kobra import cumplimiento as cp
+    dnc = str(tmp_path / "no_contactar.csv")
+    assert not cp.esta_en_no_contactar("KB-9", archivo=dnc)
+    assert cp.es_pedido_no_contactar("por favor no me llamen más, sáquenme de la lista")
+    assert not cp.es_pedido_no_contactar("no tengo la plata ahora")
+    cp.registrar_no_contactar("KB-9", motivo="pedido del deudor", archivo=dnc)
+    assert cp.esta_en_no_contactar("KB-9", "Llamada", archivo=dnc)
+    d = cp.puede_contactar("KB-9", "Llamada", archivo_dnc=dnc)
+    assert not d.permitido and d.codigo == "OPT_OUT"
+
+
+def test_gestor_ia_opt_out_registra(tmp_path):
+    from kobra import cumplimiento as cp
+    from kobra.gestor_ia import SesionGestorIA
+    dnc = str(tmp_path / "dnc.csv")
+    ses = SesionGestorIA(id_deudor="KB-100773", gestor_id="IA01",
+                         usar_claude=False, dnc_archivo=dnc)
+    ses.responder(None)                                  # saludo
+    r = ses.responder("No me llamen más, no quiero que me contacten")
+    assert r["fin"] and ses.campos_erp.get("opt_out") is True
+    assert cp.esta_en_no_contactar("KB-100773", "Llamada", archivo=dnc)
+
+
+def test_voicebot_respeta_no_contactar(tmp_path):
+    import asyncio
+    from kobra import cumplimiento as cp
+    from realtime.voicebot import correr_campania
+    dnc = str(tmp_path / "dnc.csv")
+    gest = str(tmp_path / "g.csv")
+    cp.registrar_no_contactar("KB-100000", motivo="opt-out", archivo=dnc)
+    ids = ["KB-100000", "KB-100001", "KB-100002"]
+    m = asyncio.run(correr_campania(ids, lineas=5, archivo_gestiones=gest,
+                                    usar_claude=False, archivo_dnc=dnc))
+    assert m["bloqueados_no_contactar"] == 1 and m["total"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Explicabilidad de ProbPago
+# ---------------------------------------------------------------------------
+def _prep_scored():
+    """Genera outputs/kobra_scored.csv si falta (para brief/registro/voicebot)."""
+    from kobra import registro
+    if registro._scored() is not None:
+        return
+    from kobra import pipeline
+    pipeline.run()
+    registro._scored(refrescar=True)
+
+
+def test_explicabilidad_reason_codes():
+    from kobra import explicabilidad as ex
+    df = _df()
+    model = ProbPagoModel().fit(df)
+    scored = model.score(df)
+    base = ex.baseline_cartera(df)
+    # deudor con score de buró alto y sin promesas incumplidas → drivers positivos
+    fila = df.iloc[int(scored["probpago"].idxmax())]
+    drivers = ex.explicar(model, fila, base, top=3)
+    assert 1 <= len(drivers) <= 3
+    assert all("delta_pp" in d and "etiqueta" in d for d in drivers)
+    # el texto del brief menciona al menos un driver
+    txt = ex.explicar_texto(model, fila, base)
+    assert isinstance(txt, str) and len(txt) > 0
+    # vectorizado sobre la cartera: una reason code por fila
+    serie = ex.explicar_cartera(model, df.head(50))
+    assert len(serie) == 50 and serie.notna().all()
+
+
+# ---------------------------------------------------------------------------
+# Caso de negocio (ROI)
+# ---------------------------------------------------------------------------
+def test_roi_estimador():
+    from kobra import roi
+    r = roi.estimar(cartera_total_uyu=100_000_000, tasa_recupero_base=0.30,
+                    meses=12, costo_mensual_uyu=100_000)
+    esc = r["escenarios"]
+    # más uplift ⇒ más recupero adicional (monotonía)
+    assert (esc["conservador"]["recupero_adicional_uyu"]
+            < esc["base"]["recupero_adicional_uyu"]
+            < esc["optimista"]["recupero_adicional_uyu"])
+    # +5 pp sobre 100M = 5M adicionales
+    assert abs(esc["base"]["recupero_adicional_uyu"] - 5_000_000) < 1
+    # payback positivo y ROI coherente
+    assert esc["base"]["payback_meses"] > 0 and esc["base"]["roi"] > 0
+    assert "SUPUESTO" in r["NOTA"]

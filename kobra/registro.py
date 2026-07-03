@@ -51,7 +51,7 @@ BRIEF_CAMPOS = [
     "id_deudor", "segmento", "producto", "departamento", "tramo_mora",
     "dias_mora", "monto_deuda", "probpago", "segmento_propension",
     "estrategia", "descuento_recomendado", "plan_cuotas", "canal_recomendado",
-    "valor_esperado_recupero", "prioridad", "guion",
+    "valor_esperado_recupero", "prioridad", "guion", "motivo_probpago",
 ]
 
 
