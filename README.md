@@ -145,6 +145,25 @@ streamlit run app/app.py                              # dashboard interactivo
 python presentation/build_ppt.py                      # presentación gerencial (PPTX)
 ```
 
+### 🪟 Instalador standalone para Windows (programa, sin instalar Python)
+
+Un **`Kobra_Setup.exe`** que instala Kobra como un programa (empaqueta Python y
+todas las librerías; doble clic → se abre el dashboard). Se construye en
+**Windows vía GitHub Actions** (no se puede compilar desde Linux/Mac):
+
+- **Automático**: el workflow `build-windows-installer` corre en `windows-latest`
+  (PyInstaller → ejecutable, Inno Setup → instalador). El `.exe` queda como
+  **artefacto descargable** de cada corrida (pestaña *Actions* del repo) y, al
+  taguear `vX.Y.Z`, se publica en una **Release**.
+- **Componentes**: `packaging/kobra_launcher.py` (arranca el dashboard),
+  `packaging/kobra.spec` (empaquetado) y `packaging/instalador.iss` (instalador
+  con accesos directos e ícono).
+
+```
+Actions → build-windows-installer → (Run workflow) → artefacto "Kobra_Setup_Windows"
+   o   → git tag v1.3.0 && push  → Release con Kobra_Setup_v1.3.0.exe
+```
+
 ### Dashboard sin instalar nada
 Abrí `dashboard_estatico/index.html` en cualquier navegador (funciona
 offline, con librerías locales). Ideal para demos y para compartir por mail.
