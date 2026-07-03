@@ -102,21 +102,33 @@ _NUMERICAS = ("monto_deuda", "dias_mora", "cuotas_atrasadas",
               "contactabilidad", "gestiones_previas")
 
 
-def leer_csv(ruta: str) -> list[dict]:
-    """Lee un CSV de contactos (columnas: nombre, telefono, monto_deuda/deuda, …).
-    Todo como texto para no perder el 0 inicial del teléfono; las columnas
-    numéricas se convierten explícitamente."""
-    df = pd.read_csv(ruta, dtype=str).fillna("")
-    df.columns = [c.strip().lower() for c in df.columns]
+def desde_dataframe(df: pd.DataFrame) -> list[dict]:
+    """Normaliza un DataFrame de contactos (tabla editable o archivo subido en
+    el dashboard) a la lista de contactos. Teléfono como texto (conserva el 0
+    inicial); columnas numéricas coercionadas; nombres/vacíos tolerados."""
+    df = df.copy()
+    df.columns = [str(c).strip().lower() for c in df.columns]
     if "monto_deuda" not in df.columns:
         for alt in ("deuda", "monto"):
             if alt in df.columns:
                 df = df.rename(columns={alt: "monto_deuda"})
                 break
+    if "telefono" in df.columns:
+        df["telefono"] = df["telefono"].apply(
+            lambda v: "" if pd.isna(v) else str(v).strip())
     for col in _NUMERICAS:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
-    # descartar columnas numéricas vacías (para que tomen el default)
-    return [{k: v for k, v in row.items()
-             if not (k in _NUMERICAS and pd.isna(v))}
-            for row in df.to_dict("records")]
+    contactos = []
+    for row in df.to_dict("records"):
+        # descartar filas sin deuda válida y columnas numéricas vacías
+        if pd.isna(row.get("monto_deuda")):
+            continue
+        contactos.append({k: v for k, v in row.items()
+                          if not (k in _NUMERICAS and pd.isna(v))})
+    return contactos
+
+
+def leer_csv(ruta: str) -> list[dict]:
+    """Lee un CSV de contactos (columnas: nombre, telefono, monto_deuda/deuda, …)."""
+    return desde_dataframe(pd.read_csv(ruta, dtype=str).fillna(""))

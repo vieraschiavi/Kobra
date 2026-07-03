@@ -554,23 +554,27 @@ python -m kobra.roi --cartera 100000000 --tasa-base 0.30 --costo-mensual 100000
 > medido**. El módulo proyecta *cuánto valdría*, no afirma cuánto sube Kobra —
 > coherente con la sección [Honestidad de los números](#-honestidad-de-los-números-leer-antes-de-vender).
 
-### 🧪 Probar con tu propia cartera — `realtime/mi_cartera.py`
+### 🧪 Probar con tu propia cartera — **desde el dashboard** (sin código)
 
-Además de la demo sintética, podés correr el flujo completo sobre **tus propios
-contactos** (nombre, teléfono, monto): ProbPago → estrategia → cumplimiento →
-Gestor IA negociando → resultado. Cargás un CSV simple y Kobra completa el
-resto con supuestos por defecto (en producción vienen del ERP):
+En el dashboard, pestaña **"🧪 Probar mi cartera"**: cargás tus contactos
+—**escribiéndolos en una tabla** o **subiendo un CSV/Excel**— y el Gestor IA
+negocia cada caso (ProbPago + el porqué, estrategia, chequeo de cumplimiento y
+la conversación completa). Los resultados se **descargan** a CSV/Excel. Todo por
+menús; no hace falta correr nada.
 
-```bash
-# data/mi_cartera_prueba.csv  →  columnas: nombre, telefono, deuda[, dias_mora]
-python -m realtime.mi_cartera
-python -m realtime.mi_cartera --base otros_contactos.csv --sin-claude
-```
+La pestaña **"💰 Caso de negocio"** calcula el ROI sobre tu cartera con tus
+supuestos y también se descarga.
+
+> También hay un CLI equivalente (`python -m realtime.mi_cartera`) para quien
+> prefiera consola. El CSV con datos reales queda **privado** (`.gitignore`).
 
 La conversación se **simula**. Para **llamar de verdad** hace falta telefonía
 (tu cuenta de Twilio con un número, o tu central Avaya/Asterisk) y el
-**consentimiento** de la persona; el `<Connect><Stream>` de Twilio apunta a
-`wss://<host>/twilio` y el Gestor IA toma la llamada.
+**consentimiento** de la persona — guía paso a paso en
+[`docs/GUIA_LLAMADA_REAL_TWILIO.md`](docs/GUIA_LLAMADA_REAL_TWILIO.md).
+
+> ⚖️ **Proteger Kobra en Uruguay** (derecho de autor + marca, con costos):
+> [`docs/GUIA_REGISTRO_LEGAL_URUGUAY.md`](docs/GUIA_REGISTRO_LEGAL_URUGUAY.md).
 
 > 🔒 **Privacidad.** Un CSV con nombres/teléfonos **reales** es privado:
 > `data/mi_cartera_prueba.csv` y `data/*_prueba.csv` están en `.gitignore` y

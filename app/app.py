@@ -26,6 +26,7 @@ from kobra import negociador                  # noqa: E402
 from kobra import copiloto                    # noqa: E402
 from kobra import analitica                   # noqa: E402
 from kobra import config as kconfig           # noqa: E402
+from kobra import roi as kroi                 # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -97,6 +98,13 @@ def cargar_gestiones():
 
 
 gest = cargar_gestiones()
+
+
+@st.cache_resource(show_spinner="Preparando el Gestor IA…")
+def cargar_modelo_prueba():
+    """Modelo ProbPago + baseline para el modo 'Probar mi cartera'."""
+    from realtime.mi_cartera import preparar_modelo
+    return preparar_modelo()
 
 # ----------------------------------------------------------------------------
 # Header
@@ -176,10 +184,10 @@ st.markdown("---")
 # ----------------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------------
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6, tab8, tab9, tab7 = st.tabs(
     ["📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
      "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo", "📇 Gestores & Evolución",
-     "⚙️ Configuración"])
+     "🧪 Probar mi cartera", "💰 Caso de negocio", "⚙️ Configuración"])
 
 # ---- Tab 1: Visión general -------------------------------------------------
 with tab1:
@@ -821,6 +829,145 @@ with tab7:
     st.markdown(f"📁 Se guardan en `{kconfig.CONFIG_FILE}` (fuera del repo, permisos 600). "
                 "En producción podés inyectarlas por variables de entorno / secretos de "
                 "Docker; el entorno tiene prioridad sobre el archivo.")
+
+# ---- Tab 8: Probar mi cartera ----------------------------------------------
+with tab8:
+    st.subheader("🧪 Probá Kobra con tu propia cartera")
+    st.caption("Cargá tus contactos y el **Gestor IA** negocia cada caso: ProbPago + "
+               "el porqué, estrategia, chequeo de cumplimiento y la conversación completa. "
+               "Después descargás los resultados.")
+    st.info("🔒 **Privacidad**: lo que cargues acá se procesa en tu sesión/máquina y no se "
+            "sube a ningún lado. El producto vendible sigue siendo 100 % sintético. Para "
+            "**llamar de verdad** a un tercero necesitás su consentimiento y telefonía "
+            "(ver la guía de Twilio).", icon="🔒")
+
+    modo = st.radio("¿Cómo cargás los contactos?",
+                    ["✍️ Escribir en una tabla", "📤 Subir archivo (CSV/Excel)"],
+                    horizontal=True, key="modo_cartera")
+
+    contactos = []
+    if modo.startswith("✍️"):
+        ejemplo = pd.DataFrame({
+            "nombre": ["Contacto 1", "Contacto 2", "Contacto 3"],
+            "telefono": ["099000001", "099000002", "099000003"],
+            "deuda": [10000.0, 6000.0, 15000.0],
+            "dias_mora": [25, 75, 160],
+        })
+        st.caption("Editá las filas (podés agregar/quitar). Columnas: **nombre, telefono, "
+                   "deuda** y opcional **dias_mora**.")
+        edit = st.data_editor(ejemplo, num_rows="dynamic", use_container_width=True,
+                              key="editor_cartera",
+                              column_config={
+                                  "telefono": st.column_config.TextColumn("telefono"),
+                                  "deuda": st.column_config.NumberColumn("deuda", min_value=0),
+                                  "dias_mora": st.column_config.NumberColumn("dias_mora", min_value=0),
+                              })
+        from kobra import cartera_manual as _cm
+        contactos = _cm.desde_dataframe(edit)
+    else:
+        up = st.file_uploader("Subí un CSV o Excel con columnas: nombre, telefono, deuda "
+                              "[, dias_mora]", type=["csv", "xlsx"])
+        plantilla = "nombre,telefono,deuda,dias_mora\nWendy,099000001,10000,25\n"
+        st.download_button("⬇️ Descargar plantilla CSV", plantilla,
+                           file_name="plantilla_cartera.csv", mime="text/csv")
+        if up is not None:
+            from kobra import cartera_manual as _cm
+            raw = (pd.read_csv(up, dtype=str) if up.name.lower().endswith(".csv")
+                   else pd.read_excel(up, dtype=str))
+            contactos = _cm.desde_dataframe(raw.fillna(""))
+            st.dataframe(raw, use_container_width=True, hide_index=True)
+
+    usar_claude = st.checkbox(
+        "Usar Claude para redactar más natural (necesita ANTHROPIC_API_KEY)", value=False,
+        help="Sin key usa plantillas locales — negocia igual.")
+
+    if st.button("🤖 Negociar con el Gestor IA", type="primary",
+                 disabled=not contactos):
+        from realtime.mi_cartera import procesar, resultados_a_dataframe
+        model_p, base_p = cargar_modelo_prueba()
+        with st.spinner(f"El Gestor IA está negociando {len(contactos)} caso(s)…"):
+            resultados = procesar(contactos, model_p, base_p, usar_claude=usar_claude)
+
+        prom = sum(1 for r in resultados if r["resultado"] == "Promesa")
+        st.success(f"✅ {len(resultados)} negociación(es) · {prom} con promesa de pago.")
+
+        for r in resultados:
+            icono = "🟢" if r["resultado"] == "Promesa" else "🟡"
+            with st.expander(
+                    f"{icono} {r['nombre']}  ·  ☎ {r['telefono'] or '—'}  ·  "
+                    f"deuda $U {r['monto_deuda']:,.0f}  ·  ProbPago {r['probpago']:.0%}  "
+                    f"→  {r['resultado']}"):
+                m = st.columns(3)
+                m[0].metric("ProbPago", f"{r['probpago']:.0%}", r["propension"])
+                m[1].metric("Estrategia", r["estrategia"])
+                m[2].metric("Resultado", r["resultado"],
+                            (f"$U {r['monto_acordado']:,.0f} / {r['cuotas_acordadas']} cuota(s)"
+                             if r["resultado"] == "Promesa" else "—"))
+                st.markdown(f"**¿Por qué esta ProbPago?** {r['motivo_probpago']}")
+                estado = ("✅ permitido" if r["cumplimiento_ok"]
+                          else f"⛔ bloqueado ({r['cumplimiento_codigo']})")
+                st.markdown(f"**Cumplimiento:** {estado} — {r['cumplimiento_motivo']}")
+                st.markdown("**Conversación:**")
+                chat = "\n".join(
+                    f"{'🤖 Gestor IA' if q == 'gestor' else '🧑 Cliente'}: {t}"
+                    for q, t in r["transcript"])
+                st.markdown(f"<div class='guion-box' style='white-space:pre-wrap'>{chat}</div>",
+                            unsafe_allow_html=True)
+
+        tabla = resultados_a_dataframe(resultados)
+        d1, d2 = st.columns(2)
+        d1.download_button("⬇️ Descargar resultados (CSV)",
+                           tabla.to_csv(index=False).encode("utf-8"),
+                           file_name="kobra_resultados_prueba.csv", mime="text/csv")
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="xlsxwriter") as xl:
+            tabla.to_excel(xl, sheet_name="Resultados", index=False)
+        d2.download_button("⬇️ Descargar resultados (Excel)", buf.getvalue(),
+                           file_name="kobra_resultados_prueba.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+# ---- Tab 9: Caso de negocio (ROI) ------------------------------------------
+with tab9:
+    st.subheader("💰 Caso de negocio (estimador de ROI)")
+    st.caption("Dimensioná el valor de Kobra sobre TU cartera bajo distintos supuestos "
+               "de mejora. Sirve para justificar un piloto pago.")
+    st.warning("⚠️ El *uplift* (cuánto sube el recupero) es un **supuesto que cargás vos, "
+               "no un resultado medido**. Esto proyecta *cuánto valdría*, no afirma cuánto "
+               "sube Kobra. El número real se mide en un piloto con grupo de control.")
+
+    cA, cB, cC = st.columns(3)
+    cartera = cA.number_input("Cartera gestionable (UYU)", min_value=0.0,
+                              value=100_000_000.0, step=1_000_000.0, format="%.0f")
+    tasa_base = cB.number_input("Tasa de recupero actual (%)", min_value=0.0,
+                                max_value=100.0, value=30.0, step=1.0) / 100
+    meses = cC.number_input("Horizonte (meses)", min_value=1, value=12, step=1)
+    cD, cE, cF = st.columns(3)
+    costo_mes = cD.number_input("Costo mensual de Kobra (UYU)", min_value=0.0,
+                                value=100_000.0, step=10_000.0, format="%.0f")
+    costo_setup = cE.number_input("Setup / implementación (UYU)", min_value=0.0,
+                                  value=300_000.0, step=50_000.0, format="%.0f")
+    up_base = cF.number_input("Uplift escenario base (pp)", min_value=0.0,
+                              max_value=100.0, value=5.0, step=1.0)
+
+    escenarios = {"conservador": max(up_base - 3, 0) / 100,
+                  "base": up_base / 100,
+                  "optimista": (up_base + 3) / 100}
+    r = kroi.estimar(cartera, tasa_base, escenarios=escenarios, meses=int(meses),
+                     costo_mensual_uyu=costo_mes, costo_implementacion_uyu=costo_setup)
+
+    cols = st.columns(3)
+    for i, (nombre, e) in enumerate(r["escenarios"].items()):
+        with cols[i]:
+            st.metric(f"{nombre.capitalize()} · +{e['uplift_pp']:.0f} pp",
+                      f"$U {e['recupero_adicional_uyu']:,.0f}",
+                      (f"ROI {e['roi']:.1f}x · payback {e['payback_meses']:.1f} m"
+                       if e["roi"] is not None else "—"))
+    tabla_roi = pd.DataFrame(r["escenarios"]).T
+    st.dataframe(tabla_roi, use_container_width=True)
+    st.caption(r["NOTA"])
+    st.download_button("⬇️ Descargar caso de negocio (CSV)",
+                       tabla_roi.to_csv().encode("utf-8"),
+                       file_name="kobra_caso_negocio.csv", mime="text/csv")
 
 st.markdown("---")
 st.caption("Kobra IA · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). "

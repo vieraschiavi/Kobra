@@ -9,12 +9,13 @@ teléfono, monto— para probarlo de punta a punta sin la cartera sintética:
 
 La conversación se **simula** (el deudor responde según su ProbPago). Para
 llamar de verdad a esos números necesitás telefonía (Twilio/central) y el
-consentimiento de la persona — ver la nota "LLAMADA REAL" al final.
+consentimiento de la persona — ver `docs/GUIA_LLAMADA_REAL_TWILIO.md`.
 
-Uso:
+Se usa desde el **dashboard** (pestaña "🧪 Probar mi cartera", con subir
+archivo / tabla editable / descarga) o por CLI:
+
     python -m realtime.mi_cartera                      # data/mi_cartera_prueba.csv
-    python -m realtime.mi_cartera --base otros.csv
-    python -m realtime.mi_cartera --sin-claude         # sin API de Claude
+    python -m realtime.mi_cartera --base otros.csv --sin-claude
 
 > ⚠️ El CSV con datos reales es privado (`.gitignore`). No se sube al repo.
 """
@@ -39,71 +40,106 @@ from data.generate_dataset import generar                # noqa: E402
 BASE_DEFAULT = os.path.join(ROOT, "data", "mi_cartera_prueba.csv")
 
 
-def _ancho(txt, n):
-    return (txt[: n - 1] + "…") if len(txt) > n else txt
+def preparar_modelo(n: int = 6000, seed: int = 42):
+    """Entrena ProbPago con la cartera sintética y devuelve (modelo, baseline)."""
+    sint = generar(n, seed)
+    model = ProbPagoModel().fit(sint)
+    base = explicabilidad.baseline_cartera(sint)
+    return model, base
 
 
-def correr(contactos: list[dict], usar_claude: bool = True) -> list[dict]:
-    # 1) Modelo ProbPago entrenado con la cartera sintética (el "cerebro")
-    model = ProbPagoModel().fit(generar(6000, 42))
-    base_expl = explicabilidad.baseline_cartera(generar(6000, 42))
-
-    # 2) Tu cartera → score + estrategia + reason codes
+def procesar(contactos: list[dict], model, base_expl,
+             usar_claude: bool = False) -> list[dict]:
+    """
+    Corre el flujo completo sobre una lista de contactos y devuelve, por cada
+    uno: score, reason codes, decisión de cumplimiento, transcripción de la
+    negociación simulada y resultado. Sin efectos de impresión (para el
+    dashboard y los tests).
+    """
     df = cartera_manual.cargar_manual(contactos)
     df = cartera_manual.puntuar(model, df)
     df = negociador.recomendar(df)
 
     resultados = []
     for _, fila in df.iterrows():
-        nombre = fila["nombre"] or fila["id_deudor"]
-        tel = fila["telefono"]
         motivo = explicabilidad.explicar_texto(model, fila, base_expl, top=2)
-
-        print("\n" + "═" * 68)
-        print(f"  {nombre}   ☎ {tel or '—'}   ·   deuda $U {fila['monto_deuda']:,.0f}")
-        print("═" * 68)
-        print(f"  ProbPago: {fila['probpago']:.0%} ({fila['segmento_propension']})  ·  "
-              f"{fila['estrategia']}  ·  desc. máx {fila['descuento_recomendado']:.0%}  ·  "
-              f"{int(fila['plan_cuotas'])} cuota(s)")
-        print(f"  ¿Por qué?  {motivo}")
-
-        # 3) Cumplimiento: ¿se puede contactar ahora?
         d = cumplimiento.puede_contactar(fila["id_deudor"], "Llamada")
-        estado = "✓ permitido" if d.permitido else f"✗ bloqueado ({d.codigo})"
-        print(f"  Cumplimiento: {estado} — {d.motivo}")
 
-        # 4) Gestor IA negocia (conversación simulada)
         brief = cartera_manual.brief_desde_fila(fila)
         ses = gestor_ia.SesionGestorIA(
             id_deudor=fila["id_deudor"], canal="Llamada", gestor_id="IA01",
             usar_claude=usar_claude, brief=brief)
         cliente = ClienteSimulado(fila["id_deudor"], float(fila["probpago"]))
 
-        print("  ── conversación ─────────────────────────────────────────────")
+        transcript = []
         r = ses.responder(None)
-        print(f"    🤖 {r['texto']}")
+        transcript.append(("gestor", r["texto"]))
         for _ in range(12):
             if r["fin"]:
                 break
             msg = cliente.responder(r["texto"])
-            print(f"    🧑 {msg}")
+            transcript.append(("cliente", msg))
             r = ses.responder(msg)
-            print(f"    🤖 {r['texto']}")
+            transcript.append(("gestor", r["texto"]))
 
         erp = ses.campos_erp
-        print("  ── resultado ────────────────────────────────────────────────")
-        print(f"    Resultado: {erp.get('resultado', 'Sin acuerdo')}"
-              + (f"  ·  acordado $U {erp.get('monto_acordado', 0):,.0f}"
-                 f" en {erp.get('cuotas', 0)} cuota(s)"
-                 if erp.get('resultado') == 'Promesa' else ""))
         resultados.append({
-            "nombre": nombre, "telefono": tel,
+            "nombre": fila["nombre"] or fila["id_deudor"],
+            "telefono": fila["telefono"],
             "id_deudor": fila["id_deudor"],
+            "monto_deuda": float(fila["monto_deuda"]),
             "probpago": round(float(fila["probpago"]), 3),
+            "propension": str(fila.get("segmento_propension", "Media")),
             "estrategia": fila["estrategia"],
+            "descuento_recomendado": float(fila["descuento_recomendado"]),
+            "plan_cuotas": int(fila["plan_cuotas"]),
+            "motivo_probpago": motivo,
+            "cumplimiento_ok": bool(d.permitido),
+            "cumplimiento_codigo": d.codigo,
+            "cumplimiento_motivo": d.motivo,
             "resultado": erp.get("resultado", "Sin acuerdo"),
-            "monto_acordado": erp.get("monto_acordado", 0),
+            "monto_acordado": float(erp.get("monto_acordado", 0) or 0),
+            "cuotas_acordadas": int(erp.get("cuotas", 0) or 0),
+            "transcript": transcript,
         })
+    return resultados
+
+
+def resultados_a_dataframe(resultados: list[dict]) -> pd.DataFrame:
+    """Tabla descargable (sin la transcripción, que va aparte)."""
+    filas = [{k: v for k, v in r.items() if k != "transcript"} for r in resultados]
+    return pd.DataFrame(filas)
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+def _ancho(txt, n):
+    return (txt[: n - 1] + "…") if len(txt) > n else txt
+
+
+def correr(contactos: list[dict], usar_claude: bool = True) -> list[dict]:
+    model, base = preparar_modelo()
+    resultados = procesar(contactos, model, base, usar_claude=usar_claude)
+    for r in resultados:
+        print("\n" + "═" * 68)
+        print(f"  {r['nombre']}   ☎ {r['telefono'] or '—'}   ·   "
+              f"deuda $U {r['monto_deuda']:,.0f}")
+        print("═" * 68)
+        print(f"  ProbPago: {r['probpago']:.0%} ({r['propension']})  ·  "
+              f"{r['estrategia']}  ·  desc. máx {r['descuento_recomendado']:.0%}  ·  "
+              f"{r['plan_cuotas']} cuota(s)")
+        print(f"  ¿Por qué?  {r['motivo_probpago']}")
+        estado = "✓ permitido" if r["cumplimiento_ok"] else f"✗ bloqueado ({r['cumplimiento_codigo']})"
+        print(f"  Cumplimiento: {estado} — {r['cumplimiento_motivo']}")
+        print("  ── conversación ─────────────────────────────────────────────")
+        for quien, texto in r["transcript"]:
+            print(f"    {'🤖' if quien == 'gestor' else '🧑'} {texto}")
+        print("  ── resultado ────────────────────────────────────────────────")
+        print(f"    Resultado: {r['resultado']}"
+              + (f"  ·  acordado $U {r['monto_acordado']:,.0f} "
+                 f"en {r['cuotas_acordadas']} cuota(s)"
+                 if r["resultado"] == "Promesa" else ""))
     return resultados
 
 
@@ -125,19 +161,12 @@ def main():
           f"{datetime.now():%Y-%m-%d %H:%M}")
     res = correr(contactos, usar_claude=not args.sin_claude)
 
-    print("\n" + "═" * 68)
-    print("  RESUMEN")
-    print("═" * 68)
+    print("\n" + "═" * 68 + "\n  RESUMEN\n" + "═" * 68)
     for r in res:
         print(f"  {_ancho(r['nombre'], 22):22} {r['telefono']:12} "
               f"ProbPago {r['probpago']:.0%}  →  {r['resultado']}")
-
-    print("\n  ── LLAMADA REAL ─────────────────────────────────────────────")
-    print("  Esta corrida SIMULA la conversación. Para llamar de verdad a estos")
-    print("  números necesitás: (1) telefonía —tu cuenta de Twilio con un número,")
-    print("  o tu central Avaya/Asterisk— y (2) el CONSENTIMIENTO de la persona.")
-    print("  Con Twilio: el <Connect><Stream> apunta a wss://<host>/twilio y el")
-    print("  Gestor IA toma la llamada (ver realtime/server.py y README).")
+    print("\n  Para llamar de verdad: docs/GUIA_LLAMADA_REAL_TWILIO.md "
+          "(telefonía + consentimiento).")
 
 
 if __name__ == "__main__":

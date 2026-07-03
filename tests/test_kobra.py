@@ -515,3 +515,36 @@ def test_leer_csv_preserva_telefono(tmp_path):
     contactos = cm.leer_csv(str(p))
     assert contactos[0]["telefono"] == "095779569"      # conserva el 0 inicial
     assert contactos[0]["monto_deuda"] == 10000
+
+
+def test_procesar_cartera_end_to_end():
+    """procesar(): score + reason codes + cumplimiento + negociación por contacto."""
+    from realtime.mi_cartera import procesar, resultados_a_dataframe
+    from kobra.probpago import ProbPagoModel
+    from kobra import explicabilidad
+    df = _df()
+    model = ProbPagoModel().fit(df)
+    base = explicabilidad.baseline_cartera(df)
+    contactos = [
+        {"nombre": "A", "telefono": "099000001", "monto_deuda": 10000, "dias_mora": 20},
+        {"nombre": "B", "telefono": "099000002", "monto_deuda": 15000, "dias_mora": 160},
+    ]
+    res = procesar(contactos, model, base, usar_claude=False)
+    assert len(res) == 2
+    for r in res:
+        assert 0 <= r["probpago"] <= 1
+        assert r["motivo_probpago"] and r["transcript"]
+        assert r["resultado"] in ("Promesa", "Sin acuerdo", "No contactar", "Derivado a humano")
+        assert r["transcript"][0][0] == "gestor"      # arranca el bot
+    tabla = resultados_a_dataframe(res)
+    assert "transcript" not in tabla.columns and len(tabla) == 2
+
+
+def test_desde_dataframe_tolerante():
+    from kobra import cartera_manual as cm
+    df = pd.DataFrame({"nombre": ["A", "B"], "telefono": ["099000001", "099000002"],
+                       "deuda": ["10000", ""], "dias_mora": ["30", ""]})
+    contactos = cm.desde_dataframe(df)
+    assert len(contactos) == 1                         # descarta la fila sin deuda
+    assert contactos[0]["telefono"] == "099000001"
+    assert contactos[0]["monto_deuda"] == 10000 and contactos[0]["dias_mora"] == 30
