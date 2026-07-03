@@ -64,6 +64,29 @@ st.markdown(f"""
         padding:14px 16px; color:#dfe6f0; font-size:.95rem; margin-top:8px;
     }}
     section[data-testid="stSidebar"] {{ background:#0b0e16; }}
+    /* --- Guía & Ayuda --- */
+    .kh-hero {{
+        background:linear-gradient(120deg,#141b2d 0%,#101627 60%,#0d1b17 100%);
+        border:1px solid #26304a; border-radius:18px; padding:26px 28px; margin:6px 0 18px;
+    }}
+    .kh-hero h2 {{ margin:0 0 6px; font-size:1.55rem; }}
+    .kh-hero p {{ margin:0; color:#aeb9cc; font-size:.98rem; }}
+    .kh-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr));
+        gap:14px; margin:6px 0 8px; }}
+    .kh-card {{ background:#161c2b; border:1px solid #26304a; border-radius:14px;
+        padding:18px 18px 16px; position:relative; }}
+    .kh-card h4 {{ margin:2px 0 8px; font-size:1.05rem; color:#f2f5fa; }}
+    .kh-card p, .kh-card li {{ color:#c2cbdb; font-size:.9rem; line-height:1.5; }}
+    .kh-card ul {{ margin:6px 0 0; padding-left:18px; }}
+    .kh-num {{ display:inline-flex; align-items:center; justify-content:center;
+        width:30px; height:30px; border-radius:9px; background:{PRIMARY}; color:#062018;
+        font-weight:800; font-size:1rem; margin-bottom:8px; }}
+    .kh-pill {{ display:inline-block; background:#0f1523; border:1px solid #2b3550;
+        color:#9fb0c6; border-radius:20px; padding:2px 10px; font-size:.72rem;
+        font-weight:600; margin-left:6px; }}
+    .kh-key {{ background:#0f1523; border:1px solid #2b3550; border-radius:6px;
+        padding:1px 7px; font-family:Consolas,monospace; font-size:.82rem; color:#7ff0c6; }}
+    .kh-ok {{ color:#00C896; font-weight:700; }} .kh-off {{ color:#8593a8; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -184,10 +207,95 @@ st.markdown("---")
 # ----------------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------------
-tab1, tab2, tab3, tab4, tab5, tab6, tab8, tab9, tab7 = st.tabs(
-    ["📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
+tabH, tab1, tab2, tab3, tab4, tab5, tab6, tab8, tab9, tab7 = st.tabs(
+    ["❓ Guía & Ayuda", "📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
      "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo", "📇 Gestores & Evolución",
      "🧪 Probar mi cartera", "💰 Caso de negocio", "⚙️ Configuración"])
+
+# ---- Tab Ayuda: guía paso a paso -------------------------------------------
+with tabH:
+    _est = kconfig.estado()
+    def _chip(clave, etiqueta):
+        on = _est.get(clave)
+        marca = "<span class='kh-ok'>● configurada</span>" if on else "<span class='kh-off'>○ sin configurar</span>"
+        return f"<div style='margin:3px 0'><span class='kh-key'>{clave}</span> — {etiqueta} · {marca}</div>"
+
+    st.markdown(
+        "<div class='kh-hero'><h2>👋 Bienvenido a Kobra IA</h2>"
+        "<p>Plataforma de cobranzas inteligentes: prioriza tu cartera, negocia con IA "
+        "(voz o WhatsApp), asesora en vivo y mide resultados. Esta guía te lleva paso a "
+        "paso; no necesitás saber de programación.</p></div>", unsafe_allow_html=True)
+
+    st.markdown(
+        "<div class='kh-grid'>"
+        "<div class='kh-card'><div class='kh-num'>1</div><h4>Mirá la demo</h4>"
+        "<p>Arranca con una <b>cartera sintética</b> (datos ficticios, sin personas reales). "
+        "Recorré <b>Visión general</b>, <b>Agente Negociador</b> y <b>Cartera &amp; Export</b> "
+        "para ver KPIs, estrategias y descargas a Excel/CSV.</p></div>"
+
+        "<div class='kh-card'><div class='kh-num'>2</div><h4>Configurá tus claves "
+        "<span class='kh-pill'>se guardan</span></h4>"
+        "<p>En la pestaña <b>⚙️ Configuración</b> cargás las API keys <b>una sola vez</b>: "
+        "quedan guardadas y se cargan solas en cada arranque. No hace falta reingresarlas.</p></div>"
+
+        "<div class='kh-card'><div class='kh-num'>3</div><h4>Probá tu propia cartera</h4>"
+        "<p>En <b>🧪 Probar mi cartera</b> escribís tus contactos en una tabla o subís un "
+        "CSV/Excel; el Gestor IA negocia cada caso y descargás los resultados. Privado: "
+        "no se sube a ningún lado.</p></div>"
+
+        "<div class='kh-card'><div class='kh-num'>4</div><h4>Llamá de verdad</h4>"
+        "<p>Con Twilio configurado (paso 2), el Gestor IA <b>llama por teléfono</b>, negocia "
+        "y registra la gestión. Se dispara desde la página <span class='kh-key'>/llamar</span> "
+        "del servidor de voz. Guía completa: <b>docs/GUIA_LLAMADA_REAL_TWILIO.md</b>.</p></div>"
+
+        "<div class='kh-card'><div class='kh-num'>5</div><h4>Medí y cumplí</h4>"
+        "<p><b>💰 Caso de negocio</b> estima el ROI con tus supuestos. El módulo de "
+        "<b>cumplimiento</b> respeta horarios, topes y la lista <i>No Contactar</i> "
+        "(opt-out) automáticamente.</p></div>"
+
+        "<div class='kh-card'><div class='kh-num'>📱</div><h4>PC y celular, igual de completo</h4>"
+        "<p>El dashboard es una <b>app web</b>: en la compu corre local; desde el "
+        "<b>celular (Android/iPhone)</b> abrís la misma dirección en el navegador y tenés "
+        "<b>exactamente las mismas funciones</b>. En Chrome → <i>Agregar a pantalla de "
+        "inicio</i> y queda como una app.</p></div>"
+        "</div>", unsafe_allow_html=True)
+
+    st.markdown("### 🔑 Tus API keys (guardadas, no las reingresás)")
+    ca, cb = st.columns([0.62, 0.38])
+    with ca:
+        st.markdown(
+            "<div class='kh-card'>"
+            + _chip("OPENAI_API_KEY", "Transcripción de voz (Whisper) — opcional")
+            + _chip("ANTHROPIC_API_KEY", "Claude: redacción más natural del Gestor IA — opcional")
+            + _chip("TWILIO_ACCOUNT_SID", "Llamadas reales — Account SID")
+            + _chip("TWILIO_AUTH_TOKEN", "Llamadas reales — Auth Token")
+            + _chip("TWILIO_FROM", "Llamadas reales — tu número Twilio")
+            + "<p style='margin-top:10px'>Se cargan y guardan en la pestaña "
+              "<b>⚙️ Configuración</b>. Kobra funciona igual sin claves (con menos "
+              "extras). Se guardan cifradas/con permisos restringidos, fuera del repo.</p>"
+            "</div>", unsafe_allow_html=True)
+    with cb:
+        st.info("Para editar o guardar tus claves, andá a la pestaña **⚙️ Configuración** "
+                "(última). Se guardan una vez y listo.", icon="🔑")
+        st.caption("📱 En el celular: abrí la misma URL del dashboard en Chrome/Safari. "
+                   "Mismas pestañas, mismas funciones que en la PC.")
+
+    with st.expander("📞 Cómo hacer una llamada real (Twilio) — paso a paso"):
+        st.markdown(
+            "1. Creá una cuenta en **twilio.com/try-twilio** (trial gratis) y verificá tu "
+            "celular en *Verified Caller IDs*.\n"
+            "2. Comprá un número con *Voice* y anotá **Account SID**, **Auth Token** y el número.\n"
+            "3. Cargalos en **⚙️ Configuración** (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`).\n"
+            "4. Poné el servidor de voz accesible (ngrok) y abrí `…/llamar`.\n"
+            "5. Ingresá el teléfono y el monto → **📞 Llamar ahora**. El bot negocia y registra la gestión.\n\n"
+            "⚠️ Necesitás el **consentimiento** de la persona. Empezá probando con tu propio celular.")
+    with st.expander("⚖️ Registrar Kobra legalmente en Uruguay (para que no te la copien)"):
+        st.markdown(
+            "- El **código ya es tuyo** por derecho de autor automático (Ley 9.739/17.616).\n"
+            "- Registralo barato en la **Biblioteca Nacional** (~USD 20–60) para tener fecha cierta.\n"
+            "- Registrá la **marca “Kobra IA”** en la **DNPI** (~USD 200–500 por 10 años) al salir a vender.\n"
+            "- La **idea** no se registra; te protegés con código + marca + contratos/NDAs.\n\n"
+            "Guía completa: **docs/GUIA_REGISTRO_LEGAL_URUGUAY.md**.")
 
 # ---- Tab 1: Visión general -------------------------------------------------
 with tab1:
@@ -818,7 +926,7 @@ with tab7:
     guardadas = kconfig.cargar()
     cc = st.columns(2)
     for i, (clave, desc) in enumerate(kconfig.CLAVES.items()):
-        with cc[i]:
+        with cc[i % len(cc)]:
             activo = est.get(clave)
             st.markdown(f"**{desc}**")
             st.markdown(("🟢 Configurada" if activo else "⚪ No configurada") +
