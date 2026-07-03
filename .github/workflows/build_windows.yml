@@ -11,6 +11,11 @@ on:
     branches: ["claude/**"]
     paths:
       - "packaging/**"
+      - "app/**"
+      - "kobra/**"
+      - "realtime/**"
+      - "data/**"
+      - "requirements.txt"
       - ".github/workflows/build_windows.yml"
     tags: ["v*"]
 
