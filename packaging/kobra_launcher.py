@@ -7,6 +7,7 @@ el navegador. Es lo que se ejecuta cuando el usuario hace doble clic en el
 acceso directo "Kobra IA" que crea el instalador.
 """
 import os
+import socket
 import sys
 import threading
 import time
@@ -16,6 +17,23 @@ import webbrowser
 def _base_dir() -> str:
     """Carpeta con los recursos (dentro del bundle PyInstaller o del repo)."""
     return getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def _puerto_libre() -> int:
+    """Elige un puerto libre para no chocar con otros programas (p. ej. otra
+    app en 8501). Prueba unos puertos propios de Kobra y, si están ocupados,
+    pide uno efímero al sistema operativo."""
+    for p in (8531, 8542, 8553, 8564, 8575):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.bind(("127.0.0.1", p))
+                return p
+            except OSError:
+                continue
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
 def _abrir_navegador(url: str):
@@ -39,12 +57,14 @@ def main():
     os.environ.setdefault("STREAMLIT_GLOBAL_DEVELOPMENT_MODE", "false")
     os.environ.setdefault("STREAMLIT_BROWSER_GATHER_USAGE_STATS", "false")
     os.environ.setdefault("STREAMLIT_SERVER_HEADLESS", "true")
-    os.environ.setdefault("STREAMLIT_SERVER_PORT", "8501")
+    # Puerto: respeta el que el usuario fije en STREAMLIT_SERVER_PORT; si no,
+    # elige uno libre para no chocar con otros programas (evita el 8501 típico).
+    port = os.environ.get("STREAMLIT_SERVER_PORT") or str(_puerto_libre())
+    os.environ["STREAMLIT_SERVER_PORT"] = port
     # Que los import del proyecto (kobra, realtime, data) resuelvan.
     if base not in sys.path:
         sys.path.insert(0, base)
 
-    port = os.environ.get("STREAMLIT_SERVER_PORT", "8501")
     threading.Thread(target=_abrir_navegador,
                      args=(f"http://localhost:{port}",), daemon=True).start()
 
