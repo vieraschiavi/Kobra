@@ -479,3 +479,39 @@ def test_roi_estimador():
     # payback positivo y ROI coherente
     assert esc["base"]["payback_meses"] > 0 and esc["base"]["roi"] > 0
     assert "SUPUESTO" in r["NOTA"]
+
+
+# ---------------------------------------------------------------------------
+# Modo "mi cartera de prueba" (cliente carga sus propios contactos)
+# ---------------------------------------------------------------------------
+def test_cartera_manual_y_gestor():
+    from kobra import cartera_manual as cm
+    from kobra import negociador
+    from kobra.gestor_ia import SesionGestorIA
+    df = _df()
+    model = ProbPagoModel().fit(df)
+    # contactos ficticios (sin datos reales) con perfiles distintos
+    contactos = [
+        {"nombre": "Contacto A", "telefono": "099000001", "monto_deuda": 10000, "dias_mora": 20},
+        {"nombre": "Contacto B", "telefono": "099000002", "monto_deuda": 6000, "dias_mora": 150},
+    ]
+    cart = cm.cargar_manual(contactos)
+    assert list(cart["id_deudor"]) == ["MP-001", "MP-002"]
+    cart = cm.puntuar(model, cart)               # sin qcut (pocas filas)
+    assert cart["probpago"].between(0, 1).all()
+    cart = negociador.recomendar(cart)
+    # el brief pre-cargado se respeta (no lo pisa el lookup de la cartera scoreada)
+    brief = cm.brief_desde_fila(cart.iloc[0])
+    ses = SesionGestorIA(id_deudor="MP-001", usar_claude=False, brief=brief)
+    assert ses.brief["monto_deuda"] == 10000
+    r = ses.responder(None)
+    assert r["texto"] and not r["fin"]
+
+
+def test_leer_csv_preserva_telefono(tmp_path):
+    from kobra import cartera_manual as cm
+    p = tmp_path / "c.csv"
+    p.write_text("nombre,telefono,deuda\nWendy,095779569,10000\n", encoding="utf-8")
+    contactos = cm.leer_csv(str(p))
+    assert contactos[0]["telefono"] == "095779569"      # conserva el 0 inicial
+    assert contactos[0]["monto_deuda"] == 10000

@@ -554,6 +554,29 @@ python -m kobra.roi --cartera 100000000 --tasa-base 0.30 --costo-mensual 100000
 > medido**. El módulo proyecta *cuánto valdría*, no afirma cuánto sube Kobra —
 > coherente con la sección [Honestidad de los números](#-honestidad-de-los-números-leer-antes-de-vender).
 
+### 🧪 Probar con tu propia cartera — `realtime/mi_cartera.py`
+
+Además de la demo sintética, podés correr el flujo completo sobre **tus propios
+contactos** (nombre, teléfono, monto): ProbPago → estrategia → cumplimiento →
+Gestor IA negociando → resultado. Cargás un CSV simple y Kobra completa el
+resto con supuestos por defecto (en producción vienen del ERP):
+
+```bash
+# data/mi_cartera_prueba.csv  →  columnas: nombre, telefono, deuda[, dias_mora]
+python -m realtime.mi_cartera
+python -m realtime.mi_cartera --base otros_contactos.csv --sin-claude
+```
+
+La conversación se **simula**. Para **llamar de verdad** hace falta telefonía
+(tu cuenta de Twilio con un número, o tu central Avaya/Asterisk) y el
+**consentimiento** de la persona; el `<Connect><Stream>` de Twilio apunta a
+`wss://<host>/twilio` y el Gestor IA toma la llamada.
+
+> 🔒 **Privacidad.** Un CSV con nombres/teléfonos **reales** es privado:
+> `data/mi_cartera_prueba.csv` y `data/*_prueba.csv` están en `.gitignore` y
+> **no se suben al repo**. El producto que se vende sigue siendo 100 %
+> sintético (Ley 18.331). Para llamar a un tercero necesitás su consentimiento.
+
 ---
 
 ## 📁 Estructura
@@ -570,6 +593,7 @@ Kobra/
 │   ├── cumplimiento.py             # cumplimiento normativo (horarios, topes, no-contactar)
 │   ├── explicabilidad.py           # reason codes por deudor (por qué esta ProbPago)
 │   ├── roi.py                      # estimador de caso de negocio (ROI)
+│   ├── cartera_manual.py           # cargar tu propia cartera de prueba
 │   ├── registro.py                 # briefing pre-llamada + registro post-llamada
 │   ├── config.py                   # API keys persistentes (Configuración)
 │   ├── train.py                    # entrenamiento ML (selección de modelos)

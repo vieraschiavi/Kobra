@@ -102,11 +102,14 @@ class SesionGestorIA:
     dnc_archivo: str | None = None    # lista "No contactar" (default: la del módulo)
 
     def __post_init__(self):
-        self.brief = registro.brief(self.id_deudor) or {
-            "monto_deuda": 0, "probpago": 0.5, "estrategia": "Plan de cuotas",
-            "descuento_recomendado": 0.1, "plan_cuotas": 3,
-            "segmento_propension": "Media",
-        }
+        # Si ya viene un brief (p. ej. de una cartera manual), se respeta;
+        # si no, se busca en la cartera scoreada; si tampoco, defaults neutros.
+        if self.brief is None:
+            self.brief = registro.brief(self.id_deudor) or {
+                "monto_deuda": 0, "probpago": 0.5, "estrategia": "Plan de cuotas",
+                "descuento_recomendado": 0.1, "plan_cuotas": 3,
+                "segmento_propension": "Media",
+            }
 
     # --- escalera de ofertas (nunca supera el tope del negociador) ----------
     def _oferta(self) -> dict:
