@@ -7,16 +7,9 @@ name: build-windows-installer
 
 on:
   workflow_dispatch: {}
+  # Sin filtro de rutas: así el build por TAG (para la Release) siempre corre.
   push:
     branches: ["claude/**"]
-    paths:
-      - "packaging/**"
-      - "app/**"
-      - "kobra/**"
-      - "realtime/**"
-      - "data/**"
-      - "requirements.txt"
-      - ".github/workflows/build_windows.yml"
     tags: ["v*"]
 
 permissions:

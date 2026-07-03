@@ -1,0 +1,8 @@
+# Nixpacks (Railway / Zeabur): arrancar la app Streamlit, NO adivinar FastAPI.
+providers = ["python"]
+
+[phases.setup]
+aptPkgs = ["libsndfile1"]
+
+[start]
+cmd = "streamlit run app/app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --browser.gatherUsageStats false"
