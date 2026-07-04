@@ -12,7 +12,7 @@ Sobre el historial de gestiones responde:
 import numpy as np
 import pandas as pd
 
-CONVERSION = ("Pago", "Promesa")
+CONVERSION = ("Pago", "Promesa", "Arreglo de pago", "Promesa de pago")
 
 
 def _tasa_conversion(s):

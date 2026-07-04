@@ -118,25 +118,49 @@ def generar(seed=42, gestiones_por_gestor_mes=42):
                     resultado = "Pago"
                 elif r < p_conv:
                     resultado = "Promesa"
-                elif r < p_conv + 0.20:
+                elif r < p_conv + 0.14:
                     resultado = "Sin acuerdo"
+                elif r < p_conv + 0.20:
+                    resultado = "Informado"
                 else:
-                    resultado = "No contacto"
+                    resultado = rng.choice(
+                        ["No contactado", "Número erróneo", "Fallecido"],
+                        p=[0.82, 0.13, 0.05])
 
                 monto = float(d["monto_deuda"])
+                desc = (float(rng.choice([0, 0.05, 0.10, 0.20, 0.30],
+                                         p=[.5, .2, .15, .1, .05]))
+                        if resultado in ("Pago", "Promesa") else 0.0)
+                cuotas_g = (int(rng.integers(1, 7)) if resultado == "Promesa"
+                            else (1 if resultado == "Pago" else 0))
+                acordado = round(monto * (1 - desc), 0) if resultado in ("Pago", "Promesa") else 0
                 if resultado == "Pago":
                     recupero = monto * (0.6 + 0.4 * prob)
                 elif resultado == "Promesa":
                     recupero = monto * (0.3 + 0.3 * prob)
                 else:
                     recupero = 0.0
+                dia = int(rng.integers(1, 28))
+                fecha_g = f"{mes}-{dia:02d}"
+                fecha_comp = f"{mes}-{min(dia + 5, 28):02d}" if resultado == "Promesa" else ""
+                fecha_pg = fecha_g if resultado == "Pago" else ""
+                _NOTAS = {"Pago": "Abonó el total de la deuda.",
+                          "Promesa": "Arreglo de pago acordado; enviar comprobante.",
+                          "Sin acuerdo": "No aceptó la propuesta; reintentar.",
+                          "Informado": "Se informó la deuda / se dejó mensaje.",
+                          "No contactado": "No se logró contacto.",
+                          "Número erróneo": "Teléfono incorrecto; actualizar dato.",
+                          "Fallecido": "Titular fallecido; derivar a legales."}
 
                 rows.append(dict(
                     id_gestion=f"GE-{gid:07d}",
                     gestor_id=gestor_id,
                     gestor=gestor_nombre,
+                    tipo_gestor=("IA" if str(gestor_id).upper().startswith("IA") else "Humano"),
                     mes=mes,
+                    fecha_gestion=fecha_g,
                     id_deudor=d["id_deudor"],
+                    documento="",
                     segmento=d["segmento"],
                     producto=d["producto"],
                     departamento=d["departamento"],
@@ -148,8 +172,14 @@ def generar(seed=42, gestiones_por_gestor_mes=42):
                     emocion_dominante=emo,
                     tecnicas_usadas=tecnicas,
                     resultado=resultado,
+                    fecha_compromiso=fecha_comp,
+                    fecha_pago=fecha_pg,
                     monto_gestionado=round(monto, 0),
+                    monto_acordado=acordado,
+                    cuotas=cuotas_g,
+                    descuento=desc,
                     recupero=round(recupero, 0),
+                    notas=_NOTAS.get(resultado, ""),
                 ))
 
     return pd.DataFrame(rows)

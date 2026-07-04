@@ -2,19 +2,19 @@
   "NOTA": "ILUSTRATIVO: datos sintéticos con efecto de adopción inyectado por el generador (data/generate_gestiones.py). Demuestra la metodología de medición, NO es impacto medido.",
   "con_kobra": {
     "gestiones": 5018,
-    "calidad_prom": 74.5,
-    "tasa_conversion": 0.713,
-    "tasa_recupero": 0.428,
-    "sentimiento_prom": -0.007
+    "calidad_prom": 74.4,
+    "tasa_conversion": 0.703,
+    "tasa_recupero": 0.454,
+    "sentimiento_prom": -0.008
   },
   "sin_kobra": {
     "gestiones": 2241,
-    "calidad_prom": 59.9,
-    "tasa_conversion": 0.6,
-    "tasa_recupero": 0.402,
-    "sentimiento_prom": -0.082
+    "calidad_prom": 59.5,
+    "tasa_conversion": 0.627,
+    "tasa_recupero": 0.398,
+    "sentimiento_prom": -0.065
   },
-  "uplift_conversion": 0.113,
-  "uplift_calidad": 14.6,
-  "uplift_recupero": 0.026
+  "uplift_conversion": 0.076,
+  "uplift_calidad": 14.9,
+  "uplift_recupero": 0.056
 }

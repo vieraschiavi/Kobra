@@ -25,6 +25,9 @@ CLAVES = {
     "TWILIO_ACCOUNT_SID": "Twilio · Account SID (llamadas reales)",
     "TWILIO_AUTH_TOKEN": "Twilio · Auth Token (llamadas reales)",
     "TWILIO_FROM": "Twilio · número emisor (ej. +1…) para llamar",
+    "ERP_API_URL": "ERP · URL del endpoint/webhook para enviar la sábana",
+    "ERP_API_KEY": "ERP · API key (Bearer) del endpoint",
+    "ERP_DB_URL": "ERP · URL de conexión a base de datos (SQLAlchemy)",
 }
 
 
