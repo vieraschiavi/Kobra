@@ -57,7 +57,7 @@ hiddenimports += [
     "sklearn.neighbors._partition_nodes", "sklearn.utils._heap",
 ]
 
-_ICON = os.path.join(ROOT, "assets", "brand", "kobra.ico")
+_ICON = os.path.join(ROOT, "assets", "brand", "mv.ico")
 _icon = _ICON if os.path.exists(_ICON) else None
 
 block_cipher = None

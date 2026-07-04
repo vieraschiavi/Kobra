@@ -28,7 +28,7 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequiredOverridesAllowed=dialog
-SetupIconFile=..\assets\brand\kobra.ico
+SetupIconFile=..\assets\brand\mv.ico
 UninstallDisplayIcon={app}\{#AppExe}
 
 [Languages]
