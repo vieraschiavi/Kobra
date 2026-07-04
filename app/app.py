@@ -34,8 +34,11 @@ kconfig.aplicar()   # carga API keys guardadas al entorno
 # Config & estilo
 # ----------------------------------------------------------------------------
 _ICON_PATH = os.path.join(ROOT, "assets", "brand", "kobra_icon_64.png")
+# Ícono a nivel PC (ventana/pestaña del navegador): logo MV.
+_PC_ICON = os.path.join(ROOT, "assets", "brand", "mv_icon_64.png")
 st.set_page_config(page_title="Kobra IA · Cobranzas Inteligentes",
-                   page_icon=_ICON_PATH if os.path.exists(_ICON_PATH) else "🐍",
+                   page_icon=_PC_ICON if os.path.exists(_PC_ICON)
+                   else (_ICON_PATH if os.path.exists(_ICON_PATH) else "🐍"),
                    layout="wide", initial_sidebar_state="expanded")
 
 PRIMARY = "#00C896"       # verde Kobra
