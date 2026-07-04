@@ -1081,5 +1081,20 @@ with tab9:
                        file_name="kobra_caso_negocio.csv", mime="text/csv")
 
 st.markdown("---")
+# "Un producto de MV" con el logo
+_MV_PATH = os.path.join(ROOT, "assets", "brand", "mv_icon_64.png")
+if os.path.exists(_MV_PATH):
+    import base64 as _b64mv
+    with open(_MV_PATH, "rb") as _f:
+        _mv64 = _b64mv.b64encode(_f.read()).decode()
+    st.markdown(
+        f"<div style='display:flex;align-items:center;justify-content:center;gap:12px;"
+        f"margin:4px 0 10px;color:#9aa4b2;font-size:.95rem'>"
+        f"<span>Un producto de</span>"
+        f"<img src='data:image/png;base64,{_mv64}' style='height:34px;border-radius:8px;"
+        f"vertical-align:middle'>"
+        f"<b style='color:#dfe6f0;letter-spacing:.5px'>MV</b></div>",
+        unsafe_allow_html=True)
 st.caption("Kobra IA · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). "
-           "Sin nombres de clientes. Reemplazable por la cartera real de cualquier empresa.")
+           "Sin nombres de clientes. Reemplazable por la cartera real de cualquier empresa. "
+           "Un producto de MV.")
