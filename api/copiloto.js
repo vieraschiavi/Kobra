@@ -54,8 +54,13 @@ async function notifyOwner(limit) {
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
 
+  // Acepta pedidos desde el propio host (sirve para *.vercel.app y para
+  // cualquier dominio propio que se agregue después, sin tocar código),
+  // más *.vercel.app (previews) y localhost (desarrollo).
   const origin = req.headers.origin || "";
-  if (origin && !/(\.vercel\.app$)|(localhost)/.test(origin)) {
+  const host = req.headers.host || "";
+  const sameHost = origin && host && origin.replace(/^https?:\/\//, "") === host;
+  if (origin && !sameHost && !/(\.vercel\.app$)|(localhost)/.test(origin)) {
     res.status(403).json({ error: "origin" }); return;
   }
 
