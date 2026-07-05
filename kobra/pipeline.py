@@ -52,9 +52,11 @@ def run():
     df = _load_or_generate()
     print(f"[pipeline] Cartera cargada: {len(df):,} deudores")
 
-    # 1) Modelo ProbPago
-    model = ProbPagoModel().fit(df)
-    print(f"[pipeline] ProbPago entrenado · AUC-ROC={model.metrics['auc_roc']} "
+    # 1) Modelo ProbPago (usa el modelo seleccionado+calibrado por `kobra.train`
+    #    si ya fue entrenado; si no, cae en un Gradient Boosting ad-hoc)
+    model = ProbPagoModel().fit_seleccionado(df)
+    print(f"[pipeline] ProbPago: {model.metrics['modelo']} · "
+          f"AUC-ROC={model.metrics['auc_roc']} "
           f"· Lift decil10={model.metrics['lift_decil10']}x")
     scored = model.score(df)
 

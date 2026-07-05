@@ -35,9 +35,49 @@ def test_probpago_entrena_y_scorea():
     df = _df()
     model = ProbPagoModel().fit(df)
     assert model.metrics["auc_roc"] > 0.7          # el modelo aprende señal
+    assert model.metrics["modelo"] == "Gradient Boosting"
     scored = model.score(df)
     assert scored["probpago"].between(0, 1).all()
     assert set(scored["segmento_propension"].dropna().unique()) <= {"Alta", "Media", "Baja"}
+
+
+def test_probpago_fit_seleccionado_sin_entrenamiento_previo_cae_en_fallback(monkeypatch, tmp_path):
+    """Sin outputs/probpago_model.joblib, fit_seleccionado() debe comportarse
+    igual que fit() y etiquetarlo honestamente como fallback (no inventar un
+    modelo "seleccionado" que no existe)."""
+    import kobra.probpago as pp
+    monkeypatch.setattr(pp, "_MODEL_PATH", str(tmp_path / "no_existe.joblib"))
+    monkeypatch.setattr(pp, "_SELECTION_PATH", str(tmp_path / "no_existe.json"))
+    df = _df()
+    model = ProbPagoModel().fit_seleccionado(df)
+    assert "fallback" in model.metrics["modelo"]
+    assert model.score(df)["probpago"].between(0, 1).all()
+
+
+def test_probpago_fit_seleccionado_usa_modelo_persistido(monkeypatch, tmp_path):
+    """Con outputs/probpago_model.joblib + model_selection.json presentes
+    (los que genera `kobra.train`), fit_seleccionado() debe cargar ESE modelo
+    calibrado — no reentrenar uno propio — y exponer su nombre real."""
+    import kobra.probpago as pp
+    from kobra import train as kt
+
+    df = _df()
+    model_path = tmp_path / "probpago_model.joblib"
+    selection_path = tmp_path / "model_selection.json"
+    monkeypatch.setattr(kt, "OUT_DIR", str(tmp_path))
+    monkeypatch.setattr(pp, "_MODEL_PATH", str(model_path))
+    monkeypatch.setattr(pp, "_SELECTION_PATH", str(selection_path))
+
+    kt.entrenar(df=df, guardar=True)
+    assert model_path.exists() and selection_path.exists()
+
+    model = ProbPagoModel().fit_seleccionado(df)
+    assert "seleccionado por CV" in model.metrics["modelo"]
+    assert model.metrics["auc_roc"] > 0.7
+    scored = model.score(df)
+    assert scored["probpago"].between(0, 1).all()
+    imp = model.feature_importance()               # no debe romper con modelos lineales
+    assert len(imp) > 0 and imp["importancia"].ge(0).all()
 
 
 def test_negociador_recomienda():

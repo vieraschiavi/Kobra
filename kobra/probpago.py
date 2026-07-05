@@ -12,6 +12,8 @@ y mora, y devuelve para cada deudor:
 Es agnóstico del cliente: cualquier empresa puede entrenarlo con su cartera
 respetando el esquema de columnas.
 """
+import json
+import os
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -22,6 +24,16 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_MODEL_PATH = os.path.join(_ROOT, "outputs", "probpago_model.joblib")
+_SELECTION_PATH = os.path.join(_ROOT, "outputs", "model_selection.json")
+_MODEL_DISPLAY = {
+    "LogisticRegression": "Regresión Logística",
+    "RandomForest": "Random Forest",
+    "GradientBoosting": "Gradient Boosting",
+    "HistGradientBoosting": "HistGradientBoosting",
+}
 
 NUM_FEATURES = [
     "monto_deuda", "dias_mora", "cuotas_atrasadas", "antiguedad_cliente_meses",
@@ -67,6 +79,41 @@ class ProbPagoModel:
         te["decil"] = pd.qcut(te["p"].rank(method="first"), 10, labels=False) + 1
         top = te[te["decil"] == 10]["y"].mean()
         self.metrics["lift_decil10"] = round(float(top / y.mean()), 2)
+        self.metrics["modelo"] = "Gradient Boosting"
+        return self
+
+    def fit_seleccionado(self, df: pd.DataFrame):
+        """Como `fit()`, pero usa el modelo elegido por `kobra.train` (comparación
+        con validación cruzada entre Regresión Logística/RF/GBM/HistGB + calibración
+        isotónica), si ya fue entrenado (`outputs/probpago_model.joblib` +
+        `outputs/model_selection.json`). Sin eso, cae en el Gradient Boosting
+        ad-hoc de `fit()` — mismo comportamiento de siempre, pero etiquetado con
+        honestidad en `metrics['modelo']`."""
+        try:
+            import joblib
+            if os.path.exists(_MODEL_PATH) and os.path.exists(_SELECTION_PATH):
+                with open(_SELECTION_PATH, encoding="utf-8") as f:
+                    sel = json.load(f)
+                requeridas = ("auc_roc", "auc_pr", "n_train", "n_test",
+                              "tasa_pago_base", "lift_decil10", "mejor_modelo")
+                if all(sel.get(k) is not None for k in requeridas):
+                    self.pipeline = joblib.load(_MODEL_PATH)
+                    nombre = sel["mejor_modelo"]
+                    self.metrics = {
+                        "auc_roc": sel["auc_roc"], "auc_pr": sel["auc_pr"],
+                        "n_train": sel["n_train"], "n_test": sel["n_test"],
+                        "tasa_pago_base": sel["tasa_pago_base"],
+                        "lift_decil10": sel["lift_decil10"],
+                        "modelo": _MODEL_DISPLAY.get(nombre, nombre)
+                        + " (seleccionado por CV + calibrado)",
+                    }
+                    return self
+        except Exception:
+            pass
+        self.fit(df)
+        self.metrics["modelo"] = (
+            "Gradient Boosting (fallback sin selección — corré "
+            "`python -m kobra.train` para elegir y calibrar el mejor modelo)")
         return self
 
     def score(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -80,11 +127,30 @@ class ProbPagoModel:
             labels=["Baja", "Media", "Alta"])
         return out
 
+    def _pipeline_ajustado(self):
+        """Devuelve el Pipeline (pre + clf) ya ajustado, sea `fit()` (Pipeline
+        directo) o `fit_seleccionado()` (CalibratedClassifierCV envolviendo un
+        Pipeline por cada fold de calibración — se usa el del primer fold)."""
+        if hasattr(self.pipeline, "named_steps"):
+            return self.pipeline
+        calibrados = getattr(self.pipeline, "calibrated_classifiers_", None)
+        if calibrados:
+            base = calibrados[0]
+            return getattr(base, "estimator", None) or getattr(base, "base_estimator", None)
+        return None
+
     def feature_importance(self) -> pd.DataFrame:
-        pre = self.pipeline.named_steps["pre"]
-        clf = self.pipeline.named_steps["clf"]
+        pipe = self._pipeline_ajustado()
+        pre = pipe.named_steps["pre"]
+        clf = pipe.named_steps["clf"]
         cat_names = list(
             pre.named_transformers_["cat"].get_feature_names_out(CAT_FEATURES))
         names = cat_names + NUM_FEATURES
-        imp = pd.DataFrame({"feature": names, "importancia": clf.feature_importances_})
+        if hasattr(clf, "feature_importances_"):        # modelos de árboles
+            valores = clf.feature_importances_
+        elif hasattr(clf, "coef_"):                      # modelos lineales (Regresión Logística)
+            valores = np.abs(clf.coef_[0])
+        else:
+            valores = np.zeros(len(names))
+        imp = pd.DataFrame({"feature": names, "importancia": valores})
         return imp.sort_values("importancia", ascending=False).reset_index(drop=True)

@@ -30,5 +30,8 @@ jobs:
       - name: Tests
         run: python -m pytest -q tests/
 
-      - name: Smoke test del pipeline end-to-end
+      - name: Selección de modelos (CV + calibración)
+        run: python -m kobra.train
+
+      - name: Smoke test del pipeline end-to-end (usa el modelo seleccionado)
         run: python -m kobra.pipeline
