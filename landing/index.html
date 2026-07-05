@@ -138,6 +138,25 @@ nav .wrap{display:flex;align-items:center;gap:16px;height:60px}
 .cform .actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .cform .hint{color:var(--muted-d);font-size:13px}
 
+/* registro / demo 3 días */
+.modal-bg{position:fixed;inset:0;background:rgba(4,10,20,.72);backdrop-filter:blur(4px);z-index:60;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-bg[hidden]{display:none}
+.modal{background:var(--paper);color:var(--ink-d);border-radius:18px;padding:30px;max-width:440px;width:100%;
+  position:relative;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.modal-x{position:absolute;top:12px;right:15px;background:none;border:0;font-size:26px;color:var(--muted-d);
+  cursor:pointer;line-height:1}
+.modal h3{font-size:22px;color:var(--ink-d);margin:8px 0 6px}
+.modal-sub{color:var(--muted-d);font-size:14.5px;margin:0 0 18px}
+.modal form{display:grid;gap:12px}
+.modal label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:700;color:var(--muted-d)}
+.modal input{font-family:inherit;font-size:15px;color:var(--ink-d);background:#fff;border:1px solid var(--line-d);
+  border-radius:10px;padding:10px 12px;font-weight:400}
+.modal input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(242,180,65,.18)}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:420px){.frow2{grid-template-columns:1fr}}
+.modal-note{font-size:11.5px;color:var(--muted-d);text-align:center;margin:2px 0 0}
+
 /* band + footer */
 .band{background:
    radial-gradient(560px 280px at 50% 0,rgba(242,180,65,.16),transparent 60%),
@@ -175,7 +194,7 @@ footer .legal{max-width:74ch;line-height:1.6}
     <p class="lead" data-i="lead">Kobra es el agente con Inteligencia Artificial que llama por teléfono, negocia por
     WhatsApp, respeta la ley y vuelca cada resultado a tu ERP — mientras tu equipo se enfoca en lo que importa.</p>
     <div class="hcta">
-      <a href="#demo" class="btn btn-a" data-i="hb1">▶ Ver la demo en vivo</a>
+      <a href="/demo/" class="btn btn-a js-demo" data-i="hb1">▶ Ver la demo en vivo</a>
       <a href="#precios" class="btn btn-o" data-i="hb2">Planes desde USD 149</a>
     </div>
     <div class="metrics">
@@ -259,7 +278,7 @@ footer .legal{max-width:74ch;line-height:1.6}
   <div class="eyebrow" style="color:var(--amber)" data-i="dey">Demo en vivo</div>
   <h2 data-i="bandt" style="margin-top:10px">Probá Kobra ahora mismo</h2>
   <p data-i="bandp">Abrí el tablero interactivo y mirá cómo prioriza la cartera, negocia y registra cada gestión.</p>
-  <a href="/demo/" class="btn btn-a" data-i="bandcta">▶ Abrir la demo</a>
+  <a href="/demo/" class="btn btn-a js-demo" data-i="bandcta">▶ Abrir la demo</a>
 </div></div></section>
 
 <!-- CONTACTO (white) -->
@@ -282,6 +301,25 @@ footer .legal{max-width:74ch;line-height:1.6}
     </div>
   </form>
 </div></section>
+
+<div class="modal-bg" id="regmodal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="regtitle">
+    <button class="modal-x" id="regclose" aria-label="Cerrar">&times;</button>
+    <div class="eyebrow" data-i="regey">Demo gratis · 3 días</div>
+    <h3 id="regtitle" data-i="regt">Activá tu demo completa</h3>
+    <p class="modal-sub" id="regsub" data-i="regsub">Registrate y probá Kobra completo por 3 días. Sin tarjeta.</p>
+    <form id="regform" novalidate>
+      <label><span data-i="cfn">Nombre</span><input name="nombre" required autocomplete="name"></label>
+      <label><span data-i="cfe">Email</span><input type="email" name="email" required autocomplete="email"></label>
+      <div class="frow2">
+        <label><span data-i="cft">Teléfono</span><input name="tel" autocomplete="tel" inputmode="tel"></label>
+        <label><span data-i="regemp">Empresa</span><input name="empresa" autocomplete="organization"></label>
+      </div>
+      <button type="submit" class="btn btn-a" style="width:100%" data-i="regcta">Activar demo de 3 días</button>
+      <p class="modal-note" data-i="regnote">Al registrarte aceptás recibir información de Kobra IA.</p>
+    </form>
+  </div>
+</div>
 
 <footer><div class="wrap">
   <div class="foot-top">
@@ -321,6 +359,7 @@ var I18N={
     dey:"Demo ao vivo",bandt:"Teste a Kobra agora mesmo",bandp:"Abra o painel interativo e veja como prioriza a carteira, negocia e registra cada gestão.",bandcta:"▶ Abrir a demo",
     eyc:"Contato",stc:"Caixa de contato",slc:"Tem uma dúvida ou quer uma demo? Preencha o formulário: seu e-mail abre com o assunto e a pergunta prontos para nos enviar a vieraschiavi@gmail.com.",
     cfn:"Nome",cfe:"Seu e-mail",cft:"Telefone",cfa:"Assunto",cfp:"Dúvida / pergunta",cfb:"Enviar consulta",cfh:"Abre seu app de e-mail com a mensagem pronta.",
+    regey:"Demo grátis · 3 dias",regt:"Ative sua demo completa",regsub:"Cadastre-se e teste a Kobra completa por 3 dias. Sem cartão.",regemp:"Empresa",regcta:"Ativar demo de 3 dias",regnote:"Ao se cadastrar, você aceita receber informações da Kobra IA.",
     legal:"Kobra IA · Cobranças Inteligentes. Plataforma de gestão de cobranças assistida por inteligência artificial. Dados de demonstração 100% sintéticos; as métricas mostradas são ilustrativas."
   },
   en:{
@@ -347,6 +386,7 @@ var I18N={
     dey:"Live demo",bandt:"Try Kobra right now",bandp:"Open the interactive dashboard and see how it prioritizes the portfolio, negotiates and logs every case.",bandcta:"▶ Open the demo",
     eyc:"Contact",stc:"Contact box",slc:"Have a question or want a demo? Fill out the form: your email opens with the subject and question ready to send to vieraschiavi@gmail.com.",
     cfn:"Name",cfe:"Your email",cft:"Phone",cfa:"Subject",cfp:"Question / inquiry",cfb:"Send inquiry",cfh:"Opens your email app with the message ready.",
+    regey:"Free demo · 3 days",regt:"Activate your full demo",regsub:"Sign up and try the full Kobra for 3 days. No card.",regemp:"Company",regcta:"Activate 3-day demo",regnote:"By signing up you agree to receive information from Kobra IA.",
     legal:"Kobra IA · Smart Collections. AI-assisted debt-collection management platform. 100% synthetic demo data; metrics shown are illustrative of the product."
   }
 };
@@ -380,5 +420,42 @@ if(cform){cform.addEventListener('submit',function(e){
   var body=(pregunta||'')+"\n\n----------------------------\nDatos de contacto\n"+
            "Nombre: "+(nombre||'-')+"\nEmail: "+(email||'-')+"\nTeléfono: "+(tel||'-')+"\nEnviado desde: landing Kobra IA";
   window.location.href="mailto:"+CONTACT_TO+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+});}
+
+// Demo completa · 3 días por usuario registrado
+var TRIAL_MS=3*24*60*60*1000;
+function regGet(){try{return JSON.parse(localStorage.getItem('kobra_reg')||'null')}catch(e){return null}}
+function regValid(r){return !!(r&&r.ts&&(Date.now()-r.ts)<TRIAL_MS)}
+var modal=document.getElementById('regmodal');
+function openReg(expired){
+  var sub=document.getElementById('regsub');
+  if(expired&&sub){sub.textContent=(document.documentElement.lang==='en'?
+     "Your 3-day demo expired. Sign up again to keep testing.":
+     document.documentElement.lang==='pt'?
+     "Sua demo de 3 dias expirou. Cadastre-se de novo para continuar.":
+     "Tu demo de 3 días venció. Registrate de nuevo para seguir probando.");}
+  if(modal){modal.hidden=false;var f=modal.querySelector('input[name=nombre]');if(f)f.focus();}
+}
+function closeReg(){if(modal)modal.hidden=true;}
+if(modal){
+  document.getElementById('regclose').addEventListener('click',closeReg);
+  modal.addEventListener('click',function(e){if(e.target===modal)closeReg();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeReg();});
+}
+document.querySelectorAll('.js-demo').forEach(function(a){
+  a.addEventListener('click',function(e){
+    if(regValid(regGet()))return;          // demo vigente → pasa directo a /demo/
+    e.preventDefault();openReg(false);
+  });
+});
+var regform=document.getElementById('regform');
+if(regform){regform.addEventListener('submit',function(e){
+  e.preventDefault();
+  var d=new FormData(regform);
+  var reg={nombre:(d.get('nombre')||'').trim(),email:(d.get('email')||'').trim(),
+           tel:(d.get('tel')||'').trim(),empresa:(d.get('empresa')||'').trim(),ts:Date.now()};
+  if(!reg.email||reg.email.indexOf('@')<0){var em=regform.querySelector('input[name=email]');if(em)em.focus();return;}
+  try{localStorage.setItem('kobra_reg',JSON.stringify(reg));}catch(e){}
+  window.location.href='/demo/';
 });}
 </script>

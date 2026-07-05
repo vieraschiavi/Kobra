@@ -66,6 +66,26 @@ def validar(token, secreto):
 > Los timestamps se inyectan desde el entorno de ejecución del servidor (no se
 > hardcodean).
 
+### 2.1 Demo completa · 3 días por usuario registrado
+
+Cada usuario que se registra obtiene acceso **full a la demo por 3 días**. En la web
+esto hoy es un gate cliente-side (registro → `localStorage` → 72 h; ver
+`landing/index.html` y `dashboard_estatico/index.html`) que sirve para captar el lead
+y dejar probar sin fricción. La versión de producción lo hace del lado servidor:
+
+```python
+def emitir_trial(cliente_id, email):
+    return emitir_licencia(cliente_id, plan="trial", cupo=CUPO_TRIAL,
+                           features=FEATURES_FULL, secreto=SECRETO,
+                           dias=3)                    # exp = ahora + 3 días
+# al registrarse: guardar el lead (email/tel/empresa) + emitir_trial(...)
+# la app/demo valida la licencia; vencida → pide comprar un plan
+```
+
+Así el registro queda trazado (lead real), el trial es infalsificable (token firmado
+con expiración) y al vencer se ofrece la compra. El gate cliente-side es la versión
+demo; producción usa este token.
+
 ---
 
 ## 3. Gateway de APIs con medición

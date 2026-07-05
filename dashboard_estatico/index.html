@@ -9,6 +9,38 @@
 <script src="xlsx.full.min.js"></script>
 <script src="kobra_data.js"></script>
 <script src="copiloto.js"></script>
+<script>
+/* Gate de demo: full por 3 días para cada usuario registrado (registro en la landing).
+   Cliente-side (localStorage). La versión de producción emite un token de prueba real (ver docs/BACKEND_VENTA.md). */
+(function(){
+  var TRIAL_MS=3*24*60*60*1000;
+  function reg(){try{return JSON.parse(localStorage.getItem('kobra_reg')||'null')}catch(e){return null}}
+  function run(){
+    var r=reg(), ok=!!(r&&r.ts&&(Date.now()-r.ts)<TRIAL_MS);
+    if(ok){
+      var left=Math.max(1,Math.ceil((TRIAL_MS-(Date.now()-r.ts))/86400000));
+      var rib=document.createElement('div');
+      rib.textContent='Demo · quedan '+left+' día'+(left===1?'':'s');
+      rib.style.cssText='position:fixed;top:10px;right:12px;z-index:9998;background:#FDCB6E;color:#1c1305;'
+        +'font:700 12px/1 "Segoe UI",system-ui,sans-serif;padding:7px 12px;border-radius:20px;box-shadow:0 6px 18px rgba(0,0,0,.35)';
+      document.body.appendChild(rib); return;
+    }
+    var expired=!!(r&&r.ts);
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(8,17,36,.94);'
+      +'display:flex;align-items:center;justify-content:center;padding:24px;font-family:"Segoe UI",system-ui,sans-serif';
+    ov.innerHTML='<div style="max-width:420px;text-align:center;background:#101a2b;border:1px solid #24344c;'
+      +'border-radius:18px;padding:34px;color:#eaf1fb;box-shadow:0 30px 80px rgba(0,0,0,.5)">'
+      +'<div style="font:800 12px/1 system-ui;letter-spacing:.14em;text-transform:uppercase;color:#FDCB6E;margin-bottom:12px">Demo · 3 días</div>'
+      +'<div style="font:800 22px/1.25 system-ui;margin-bottom:10px">'+(expired?'Tu demo de 3 días venció':'Registrate para probar la demo completa')+'</div>'
+      +'<div style="color:#9db0c8;font-size:14.5px;margin-bottom:20px">'+(expired?'Volvé a registrarte para seguir probando Kobra, o comprá un plan.':'Es gratis y dura 3 días. Sin tarjeta.')+'</div>'
+      +'<a href="/" style="display:inline-block;background:#FDCB6E;color:#1c1305;font-weight:800;font-size:14.5px;text-decoration:none;padding:12px 22px;border-radius:10px">'+(expired?'Registrarme de nuevo':'Ir a registrarme')+'</a></div>';
+    document.body.appendChild(ov);
+    document.documentElement.style.overflow='hidden'; document.body.style.overflow='hidden';
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run); else run();
+})();
+</script>
 <style>
   :root{--green:#00C896;--purple:#6C5CE7;--yellow:#FDCB6E;--red:#FF7675;
         --bg:#0E1117;--panel:#1a1f2e;--border:#262b3d;--txt:#F5F6FA;--muted:#9aa4b2;}
