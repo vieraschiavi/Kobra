@@ -369,7 +369,7 @@ var PLAN_LABEL={starter:"Starter (US$490 + US$29/mes)",pro:"Pro Todo incluido (U
 document.querySelectorAll('[data-pay]').forEach(function(btn){
   btn.addEventListener('click',function(){
     var plan=btn.getAttribute('data-pay');
-    alert("Checkout — "+PLAN_LABEL[plan]+"\n\nAquí se abre la pasarela de pago (tarjeta · MercadoPago · transferencia · PayPal).\nEl dinero se deposita en tu cuenta configurada en el panel de la pasarela.\n\n[Demo] Conectar la cuenta que abras para activar el cobro real.");
+    alert("Checkout — "+PLAN_LABEL[plan]+"\n\nSe abre MercadoPago Checkout (tarjeta · cuotas · dinero en cuenta · transferencia).\nEl backend crea la preferencia con tu cuenta de MercadoPago y el dinero cae ahí.\n\n[Demo] Falta conectar tu Access Token de MercadoPago (secreto del servidor) para activar el cobro real.");
   });
 });
 </script>

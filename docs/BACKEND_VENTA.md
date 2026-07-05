@@ -168,6 +168,57 @@ saltea y el cliente paga su propio uso; el software se vende más barato
 Todos exponen un webhook `pago confirmado` que dispara la emisión de licencia y
 la descarga (sección 4).
 
+### 6.1 MercadoPago (configurado) — combos: ambos
+
+Cuenta de cobro (collector): **MercadoPago 1007782272006**. El **Access Token es
+secreto** y va como variable de entorno del servidor (`MP_ACCESS_TOKEN`), nunca en
+el repo ni en la landing. El dinero cae en la cuenta dueña de ese token.
+
+Flujo **Checkout Pro**: el backend crea una *preferencia* → devuelve `init_point`
+→ la landing redirige al usuario → paga (tarjeta, cuotas, dinero en cuenta,
+transferencia) → MercadoPago manda el webhook → se emite la licencia y se libera
+la descarga.
+
+```python
+import os, mercadopago                      # pip install mercadopago
+sdk = mercadopago.SDK(os.environ["MP_ACCESS_TOKEN"])   # secreto, del entorno
+PRECIOS = {"pro": 149.0, "starter": 490.0}             # USD; ajustar por plan/combo
+
+@app.post("/checkout/mercadopago")
+async def checkout_mp(plan: str, email: str):
+    pref = {
+        "items": [{"title": f"Kobra IA · {plan}", "quantity": 1,
+                   "unit_price": PRECIOS[plan], "currency_id": "USD"}],
+        "payer": {"email": email},
+        "back_urls": {"success": f"{BASE}/gracias", "failure": f"{BASE}/precios",
+                      "pending": f"{BASE}/pendiente"},
+        "auto_return": "approved",
+        "notification_url": f"{BASE}/webhooks/mercadopago",
+        "metadata": {"plan": plan, "email": email},
+    }
+    r = sdk.preference().create(pref)
+    return {"init_point": r["response"]["init_point"]}   # la landing redirige acá
+
+@app.post("/webhooks/mercadopago")
+async def wh_mp(evt: dict):
+    if evt.get("type") == "payment":
+        pago = sdk.payment().get(evt["data"]["id"])["response"]
+        if pago["status"] == "approved":
+            md = pago["metadata"]
+            lic = emitir_licencia(md["email"], md["plan"],
+                                  cupo_de(md["plan"]), features_de(md["plan"]), SECRETO)
+            enviar_email(md["email"], link_descarga(crear_token_descarga(md["email"])), lic)
+    return {"ok": True}
+```
+
+**Combo BYO** (traé tus APIs): mismo checkout, pero la licencia emitida marca
+`mode="byo"` y la app usa las claves que el cliente carga en Configuración; el
+gateway medido se saltea.
+
+**dLocal / MoR**: se suman igual — cada uno crea su “preferencia/checkout” y
+apunta su webhook a `/webhooks/<pasarela>`, que reutiliza la misma emisión de
+licencia. Empezá con MercadoPago para LATAM y sumá dLocal para más métodos locales.
+
 ---
 
 ## 7. Checklist para poner en marcha
