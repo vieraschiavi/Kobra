@@ -116,11 +116,13 @@
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h3>🎧 Copiloto de Negociación (offline)</h3>
-  <p class="sub" style="margin-bottom:10px;">Pegá una conversación (WhatsApp o transcripción) y obtené sentimiento, técnicas y la próxima jugada — todo en tu navegador, sin conexión.</p>
+  <h3>🎧 Copiloto de Negociación</h3>
+  <p class="sub" style="margin-bottom:10px;">Pegá una conversación (WhatsApp o transcripción). Analizala <b>offline</b> en tu navegador, o con <b>Claude en vivo</b> (IA real).</p>
   <textarea id="convText" style="width:100%;height:150px;background:#0b0e16;color:var(--txt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.85rem;"></textarea>
-  <div class="toolbar"><button onclick="analizarCopiloto()">⚡ Analizar</button>
+  <div class="toolbar"><button onclick="analizarCopiloto()">⚡ Analizar offline</button>
+    <button class="alt" onclick="analizarIA()">🤖 Analizar con Claude (IA en vivo)</button>
     <span class="sub" id="copInfo"></span></div>
+  <div id="copAI" style="display:none;margin:12px 0;padding:16px;background:#0b0e16;border:1px solid var(--border);border-radius:12px;"></div>
   <div id="copResult" style="display:none;">
     <div class="kpis" id="copKpis" style="grid-template-columns:repeat(4,1fr);"></div>
     <div class="grid2">
@@ -132,6 +134,50 @@
     </div>
   </div>
 </div>
+
+<script>
+// Copiloto con Claude EN VIVO (la key vive server-side en /api/copiloto, nunca en el navegador)
+var COP_SAMPLE="Gestor: Buenas, lo llamo por la deuda de $6.000 que figura vencida.\nCliente: Sí, ya sé, pero ahora estoy sin trabajo y no puedo pagar todo junto.\nGestor: Entiendo. ¿Qué le vendría bien para regularizar?\nCliente: Y... si es en cuotas capaz. Pero no quiero que me sigan llamando todos los días.\nGestor: Le prometo que si arreglamos hoy, no lo molestamos más.";
+function analizarIA(){
+  var ta=document.getElementById('convText');
+  if(ta && !ta.value.trim()) ta.value=COP_SAMPLE;
+  var texto=(ta?ta.value:'').trim();
+  var info=document.getElementById('copInfo');
+  var box=document.getElementById('copAI');
+  if(!texto){ if(info) info.textContent='Pegá una conversación primero.'; return; }
+  if(info) info.textContent='🤖 Consultando a Claude…';
+  fetch('/api/copiloto',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({texto:texto})})
+   .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})})
+   .then(function(res){
+     if(info) info.textContent='';
+     if(!res.ok){
+       var msg=(res.j&&res.j.error==='no_key')?'La IA en vivo todavía no está configurada (falta la API key en el servidor).':
+               'No se pudo analizar en vivo ('+((res.j&&res.j.detail)||(res.j&&res.j.error)||'error')+').';
+       renderAI({_error:msg}); return;
+     }
+     renderAI(res.j.analisis||{_raw:res.j.raw});
+   })
+   .catch(function(e){ if(info) info.textContent=''; renderAI({_error:'Sin conexión con la IA: '+e}); });
+}
+function chip(t,c){return '<span style="display:inline-block;background:'+(c||'rgba(0,200,150,.16)')+';color:#eaf1fb;padding:3px 10px;border-radius:12px;font-size:.75rem;margin:2px 4px 2px 0">'+t+'</span>';}
+function renderAI(a){
+  var box=document.getElementById('copAI'); if(!box) return; box.style.display='block';
+  if(a._error){ box.innerHTML='<b style="color:var(--yellow)">⚠️ '+a._error+'</b>'; return; }
+  if(a._raw && !a.sentimiento){ box.innerHTML='<b style="color:var(--green)">🤖 Claude:</b><div style="margin-top:8px;white-space:pre-wrap;font-size:.85rem">'+String(a._raw).replace(/[<>]/g,'')+'</div>'; return; }
+  var temp=Math.max(0,Math.min(100,parseInt(a.temperatura,10)||0));
+  var sc=a.sentimiento==='Positivo'?'var(--green)':a.sentimiento==='Negativo'?'var(--red)':'var(--yellow)';
+  var tecs=(a.tecnicas||[]).map(function(t){return chip(t)}).join('')||'<span class="sub">—</span>';
+  box.innerHTML=
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><b style="color:var(--green)">🤖 Análisis de Claude (en vivo)</b>'
+    +'<span class="pill" style="background:rgba(0,200,150,.16);color:'+sc+'">'+(a.sentimiento||'—')+'</span></div>'
+    +'<div class="sub" style="margin-bottom:4px">Temperatura del cliente</div>'
+    +'<div style="height:9px;background:#1a1f2e;border-radius:6px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:'+temp+'%;background:'+sc+'"></div></div>'
+    +'<div style="margin-bottom:8px"><b class="sub">Técnicas detectadas:</b><br>'+tecs+'</div>'
+    +'<div style="margin-bottom:8px"><b class="sub">Próxima jugada:</b> '+(a.proxima_jugada||'—')+'</div>'
+    +'<div style="background:#101a2b;border:1px solid var(--border);border-radius:10px;padding:10px 12px"><b class="sub" style="color:var(--green)">Guion sugerido:</b><br>'+(a.guion||'—')+'</div>';
+}
+</script>
 
 <footer>Kobra IA · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). Sin nombres de clientes.</footer>
 
