@@ -1,0 +1,180 @@
+# Kobra IA — Backend de venta (licencias, gateway de APIs y descarga)
+
+Diseño y andamiaje para comercializar Kobra de forma profesional: entregar el
+programa con las APIs **embebidas y medidas**, cobrando por uso y quedando cubierto
+en costos. Complementa el plan comercial (ver el dossier de negocio).
+
+> **Nota de datos/seguridad:** ninguna clave de API real ni número de cuenta
+> bancaria se guarda en este repositorio. Las claves viven como variables de
+> entorno/secretos del servidor; la cuenta de cobro se configura en el panel de la
+> pasarela de pago, nunca en el código.
+
+---
+
+## 1. Panorama
+
+```
+  Cliente compra en la landing
+        │  (tarjeta · MercadoPago · transferencia)
+        ▼
+  Pasarela de pago  ──webhook──►  Backend de venta
+        │                              │
+        │  deposita a tu cuenta        ├─ emite LICENCIA firmada (JWT)
+        │  Itaú USD (config panel)     ├─ habilita DESCARGA del instalador
+        ▼                              └─ crea registro de USO (cupo del plan)
+  (dinero a tu banco)
+
+  App de PC (Edición Venta)
+        │  cada gestión → POST /gateway/*  con la licencia
+        ▼
+  GATEWAY de APIs  ── inyecta claves reales (server-side) ──►  Claude / TTS / Twilio / WhatsApp
+        │
+        └─ MIDE tokens/gestiones por licencia → cupo + excedente facturable
+```
+
+Tres servicios (pueden vivir en un mismo proceso FastAPI):
+
+1. **Licencias** — emite y valida tokens firmados atados a plan y cupo.
+2. **Gateway de APIs** — proxy que inyecta las claves y **mide el uso**.
+3. **Descarga + webhooks de pago** — libera el instalador tras el pago.
+
+---
+
+## 2. Licencias (JWT firmado)
+
+- Al confirmarse el pago, el backend emite un JWT firmado (HS256/RS256) con:
+  `sub` (cliente), `plan` (`starter|pro|enterprise`), `edition` (`venta`),
+  `cupo_mensual`, `exp`, `features` (voz, whatsapp, twilio, erp).
+- La app guarda la licencia (ya existe `kobra/config.py` para persistir claves/opciones).
+- El gateway valida la firma y el cupo en cada request. Sin licencia válida →
+  la Edición Venta no habilita las funciones pagas.
+
+```python
+# firma/verificación (esbozo)
+import jwt, time
+def emitir_licencia(cliente_id, plan, cupo, features, secreto):
+    return jwt.encode({
+        "sub": cliente_id, "plan": plan, "edition": "venta",
+        "cupo_mensual": cupo, "features": features,
+        "iat": int(...), "exp": int(...) + 30*24*3600,   # 1 mes
+    }, secreto, algorithm="HS256")
+
+def validar(token, secreto):
+    return jwt.decode(token, secreto, algorithms=["HS256"])  # lanza si inválida/expirada
+```
+
+> Los timestamps se inyectan desde el entorno de ejecución del servidor (no se
+> hardcodean).
+
+---
+
+## 3. Gateway de APIs con medición
+
+El gateway es un proxy fino delante de cada proveedor. La app **nunca** ve las
+claves reales; manda su licencia y el gateway agrega la clave del lado servidor.
+
+```python
+# esbozo FastAPI
+from fastapi import FastAPI, Header, HTTPException
+app = FastAPI()
+
+@app.post("/gateway/claude")
+async def claude(payload: dict, authorization: str = Header(...)):
+    lic = validar(authorization.removeprefix("Bearer ").strip(), SECRETO)
+    consumido = uso_mes(lic["sub"])                      # gestiones usadas este mes
+    if consumido >= lic["cupo_mensual"] and not plan_permite_excedente(lic):
+        raise HTTPException(402, "Cupo agotado")
+    # Claude embebida (clave del servidor, nunca en la app):
+    resp = anthropic_client.messages.create(model="claude-sonnet-5", **payload)
+    registrar_uso(lic["sub"], canal="claude",
+                  tok_in=resp.usage.input_tokens,
+                  tok_out=resp.usage.output_tokens)       # medición para facturar
+    return resp.model_dump()
+```
+
+Endpoints análogos para `/gateway/tts`, `/gateway/twilio`, `/gateway/whatsapp`.
+Cada uno inyecta su clave (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, credenciales
+Twilio/WhatsApp) desde variables de entorno del servidor.
+
+### Esquema de uso (para facturar)
+
+| columna         | descripción                                   |
+|-----------------|-----------------------------------------------|
+| `cliente_id`    | de la licencia                                |
+| `fecha`         | timestamp del servidor                        |
+| `canal`         | claude / tts / twilio / whatsapp              |
+| `gestion_id`    | id de gestión (correlaciona con la sábana)    |
+| `tok_in/out`    | tokens (Claude)                               |
+| `unidades`      | minutos (voz/telefonía) o mensajes (WhatsApp) |
+| `costo_est`     | costo estimado (para margen)                  |
+
+Fin de mes: `base + max(0, usado − cupo) × precio_excedente` por cliente.
+
+---
+
+## 4. Descarga post-pago + webhook de la pasarela
+
+```python
+@app.post("/webhooks/pago")                # lo llama la pasarela (Lemon Squeezy / MercadoPago / dLocal)
+async def pago(evt: dict):
+    verificar_firma(evt)                   # HMAC del proveedor
+    if evt["status"] == "paid":
+        lic = emitir_licencia(evt["cliente"], evt["plan"], cupo_de(evt["plan"]), features_de(evt["plan"]), SECRETO)
+        token_descarga = crear_token_descarga(evt["cliente"])   # un solo uso, corto
+        enviar_email(evt["email"], link_descarga(token_descarga), lic)
+    return {"ok": True}
+
+@app.get("/descargar/{token}")
+async def descargar(token: str):
+    validar_token_descarga(token)          # un uso
+    return FileResponse("dist/KobraIA_Setup.exe")   # instalador Edición Venta
+```
+
+La cuenta bancaria de cobro se configura **una sola vez** en el panel de la
+pasarela; no aparece en este código ni en la landing.
+
+---
+
+## 5. Dos ediciones (mismo código base)
+
+Un flag de compilación decide la edición:
+
+| Flag / build            | `KOBRA_EDITION=venta`         | `KOBRA_EDITION=propio`      |
+|-------------------------|-------------------------------|-----------------------------|
+| Licencia                | requerida (valida contra JWT) | omitida                     |
+| APIs                    | vía gateway (medido) o BYO    | claves propias, sin límite  |
+| Medición / cupos        | activada                      | desactivada                 |
+| Marca                   | "Un producto de MV" + white-label opcional | interna       |
+
+El instalador Windows ya existe (`packaging/`); solo se parametriza por edición.
+
+### Combo B — "Traé tus APIs" (BYO-keys)
+
+Ya soportado hoy: el cliente pega sus propias claves en la pestaña
+**Configuración** de la app (`kobra/config.py`). En ese combo el gateway se
+saltea y el cliente paga su propio uso; el software se vende más barato
+(o perpetuo) y vos no asumís costo de API.
+
+---
+
+## 6. Stack de pagos sugerido
+
+- **Merchant of Record** (Lemon Squeezy / Paddle): venta global de software,
+  manejan IVA/impuestos y depositan a tu banco. Punto de partida recomendado.
+- **MercadoPago / dLocal**: medios locales de LATAM (tarjeta en cuotas,
+  transferencia, redes de cobranza). dLocal es uruguaya.
+- **Stripe**: tarjetas globales (requiere resolver el payout a UY).
+
+Todos exponen un webhook `pago confirmado` que dispara la emisión de licencia y
+la descarga (sección 4).
+
+---
+
+## 7. Checklist para poner en marcha
+
+- [ ] Cargar claves reales como secretos del servidor (Claude, OpenAI, Twilio, WhatsApp).
+- [ ] Definir `SECRETO` de firma de licencias (rotable).
+- [ ] Abrir cuenta en la pasarela y cargar la cuenta Itaú USD en su panel.
+- [ ] Conectar el webhook de la pasarela a `/webhooks/pago`.
+- [ ] Compilar instalador `Edición Venta` y publicarlo detrás de `/descargar/{token}`.
+- [ ] Definir precios de excedente por canal (3–5× costo).
