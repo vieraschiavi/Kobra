@@ -138,24 +138,33 @@
 <script>
 // Copiloto con Claude EN VIVO (la key vive server-side en /api/copiloto, nunca en el navegador)
 var COP_SAMPLE="Gestor: Buenas, lo llamo por la deuda de $6.000 que figura vencida.\nCliente: Sí, ya sé, pero ahora estoy sin trabajo y no puedo pagar todo junto.\nGestor: Entiendo. ¿Qué le vendría bien para regularizar?\nCliente: Y... si es en cuotas capaz. Pero no quiero que me sigan llamando todos los días.\nGestor: Le prometo que si arreglamos hoy, no lo molestamos más.";
+var AI_LIMIT=30;   // análisis con IA en vivo gratis por navegador
+function aiUses(){ return parseInt(localStorage.getItem('kobra_ai_uses')||'0',10)||0; }
+function aiRemainingTxt(){ return 'IA en vivo: '+Math.max(0,AI_LIMIT-aiUses())+'/'+AI_LIMIT+' análisis gratis'; }
 function analizarIA(){
   var ta=document.getElementById('convText');
   if(ta && !ta.value.trim()) ta.value=COP_SAMPLE;
   var texto=(ta?ta.value:'').trim();
   var info=document.getElementById('copInfo');
-  var box=document.getElementById('copAI');
   if(!texto){ if(info) info.textContent='Pegá una conversación primero.'; return; }
+  if(aiUses()>=AI_LIMIT){
+    renderAI({_error:'Llegaste al límite de '+AI_LIMIT+' análisis con IA gratis. Escribinos a vieraschiavi@gmail.com para ampliar el acceso.'});
+    if(info) info.textContent=aiRemainingTxt(); return;
+  }
   if(info) info.textContent='🤖 Consultando a Claude…';
   fetch('/api/copiloto',{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({texto:texto})})
    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})})
    .then(function(res){
-     if(info) info.textContent='';
      if(!res.ok){
+       if(info) info.textContent='';
        var msg=(res.j&&res.j.error==='no_key')?'La IA en vivo todavía no está configurada (falta la API key en el servidor).':
+               (res.j&&res.j.error==='limit')?'La demo de IA en vivo llegó a su tope global. Escribinos a vieraschiavi@gmail.com.':
                'No se pudo analizar en vivo ('+((res.j&&res.j.detail)||(res.j&&res.j.error)||'error')+').';
        renderAI({_error:msg}); return;
      }
+     localStorage.setItem('kobra_ai_uses', String(aiUses()+1));
+     if(info) info.textContent=aiRemainingTxt();
      renderAI(res.j.analisis||{_raw:res.j.raw});
    })
    .catch(function(e){ if(info) info.textContent=''; renderAI({_error:'Sin conexión con la IA: '+e}); });
