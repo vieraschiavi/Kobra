@@ -402,11 +402,15 @@ function setLang(lang){
   document.querySelectorAll('.lang button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-lang')===lang);});
 }
 document.querySelectorAll('.lang button').forEach(function(b){b.addEventListener('click',function(){setLang(b.getAttribute('data-lang'));});});
-var PLAN_LABEL={starter:"Starter (US$490 + US$29/mes)",pro:"Pro Todo incluido (US$149/mes)",enterprise:"Enterprise (a medida)"};
 document.querySelectorAll('[data-pay]').forEach(function(btn){
   btn.addEventListener('click',function(){
     var plan=btn.getAttribute('data-pay');
-    alert("Checkout — "+PLAN_LABEL[plan]+"\n\nSe abre MercadoPago Checkout (tarjeta · cuotas · dinero en cuenta · transferencia).\nEl backend crea la preferencia con tu cuenta de MercadoPago y el dinero cae ahí.\n\n[Demo] Falta conectar tu Access Token de MercadoPago (secreto del servidor) para activar el cobro real.");
+    if(plan==='enterprise'){
+      var cf=document.getElementById('cform');
+      if(cf){cf.scrollIntoView({behavior:'smooth',block:'center'});var a=cf.querySelector('input,textarea');if(a)a.focus();}
+      return;
+    }
+    window.location.href='/api/checkout?plan='+encodeURIComponent(plan);
   });
 });
 var CONTACT_TO="vieraschiavi@gmail.com";

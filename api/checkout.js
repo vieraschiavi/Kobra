@@ -7,7 +7,7 @@ const PLANS = {
   pro:     { title: "Kobra IA · Pro (todo incluido)", price: 149.0 },
   starter: { title: "Kobra IA · Starter (licencia)",  price: 490.0 },
 };
-const CURRENCY = process.env.MP_CURRENCY || "UYU";  // MercadoPago Uruguay usa UYU
+const CURRENCY = process.env.MP_CURRENCY || "USD";  // coincide con los precios mostrados en la landing (US$)
 
 module.exports = async (req, res) => {
   const plan = String((req.query && req.query.plan) || "").toLowerCase();
