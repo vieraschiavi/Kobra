@@ -1,4 +1,4 @@
-// Copiloto de cobranzas con Claude — función serverless (Vercel).
+// Copiloto de cobranzas con Claude — función serverless (Vercel, CommonJS).
 // La API key vive SOLO acá, del lado del servidor, como variable de entorno
 // (ANTHROPIC_API_KEY). Nunca se expone al navegador ni se guarda en el repo.
 
@@ -6,12 +6,12 @@ const MODEL = "claude-haiku-4-5-20251001";   // rápido y económico para la dem
 const MAX_INPUT = 4000;                        // límite de caracteres de entrada
 const MAX_TOKENS = 500;                        // límite de salida (control de costo)
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
 
   // Solo aceptar pedidos desde nuestra propia web (mitiga abuso del endpoint público)
   const origin = req.headers.origin || "";
-  if (origin && !/(^https:\/\/kobra-ia\.vercel\.app$)|(\.vercel\.app$)|(localhost)/.test(origin)) {
+  if (origin && !/(\.vercel\.app$)|(localhost)/.test(origin)) {
     res.status(403).json({ error: "origin" }); return;
   }
 
@@ -55,10 +55,10 @@ export default async function handler(req, res) {
     let analisis = null;
     const m = text.match(/\{[\s\S]*\}/);
     try { analisis = JSON.parse(m ? m[0] : text); } catch (e) { analisis = null; }
-    res.status(200).json({ ok: true, analisis, raw: text });
+    res.status(200).json({ ok: true, analisis: analisis, raw: text });
   } catch (e) {
     res.status(500).json({ error: "exception", detail: String(e).slice(0, 200) });
   }
-}
+};
 
 function safeJson(s) { try { return JSON.parse(s); } catch (e) { return {}; } }

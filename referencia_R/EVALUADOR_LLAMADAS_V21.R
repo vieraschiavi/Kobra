@@ -85,7 +85,7 @@ cat("âœ“ Paquetes cargados sin conflictos\n\n")
 
 API_CONFIG <- list(
   claude = list(
-    key = "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",
+    key = Sys.getenv("ANTHROPIC_API_KEY"),   # NUNCA hardcodear la key: leerla del entorno
     model = "claude-sonnet-4-20250514",
     endpoint = "https://api.anthropic.com/v1/messages",
     max_tokens = 4096,
