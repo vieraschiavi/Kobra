@@ -1,15 +1,59 @@
 // Copiloto de cobranzas con Claude — función serverless (Vercel, CommonJS).
 // La API key vive SOLO acá, del lado del servidor, como variable de entorno
 // (ANTHROPIC_API_KEY). Nunca se expone al navegador ni se guarda en el repo.
+//
+// TOPE GLOBAL: cuenta los análisis en Edge Config (ai_count / ai_limit). Al llegar
+// al límite (30 por defecto) devuelve 429 y, si hay RESEND_API_KEY, manda un mail.
+// Para AMPLIAR el límite: subir "ai_limit" en el Edge Config (o pedírmelo).
 
-const MODEL = "claude-haiku-4-5-20251001";   // rápido y económico para la demo
-const MAX_INPUT = 4000;                        // límite de caracteres de entrada
-const MAX_TOKENS = 500;                        // límite de salida (control de costo)
+const MODEL = "claude-haiku-4-5-20251001";
+const MAX_INPUT = 4000;
+const MAX_TOKENS = 500;
+
+const EC = process.env.EDGE_CONFIG_ID;
+const VT = process.env.VC_API_TOKEN;
+const TEAM = process.env.VC_TEAM_ID;
+const COUNTER_ON = !!(EC && VT && TEAM);
+const ECBASE = "https://api.vercel.com/v1/edge-config/" + EC;
+
+async function ecGet(key) {
+  try {
+    const r = await fetch(ECBASE + "/item/" + key + "?teamId=" + TEAM,
+      { headers: { Authorization: "Bearer " + VT } });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return (d && typeof d.value !== "undefined") ? d.value : null;
+  } catch (e) { return null; }
+}
+async function ecSet(key, value) {
+  try {
+    await fetch(ECBASE + "/items?teamId=" + TEAM, {
+      method: "PATCH",
+      headers: { Authorization: "Bearer " + VT, "Content-Type": "application/json" },
+      body: JSON.stringify({ items: [{ operation: "update", key: key, value: value }] }),
+    });
+  } catch (e) {}
+}
+async function notifyOwner(limit) {
+  if (!process.env.RESEND_API_KEY) return;
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + process.env.RESEND_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "Kobra IA <onboarding@resend.dev>",
+        to: ["vieraschiavi@gmail.com"],
+        subject: "Kobra: se agotaron las " + limit + " demos de IA en vivo",
+        text: "La demo de IA en vivo llegó al tope de " + limit + " análisis. " +
+              "Cuando quieras ampliar, subí 'ai_limit' en el Edge Config (o pedímelo).",
+      }),
+    });
+  } catch (e) {}
+}
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
 
-  // Solo aceptar pedidos desde nuestra propia web (mitiga abuso del endpoint público)
   const origin = req.headers.origin || "";
   if (origin && !/(\.vercel\.app$)|(localhost)/.test(origin)) {
     res.status(403).json({ error: "origin" }); return;
@@ -21,6 +65,16 @@ module.exports = async (req, res) => {
   const body = typeof req.body === "string" ? safeJson(req.body) : (req.body || {});
   const texto = String(body.texto || "").slice(0, MAX_INPUT).trim();
   if (!texto) { res.status(400).json({ error: "empty" }); return; }
+
+  // ---- Tope global ----
+  let count = 0, limit = 30;
+  if (COUNTER_ON) {
+    const c = await ecGet("ai_count");
+    const l = await ecGet("ai_limit");
+    count = (typeof c === "number") ? c : 0;
+    limit = (typeof l === "number") ? l : 30;
+    if (count >= limit) { res.status(429).json({ error: "limit", remaining: 0 }); return; }
+  }
 
   const prompt =
     "Sos un copiloto experto en cobranzas para un gestor humano. Analizá la siguiente " +
@@ -55,7 +109,15 @@ module.exports = async (req, res) => {
     let analisis = null;
     const m = text.match(/\{[\s\S]*\}/);
     try { analisis = JSON.parse(m ? m[0] : text); } catch (e) { analisis = null; }
-    res.status(200).json({ ok: true, analisis: analisis, raw: text });
+
+    let remaining = null;
+    if (COUNTER_ON) {
+      const nuevo = count + 1;
+      await ecSet("ai_count", nuevo);
+      remaining = Math.max(0, limit - nuevo);
+      if (nuevo >= limit) await notifyOwner(limit);
+    }
+    res.status(200).json({ ok: true, analisis: analisis, raw: text, remaining: remaining });
   } catch (e) {
     res.status(500).json({ error: "exception", detail: String(e).slice(0, 200) });
   }
