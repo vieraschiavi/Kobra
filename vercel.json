@@ -5,6 +5,7 @@
   "rewrites": [
     { "source": "/", "destination": "/landing/index.html" },
     { "source": "/descarga", "destination": "/landing/descarga.html" },
+    { "source": "/video/:path*", "destination": "/landing/video/:path*" },
     { "source": "/demo/", "destination": "/dashboard_estatico/index.html" },
     { "source": "/demo/:path*", "destination": "/dashboard_estatico/:path*" }
   ]
