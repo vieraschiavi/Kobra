@@ -1,10 +1,14 @@
 {
   "version": 2,
   "builds": [
+    { "src": "landing/**", "use": "@vercel/static" },
     { "src": "dashboard_estatico/**", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/", "dest": "/dashboard_estatico/index.html" },
-    { "src": "/(.*)", "dest": "/dashboard_estatico/$1" }
+    { "src": "/", "dest": "/landing/index.html" },
+    { "src": "/demo", "status": 308, "headers": { "Location": "/demo/" } },
+    { "src": "/demo/", "dest": "/dashboard_estatico/index.html" },
+    { "src": "/demo/(.+)", "dest": "/dashboard_estatico/$1" },
+    { "src": "/(.*)", "dest": "/landing/$1" }
   ]
 }
