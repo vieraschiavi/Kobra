@@ -301,6 +301,29 @@ with tabH:
             "- La **idea** no se registra; te protegés con código + marca + contratos/NDAs.\n\n"
             "Guía completa: **docs/GUIA_REGISTRO_LEGAL_URUGUAY.md**.")
 
+    st.divider()
+    st.markdown("### 📬 Buzón de contacto")
+    st.caption("Enviá tu consulta y se abre tu correo con el mensaje listo para "
+               "**vieraschiavi@gmail.com** (asunto, pregunta y tus datos de contacto).")
+    import urllib.parse as _urlparse
+    _cc1, _cc2, _cc3 = st.columns(3)
+    _ct_nom = _cc1.text_input("Nombre", key="ct_nom")
+    _ct_mail = _cc2.text_input("Tu email", key="ct_mail")
+    _ct_tel = _cc3.text_input("Teléfono de contacto", key="ct_tel")
+    _ct_asu = st.text_input("Asunto", key="ct_asu")
+    _ct_pre = st.text_area("Consulta / pregunta", key="ct_pre", height=120)
+    _ct_subject = "[Kobra IA] " + (_ct_asu.strip() or "Consulta")
+    _ct_body = (_ct_pre.strip() + "\n\n----------------------------\nDatos de contacto\n"
+                + "Nombre: " + (_ct_nom.strip() or "-") + "\n"
+                + "Email: " + (_ct_mail.strip() or "-") + "\n"
+                + "Teléfono: " + (_ct_tel.strip() or "-") + "\n"
+                + "Enviado desde: app Kobra IA")
+    _ct_mailto = ("mailto:vieraschiavi@gmail.com?subject="
+                  + _urlparse.quote(_ct_subject) + "&body=" + _urlparse.quote(_ct_body))
+    st.link_button("✉️ Enviar consulta por email", _ct_mailto, use_container_width=True)
+    st.caption("Se abre tu app de correo (Gmail/Outlook) con el mensaje listo. "
+               "También podés escribir directo a vieraschiavi@gmail.com.")
+
 # ---- Tab 1: Visión general -------------------------------------------------
 with tab1:
     g1, g2 = st.columns(2)

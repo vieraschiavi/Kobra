@@ -129,6 +129,18 @@ section{padding:66px 0;border-top:1px solid var(--line)}
 .band h2{font-size:clamp(26px,4vw,40px);font-weight:820}
 .band p{color:var(--muted);max-width:52ch;margin:14px auto 26px;font-size:17px}
 
+.cform{max-width:640px;display:grid;gap:14px}
+.cform .frow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:640px){.cform .frow{grid-template-columns:1fr}}
+.cform label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--muted)}
+.cform input,.cform textarea{font-family:inherit;font-size:15px;color:var(--ink);background:var(--panel2);
+  border:1px solid var(--line2);border-radius:10px;padding:11px 13px;width:100%}
+.cform input:focus,.cform textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(0,200,150,.15)}
+.cform textarea{min-height:120px;resize:vertical;font-weight:400}
+.cform input{font-weight:400}
+.cform .actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cform .hint{color:var(--faint);font-size:13px}
+
 footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--faint);font-size:13.5px}
 .foot-top{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;margin-bottom:22px}
 .foot-top .brand small{color:var(--faint)}
@@ -142,6 +154,7 @@ footer .legal{max-width:70ch;line-height:1.6}
     <a href="#como" data-i="nav1">Cómo funciona</a>
     <a href="#erp" data-i="nav2">Integración</a>
     <a href="#precios" data-i="nav3">Precios</a>
+    <a href="#contacto" data-i="navc">Contacto</a>
   </div>
   <div class="lang" role="group" aria-label="Idioma">
     <button data-lang="es" class="on">ES</button>
@@ -286,6 +299,26 @@ footer .legal{max-width:70ch;line-height:1.6}
   </div>
 </div></section>
 
+<section id="contacto"><div class="wrap">
+  <div class="eyebrow" data-i="eyc">Contacto</div>
+  <h2 class="sec-title" data-i="stc">Buzón de contacto</h2>
+  <p class="sec-lead" data-i="slc">¿Tenés una consulta o querés una demo? Completá el formulario: se abre tu correo con el
+  asunto y la pregunta ya listos para enviarnos a vieraschiavi@gmail.com.</p>
+  <form id="cform" class="cform" novalidate>
+    <div class="frow">
+      <label><span data-i="cfn">Nombre</span><input name="nombre" autocomplete="name"></label>
+      <label><span data-i="cfe">Tu email</span><input type="email" name="email" autocomplete="email"></label>
+      <label><span data-i="cft">Teléfono</span><input name="tel" autocomplete="tel" inputmode="tel"></label>
+    </div>
+    <label><span data-i="cfa">Asunto</span><input name="asunto"></label>
+    <label><span data-i="cfp">Consulta / pregunta</span><textarea name="pregunta"></textarea></label>
+    <div class="actions">
+      <button type="submit" class="btn btn-p" data-i="cfb">Enviar consulta</button>
+      <span class="hint" data-i="cfh">Se abre tu app de correo con el mensaje listo.</span>
+    </div>
+  </form>
+</div></section>
+
 <footer><div class="wrap">
   <div class="foot-top">
     <div class="brand"><span class="logo">K</span>KOBRA <span class="g">IA</span><small>· un producto de MV</small></div>
@@ -322,7 +355,9 @@ var I18N={
     p3t:"Enterprise",p3w:"Bancos, grandes escritórios, white-label.",p3amt:"Sob medida",p3per:"a partir de US$1.500/mês",p3a:"Usuários ilimitados · SSO",p3b:"Marca própria (white-label)",p3c:"ERP sob medida · SLA",p3d:"Onboarding dedicado",p3cta:"Falar com vendas",
     paylead:"Meios de pagamento:",payb1:"Transferência",paysec:"🔒 Pagamento seguro · depósito na sua conta configurada",
     ey4:"Um produto da MV",bandt:"Cobranças inteligentes que trabalham sozinhas",bandp:"Baixe a Kobra, conecte à sua operação e deixe a IA gerenciar. Teste hoje.",bandcta:"Começar agora",
-    legal:"Kobra IA · Cobranças Inteligentes. Plataforma de gestão de cobranças assistida por inteligência artificial. Dados de demonstração 100% sintéticos. As métricas mostradas são ilustrativas."
+    legal:"Kobra IA · Cobranças Inteligentes. Plataforma de gestão de cobranças assistida por inteligência artificial. Dados de demonstração 100% sintéticos. As métricas mostradas são ilustrativas.",
+    navc:"Contato",eyc:"Contato",stc:"Caixa de contato",slc:"Tem uma dúvida ou quer uma demo? Preencha o formulário: seu e-mail abre com o assunto e a pergunta prontos para nos enviar a vieraschiavi@gmail.com.",
+    cfn:"Nome",cfe:"Seu e-mail",cft:"Telefone",cfa:"Assunto",cfp:"Dúvida / pergunta",cfb:"Enviar consulta",cfh:"Abre seu app de e-mail com a mensagem pronta."
   },
   en:{
     nav1:"How it works",nav2:"Integration",nav3:"Pricing",navcta:"Try today",
@@ -346,7 +381,9 @@ var I18N={
     p3t:"Enterprise",p3w:"Banks, large firms, white-label.",p3amt:"Custom",p3per:"from US$1,500/mo",p3a:"Unlimited users · SSO",p3b:"Your own brand (white-label)",p3c:"Custom ERP · SLA",p3d:"Dedicated onboarding",p3cta:"Talk to sales",
     paylead:"Payment methods:",payb1:"Bank transfer",paysec:"🔒 Secure payment · deposited to your configured account",
     ey4:"A product by MV",bandt:"Smart collections that run themselves",bandp:"Download Kobra, connect it to your operation, and let the AI handle it. Try it today.",bandcta:"Get started",
-    legal:"Kobra IA · Smart Collections. AI-assisted debt-collection management platform. 100% synthetic demo data. Metrics shown are illustrative of the product."
+    legal:"Kobra IA · Smart Collections. AI-assisted debt-collection management platform. 100% synthetic demo data. Metrics shown are illustrative of the product.",
+    navc:"Contact",eyc:"Contact",stc:"Contact box",slc:"Have a question or want a demo? Fill out the form: your email opens with the subject and question ready to send to vieraschiavi@gmail.com.",
+    cfn:"Name",cfe:"Your email",cft:"Phone",cfa:"Subject",cfp:"Question / inquiry",cfb:"Send inquiry",cfh:"Opens your email app with the message ready."
   }
 };
 var ORIG={};
@@ -372,4 +409,22 @@ document.querySelectorAll('[data-pay]').forEach(function(btn){
     alert("Checkout — "+PLAN_LABEL[plan]+"\n\nSe abre MercadoPago Checkout (tarjeta · cuotas · dinero en cuenta · transferencia).\nEl backend crea la preferencia con tu cuenta de MercadoPago y el dinero cae ahí.\n\n[Demo] Falta conectar tu Access Token de MercadoPago (secreto del servidor) para activar el cobro real.");
   });
 });
+// Buzón de contacto → arma un email a vieraschiavi@gmail.com con asunto, pregunta y datos de contacto
+var CONTACT_TO="vieraschiavi@gmail.com";
+var cform=document.getElementById('cform');
+if(cform){cform.addEventListener('submit',function(e){
+  e.preventDefault();
+  var d=new FormData(cform);
+  var nombre=(d.get('nombre')||'').trim(), email=(d.get('email')||'').trim(),
+      tel=(d.get('tel')||'').trim(), asunto=(d.get('asunto')||'').trim(),
+      pregunta=(d.get('pregunta')||'').trim();
+  if(!asunto&&!pregunta){asunto='Consulta';}
+  var subject="[Kobra IA] "+(asunto||'Consulta');
+  var body=(pregunta||'')+"\n\n----------------------------\nDatos de contacto\n"+
+           "Nombre: "+(nombre||'-')+"\n"+
+           "Email: "+(email||'-')+"\n"+
+           "Teléfono: "+(tel||'-')+"\n"+
+           "Enviado desde: landing Kobra IA";
+  window.location.href="mailto:"+CONTACT_TO+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+});}
 </script>
