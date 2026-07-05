@@ -118,8 +118,9 @@
 
 <div class="card" style="margin-top:16px;">
   <h3>📞 Gestor IA por voz</h3>
-  <p class="sub" style="margin-bottom:10px;">Así llama y negocia Kobra por teléfono, con voz natural, en tiempo real.</p>
-  <div class="toolbar"><button onclick="reproducirLlamada()">▶ Reproducir llamada de ejemplo</button>
+  <p class="sub" style="margin-bottom:10px;">Así llama y negocia Kobra por teléfono, con voz sintetizada en vivo (subí el volumen).</p>
+  <div class="toolbar"><button onclick="reproducirLlamada()">▶ Reproducir llamada de ejemplo (con voz)</button>
+    <button class="alt" onclick="detenerLlamada()">⏹ Detener</button>
     <span class="sub" id="callInfo"></span></div>
   <div id="callBox" style="background:#0b0e16;border:1px solid var(--border);border-radius:12px;padding:16px;min-height:60px;max-height:420px;overflow:auto;"></div>
 </div>
@@ -421,11 +422,42 @@ function chatBubble(who,text,styleOut,styleIn,labelOut,labelIn){
   b.innerHTML='<b style="opacity:.65;font-size:.68rem;display:block;margin-bottom:3px">'+(out?labelOut:labelIn)+'</b>'+text;
   return b;
 }
+// ---- Voz real (Web Speech API del navegador, sin backend ni archivos de audio) ----
+var TTS_OK = typeof window!=='undefined' && 'speechSynthesis' in window;
+var ES_VOICES = [];
+function loadVoices(){ try{ ES_VOICES = window.speechSynthesis.getVoices()||[]; }catch(e){ ES_VOICES=[]; } }
+if(TTS_OK){ loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
+function pickVoice(){
+  var es = ES_VOICES.filter(function(v){return /^es/i.test(v.lang);});
+  return es[0] || ES_VOICES[0] || null;
+}
+function speak(text, pitch, rate, cb){
+  if(!TTS_OK){ cb && cb(); return; }
+  try{
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = 'es-ES'; u.pitch = pitch; u.rate = rate;
+    var v = pickVoice(); if(v) u.voice = v;
+    var done=false; function fin(){ if(done)return; done=true; cb && cb(); }
+    u.onend = fin; u.onerror = fin;
+    window.speechSynthesis.speak(u);
+    setTimeout(fin, Math.max(4000, text.length*110)); // red de seguridad si el navegador no dispara onend
+  }catch(e){ cb && cb(); }
+}
+
+var _llamadaGen = 0;
+function detenerLlamada(){
+  _llamadaGen++;
+  if(TTS_OK) window.speechSynthesis.cancel();
+  var info=document.getElementById('callInfo'); if(info) info.textContent='⏹ Detenida';
+}
 function reproducirLlamada(){
   var box=document.getElementById('callBox'); box.innerHTML='';
-  var info=document.getElementById('callInfo'); info.textContent='🔊 Llamada en curso…';
+  var info=document.getElementById('callInfo'); info.textContent=TTS_OK?'🔊 Llamada en curso (con voz)…':'🔊 Llamada en curso…';
+  if(TTS_OK) window.speechSynthesis.cancel();
+  var gen = ++_llamadaGen;
   var i=0;
   function next(){
+    if(gen!==_llamadaGen) return; // se detuvo o se reinició
     if(i>=CALL_SCRIPT.length){
       info.textContent='';
       var end=document.createElement('div');
@@ -438,7 +470,8 @@ function reproducirLlamada(){
     box.appendChild(chatBubble(turn.who,turn.text,'background:#16324a;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 Kobra (voz)','👤 Cliente'));
     box.scrollTop=box.scrollHeight;
     i++;
-    setTimeout(next, turn.who==='ia'?1500:1000);
+    var isIA = turn.who==='ia';
+    speak(turn.text, isIA?0.95:1.15, isIA?0.98:1.05, function(){ if(gen===_llamadaGen) setTimeout(next, 300); });
   }
   next();
 }
