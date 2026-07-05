@@ -1,16 +1,10 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "api/*.js", "use": "@vercel/node" },
-    { "src": "landing/**", "use": "@vercel/static" },
-    { "src": "dashboard_estatico/**", "use": "@vercel/static" }
+  "redirects": [
+    { "source": "/demo", "destination": "/demo/", "permanent": false }
   ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/", "dest": "/landing/index.html" },
-    { "src": "/demo", "status": 308, "headers": { "Location": "/demo/" } },
-    { "src": "/demo/", "dest": "/dashboard_estatico/index.html" },
-    { "src": "/demo/(.+)", "dest": "/dashboard_estatico/$1" },
-    { "src": "/(.*)", "dest": "/landing/$1" }
+  "rewrites": [
+    { "source": "/", "destination": "/landing/index.html" },
+    { "source": "/demo/", "destination": "/dashboard_estatico/index.html" },
+    { "source": "/demo/:path*", "destination": "/dashboard_estatico/:path*" }
   ]
 }
