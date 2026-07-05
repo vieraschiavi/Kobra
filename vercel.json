@@ -1,10 +1,12 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "dashboard_estatico/**", "use": "@vercel/static" }
+  "redirects": [
+    { "source": "/demo", "destination": "/demo/", "permanent": false }
   ],
-  "routes": [
-    { "src": "/", "dest": "/dashboard_estatico/index.html" },
-    { "src": "/(.*)", "dest": "/dashboard_estatico/$1" }
+  "rewrites": [
+    { "source": "/", "destination": "/landing/index.html" },
+    { "source": "/descarga", "destination": "/landing/descarga.html" },
+    { "source": "/video/:path*", "destination": "/landing/video/:path*" },
+    { "source": "/demo/", "destination": "/dashboard_estatico/index.html" },
+    { "source": "/demo/:path*", "destination": "/dashboard_estatico/:path*" }
   ]
 }

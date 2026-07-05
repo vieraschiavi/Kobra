@@ -278,14 +278,33 @@ class SesionGestorIA:
             "turnos": len(self.historial),
         })
 
+    # Mapa del resultado interno → tipificación estándar de cobranza
+    _TIPIFICACION = {
+        "Promesa": "Arreglo de pago",
+        "Derivado a humano": "Informado",
+        "No contactar": "No contactado",
+        "Sin acuerdo": "Sin acuerdo",
+    }
+
     def registrar(self, archivo: str | None = None) -> dict:
-        """Persiste la gestión en el ERP/base (aparece en el dashboard)."""
+        """Persiste la gestión en el ERP/base (aparece en el dashboard y en la
+        sábana exportable), con la tipificación y datos completos."""
         e = self.campos_erp
+        interno = e.get("resultado", "Sin acuerdo")
+        resultado = self._TIPIFICACION.get(interno, "Sin acuerdo")
+        o = e.get("oferta_aceptada")
+        notas = f"Gestor IA · {self.canal} · {e.get('turnos', 0)} turnos · resultado: {interno}."
         kwargs = dict(
             id_deudor=self.id_deudor, gestor_id=self.gestor_id, canal=self.canal,
+            tipo_gestor="IA",
             calidad=e.get("calidad_gestion"), clima=e.get("clima_cliente"),
             emociones=e.get("emociones"), tecnicas=e.get("tecnicas"),
-            resultado=("Promesa" if e.get("resultado") == "Promesa" else "Sin acuerdo"),
+            resultado=resultado,
+            fecha_compromiso=e.get("fecha_promesa"),
+            monto_acordado=(o["total"] if o else None),
+            cuotas=(o["cuotas"] if o else None),
+            descuento=(o["desc"] if o else None),
+            notas=notas,
             recupero=(e.get("monto_acordado") or None))
         if archivo:
             kwargs["archivo"] = archivo

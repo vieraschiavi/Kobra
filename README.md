@@ -600,6 +600,32 @@ La conversación se **simula**. Para **llamar de verdad** hace falta telefonía
 > **no se suben al repo**. El producto que se vende sigue siendo 100 %
 > sintético (Ley 18.331). Para llamar a un tercero necesitás su consentimiento.
 
+### 🔌 Integración con ERP / base de datos — `kobra/integracion.py`
+
+Cada gestión —del **Gestor IA** o de un **humano**— queda **tipificada** con su
+resultado y sus datos, y esa **sábana** se exporta o **sincroniza a cualquier
+ERP o base de datos**:
+
+- **Tipificación estándar de cobranza**: `Pago · Arreglo de pago · Promesa de
+  pago · Informado · No contactado · Fallecido · Negativa · Número erróneo ·
+  Sin acuerdo`, con `fecha_gestion`, `fecha_compromiso`, `fecha_pago`,
+  `monto_acordado`, `cuotas`, `descuento`, `notas`, `tipo_gestor` (IA/Humano)…
+- **Salidas**: archivos **JSON / CSV / Excel**, **API REST** (POST de la sábana
+  al webhook del ERP, con Bearer token) y **base de datos** (SQLAlchemy →
+  PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, SQLite…).
+- **Mapeo de campos** opcional (`aplicar_mapeo`) para renombrar las columnas de
+  Kobra a las del ERP del cliente.
+- En el dashboard: pestaña **"🔌 Integración ERP"** con vista previa de la
+  sábana, descarga, y envío/sincronización con un clic (las conexiones se
+  guardan en *Configuración*).
+
+```python
+from kobra import integracion as ig
+sab = ig.sabana(gestiones_df)
+ig.enviar_api(sab, "https://tu-erp.com/api/gestiones", api_key="…")
+ig.sincronizar_db(sab, "postgresql://user:pass@host/db", tabla="gestiones")
+```
+
 ---
 
 ## 📁 Estructura
@@ -616,6 +642,7 @@ Kobra/
 │   ├── cumplimiento.py             # cumplimiento normativo (horarios, topes, no-contactar)
 │   ├── explicabilidad.py           # reason codes por deudor (por qué esta ProbPago)
 │   ├── roi.py                      # estimador de caso de negocio (ROI)
+│   ├── integracion.py              # exportar/sincronizar la sábana a ERP/base de datos
 │   ├── cartera_manual.py           # cargar tu propia cartera de prueba
 │   ├── registro.py                 # briefing pre-llamada + registro post-llamada
 │   ├── config.py                   # API keys persistentes (Configuración)

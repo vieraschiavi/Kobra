@@ -25,10 +25,12 @@ SCORED_CSV = os.path.join(ROOT, "outputs", "kobra_scored.csv")
 GESTIONES_CSV = os.path.join(ROOT, "data", "kobra_gestiones.csv")
 
 GESTION_COLS = [
-    "id_gestion", "gestor_id", "gestor", "mes", "id_deudor", "segmento",
-    "producto", "departamento", "tramo_mora", "canal", "usa_kobra",
-    "calidad_gestion", "sentimiento_cliente", "emocion_dominante",
-    "tecnicas_usadas", "resultado", "monto_gestionado", "recupero",
+    "id_gestion", "gestor_id", "gestor", "tipo_gestor", "mes", "fecha_gestion",
+    "id_deudor", "documento", "segmento", "producto", "departamento", "tramo_mora",
+    "canal", "usa_kobra", "calidad_gestion", "sentimiento_cliente",
+    "emocion_dominante", "tecnicas_usadas", "resultado", "fecha_compromiso",
+    "fecha_pago", "monto_gestionado", "monto_acordado", "cuotas", "descuento",
+    "recupero", "notas",
 ]
 
 _scored_cache: pd.DataFrame | None = None
@@ -101,6 +103,10 @@ def registrar_gestion(id_deudor: str, gestor_id: str = "G01",
                       clima: float | None = None, emociones: list | None = None,
                       tecnicas: list | None = None, resultado: str | None = None,
                       recupero: float | None = None, mes: str | None = None,
+                      fecha_compromiso: str | None = None, fecha_pago: str | None = None,
+                      monto_acordado: float | None = None, cuotas: int | None = None,
+                      descuento: float | None = None, notas: str = "",
+                      documento: str = "", tipo_gestor: str | None = None,
                       archivo: str = GESTIONES_CSV) -> dict:
     """
     Persiste una gestión real. `resultado` idealmente viene de la tipificación
@@ -129,12 +135,16 @@ def registrar_gestion(id_deudor: str, gestor_id: str = "G01",
         with open(archivo, encoding="utf-8") as f:
             existentes = max(sum(1 for _ in f) - 1, 0)
 
+    ahora = datetime.now()
     fila_out = dict(
         id_gestion=f"GR-{existentes + 1:07d}",
         gestor_id=gestor_id,
         gestor=f"Gestor {gestor_id.lstrip('G') or gestor_id}",
-        mes=mes or datetime.now().strftime("%Y-%m"),
+        tipo_gestor=(tipo_gestor or ("IA" if str(gestor_id).upper().startswith("IA") else "Humano")),
+        mes=mes or ahora.strftime("%Y-%m"),
+        fecha_gestion=ahora.strftime("%Y-%m-%d %H:%M"),
         id_deudor=id_deudor,
+        documento=documento,
         segmento=(d["segmento"] if d is not None else "Desconocido"),
         producto=(d["producto"] if d is not None else "Desconocido"),
         departamento=(d["departamento"] if d is not None else "Desconocido"),
@@ -146,8 +156,14 @@ def registrar_gestion(id_deudor: str, gestor_id: str = "G01",
         emocion_dominante=(emociones[0] if emociones else "neutro"),
         tecnicas_usadas=len(tecnicas or []),
         resultado=resultado,
+        fecha_compromiso=fecha_compromiso or "",
+        fecha_pago=fecha_pago or ("" if resultado != "Pago" else ahora.strftime("%Y-%m-%d")),
         monto_gestionado=round(monto, 0),
+        monto_acordado=(round(float(monto_acordado), 0) if monto_acordado is not None else ""),
+        cuotas=(int(cuotas) if cuotas is not None else ""),
+        descuento=(round(float(descuento), 3) if descuento is not None else ""),
         recupero=round(float(recupero), 0),
+        notas=notas,
     )
 
     nueva = pd.DataFrame([fila_out], columns=GESTION_COLS)

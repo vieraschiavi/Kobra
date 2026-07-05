@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kobra IA · Descarga</title>
+<link rel="icon" type="image/png" href="kobra_icon.png">
+<style>
+  :root{--green:#00C896;--bg:#0E1117;--panel:#1a1f2e;--border:#262b3d;--txt:#F5F6FA;--muted:#9aa4b2;--red:#FF7675;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:linear-gradient(180deg,#0E1117,#12151f);color:var(--txt);font-family:'Segoe UI',system-ui,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .card{max-width:520px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:34px;text-align:center;}
+  h1{font-size:1.5rem;margin-bottom:10px;}
+  p{color:var(--muted);font-size:.95rem;margin-bottom:18px;line-height:1.5;}
+  .btn{display:inline-block;background:var(--green);color:#08110d;font-weight:800;font-size:15px;
+       text-decoration:none;border:none;cursor:pointer;padding:14px 26px;border-radius:10px;margin-top:8px;}
+  .btn.alt{background:#6C5CE7;color:#fff;}
+  .muted{color:var(--muted);font-size:.8rem;margin-top:16px;}
+  .err{color:var(--red);font-weight:700;}
+  a.link{color:var(--green);}
+  .lic-box{margin-top:18px;text-align:left;}
+  .lic-label{font-size:.78rem;color:var(--muted);margin-bottom:6px;}
+  .lic-row{display:flex;gap:8px;}
+  .lic-val{flex:1;background:#0b0e16;border:1px solid var(--border);border-radius:8px;padding:10px 12px;
+           font-family:ui-monospace,Consolas,monospace;font-size:.72rem;color:var(--txt);word-break:break-all;}
+  .copy-btn{background:#232838;color:var(--txt);border:1px solid var(--border);border-radius:8px;
+            padding:0 14px;cursor:pointer;font-size:.8rem;white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <h1>Verificando tu pago…</h1>
+  <p>Un momento, estamos confirmando el pago con MercadoPago.</p>
+</div>
+<script>
+function qp(k){return new URLSearchParams(location.search).get(k);}
+var card=document.getElementById('card');
+var paymentId=qp('payment_id') || qp('collection_id');
+var status=qp('status') || qp('collection_status');
+
+var PLAN_NAMES={starter:'Starter',pro:'Pro · Todo incluido',enterprise:'Enterprise'};
+function esc(s){return String(s==null?'':s).replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];});}
+function showOk(plan,license){
+  var planName=PLAN_NAMES[plan]||plan;
+  card.innerHTML='<h1>✅ ¡Pago confirmado!</h1>'
+    +'<p>Gracias por tu compra'+(plan?(' del plan <b>'+esc(planName)+'</b>'):'')+'. Descargá Kobra IA para PC (Windows/Linux/Mac vía Docker).</p>'
+    +'<a class="btn" href="/descargas/Kobra_Produccion_v1.1.0.zip">⬇ Descargar Kobra IA (PC)</a>'
+    +'<div class="muted">Incluye instalador para Windows (.bat) y Linux/Mac (.sh). Guía paso a paso adentro del ZIP.<br>'
+    +'SHA256: 85d213a4e17da182aebee85d48a7080a90db4f4584b9973a57be29c4a6d93a12</div>'
+    +(license?(
+      '<div class="lic-box"><div class="lic-label">🔑 Tu licencia Kobra IA (guardala, es tu comprobante de activación):</div>'
+      +'<div class="lic-row"><div class="lic-val" id="licVal">'+esc(license)+'</div>'
+      +'<button class="copy-btn" onclick="copyLic()">Copiar</button></div>'
+      +'<div class="muted" id="licMsg" style="margin-top:6px"></div></div>'
+    ):(
+      '<div class="muted">Tu licencia se está generando — si no la ves en unos segundos, escribinos y te la mandamos.</div>'
+    ))
+    +'<div class="muted">¿Problemas para descargar? Escribinos a <a class="link" href="mailto:vieraschiavi@gmail.com">vieraschiavi@gmail.com</a></div>';
+}
+function copyLic(){
+  var v=document.getElementById('licVal'); if(!v) return;
+  navigator.clipboard.writeText(v.textContent).then(function(){
+    var m=document.getElementById('licMsg'); if(m) m.textContent='✓ Copiada al portapapeles';
+  });
+}
+function showPending(){
+  card.innerHTML='<h1>⏳ Pago pendiente</h1>'
+    +'<p>Tu pago está siendo procesado por MercadoPago. En cuanto se acredite vas a poder descargar el programa. '
+    +'Te avisamos por mail apenas esté listo.</p>'
+    +'<div class="muted">¿Dudas? <a class="link" href="mailto:vieraschiavi@gmail.com">vieraschiavi@gmail.com</a></div>';
+}
+function showFail(msg){
+  card.innerHTML='<h1 class="err">No pudimos confirmar el pago</h1>'
+    +'<p>'+(msg||'Si ya pagaste y ves este mensaje, escribinos con el número de operación y lo resolvemos al toque.')+'</p>'
+    +'<a class="btn" href="/#precios">Volver a planes</a>'
+    +'<div class="muted"><a class="link" href="mailto:vieraschiavi@gmail.com">vieraschiavi@gmail.com</a></div>';
+}
+
+if(status==='pending' && !paymentId){ showPending(); }
+else if(!paymentId){ showFail(); }
+else {
+  fetch('/api/verify-payment?payment_id='+encodeURIComponent(paymentId))
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.approved){ showOk(d.plan, d.license); }
+      else if(d.status==='pending' || d.status==='in_process'){ showPending(); }
+      else { showFail(); }
+    })
+    .catch(function(){ showFail('Error de conexión verificando el pago.'); });
+}
+</script>
+</body>
+</html>

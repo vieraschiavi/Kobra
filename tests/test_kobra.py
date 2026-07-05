@@ -605,3 +605,55 @@ def test_voz_llamar_sin_credenciales():
 
     r = asyncio.new_event_loop().run_until_complete(server.voz_llamar(FakeReq()))
     assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Integración ERP / base de datos (sábana de gestiones)
+# ---------------------------------------------------------------------------
+def test_integracion_sabana_y_exportes():
+    from kobra import integracion as ig
+    df = _gestiones()
+    sab = ig.sabana(df)
+    for col in ("resultado", "tipo_gestor", "fecha_gestion", "monto_acordado", "notas"):
+        assert col in sab.columns
+    assert set(sab["tipo_gestor"].unique()) <= {"IA", "Humano"}
+    assert len(ig.a_json(sab.head())) > 2
+    assert len(ig.a_csv(sab.head())) > 0
+    assert len(ig.a_excel(sab.head())) > 0
+
+
+def test_integracion_sincronizar_sqlite(tmp_path):
+    import sqlite3
+    from kobra import integracion as ig
+    sab = ig.sabana(_gestiones()).head(30)
+    db = str(tmp_path / "erp.db")
+    r = ig.sincronizar_db(sab, f"sqlite:///{db}", "gestiones", "replace")
+    assert r["ok"] and r["filas"] == 30
+    n = sqlite3.connect(db).execute("SELECT COUNT(*) FROM gestiones").fetchone()[0]
+    assert n == 30
+
+
+def test_integracion_api_sin_url_y_mapeo():
+    from kobra import integracion as ig
+    sab = ig.sabana(_gestiones()).head(5)
+    r = ig.enviar_api(sab, "")           # sin URL → error controlado
+    assert not r["ok"] and r["enviados"] == 0
+    mapeado = ig.aplicar_mapeo(sab, {"resultado": "tipificacion", "id_deudor": "cuenta"})
+    assert "tipificacion" in mapeado.columns and "cuenta" in mapeado.columns
+
+
+def test_gestor_ia_tipifica_arreglo(tmp_path):
+    from kobra.gestor_ia import SesionGestorIA
+    from kobra import registro
+    arch = str(tmp_path / "g.csv")
+    ses = SesionGestorIA(id_deudor="KB-100773", gestor_id="IA01", usar_claude=False,
+                         brief={"monto_deuda": 6000, "probpago": 0.6, "estrategia": "Plan de cuotas",
+                                "descuento_recomendado": 0.1, "plan_cuotas": 3, "segmento_propension": "Media"})
+    ses.responder(None)
+    r = ses.responder("Sí soy yo")
+    for _ in range(8):
+        if r["fin"]: break
+        r = ses.responder("dale, acepto en cuotas")
+    g = ses.registrar(archivo=arch)
+    assert g["tipo_gestor"] == "IA"
+    assert g["resultado"] in ("Arreglo de pago", "Sin acuerdo")

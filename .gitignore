@@ -12,3 +12,6 @@ dist/
 data/mi_cartera_prueba.csv
 data/*_prueba.csv
 data/no_contactar.csv
+
+# Temporary session build scripts (video, mocks) — not repo deliverables
+scratchpad/

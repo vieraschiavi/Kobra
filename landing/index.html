@@ -1,0 +1,480 @@
+<title>Kobra IA · Cobranzas Inteligentes</title>
+<style>
+:root{
+  --navy:#081527; --navy2:#0c2137; --hero-a:#0d2440; --hero-b:#081324;
+  --amber:#f2b441; --amber2:#e39a2e; --amber-ink:#1c1305;
+  --ink:#eaf1fb; --muted:#9db0c8; --faint:#6c7f99;
+  --line:#1d3149; --line2:#2a4160;
+  --paper:#ffffff; --ink-d:#122238; --muted-d:#586a80; --line-d:#e6ebf2; --tint:#f4f7fb;
+  --blue:#2f74c0; --green:#00c896;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--navy);color:var(--ink);font-family:var(--sans);line-height:1.55;
+  -webkit-font-smoothing:antialiased;padding:14px}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1120px;margin:0 auto;padding:0 26px}
+h1,h2,h3{margin:0;line-height:1.08;text-wrap:balance;letter-spacing:-.02em}
+.am{color:var(--amber)}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:30;background:rgba(8,19,36,.82);backdrop-filter:blur(10px)}
+nav .wrap{display:flex;align-items:center;gap:16px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800}
+.mk{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--green),#0a8f6a);
+  display:flex;align-items:center;justify-content:center;color:#052018;font-weight:900;font-size:15px}
+.brand b{font-size:15px}.brand small{color:var(--muted);font-weight:600;font-size:12px}
+.nlinks{display:flex;gap:4px;margin-left:14px}
+.nlinks a{color:var(--muted);font-size:13.5px;font-weight:600;padding:7px 11px;border-radius:8px}
+.nlinks a:hover{color:#fff;background:rgba(255,255,255,.06)}
+@media(max-width:900px){.nlinks{display:none}}
+.right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.lang{display:flex;gap:2px;background:rgba(255,255,255,.06);border:1px solid var(--line2);border-radius:8px;padding:3px}
+.lang button{background:none;border:0;color:var(--faint);font-size:11.5px;font-weight:800;padding:5px 8px;
+  border-radius:6px;cursor:pointer;font-family:inherit;letter-spacing:.03em}
+.lang button.on{background:var(--amber);color:var(--amber-ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:750;font-size:14px;
+  border-radius:9px;padding:10px 17px;cursor:pointer;border:1px solid transparent;font-family:inherit;transition:transform .12s}
+.btn:hover{transform:translateY(-1px)}
+.btn-a{background:var(--amber);color:var(--amber-ink);box-shadow:0 6px 18px rgba(242,180,65,.28)}
+.btn-a:hover{background:var(--amber2)}
+.btn-o{background:transparent;color:#fff;border-color:var(--line2)}
+.btn-o:hover{border-color:var(--amber);color:var(--amber)}
+.btn-buy{padding:8px 15px}
+@media(max-width:560px){.btn-buy{display:none}}
+
+/* HERO (rounded dark card) */
+.hero{background:
+   radial-gradient(760px 420px at 80% -10%,rgba(242,180,65,.13),transparent 60%),
+   radial-gradient(680px 460px at 6% 8%,rgba(47,116,192,.22),transparent 60%),
+   linear-gradient(160deg,var(--hero-a),var(--hero-b));
+  border:1px solid var(--line);border-radius:26px;margin-top:14px;overflow:hidden}
+.hero .hgrid{display:grid;grid-template-columns:1.08fr .92fr;gap:40px;align-items:center;padding:56px}
+@media(max-width:920px){.hero .hgrid{grid-template-columns:1fr;padding:38px 30px;gap:30px}}
+.kick{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.05em;
+  color:var(--amber);background:rgba(242,180,65,.1);border:1px solid rgba(242,180,65,.28);
+  padding:6px 13px;border-radius:30px;margin-bottom:20px;text-transform:uppercase}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 9px var(--green);animation:p 2s infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.dot{animation:none}}
+.hero h1{font-size:clamp(33px,5.2vw,54px);font-weight:850;color:#fff}
+.hero .lead{font-size:clamp(15.5px,1.8vw,18px);color:var(--muted);max-width:46ch;margin:20px 0 26px}
+.hcta{display:flex;flex-wrap:wrap;gap:12px}
+.metrics{display:flex;flex-wrap:wrap;gap:14px 28px;margin-top:34px}
+.metric{min-width:96px}
+.metric .v{font-size:26px;font-weight:850;color:#fff;letter-spacing:-.01em}
+.metric .v .am{color:var(--amber)}
+.metric .l{color:var(--faint);font-size:11.5px;margin-top:4px;max-width:15ch;line-height:1.3}
+
+/* chat mock (light) */
+.chat{background:#fbfdff;border:1px solid #dfe7f1;border-radius:20px;padding:16px;
+  box-shadow:0 30px 70px rgba(0,0,0,.45);color:#0f1e30}
+.chat .h{display:flex;align-items:center;gap:10px;padding-bottom:12px;
+  border-bottom:1px solid #eef2f7;margin-bottom:10px}
+.chat .h .av{width:38px;height:38px;border-radius:50%;background:#0f2135;color:#fff;display:flex;align-items:center;
+  justify-content:center;font-weight:800;font-size:13px;flex:none}
+.chat .h b{font-size:14px;display:block}
+.chat .h span{font-size:11.5px;color:#159a6b;display:flex;align-items:center;gap:5px}
+.chat .h span::before{content:"";width:6px;height:6px;border-radius:50%;background:#22c55e}
+.b{display:table;max-width:84%;padding:10px 13px;border-radius:15px;font-size:13.5px;line-height:1.4;margin:8px 0}
+.b.in{background:#eef2f7;color:#22303f;border-top-left-radius:5px}
+.b.out{margin-left:auto;background:#e8f4ff;color:#0f3355;border-top-right-radius:5px}
+.b .hl{font-weight:800;color:var(--blue)}
+.b.ok{display:block;max-width:100%;background:#eafaf1;color:#0b6b46;font-weight:700;text-align:center;margin-top:10px}
+
+/* WHITE platform panel */
+.panel{background:var(--paper);color:var(--ink-d);border-radius:26px;margin-top:14px;padding:60px 0}
+.panel .wrap{padding:0 44px}
+@media(max-width:600px){.panel .wrap{padding:0 26px}}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--blue)}
+.h2{font-size:clamp(24px,3.6vw,38px);font-weight:850;color:var(--ink-d);margin:12px 0 12px}
+.lead-d{color:var(--muted-d);max-width:60ch;font-size:16.5px;margin-bottom:34px}
+.fgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+@media(max-width:760px){.fgrid{grid-template-columns:1fr}}
+.feat{background:var(--tint);border:1px solid var(--line-d);border-radius:16px;padding:24px}
+.feat .ic{width:44px;height:44px;border-radius:11px;background:#fff;border:1px solid var(--line-d);
+  display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:14px;
+  box-shadow:0 2px 8px rgba(18,34,56,.05)}
+.feat h3{font-size:18px;color:var(--ink-d);margin-bottom:7px}
+.feat p{color:var(--muted-d);font-size:14.5px;margin:0}
+.feat ul{list-style:none;padding:0;margin:12px 0 0}
+.feat li{color:var(--muted-d);font-size:13px;padding:5px 0 5px 20px;position:relative}
+.feat li::before{content:"✓";position:absolute;left:0;color:var(--green);font-weight:800}
+
+/* pricing (white, tint cards) */
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch}
+@media(max-width:860px){.pgrid{grid-template-columns:1fr}}
+.plan{background:var(--paper);border:1px solid var(--line-d);border-radius:18px;padding:26px;display:flex;flex-direction:column}
+.plan.pop{border-color:var(--amber);box-shadow:0 20px 46px rgba(242,180,65,.16);position:relative}
+.plan.pop .tag{position:absolute;top:-11px;left:24px;background:var(--amber);color:var(--amber-ink);font-size:11px;
+  font-weight:800;padding:4px 12px;border-radius:20px;letter-spacing:.02em}
+.plan h3{font-size:19px;color:var(--ink-d)}
+.plan .who{color:var(--muted-d);font-size:13px;margin:5px 0 16px;min-height:34px}
+.plan .amt{font-size:38px;font-weight:850;color:var(--ink-d);line-height:1;letter-spacing:-.02em}
+.plan .amt small{font-size:15px;color:var(--muted-d);font-weight:600}
+.plan .per{color:var(--muted-d);font-size:12.5px;margin-top:4px}
+.plan ul{list-style:none;padding:0;margin:18px 0 22px;flex:1}
+.plan li{font-size:13px;color:var(--muted-d);padding:7px 0 7px 20px;position:relative;border-bottom:1px solid var(--line-d)}
+.plan li:last-child{border-bottom:0}.plan li::before{content:"→";position:absolute;left:0;color:var(--amber2)}
+.plan .btn{width:100%}
+.btn-d{background:var(--ink-d);color:#fff}.btn-d:hover{background:#0a1626}
+.btn-od{background:#fff;color:var(--ink-d);border-color:var(--line-d)}.btn-od:hover{border-color:var(--amber);color:var(--amber2)}
+.paynote{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-top:24px;color:var(--muted-d);font-size:13px}
+.paybadge{background:var(--tint);border:1px solid var(--line-d);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--ink-d)}
+
+/* contact (white) */
+.cform{max-width:640px;display:grid;gap:14px}
+.cform .frow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:640px){.cform .frow{grid-template-columns:1fr}}
+.cform label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:var(--muted-d)}
+.cform input,.cform textarea{font-family:inherit;font-size:15px;color:var(--ink-d);background:#fff;
+  border:1px solid var(--line-d);border-radius:10px;padding:11px 13px;width:100%}
+.cform input:focus,.cform textarea:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(242,180,65,.18)}
+.cform textarea{min-height:118px;resize:vertical;font-weight:400}.cform input{font-weight:400}
+.cform .actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cform .hint{color:var(--muted-d);font-size:13px}
+
+/* registro / demo 3 días */
+.modal-bg{position:fixed;inset:0;background:rgba(4,10,20,.72);backdrop-filter:blur(4px);z-index:60;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-bg[hidden]{display:none}
+.modal{background:var(--paper);color:var(--ink-d);border-radius:18px;padding:30px;max-width:440px;width:100%;
+  position:relative;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.modal-x{position:absolute;top:12px;right:15px;background:none;border:0;font-size:26px;color:var(--muted-d);
+  cursor:pointer;line-height:1}
+.modal h3{font-size:22px;color:var(--ink-d);margin:8px 0 6px}
+.modal-sub{color:var(--muted-d);font-size:14.5px;margin:0 0 18px}
+.modal form{display:grid;gap:12px}
+.modal label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:700;color:var(--muted-d)}
+.modal input{font-family:inherit;font-size:15px;color:var(--ink-d);background:#fff;border:1px solid var(--line-d);
+  border-radius:10px;padding:10px 12px;font-weight:400}
+.modal input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(242,180,65,.18)}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:420px){.frow2{grid-template-columns:1fr}}
+.modal-note{font-size:11.5px;color:var(--muted-d);text-align:center;margin:2px 0 0}
+
+/* band + footer */
+.band{background:
+   radial-gradient(560px 280px at 50% 0,rgba(242,180,65,.16),transparent 60%),
+   linear-gradient(160deg,var(--hero-a),var(--hero-b));
+  border:1px solid var(--line);border-radius:26px;margin-top:14px;padding:52px 40px;text-align:center}
+.band h2{font-size:clamp(24px,4vw,38px);font-weight:850;color:#fff}
+.band p{color:var(--muted);max-width:52ch;margin:14px auto 24px;font-size:16.5px}
+footer{padding:34px 0 14px;color:var(--faint);font-size:13px}
+.foot-top{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}
+footer .legal{max-width:74ch;line-height:1.6}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:6px}
+</style>
+
+<nav><div class="wrap">
+  <div class="brand"><span class="mk">K</span><b>KOBRA <span class="am">IA</span></b><small>· por MV</small></div>
+  <div class="nlinks">
+    <a href="#plataforma" data-i="nav1">Funciones</a>
+    <a href="#plataforma" data-i="nav2">Cómo funciona</a>
+    <a href="#precios" data-i="nav3">Planes</a>
+    <a href="#demo" data-i="navd">Demo</a>
+    <a href="#contacto" data-i="navc">Contacto</a>
+  </div>
+  <div class="right">
+    <div class="lang" role="group" aria-label="Idioma">
+      <button data-lang="es" class="on">ES</button><button data-lang="pt">PT</button><button data-lang="en">EN</button>
+    </div>
+    <a href="#precios" class="btn btn-a btn-buy" data-i="navbuy">Comprar</a>
+  </div>
+</div></nav>
+
+<header><div class="wrap"><div class="hero"><div class="hgrid">
+  <div>
+    <span class="kick"><span class="dot"></span><span data-i="kick">IA para cobranzas · voz natural</span></span>
+    <h1 data-i="h1">Tu cobranza gestionando <span class="am">24/7</span>, sin sumar gestores</h1>
+    <p class="lead" data-i="lead">Kobra es el agente con Inteligencia Artificial que llama por teléfono, negocia por
+    WhatsApp, respeta la ley y vuelca cada resultado a tu ERP — mientras tu equipo se enfoca en lo que importa.</p>
+    <div class="hcta">
+      <a href="/demo/" class="btn btn-a js-demo" data-i="hb1">▶ Ver la demo en vivo</a>
+      <a href="#precios" class="btn btn-o" data-i="hb2">Planes desde USD 149</a>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="v tnum">24/7</div><div class="l" data-i="m1">gestiona sin descanso</div></div>
+      <div class="metric"><div class="v tnum">50<span class="am">×</span></div><div class="l" data-i="m2">llamadas en paralelo vs. un gestor</div></div>
+      <div class="metric"><div class="v tnum">3</div><div class="l" data-i="m3">canales: voz · WhatsApp · copiloto</div></div>
+    </div>
+  </div>
+  <div class="chat" aria-hidden="true">
+    <div class="h"><span class="av">K</span><div><b>Kobra — Gestor IA</b><span data-i="chs">negociando por voz</span></div></div>
+    <div class="b in" data-i="cb1">Ahora no puedo pagar los $6.000 completos…</div>
+    <div class="b out" data-i="cb2">Tranquilo. Le ofrezco cancelar hoy con <span class="hl">$5.700</span>, o <span class="hl">3 cuotas de $1.900</span>. ¿Cuál le sirve?</div>
+    <div class="b in" data-i="cb3">Dale, en 3 cuotas ✅</div>
+    <div class="b out" data-i="cb4">¡Listo! Le paso el link de pago 🔗</div>
+    <div class="b ok" data-i="cb5">✓ Arreglo de pago registrado · cargado en el ERP</div>
+  </div>
+</div></div></div></header>
+
+<!-- VIDEO -->
+<section id="video" class="panel"><div class="wrap" style="text-align:center">
+  <div class="eyebrow" data-i="vey">Video</div>
+  <h2 class="h2" data-i="vh">Mirá a Kobra en acción</h2>
+  <p class="lead-d" data-i="vl" style="margin-left:auto;margin-right:auto">Así llama, negocia por WhatsApp y cierra un arreglo de pago — de principio a fin, sin cortar.</p>
+  <div style="max-width:860px;margin:0 auto;border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.18)">
+    <video controls preload="metadata" playsinline style="width:100%;display:block;background:#0E1117">
+      <source src="/video/Kobra_Copiloto_Demo.mp4" type="video/mp4">
+      Tu navegador no soporta la reproducción de video HTML5.
+    </video>
+  </div>
+</div></section>
+
+<!-- PLATAFORMA (white) -->
+<section id="plataforma" class="panel"><div class="wrap">
+  <div class="eyebrow" data-i="pey">La plataforma</div>
+  <h2 class="h2" data-i="ph">Todo lo que hace tu mejor gestor, sin dormir nunca</h2>
+  <p class="lead-d" data-i="pl">Kobra atiende, negocia y registra cada gestión, convirtiendo cada contacto en un
+  resultado concreto — por el canal que tu cliente prefiera.</p>
+  <div class="fgrid">
+    <div class="feat"><div class="ic">📞</div><h3 data-i="f1t">Gestor IA por voz</h3>
+      <p data-i="f1p">Llama por teléfono y negocia con voz natural. Hasta 50 llamadas a la vez, las 24 horas.</p></div>
+    <div class="feat"><div class="ic">💬</div><h3 data-i="f2t">Negociador por WhatsApp</h3>
+      <p data-i="f2p">El mismo agente cierra por chat, manda el link de pago y registra todo solo.</p></div>
+    <div class="feat"><div class="ic">🎧</div><h3 data-i="f3t">Copiloto para humanos</h3>
+      <p data-i="f3p">Detecta el ánimo del cliente y le sugiere al gestor qué decir, en tiempo real.</p></div>
+    <div class="feat"><div class="ic">🔌</div><h3 data-i="f4t">Integración con tu ERP</h3>
+      <p data-i="f4p">Cada resultado —pago, arreglo, informado— se sincroniza a tu ERP o base de datos por API o SQL.</p>
+      <ul><li data-i="f4a">CSV · Excel · JSON</li><li data-i="f4b">API REST (Bearer) o SQL</li></ul></div>
+  </div>
+</div></section>
+
+<!-- PRECIOS (white) -->
+<section id="precios" class="panel"><div class="wrap">
+  <div class="eyebrow" data-i="ey3">Planes</div>
+  <h2 class="h2" data-i="st3">Elegí tu plan y empezá hoy</h2>
+  <p class="lead-d" data-i="sl3">Pagás en dólares con tarjeta, MercadoPago o transferencia. Al confirmarse el pago,
+  descargás el programa con todo incluido.</p>
+  <div class="pgrid">
+    <div class="plan">
+      <h3 data-i="p1t">Starter</h3>
+      <div class="who" data-i="p1w">Traé tus propias APIs. Ideal para técnicos.</div>
+      <div class="amt">US$490</div><div class="per" data-i="p1per">licencia + US$29/mes soporte</div>
+      <ul><li data-i="p1a">App de PC completa</li><li data-i="p1b">Voz · WhatsApp · copiloto · ERP</li>
+        <li data-i="p1c">Usás tus propias claves</li><li data-i="p1d">Actualizaciones incluidas</li></ul>
+      <button class="btn btn-od" data-pay="starter" data-i="p1cta">Comprar Starter</button>
+    </div>
+    <div class="plan pop">
+      <span class="tag" data-i="poptag">Recomendado</span>
+      <h3 data-i="p2t">Pro · Todo incluido</h3>
+      <div class="who" data-i="p2w">Abrí y usá. Sin configurar nada técnico.</div>
+      <div class="amt">US$149<small>/mes</small></div><div class="per" data-i="p2per">+ uso · 1.000 gestiones incluidas</div>
+      <ul><li data-i="p2a">APIs embebidas y medidas</li><li data-i="p2b">Voz neural incluida (sin costo/min)</li>
+        <li data-i="p2c">Cupo mensual + excedente por gestión</li><li data-i="p2d">Soporte prioritario</li></ul>
+      <button class="btn btn-a" data-pay="pro" data-i="p2cta">Suscribirme al Pro</button>
+    </div>
+    <div class="plan">
+      <h3 data-i="p3t">Enterprise</h3>
+      <div class="who" data-i="p3w">Bancos, grandes estudios, white-label.</div>
+      <div class="amt" data-i="p3amt">A medida</div><div class="per" data-i="p3per">desde US$1.500/mes</div>
+      <ul><li data-i="p3a">Usuarios ilimitados · SSO</li><li data-i="p3b">Marca propia (white-label)</li>
+        <li data-i="p3c">ERP a medida · SLA</li><li data-i="p3d">Onboarding dedicado</li></ul>
+      <button class="btn btn-od" data-pay="enterprise" data-i="p3cta">Hablar con ventas</button>
+    </div>
+  </div>
+  <div class="paynote">
+    <span data-i="paylead">Medios de pago:</span>
+    <span class="paybadge">Tarjeta</span><span class="paybadge">MercadoPago</span>
+    <span class="paybadge" data-i="payb1">Transferencia</span><span class="paybadge">PayPal</span>
+    <span data-i="paysec">🔒 Pago seguro · el dinero cae en tu cuenta configurada</span>
+  </div>
+</div></section>
+
+<!-- DEMO band -->
+<section id="demo"><div class="wrap"><div class="band">
+  <div class="eyebrow" style="color:var(--amber)" data-i="dey">Demo en vivo</div>
+  <h2 data-i="bandt" style="margin-top:10px">Probá Kobra ahora mismo</h2>
+  <p data-i="bandp">Abrí el tablero interactivo y mirá cómo prioriza la cartera, negocia y registra cada gestión.</p>
+  <a href="/demo/" class="btn btn-a js-demo" data-i="bandcta">▶ Abrir la demo</a>
+</div></div></section>
+
+<!-- CONTACTO (white) -->
+<section id="contacto" class="panel"><div class="wrap">
+  <div class="eyebrow" data-i="eyc">Contacto</div>
+  <h2 class="h2" data-i="stc">Buzón de contacto</h2>
+  <p class="lead-d" data-i="slc">¿Tenés una consulta o querés una demo? Completá el formulario: se abre tu correo con el
+  asunto y la pregunta listos para enviarnos a vieraschiavi@gmail.com.</p>
+  <form id="cform" class="cform" novalidate>
+    <div class="frow">
+      <label><span data-i="cfn">Nombre</span><input name="nombre" autocomplete="name"></label>
+      <label><span data-i="cfe">Tu email</span><input type="email" name="email" autocomplete="email"></label>
+      <label><span data-i="cft">Teléfono</span><input name="tel" autocomplete="tel" inputmode="tel"></label>
+    </div>
+    <label><span data-i="cfa">Asunto</span><input name="asunto"></label>
+    <label><span data-i="cfp">Consulta / pregunta</span><textarea name="pregunta"></textarea></label>
+    <div class="actions">
+      <button type="submit" class="btn btn-d" data-i="cfb">Enviar consulta</button>
+      <span class="hint" data-i="cfh">Se abre tu app de correo con el mensaje listo.</span>
+    </div>
+  </form>
+</div></section>
+
+<div class="modal-bg" id="regmodal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="regtitle">
+    <button class="modal-x" id="regclose" aria-label="Cerrar">&times;</button>
+    <div class="eyebrow" data-i="regey">Demo gratis · 3 días</div>
+    <h3 id="regtitle" data-i="regt">Activá tu demo completa</h3>
+    <p class="modal-sub" id="regsub" data-i="regsub">Registrate y probá Kobra completo por 3 días. Sin tarjeta.</p>
+    <form id="regform" novalidate>
+      <label><span data-i="cfn">Nombre</span><input name="nombre" required autocomplete="name"></label>
+      <label><span data-i="cfe">Email</span><input type="email" name="email" required autocomplete="email"></label>
+      <div class="frow2">
+        <label><span data-i="cft">Teléfono</span><input name="tel" autocomplete="tel" inputmode="tel"></label>
+        <label><span data-i="regemp">Empresa</span><input name="empresa" autocomplete="organization"></label>
+      </div>
+      <button type="submit" class="btn btn-a" style="width:100%" data-i="regcta">Activar demo de 3 días</button>
+      <p class="modal-note" data-i="regnote">Al registrarte aceptás recibir información de Kobra IA.</p>
+    </form>
+  </div>
+</div>
+
+<footer><div class="wrap">
+  <div class="foot-top">
+    <div class="brand"><span class="mk">K</span><b>KOBRA <span class="am">IA</span></b><small>· un producto de MV</small></div>
+    <div class="lang" role="group" aria-label="Idioma">
+      <button data-lang="es" class="on">ES</button><button data-lang="pt">PT</button><button data-lang="en">EN</button>
+    </div>
+  </div>
+  <p class="legal" data-i="legal">Kobra IA · Cobranzas Inteligentes. Plataforma de gestión de cobranzas asistida por
+  inteligencia artificial. Cumplimiento de la Ley N.º 18.331 (Uruguay). Datos de demostración 100% sintéticos;
+  las métricas mostradas son ilustrativas del funcionamiento del producto.</p>
+</div></footer>
+
+<script>
+var I18N={
+  pt:{
+    nav1:"Funcionalidades",nav2:"Como funciona",nav3:"Planos",navd:"Demo",navc:"Contato",navbuy:"Comprar",
+    kick:"IA para cobranças · voz natural",
+    h1:'Sua cobrança operando <span class="am">24/7</span>, sem contratar mais gente',
+    lead:"A Kobra é o agente com Inteligência Artificial que liga, negocia por WhatsApp, respeita a lei e envia cada resultado ao seu ERP — enquanto sua equipe foca no que importa.",
+    hb1:"▶ Ver a demo ao vivo",hb2:"Planos a partir de USD 149",
+    m1:"opera sem parar",m2:"chamadas em paralelo vs. um agente",m3:"canais: voz · WhatsApp · copiloto",
+    chs:"negociando por voz",cb1:"Agora não posso pagar os $6.000 completos…",
+    cb2:'Tranquilo. Ofereço quitar hoje com <span class="hl">$5.700</span>, ou <span class="hl">3x de $1.900</span>. Qual serve?',
+    cb3:"Combinado, em 3x ✅",cb4:"Pronto! Envio o link de pagamento 🔗",cb5:"✓ Acordo registrado · enviado ao ERP",
+    vey:"Vídeo",vh:"Veja a Kobra em ação",vl:"Assim ela liga, negocia por WhatsApp e fecha um acordo de pagamento — do início ao fim, sem cortes.",
+    pey:"A plataforma",ph:"Tudo o que seu melhor agente faz, sem nunca dormir",
+    pl:"A Kobra atende, negocia e registra cada gestão, transformando cada contato em um resultado concreto — pelo canal que seu cliente preferir.",
+    f1t:"Agente IA por voz",f1p:"Liga por telefone e negocia com voz natural. Até 50 chamadas ao mesmo tempo, 24 horas.",
+    f2t:"Negociador por WhatsApp",f2p:"O mesmo agente fecha por chat, envia o link de pagamento e registra tudo sozinho.",
+    f3t:"Copiloto para humanos",f3p:"Detecta o humor do cliente e sugere ao agente o que dizer, em tempo real.",
+    f4t:"Integração com seu ERP",f4p:"Cada resultado — pagamento, acordo, informado — sincroniza ao seu ERP ou banco por API ou SQL.",f4a:"CSV · Excel · JSON",f4b:"API REST (Bearer) ou SQL",
+    ey3:"Planos",st3:"Escolha seu plano e comece hoje",sl3:"Pague em dólares com cartão, MercadoPago ou transferência. Ao confirmar o pagamento, baixe o programa com tudo incluído.",
+    p1t:"Starter",p1w:"Traga suas próprias APIs. Ideal para técnicos.",p1per:"licença + US$29/mês suporte",p1a:"App de PC completo",p1b:"Voz · WhatsApp · copiloto · ERP",p1c:"Use suas próprias chaves",p1d:"Atualizações incluídas",p1cta:"Comprar Starter",
+    poptag:"Recomendado",p2t:"Pro · Tudo incluído",p2w:"Abra e use. Sem configurar nada técnico.",p2per:"+ uso · 1.000 gestões incluídas",p2a:"APIs embutidas e medidas",p2b:"Voz neural incluída (sem custo/min)",p2c:"Cota mensal + excedente por gestão",p2d:"Suporte prioritário",p2cta:"Assinar o Pro",
+    p3t:"Enterprise",p3w:"Bancos, grandes escritórios, white-label.",p3amt:"Sob medida",p3per:"a partir de US$1.500/mês",p3a:"Usuários ilimitados · SSO",p3b:"Marca própria (white-label)",p3c:"ERP sob medida · SLA",p3d:"Onboarding dedicado",p3cta:"Falar com vendas",
+    paylead:"Meios de pagamento:",payb1:"Transferência",paysec:"🔒 Pagamento seguro · o dinheiro cai na sua conta configurada",
+    dey:"Demo ao vivo",bandt:"Teste a Kobra agora mesmo",bandp:"Abra o painel interativo e veja como prioriza a carteira, negocia e registra cada gestão.",bandcta:"▶ Abrir a demo",
+    eyc:"Contato",stc:"Caixa de contato",slc:"Tem uma dúvida ou quer uma demo? Preencha o formulário: seu e-mail abre com o assunto e a pergunta prontos para nos enviar a vieraschiavi@gmail.com.",
+    cfn:"Nome",cfe:"Seu e-mail",cft:"Telefone",cfa:"Assunto",cfp:"Dúvida / pergunta",cfb:"Enviar consulta",cfh:"Abre seu app de e-mail com a mensagem pronta.",
+    regey:"Demo grátis · 3 dias",regt:"Ative sua demo completa",regsub:"Cadastre-se e teste a Kobra completa por 3 dias. Sem cartão.",regemp:"Empresa",regcta:"Ativar demo de 3 dias",regnote:"Ao se cadastrar, você aceita receber informações da Kobra IA.",
+    legal:"Kobra IA · Cobranças Inteligentes. Plataforma de gestão de cobranças assistida por inteligência artificial. Dados de demonstração 100% sintéticos; as métricas mostradas são ilustrativas."
+  },
+  en:{
+    nav1:"Features",nav2:"How it works",nav3:"Plans",navd:"Demo",navc:"Contact",navbuy:"Buy",
+    kick:"AI for collections · natural voice",
+    h1:'Your collections running <span class="am">24/7</span>, without hiring more people',
+    lead:"Kobra is the AI agent that calls, negotiates over WhatsApp, respects the law, and pushes every result to your ERP — while your team focuses on what matters.",
+    hb1:"▶ Watch the live demo",hb2:"Plans from USD 149",
+    m1:"runs nonstop",m2:"parallel calls vs. one agent",m3:"channels: voice · WhatsApp · copilot",
+    chs:"negotiating by voice",cb1:"I can't pay the full $6,000 right now…",
+    cb2:'No worries. I can settle today for <span class="hl">$5,700</span>, or <span class="hl">3 payments of $1,900</span>. Which works?',
+    cb3:"Deal, 3 payments ✅",cb4:"Done! I'll send the payment link 🔗",cb5:"✓ Arrangement logged · pushed to the ERP",
+    vey:"Video",vh:"See Kobra in action",vl:"Watch it call, negotiate over WhatsApp, and close a payment arrangement — start to finish, no cuts.",
+    pey:"The platform",ph:"Everything your best agent does, without ever sleeping",
+    pl:"Kobra answers, negotiates and logs every case, turning each contact into a concrete result — over whichever channel your customer prefers.",
+    f1t:"AI voice agent",f1p:"Calls by phone and negotiates with a natural voice. Up to 50 calls at once, 24/7.",
+    f2t:"WhatsApp negotiator",f2p:"The same agent closes by chat, sends the payment link and logs everything itself.",
+    f3t:"Copilot for humans",f3p:"Detects the customer's mood and tells the agent what to say, in real time.",
+    f4t:"ERP integration",f4p:"Every result — paid, arrangement, informed — syncs to your ERP or database via API or SQL.",f4a:"CSV · Excel · JSON",f4b:"REST API (Bearer) or SQL",
+    ey3:"Plans",st3:"Pick your plan and start today",sl3:"Pay in dollars by card, MercadoPago or bank transfer. Once payment clears, download the program with everything included.",
+    p1t:"Starter",p1w:"Bring your own APIs. Ideal for technical teams.",p1per:"license + US$29/mo support",p1a:"Full PC app",p1b:"Voice · WhatsApp · copilot · ERP",p1c:"Use your own keys",p1d:"Updates included",p1cta:"Buy Starter",
+    poptag:"Recommended",p2t:"Pro · All-inclusive",p2w:"Open and use. No technical setup.",p2per:"+ usage · 1,000 cases included",p2a:"Embedded, metered APIs",p2b:"Neural voice included (no per-min cost)",p2c:"Monthly quota + overage per case",p2d:"Priority support",p2cta:"Subscribe to Pro",
+    p3t:"Enterprise",p3w:"Banks, large firms, white-label.",p3amt:"Custom",p3per:"from US$1,500/mo",p3a:"Unlimited users · SSO",p3b:"Your own brand (white-label)",p3c:"Custom ERP · SLA",p3d:"Dedicated onboarding",p3cta:"Talk to sales",
+    paylead:"Payment methods:",payb1:"Bank transfer",paysec:"🔒 Secure payment · money lands in your configured account",
+    dey:"Live demo",bandt:"Try Kobra right now",bandp:"Open the interactive dashboard and see how it prioritizes the portfolio, negotiates and logs every case.",bandcta:"▶ Open the demo",
+    eyc:"Contact",stc:"Contact box",slc:"Have a question or want a demo? Fill out the form: your email opens with the subject and question ready to send to vieraschiavi@gmail.com.",
+    cfn:"Name",cfe:"Your email",cft:"Phone",cfa:"Subject",cfp:"Question / inquiry",cfb:"Send inquiry",cfh:"Opens your email app with the message ready.",
+    regey:"Free demo · 3 days",regt:"Activate your full demo",regsub:"Sign up and try the full Kobra for 3 days. No card.",regemp:"Company",regcta:"Activate 3-day demo",regnote:"By signing up you agree to receive information from Kobra IA.",
+    legal:"Kobra IA · Smart Collections. AI-assisted debt-collection management platform. 100% synthetic demo data; metrics shown are illustrative of the product."
+  }
+};
+var ORIG={};
+document.querySelectorAll('[data-i]').forEach(function(el){ORIG[el.getAttribute('data-i')]=el.innerHTML;});
+function setLang(lang){
+  var dict=lang==='es'?null:I18N[lang];
+  document.querySelectorAll('[data-i]').forEach(function(el){
+    var k=el.getAttribute('data-i');
+    el.innerHTML=(dict&&dict[k]!=null)?dict[k]:ORIG[k];
+  });
+  document.documentElement.lang=lang;
+  document.querySelectorAll('.lang button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-lang')===lang);});
+}
+document.querySelectorAll('.lang button').forEach(function(b){b.addEventListener('click',function(){setLang(b.getAttribute('data-lang'));});});
+document.querySelectorAll('[data-pay]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    var plan=btn.getAttribute('data-pay');
+    if(plan==='enterprise'){
+      var cf=document.getElementById('cform');
+      if(cf){cf.scrollIntoView({behavior:'smooth',block:'center'});var a=cf.querySelector('input,textarea');if(a)a.focus();}
+      return;
+    }
+    window.location.href='/api/checkout?plan='+encodeURIComponent(plan);
+  });
+});
+var CONTACT_TO="vieraschiavi@gmail.com";
+var cform=document.getElementById('cform');
+if(cform){cform.addEventListener('submit',function(e){
+  e.preventDefault();
+  var d=new FormData(cform);
+  var nombre=(d.get('nombre')||'').trim(),email=(d.get('email')||'').trim(),tel=(d.get('tel')||'').trim(),
+      asunto=(d.get('asunto')||'').trim(),pregunta=(d.get('pregunta')||'').trim();
+  var subject="[Kobra IA] "+(asunto||'Consulta');
+  var body=(pregunta||'')+"\n\n----------------------------\nDatos de contacto\n"+
+           "Nombre: "+(nombre||'-')+"\nEmail: "+(email||'-')+"\nTeléfono: "+(tel||'-')+"\nEnviado desde: landing Kobra IA";
+  window.location.href="mailto:"+CONTACT_TO+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+});}
+
+// Demo completa · 3 días por usuario registrado
+var TRIAL_MS=3*24*60*60*1000;
+function regGet(){try{return JSON.parse(localStorage.getItem('kobra_reg')||'null')}catch(e){return null}}
+function regValid(r){return !!(r&&r.ts&&(Date.now()-r.ts)<TRIAL_MS)}
+var modal=document.getElementById('regmodal');
+function openReg(expired){
+  var sub=document.getElementById('regsub');
+  if(expired&&sub){sub.textContent=(document.documentElement.lang==='en'?
+     "Your 3-day demo expired. Sign up again to keep testing.":
+     document.documentElement.lang==='pt'?
+     "Sua demo de 3 dias expirou. Cadastre-se de novo para continuar.":
+     "Tu demo de 3 días venció. Registrate de nuevo para seguir probando.");}
+  if(modal){modal.hidden=false;var f=modal.querySelector('input[name=nombre]');if(f)f.focus();}
+}
+function closeReg(){if(modal)modal.hidden=true;}
+if(modal){
+  document.getElementById('regclose').addEventListener('click',closeReg);
+  modal.addEventListener('click',function(e){if(e.target===modal)closeReg();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeReg();});
+}
+document.querySelectorAll('.js-demo').forEach(function(a){
+  a.addEventListener('click',function(e){
+    if(regValid(regGet()))return;          // demo vigente → pasa directo a /demo/
+    e.preventDefault();openReg(false);
+  });
+});
+var regform=document.getElementById('regform');
+if(regform){regform.addEventListener('submit',function(e){
+  e.preventDefault();
+  var d=new FormData(regform);
+  var reg={nombre:(d.get('nombre')||'').trim(),email:(d.get('email')||'').trim(),
+           tel:(d.get('tel')||'').trim(),empresa:(d.get('empresa')||'').trim(),ts:Date.now()};
+  if(!reg.email||reg.email.indexOf('@')<0){var em=regform.querySelector('input[name=email]');if(em)em.focus();return;}
+  try{localStorage.setItem('kobra_reg',JSON.stringify(reg));}catch(e){}
+  window.location.href='/demo/';
+});}
+</script>

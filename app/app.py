@@ -27,6 +27,7 @@ from kobra import copiloto                    # noqa: E402
 from kobra import analitica                   # noqa: E402
 from kobra import config as kconfig           # noqa: E402
 from kobra import roi as kroi                 # noqa: E402
+from kobra import integracion as kerp         # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -210,10 +211,10 @@ st.markdown("---")
 # ----------------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------------
-tabH, tab1, tab2, tab3, tab4, tab5, tab6, tab8, tab9, tab7 = st.tabs(
+tabH, tab1, tab2, tab3, tab4, tab5, tab6, tab8, tab9, tabERP, tab7 = st.tabs(
     ["❓ Guía & Ayuda", "📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
      "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo", "📇 Gestores & Evolución",
-     "🧪 Probar mi cartera", "💰 Caso de negocio", "⚙️ Configuración"])
+     "🧪 Probar mi cartera", "💰 Caso de negocio", "🔌 Integración ERP", "⚙️ Configuración"])
 
 # ---- Tab Ayuda: guía paso a paso -------------------------------------------
 with tabH:
@@ -299,6 +300,29 @@ with tabH:
             "- Registrá la **marca “Kobra IA”** en la **DNPI** (~USD 200–500 por 10 años) al salir a vender.\n"
             "- La **idea** no se registra; te protegés con código + marca + contratos/NDAs.\n\n"
             "Guía completa: **docs/GUIA_REGISTRO_LEGAL_URUGUAY.md**.")
+
+    st.divider()
+    st.markdown("### 📬 Buzón de contacto")
+    st.caption("Enviá tu consulta y se abre tu correo con el mensaje listo para "
+               "**vieraschiavi@gmail.com** (asunto, pregunta y tus datos de contacto).")
+    import urllib.parse as _urlparse
+    _cc1, _cc2, _cc3 = st.columns(3)
+    _ct_nom = _cc1.text_input("Nombre", key="ct_nom")
+    _ct_mail = _cc2.text_input("Tu email", key="ct_mail")
+    _ct_tel = _cc3.text_input("Teléfono de contacto", key="ct_tel")
+    _ct_asu = st.text_input("Asunto", key="ct_asu")
+    _ct_pre = st.text_area("Consulta / pregunta", key="ct_pre", height=120)
+    _ct_subject = "[Kobra IA] " + (_ct_asu.strip() or "Consulta")
+    _ct_body = (_ct_pre.strip() + "\n\n----------------------------\nDatos de contacto\n"
+                + "Nombre: " + (_ct_nom.strip() or "-") + "\n"
+                + "Email: " + (_ct_mail.strip() or "-") + "\n"
+                + "Teléfono: " + (_ct_tel.strip() or "-") + "\n"
+                + "Enviado desde: app Kobra IA")
+    _ct_mailto = ("mailto:vieraschiavi@gmail.com?subject="
+                  + _urlparse.quote(_ct_subject) + "&body=" + _urlparse.quote(_ct_body))
+    st.link_button("✉️ Enviar consulta por email", _ct_mailto, use_container_width=True)
+    st.caption("Se abre tu app de correo (Gmail/Outlook) con el mensaje listo. "
+               "También podés escribir directo a vieraschiavi@gmail.com.")
 
 # ---- Tab 1: Visión general -------------------------------------------------
 with tab1:
@@ -894,6 +918,74 @@ with tab6:
         st.download_button("📊 Descargar analítica (Excel)", xbuf2.getvalue(),
                            "kobra_analitica_gestion.xlsx",
                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+# ---- Tab Integración ERP ---------------------------------------------------
+with tabERP:
+    st.subheader("🔌 Integración con tu ERP / base de datos")
+    st.caption("Cada gestión —del **Gestor IA** o de un **humano**— queda tipificada "
+               "(pago, arreglo de pago, informado, no contactado, fallecido…) con sus "
+               "fechas, montos y notas. Esa **sábana de datos** se exporta o **sincroniza "
+               "a cualquier ERP o base de datos** vía API o conexión SQL.")
+
+    _sab = kerp.sabana(gest)
+    c = st.columns(4)
+    c[0].metric("Gestiones", f"{len(_sab):,}")
+    c[1].metric("Por Gestor IA", f"{(_sab['tipo_gestor']=='IA').sum():,}")
+    c[2].metric("Por humanos", f"{(_sab['tipo_gestor']=='Humano').sum():,}")
+    c[3].metric("Tipificaciones", f"{_sab['resultado'].nunique()}")
+
+    st.markdown("**Sábana de datos** (vista previa · columnas listas para el ERP)")
+    st.dataframe(_sab.head(200), use_container_width=True, height=280)
+
+    st.markdown("#### ⬇️ Descargar la sábana")
+    d = st.columns(3)
+    d[0].download_button("CSV", kerp.a_csv(_sab), file_name="kobra_sabana_gestiones.csv",
+                         mime="text/csv", use_container_width=True)
+    d[1].download_button("Excel", kerp.a_excel(_sab),
+                         file_name="kobra_sabana_gestiones.xlsx", use_container_width=True,
+                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    d[2].download_button("JSON", kerp.a_json(_sab).encode("utf-8"),
+                         file_name="kobra_sabana_gestiones.json", mime="application/json",
+                         use_container_width=True)
+
+    st.markdown("---")
+    st.markdown("#### 🔗 Enviar / sincronizar automáticamente")
+    _cfg = kconfig.cargar()
+    m1, m2 = st.columns(2)
+    with m1:
+        st.markdown("**API REST (webhook del ERP)**")
+        api_url = st.text_input("URL del endpoint", value=_cfg.get("ERP_API_URL", ""),
+                                placeholder="https://tu-erp.com/api/gestiones")
+        api_key = st.text_input("API key (Bearer, opcional)", value="", type="password",
+                                placeholder="dejá vacío para conservar la guardada")
+        if st.button("📤 Enviar sábana al ERP (API)", use_container_width=True):
+            key = api_key.strip() or _cfg.get("ERP_API_KEY", "")
+            if api_url.strip():
+                kconfig.guardar({"ERP_API_URL": api_url.strip(),
+                                 **({"ERP_API_KEY": api_key.strip()} if api_key.strip() else {})})
+            with st.spinner("Enviando al ERP…"):
+                res = kerp.enviar_api(_sab, api_url.strip(), key or None)
+            (st.success if res["ok"] else st.error)(
+                f"{'✅' if res['ok'] else '⛔'} {res.get('detalle','')} "
+                f"({res.get('enviados',0)} gestiones)")
+    with m2:
+        st.markdown("**Base de datos (SQLAlchemy)**")
+        db_url = st.text_input("URL de conexión", value=_cfg.get("ERP_DB_URL", ""),
+                               placeholder="postgresql://user:pass@host:5432/db")
+        tabla = st.text_input("Tabla destino", value="kobra_gestiones")
+        modo = st.radio("Modo", ["append (agregar)", "replace (reemplazar)"], horizontal=True)
+        if st.button("🗄️ Sincronizar a base de datos", use_container_width=True):
+            if db_url.strip():
+                kconfig.guardar({"ERP_DB_URL": db_url.strip()})
+            with st.spinner("Escribiendo en la base de datos…"):
+                res = kerp.sincronizar_db(_sab, db_url.strip(), tabla.strip() or "kobra_gestiones",
+                                          "replace" if modo.startswith("replace") else "append")
+            (st.success if res["ok"] else st.error)(
+                f"{'✅' if res['ok'] else '⛔'} {res.get('detalle','')}")
+
+    st.info("Las conexiones (URL / key / DB) también se guardan en la pestaña **Configuración** "
+            "y se cargan solas. Motores soportados: PostgreSQL, MySQL/MariaDB, SQL Server, "
+            "Oracle, SQLite y cualquiera compatible con SQLAlchemy (instalá su driver).", icon="🔌")
 
 # ---- Tab 7: Configuración (API keys persistentes) -------------------------
 with tab7:
