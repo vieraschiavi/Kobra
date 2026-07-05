@@ -1,5 +1,8 @@
 // Verifica un pago de MercadoPago contra la API real (server-side) antes de habilitar
 // la descarga. Evita que alguien arme la URL de /descarga a mano sin haber pagado.
+// Si el pago está aprobado, emite automáticamente la licencia Kobra IA (firmada).
+
+const { sign } = require("./_license");
 
 module.exports = async (req, res) => {
   const paymentId = String((req.query && req.query.payment_id) || "").trim();
@@ -16,9 +19,22 @@ module.exports = async (req, res) => {
     });
     const data = await r.json();
     if (!r.ok) { res.status(502).json({ approved: false, error: "mp_error" }); return; }
+
     const approved = data.status === "approved";
     const plan = (data.metadata && data.metadata.plan) || null;
-    res.status(200).json({ approved: approved, status: data.status, plan: plan });
+
+    let license = null;
+    const secret = process.env.LICENSE_SECRET;
+    if (approved && secret) {
+      license = sign({
+        plan: plan,
+        pid: paymentId,
+        email: (data.payer && data.payer.email) || null,
+        iat: Math.floor(Date.now() / 1000),
+      }, secret);
+    }
+
+    res.status(200).json({ approved: approved, status: data.status, plan: plan, license: license });
   } catch (e) {
     res.status(500).json({ approved: false, error: "exception" });
   }
