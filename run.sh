@@ -22,12 +22,12 @@ ppt()      { python3 presentation/build_ppt.py; }
 case "${1:-all}" in
   install)  install ;;
   data)     data ;;
-  pipeline) data; pipeline ;;
+  pipeline) data; train; pipeline ;;
   train)    data; train ;;
   test)     test_ ;;
   app)      app ;;
   realtime) realtime ;;   # copiloto de audio en vivo (http://localhost:8000)
   ppt)      ppt ;;
-  all)      install; data; pipeline; echo "Levantando dashboard…"; app ;;
+  all)      install; data; train; pipeline; echo "Levantando dashboard…"; app ;;
   *) echo "Opción inválida: $1"; exit 1 ;;
 esac

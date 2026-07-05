@@ -226,7 +226,7 @@ const TRAMOS=["1-30","31-60","61-90","91-180","180+"];
 let charts={};
 
 document.getElementById('modelInfo').innerHTML =
-  `Modelo ProbPago · <b>AUC ${D.metrics.auc_roc??'—'}</b> · Lift decil 10: <b>${D.metrics.lift_decil10??'—'}x</b>`;
+  `${D.metrics.modelo??'ProbPago'} · <b>AUC ${D.metrics.auc_roc??'—'}</b> · Lift decil 10: <b>${D.metrics.lift_decil10??'—'}x</b>`;
 
 // ---- Filtros ----
 const FILTERS=[

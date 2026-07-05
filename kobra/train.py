@@ -111,6 +111,14 @@ def entrenar(df: pd.DataFrame = None, guardar=True):
     print(f"\n[train] Mejor modelo: {mejor_nombre} "
           f"(CV-AUC={resultados[0]['cv_auc_mean']})")
 
+    # Lift del decil superior del mejor modelo, sobre el mismo holdout usado para el ranking
+    mejor_holdout = _modelos()[mejor_nombre]
+    mejor_holdout.fit(X_tr, y_tr)
+    p_best_te = mejor_holdout.predict_proba(X_te)[:, 1]
+    te = pd.DataFrame({"y": y_te.values, "p": p_best_te})
+    te["decil"] = pd.qcut(te["p"].rank(method="first"), 10, labels=False) + 1
+    lift_decil10 = round(float(te[te["decil"] == 10]["y"].mean() / y.mean()), 2)
+
     # Calibrar el mejor modelo sobre todo el train y re-entrenar en full data
     mejor = _modelos()[mejor_nombre]
     calibrado = CalibratedClassifierCV(mejor, method="isotonic", cv=3)
@@ -118,6 +126,12 @@ def entrenar(df: pd.DataFrame = None, guardar=True):
 
     reporte = {
         "mejor_modelo": mejor_nombre,
+        "auc_roc": resultados[0]["test_auc_roc"],
+        "auc_pr": resultados[0]["test_auc_pr"],
+        "n_train": int(len(X_tr)),
+        "n_test": int(len(X_te)),
+        "tasa_pago_base": round(float(y.mean()), 4),
+        "lift_decil10": lift_decil10,
         "ranking": resultados,
         "n_muestras": int(len(df)),
         "features_num": NUM_FEATURES,

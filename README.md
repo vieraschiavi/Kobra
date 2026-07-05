@@ -219,6 +219,12 @@ propensión, departamento, monto y ProbPago mínima):
   elección por ROC-AUC, **calibración isotónica** y persistencia
   (`python -m kobra.train` → `outputs/probpago_model.joblib` +
   `outputs/model_selection.json`).
+- **El pipeline usa ese mismo modelo seleccionado y calibrado, no uno aparte.**
+  `kobra/pipeline.py` (y por lo tanto el dashboard, Streamlit y estático) carga
+  automáticamente `outputs/probpago_model.joblib` cuando ya corriste
+  `python -m kobra.train`; si no lo corriste, cae en un Gradient Boosting
+  ad-hoc sin calibrar y lo **etiqueta como tal** en pantalla (nunca se muestra
+  un modelo distinto al que realmente scoreó la cartera).
 - **En el dataset sintético de la demo ganó la Regresión Logística**
   (esperable: la etiqueta se genera con una función logística — ver
   [Honestidad de los números](#-honestidad-de-los-números-leer-antes-de-vender)).
@@ -594,6 +600,9 @@ La conversación se **simula**. Para **llamar de verdad** hace falta telefonía
 
 > ⚖️ **Proteger Kobra en Uruguay** (derecho de autor + marca, con costos):
 > [`docs/GUIA_REGISTRO_LEGAL_URUGUAY.md`](docs/GUIA_REGISTRO_LEGAL_URUGUAY.md).
+
+> 💼 **Modelo comercial** (PoC + implementación + retainer, propuesta a
+> confirmar): [`docs/MODELO_COMERCIAL.md`](docs/MODELO_COMERCIAL.md).
 
 > 🔒 **Privacidad.** Un CSV con nombres/teléfonos **reales** es privado:
 > `data/mi_cartera_prueba.csv` y `data/*_prueba.csv` están en `.gitignore` y

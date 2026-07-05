@@ -461,8 +461,9 @@ with tab4:
     mc[2].metric("Lift decil 10", f"{metrics['lift_decil10']}x")
     mc[3].metric("Tasa pago base", f"{metrics['tasa_pago_base']:.1%}")
     st.caption(f"Entrenado con {metrics['n_train']:,} casos · validado con "
-               f"{metrics['n_test']:,} · Gradient Boosting (esta vista). "
-               "`kobra.train` compara además LogReg/RF/GBM/HistGB con CV y calibración.")
+               f"{metrics['n_test']:,} · {metrics.get('modelo', 'Gradient Boosting')}. "
+               "`kobra.train` compara LogReg/RF/GBM/HistGB con CV, elige el mejor por "
+               "ROC-AUC y lo calibra — ese es el modelo que se usa acá cuando está entrenado.")
     st.warning("⚠️ **Métricas sobre datos sintéticos (demo).** La etiqueta de pago se genera "
                "con una función conocida, así que un AUC alto acá es esperable por construcción "
                "y **no es evidencia de desempeño real**. Con la cartera real del cliente, el "

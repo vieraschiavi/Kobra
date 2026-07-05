@@ -1,5 +1,11 @@
 {
   "mejor_modelo": "LogisticRegression",
+  "auc_roc": 0.8742,
+  "auc_pr": 0.9075,
+  "n_train": 9000,
+  "n_test": 3000,
+  "tasa_pago_base": 0.5861,
+  "lift_decil10": 1.69,
   "ranking": [
     {
       "modelo": "LogisticRegression",
