@@ -88,8 +88,9 @@ module.exports = async (req, res) => {
     '{"sentimiento":"Positivo|Neutro|Negativo","temperatura":<0-100, disposición del cliente a pagar>,' +
     '"tecnicas":[<técnicas de negociación que conviene usar, 2 a 4 strings cortos>],' +
     '"proxima_jugada":"<qué debería hacer el gestor ahora, 1 frase>",' +
-    '"guion":"<exactamente qué decir ahora, tono uruguayo, 1-2 frases>"}\n\n' +
-    "Respetá la ley (no amenazar, no hostigar). Conversación:\n\"\"\"\n" + texto + "\n\"\"\"";
+    '"guion":"<exactamente qué decir ahora, 1-2 frases, tono profesional y cordial, español neutro, SIN modismos ni jerga informal>"}\n\n' +
+    "Respetá la ley (no amenazar, no hostigar). Mantené un registro formal y profesional en todo momento. " +
+    "Conversación:\n\"\"\"\n" + texto + "\n\"\"\"";
 
   try {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
