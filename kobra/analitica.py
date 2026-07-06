@@ -1,5 +1,5 @@
 """
-Kobra · Analítica de gestión (por gestor y por mes)
+MV Kobra AI · Analítica de gestión (por gestor y por mes)
 ===================================================
 Sobre el historial de gestiones responde:
 
@@ -7,7 +7,7 @@ Sobre el historial de gestiones responde:
      (emociones del cliente, resultados, calidad, recupero)
   2. ¿Cómo evolucionan en el tiempo? (calidad, sentimiento, conversión, recupero)
   3. ¿Cuál es el impacto en cobranza? (calidad de gestión ↔ recupero)
-  4. ¿Mejoran los gestores con el tiempo usando las herramientas de Kobra?
+  4. ¿Mejoran los gestores con el tiempo usando las herramientas de MV Kobra AI?
 """
 import numpy as np
 import pandas as pd
@@ -149,7 +149,7 @@ def comparativa_ia(df: pd.DataFrame) -> dict | None:
 
 
 def impacto_kobra(df: pd.DataFrame) -> dict:
-    """Compara gestiones con vs. sin Kobra."""
+    """Compara gestiones con vs. sin MV Kobra AI."""
     def resumen(sub):
         return dict(
             gestiones=int(len(sub)),

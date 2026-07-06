@@ -1,5 +1,5 @@
 """
-Kobra · Generador de grabación de llamada (demo)
+MV Kobra AI · Generador de grabación de llamada (demo)
 ================================================
 Sintetiza una llamada de cobranza en formato DUAL-CHANNEL (estéreo):
     - Canal 0 (izquierda): Gestor

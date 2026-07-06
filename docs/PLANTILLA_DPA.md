@@ -13,9 +13,9 @@
 **ACUERDO DE TRATAMIENTO DE DATOS PERSONALES**
 
 Entre **[Razón social del cliente]**, en adelante "el Responsable", y
-**[Razón social de quien opera Kobra IA]**, en adelante "el Encargado",
+**[Razón social de quien opera MV Kobra AI]**, en adelante "el Encargado",
 se acuerda lo siguiente respecto del tratamiento de datos personales en el
-marco del uso del software Kobra IA ("el Servicio"):
+marco del uso del software MV Kobra AI ("el Servicio"):
 
 ## 1. Objeto
 

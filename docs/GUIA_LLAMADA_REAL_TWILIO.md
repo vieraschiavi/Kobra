@@ -1,7 +1,7 @@
 # 📞 Guía: hacer una llamada REAL con el Gestor IA (Twilio)
 
 El modo **"Probar mi cartera"** del dashboard *simula* la conversación. Para que
-el Gestor IA **hable de verdad** por teléfono, Kobra ya trae el flujo completo:
+el Gestor IA **hable de verdad** por teléfono, MV Kobra AI ya trae el flujo completo:
 el bot **saluda, escucha, negocia y cierra** usando el **TTS y el reconocimiento
 de voz en español de Twilio** — sin instalar nada de voz local.
 
@@ -41,7 +41,7 @@ formulario y botón, sin consola).
 - Console → **Phone Numbers → Buy a number** (con *Voice*). En trial se paga con
   el crédito.
 
-### 3. Cargar las credenciales en Kobra (sin código)
+### 3. Cargar las credenciales en MV Kobra AI (sin código)
 - En el **dashboard → pestaña ⚙️ Configuración**, ingresá:
   `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` (tu número Twilio).
   Quedan guardadas.

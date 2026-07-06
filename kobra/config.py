@@ -1,5 +1,5 @@
 """
-Kobra · Configuración persistente (API keys)
+MV Kobra AI · Configuración persistente (API keys)
 ============================================
 Guarda las API keys una sola vez y las reutiliza en cada arranque, sin tener
 que reingresarlas.

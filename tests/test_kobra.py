@@ -1,5 +1,5 @@
 """
-Kobra · Tests
+MV Kobra AI · Tests
 =============
 Pruebas rápidas del pipeline end-to-end: dataset, ProbPago, negociador y
 copiloto de negociación. Corren en segundos con un dataset pequeño.
@@ -138,7 +138,7 @@ def test_analitica_caracteristicas():
 def test_analitica_impacto_kobra():
     g = _gestiones()
     ik = analitica.impacto_kobra(g)
-    # los gestores con Kobra tienen mejor calidad que los del grupo control
+    # los gestores con MV Kobra AI tienen mejor calidad que los del grupo control
     assert ik["con_kobra"]["calidad_prom"] > ik["sin_kobra"]["calidad_prom"]
     assert "uplift_conversion" in ik
 

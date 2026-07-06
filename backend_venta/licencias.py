@@ -1,12 +1,12 @@
 """
-Kobra · Licencias firmadas (JWT) — Edición Venta
+MV Kobra AI · Licencias firmadas (JWT) — Edición Venta
 =================================================
 Implementación real de la sección 2 de `docs/BACKEND_VENTA.md` (que hasta
 ahora era solo un esbozo de diseño). Emite y valida tokens JWT (HS256)
 atados a plan, cupo mensual y features habilitadas.
 
 El secreto de firma se persiste con el mismo backend seguro que las demás
-claves de Kobra (`kobra/config.py`: keyring del SO > archivo cifrado > texto
+claves de MV Kobra AI (`kobra/config.py`: keyring del SO > archivo cifrado > texto
 plano) — se genera solo la primera vez que hace falta, y no se hardcodea
 en ningún lado. También se puede fijar explícitamente con la variable de
 entorno `KOBRA_LICENSE_SECRET` (recomendado en producción, para poder

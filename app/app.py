@@ -1,5 +1,5 @@
 """
-Kobra IA · Dashboard Gerencial de Cobranzas Inteligentes
+MV Kobra AI · Dashboard Gerencial de Cobranzas Inteligentes
 ====================================================
 App Streamlit end-to-end: ProbPago + Agente IA Negociador sobre una cartera
 de cobranzas. Filtros, KPIs, gráficos, tablas y exportación a Excel/CSV.
@@ -36,15 +36,15 @@ kconfig.aplicar()   # carga API keys guardadas al entorno
 # ----------------------------------------------------------------------------
 # Config & estilo
 # ----------------------------------------------------------------------------
-_ICON_PATH = os.path.join(ROOT, "assets", "brand", "kobra_icon_64.png")
+_ICON_PATH = os.path.join(ROOT, "assets", "brand", "mv_icon_64.png")
 # Ícono a nivel PC (ventana/pestaña del navegador): logo MV.
 _PC_ICON = os.path.join(ROOT, "assets", "brand", "mv_icon_64.png")
-st.set_page_config(page_title="Kobra IA · Cobranzas Inteligentes",
+st.set_page_config(page_title="MV Kobra AI · Cobranzas Inteligentes",
                    page_icon=_PC_ICON if os.path.exists(_PC_ICON)
                    else (_ICON_PATH if os.path.exists(_ICON_PATH) else "🐍"),
                    layout="wide", initial_sidebar_state="expanded")
 
-PRIMARY = "#00C896"       # verde Kobra IA
+PRIMARY = "#00C896"       # verde MV Kobra AI
 DARK = "#0E1117"
 ACCENT = "#6C5CE7"
 YELLOW = "#FDCB6E"
@@ -159,7 +159,7 @@ with c1:
             _logo_html = (f"<img src='data:image/png;base64,"
                           f"{_b64.b64encode(_f.read()).decode()}' "
                           f"style='height:52px;vertical-align:-12px;margin-right:10px;'>")
-    st.markdown(f"# {_logo_html}Kobra IA <span class='kobra-badge'>Cobranzas Inteligentes</span>",
+    st.markdown(f"# {_logo_html}MV Kobra AI <span class='kobra-badge'>Cobranzas Inteligentes</span>",
                 unsafe_allow_html=True)
     st.caption("ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero")
 with c2:
@@ -245,7 +245,7 @@ with tabH:
         return f"<div style='margin:3px 0'><span class='kh-key'>{clave}</span> — {etiqueta} · {marca}</div>"
 
     st.markdown(
-        "<div class='kh-hero'><h2>👋 Bienvenido a Kobra IA</h2>"
+        "<div class='kh-hero'><h2>👋 Bienvenido a MV Kobra AI</h2>"
         "<p>Plataforma de cobranzas inteligentes: prioriza tu cartera, negocia con IA "
         "(voz o WhatsApp), asesora en vivo y mide resultados. Esta guía te lleva paso a "
         "paso; no necesitás saber de programación.</p></div>", unsafe_allow_html=True)
@@ -295,7 +295,7 @@ with tabH:
             + _chip("TWILIO_AUTH_TOKEN", "Llamadas reales — Auth Token")
             + _chip("TWILIO_FROM", "Llamadas reales — tu número Twilio")
             + "<p style='margin-top:10px'>Se cargan y guardan en la pestaña "
-              "<b>⚙️ Configuración</b>. Kobra IA funciona igual sin claves (con menos "
+              "<b>⚙️ Configuración</b>. MV Kobra AI funciona igual sin claves (con menos "
               "extras). Se guardan cifradas/con permisos restringidos, fuera del repo.</p>"
             "</div>", unsafe_allow_html=True)
     with cb:
@@ -313,11 +313,11 @@ with tabH:
             "4. Poné el servidor de voz accesible (ngrok) y abrí `…/llamar`.\n"
             "5. Ingresá el teléfono y el monto → **📞 Llamar ahora**. El bot negocia y registra la gestión.\n\n"
             "⚠️ Necesitás el **consentimiento** de la persona. Empezá probando con tu propio celular.")
-    with st.expander("⚖️ Registrar Kobra IA legalmente en Uruguay (para que no te la copien)"):
+    with st.expander("⚖️ Registrar MV Kobra AI legalmente en Uruguay (para que no te la copien)"):
         st.markdown(
             "- El **código ya es tuyo** por derecho de autor automático (Ley 9.739/17.616).\n"
             "- Registralo barato en la **Biblioteca Nacional** (~USD 20–60) para tener fecha cierta.\n"
-            "- Registrá la **marca “Kobra IA”** en la **DNPI** (~USD 200–500 por 10 años) al salir a vender.\n"
+            "- Registrá la **marca “MV Kobra AI”** en la **DNPI** (~USD 200–500 por 10 años) al salir a vender.\n"
             "- La **idea** no se registra; te protegés con código + marca + contratos/NDAs.\n\n"
             "Guía completa: **docs/GUIA_REGISTRO_LEGAL_URUGUAY.md**.")
 
@@ -332,12 +332,12 @@ with tabH:
     _ct_tel = _cc3.text_input("Teléfono de contacto", key="ct_tel")
     _ct_asu = st.text_input("Asunto", key="ct_asu")
     _ct_pre = st.text_area("Consulta / pregunta", key="ct_pre", height=120)
-    _ct_subject = "[Kobra IA] " + (_ct_asu.strip() or "Consulta")
+    _ct_subject = "[MV Kobra AI] " + (_ct_asu.strip() or "Consulta")
     _ct_body = (_ct_pre.strip() + "\n\n----------------------------\nDatos de contacto\n"
                 + "Nombre: " + (_ct_nom.strip() or "-") + "\n"
                 + "Email: " + (_ct_mail.strip() or "-") + "\n"
                 + "Teléfono: " + (_ct_tel.strip() or "-") + "\n"
-                + "Enviado desde: app Kobra IA")
+                + "Enviado desde: app MV Kobra AI")
     _ct_mailto = ("mailto:vieraschiavi@gmail.com?subject="
                   + _urlparse.quote(_ct_subject) + "&body=" + _urlparse.quote(_ct_body))
     st.link_button("✉️ Enviar consulta por email", _ct_mailto, use_container_width=True)
@@ -743,9 +743,9 @@ with tab5:
 with tab6:
     st.subheader("📇 Gestores & Evolución de la gestión")
     st.caption("Qué características suceden más por tramo/segmento, cómo evolucionan mes a mes, "
-               "su impacto en la cobranza y si los gestores mejoran con las herramientas de Kobra IA.")
+               "su impacto en la cobranza y si los gestores mejoran con las herramientas de MV Kobra AI.")
     st.warning("⚠️ **Datos ilustrativos (demo).** El historial de gestiones es sintético y el "
-               "\"efecto Kobra IA\" está inyectado por el generador para demostrar la **metodología "
+               "\"efecto MV Kobra AI\" está inyectado por el generador para demostrar la **metodología "
                "de medición** (grupo con vs. sin herramienta, evolución por cohorte). Los uplifts "
                "que ves acá **no son resultados medidos**. Con el registro post-llamada, esta "
                "misma pestaña se alimenta de llamadas reales y los números pasan a ser evidencia.")
@@ -774,12 +774,12 @@ with tab6:
     if gf.empty:
         st.warning("No hay gestiones para los filtros seleccionados.")
     else:
-        # --- Impacto Kobra IA (KPIs) ---
+        # --- Impacto MV Kobra AI (KPIs) ---
         ik = analitica.impacto_kobra(gf)
-        st.markdown("#### 🚀 Impacto de las herramientas Kobra IA *(ilustrativo · datos sintéticos)*")
+        st.markdown("#### 🚀 Impacto de las herramientas MV Kobra AI *(ilustrativo · datos sintéticos)*")
         ck = st.columns(4)
         ck[0].metric("Calidad de gestión", f"{ik['con_kobra']['calidad_prom']:.0f}",
-                     f"+{ik['uplift_calidad']:.1f} vs sin Kobra IA")
+                     f"+{ik['uplift_calidad']:.1f} vs sin MV Kobra AI")
         ck[1].metric("Tasa de conversión", f"{ik['con_kobra']['tasa_conversion']:.0%}",
                      f"+{ik['uplift_conversion']*100:.1f} pp")
         ck[2].metric("Tasa de recupero", f"{ik['con_kobra']['tasa_recupero']:.0%}",
@@ -807,8 +807,8 @@ with tab6:
         with e2:
             fig = px.line(ev_kobra, x="mes", y="calidad_prom", color="usa_kobra",
                           markers=True, color_discrete_map={True: PRIMARY, False: "#FF7675"},
-                          title="Calidad: con Kobra IA vs. sin Kobra IA",
-                          labels={"usa_kobra": "Usa Kobra IA"})
+                          title="Calidad: con MV Kobra AI vs. sin MV Kobra AI",
+                          labels={"usa_kobra": "Usa MV Kobra AI"})
             fig.update_layout(template="plotly_dark", height=340,
                               legend=dict(orientation="h", y=1.15))
             st.plotly_chart(fig, use_container_width=True)
@@ -859,7 +859,7 @@ with tab6:
             st.metric("Correlación calidad ↔ conversión",
                       f"{ic.attrs['correlacion_calidad_conversion']:.2f}")
             st.info("La calidad de gestión (medida por el Copiloto) se traduce en "
-                    "más conversión y más recupero. Kobra IA la mejora sistemáticamente.")
+                    "más conversión y más recupero. MV Kobra AI la mejora sistemáticamente.")
 
         # --- Gestor IA vs. humanos ---
         comp = analitica.comparativa_ia(gf)
@@ -913,7 +913,7 @@ with tab6:
                     "recupero": st.column_config.NumberColumn("Recupero (UYU)", format="%.0f"),
                     "tasa_conversion": st.column_config.NumberColumn("Conversión", format="%.0f%%"),
                     "calidad_prom": st.column_config.NumberColumn("Calidad", format="%.0f"),
-                    "usa_kobra": st.column_config.CheckboxColumn("Kobra IA"),
+                    "usa_kobra": st.column_config.CheckboxColumn("MV Kobra AI"),
                 })
         with r2:
             mej = analitica.mejora_por_gestor(gf)
@@ -921,7 +921,7 @@ with tab6:
                 fig = px.bar(mej, x="delta_calidad", y="gestor", orientation="h",
                              color="usa_kobra", color_discrete_map={True: PRIMARY, False: "#FF7675"},
                              title="Mejora de calidad (últimos 3m vs. primeros 3m)",
-                             labels={"delta_calidad": "Δ calidad", "usa_kobra": "Usa Kobra IA"})
+                             labels={"delta_calidad": "Δ calidad", "usa_kobra": "Usa MV Kobra AI"})
                 fig.update_layout(template="plotly_dark", height=330,
                                   yaxis=dict(autorange="reversed"),
                                   legend=dict(orientation="h", y=1.15))
@@ -1017,7 +1017,7 @@ with tab7:
         st.subheader("⚙️ Configuración de API keys")
         st.caption("Ingresá las keys una sola vez: quedan **guardadas** y se cargan solas en "
                    "cada arranque. Habilitan la transcripción real (Whisper) y la evaluación "
-                   "con Claude. El resto de Kobra IA funciona sin keys.")
+                   "con Claude. El resto de MV Kobra AI funciona sin keys.")
 
         with st.form("form_config"):
             nuevos = {}
@@ -1196,7 +1196,7 @@ with tab7:
 
 # ---- Tab 8: Probar mi cartera ----------------------------------------------
 with tab8:
-    st.subheader("🧪 Probá Kobra IA con tu propia cartera")
+    st.subheader("🧪 Probá MV Kobra AI con tu propia cartera")
     st.caption("Cargá tus contactos y el **Gestor IA** negocia cada caso: ProbPago + "
                "el porqué, estrategia, chequeo de cumplimiento y la conversación completa. "
                "Después descargás los resultados.")
@@ -1293,11 +1293,11 @@ with tab8:
 # ---- Tab 9: Caso de negocio (ROI) ------------------------------------------
 with tab9:
     st.subheader("💰 Caso de negocio (estimador de ROI)")
-    st.caption("Dimensioná el valor de Kobra IA sobre TU cartera bajo distintos supuestos "
+    st.caption("Dimensioná el valor de MV Kobra AI sobre TU cartera bajo distintos supuestos "
                "de mejora. Sirve para justificar un piloto pago.")
     st.warning("⚠️ El *uplift* (cuánto sube el recupero) es un **supuesto que cargás vos, "
                "no un resultado medido**. Esto proyecta *cuánto valdría*, no afirma cuánto "
-               "sube Kobra IA. El número real se mide en un piloto con grupo de control.")
+               "sube MV Kobra AI. El número real se mide en un piloto con grupo de control.")
 
     cA, cB, cC = st.columns(3)
     cartera = cA.number_input("Cartera gestionable (UYU)", min_value=0.0,
@@ -1306,7 +1306,7 @@ with tab9:
                                 max_value=100.0, value=30.0, step=1.0) / 100
     meses = cC.number_input("Horizonte (meses)", min_value=1, value=12, step=1)
     cD, cE, cF = st.columns(3)
-    costo_mes = cD.number_input("Costo mensual de Kobra IA (UYU)", min_value=0.0,
+    costo_mes = cD.number_input("Costo mensual de MV Kobra AI (UYU)", min_value=0.0,
                                 value=100_000.0, step=10_000.0, format="%.0f")
     costo_setup = cE.number_input("Setup / implementación (UYU)", min_value=0.0,
                                   value=300_000.0, step=50_000.0, format="%.0f")
@@ -1348,6 +1348,6 @@ if os.path.exists(_MV_PATH):
         f"vertical-align:middle'>"
         f"<b style='color:#dfe6f0;letter-spacing:.5px'>MV</b></div>",
         unsafe_allow_html=True)
-st.caption("Kobra IA · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). "
+st.caption("MV Kobra AI · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). "
            "Sin nombres de clientes. Reemplazable por la cartera real de cualquier empresa. "
            "Un producto de MV.")

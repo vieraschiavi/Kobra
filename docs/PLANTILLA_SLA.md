@@ -14,7 +14,7 @@
 
 ## 1. Alcance
 
-Este acuerdo aplica a: **[Nombre del cliente]**, para el uso de Kobra IA en
+Este acuerdo aplica a: **[Nombre del cliente]**, para el uso de MV Kobra AI en
 la modalidad **[self-serve / PoC+implementación / Edición Venta con
 backend de licencias]**.
 
@@ -90,7 +90,7 @@ punto 4.
 
 ---
 
-**Por el proveedor (Kobra IA)**
+**Por el proveedor (MV Kobra AI)**
 
 Firma: _______________________  Fecha: __________
 

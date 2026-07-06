@@ -1,5 +1,5 @@
 """
-Kobra · Generador de dataset de cobranzas (Uruguay)
+MV Kobra AI · Generador de dataset de cobranzas (Uruguay)
 ====================================================
 Genera una cartera de cobranzas SINTÉTICA pero estadísticamente realista,
 localizada para Uruguay. No contiene nombres de clientes ni datos personales

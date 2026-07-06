@@ -1,4 +1,4 @@
-// Firma y verificación de licencias Kobra IA (HMAC-SHA256, sin dependencias externas).
+// Firma y verificación de licencias MV Kobra AI (HMAC-SHA256, sin dependencias externas).
 // Prefijo "_" para que Vercel NO la trate como endpoint — es un módulo interno.
 
 const crypto = require("crypto");

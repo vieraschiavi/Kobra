@@ -1,5 +1,5 @@
 """
-Kobra · Copiloto de Negociación en Vivo
+MV Kobra AI · Copiloto de Negociación en Vivo
 =======================================
 Asistente IA para el gestor durante la negociación ONLINE (telefónica o
 WhatsApp). Escucha/lee la conversación, analiza el **sentimiento** turno a
@@ -350,7 +350,7 @@ def sugerencias_en_vivo(conv: Conversacion, probpago: float | None = None,
             tips.append(("📉 Baja propensión", "Propensión baja: prioridad es asegurar CUALQUIER pago. "
                          "Habilitá quita/plan largo y compromiso escrito."))
     if estrategia:
-        tips.append(("🎯 Estrategia sugerida", f"Guion recomendado por Kobra: «{estrategia}»."))
+        tips.append(("🎯 Estrategia sugerida", f"Guion recomendado por MV Kobra AI: «{estrategia}»."))
 
     # Próxima frase sugerida
     if clima > 0.2 or "intencion_pago" in emociones_cli:

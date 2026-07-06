@@ -1,13 +1,13 @@
-# 🐍 Kobra IA · Manual de Puesta en Marcha (1 página)
+# 🐍 MV Kobra AI · Manual de Puesta en Marcha (1 página)
 
-Guía rápida para dejar Kobra operativo con un cliente. Tiempo estimado: **~30 min**.
+Guía rápida para dejar MV Kobra AI operativo con un cliente. Tiempo estimado: **~30 min**.
 
 ---
 
 ## 1. Requisitos
 - **Docker** y **Docker Compose** instalados en el servidor (Linux/Windows/Mac).
 - (Opcional) `OPENAI_API_KEY` (transcripción Whisper) y `ANTHROPIC_API_KEY` (Claude).
-  *Kobra funciona sin ellas; se pueden cargar después desde la app.*
+  *MV Kobra AI funciona sin ellas; se pueden cargar después desde la app.*
 
 ## 2. Levantar la plataforma (1 comando)
 ```bash
@@ -53,7 +53,7 @@ Prueba sin central real: `docker compose exec realtime python -m realtime.simula
 - *Antes de llamar:* el screen-pop consulta `GET /brief/{id_deudor}` → muestra al
   gestor ProbPago, estrategia, descuento máximo y guion inicial.
 - *Durante:* el conector abre `/ws_audio` con `{"tipo":"start","id_deudor":…,"gestor_id":…}`
-  y Kobra ajusta la propuesta turno a turno.
+  y MV Kobra AI ajusta la propuesta turno a turno.
 - *Al colgar:* envía `{"tipo":"stop","resultado":"<tipificación del CRM>"}` y la
   negociación queda **registrada automáticamente** en la base de gestiones →
   aparece en la pestaña *Gestores & Evolución* del dashboard.
@@ -62,7 +62,7 @@ Prueba sin central real: `docker compose exec realtime python -m realtime.simula
 | Rol | Qué usa |
 |---|---|
 | **Gerencia** | Dashboard: KPIs, cartera priorizada, *Gestores & Evolución*, export a Excel/CSV |
-| **Supervisor** | *Gestores & Evolución*: calidad, conversión, impacto de Kobra, ranking |
+| **Supervisor** | *Gestores & Evolución*: calidad, conversión, impacto de MV Kobra AI, ranking |
 | **Gestor** | *Copiloto en Vivo*: sentimiento del cliente + próxima frase sugerida; guion por deudor |
 
 ## 7. Operación y soporte
@@ -74,5 +74,5 @@ Prueba sin central real: `docker compose exec realtime python -m realtime.simula
   real queda solo en el servidor del cliente.
 
 ---
-**Presentación gerencial:** `presentation/Kobra_Presentacion_Gerencial.pptx` ·
+**Presentación gerencial:** `presentation/MVKobraAI_Presentacion_Gerencial.pptx` ·
 Canva: <https://www.canva.com/d/MUuxAHhku6oIR0x>

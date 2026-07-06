@@ -1,14 +1,14 @@
 """
-Kobra · Generador de gestiones (interacciones de cobranza)
+MV Kobra AI · Generador de gestiones (interacciones de cobranza)
 ==========================================================
 Genera el historial de GESTIONES (llamadas / WhatsApp) por gestor y por mes,
 vinculado a la cartera. Cada gestión trae la calidad de la gestión, el
 sentimiento del cliente, la emoción dominante, las técnicas usadas, el
 resultado y el recupero.
 
-Incluye un efecto de **adopción de Kobra** INYECTADO POR DISEÑO: los gestores
+Incluye un efecto de **adopción de MV Kobra AI** INYECTADO POR DISEÑO: los gestores
 que "adoptan" mejoran su calidad mes a mes según una curva codificada abajo
-(variable `efecto`). En consecuencia, cualquier "uplift con vs. sin Kobra"
+(variable `efecto`). En consecuencia, cualquier "uplift con vs. sin MV Kobra AI"
 calculado sobre estos datos es CIRCULAR: sirve para demostrar la METODOLOGÍA
 de medición (grupo de control, cohortes, evolución temporal), nunca como
 evidencia de impacto real. Datos 100% sintéticos, sin nombres reales.
@@ -61,11 +61,11 @@ def generar(seed=42, gestiones_por_gestor_mes=42):
     gestores = [f"G{str(i+1).zfill(2)}" for i in range(n_gestores)]
     # Habilidad base por gestor
     skill = {g: float(np.clip(rng.normal(62, 9), 42, 82)) for g in gestores}
-    # Mes de adopción de Kobra (índice en MESES). 2 gestores nunca adoptan (control).
+    # Mes de adopción de MV Kobra AI (índice en MESES). 2 gestores nunca adoptan (control).
     adopcion = {}
     for i, g in enumerate(gestores):
         if i < 2:
-            adopcion[g] = None                      # grupo control (no usa Kobra)
+            adopcion[g] = None                      # grupo control (no usa MV Kobra AI)
         else:
             adopcion[g] = int(rng.integers(1, 6))   # adopta entre mes 1 y 5
 
@@ -77,7 +77,7 @@ def generar(seed=42, gestiones_por_gestor_mes=42):
         for g in gestores:
             usa_kobra = adopcion[g] is not None and mi >= adopcion[g]
             meses_con_kobra = (mi - adopcion[g]) if usa_kobra else 0
-            # Efecto Kobra: mejora progresiva de la calidad (curva con techo)
+            # Efecto MV Kobra AI: mejora progresiva de la calidad (curva con techo)
             efecto = 14 * (1 - np.exp(-meses_con_kobra / 3)) if usa_kobra else 0
             n = gestiones_por_gestor_mes + int(rng.integers(-6, 7))
             plan.append((g, f"Gestor {g[1:]}", mes, usa_kobra,
@@ -199,5 +199,5 @@ if __name__ == "__main__":
     print(f"     Gestores: {df['gestor'].nunique()} · Meses: {df['mes'].nunique()}")
     print(f"     Tasa de pago: {(df['resultado']=='Pago').mean():.1%} · "
           f"Recupero total: $U {df['recupero'].sum():,.0f}")
-    print(f"     Calidad prom (con Kobra): {df[df.usa_kobra]['calidad_gestion'].mean():.1f} · "
-          f"(sin Kobra): {df[~df.usa_kobra]['calidad_gestion'].mean():.1f}")
+    print(f"     Calidad prom (con MV Kobra AI): {df[df.usa_kobra]['calidad_gestion'].mean():.1f} · "
+          f"(sin MV Kobra AI): {df[~df.usa_kobra]['calidad_gestion'].mean():.1f}")

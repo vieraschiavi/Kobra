@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Kobra · entrypoint: genera datos/modelo si faltan y arranca el servicio pedido.
+# MV Kobra AI · entrypoint: genera datos/modelo si faltan y arranca el servicio pedido.
 set -e
 
 [ -f data/kobra_cartera.csv ]   || python data/generate_dataset.py --n 12000 --seed 42

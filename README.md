@@ -1,13 +1,13 @@
-# 🐍 Kobra IA · Plataforma de Cobranzas Inteligentes
+# 🐍 MV Kobra AI · Plataforma de Cobranzas Inteligentes
 
-**Kobra** convierte una cartera de cobranzas en un plan de acción priorizado.
+**MV Kobra AI** convierte una cartera de cobranzas en un plan de acción priorizado.
 Combina un modelo de **probabilidad de pago (ProbPago)** con un **Agente IA
 Negociador** que recomienda la mejor estrategia, descuento, canal y guion, y un
 **Copiloto de Negociación en Vivo** que analiza el **sentimiento del cliente**
 (voz o WhatsApp) y asesora al gestor en tiempo real — todo dentro de un
 dashboard gerencial con KPIs, filtros, gráficos y exportación a Excel/CSV.
 
-> **Qué es esto (léase primero).** Kobra es una **demo comercial funcional**
+> **Qué es esto (léase primero).** MV Kobra AI es una **demo comercial funcional**
 > construida sobre **datos 100% sintéticos** (sin nombres de clientes, apta
 > para mostrar sin problemas legales). Todo lo que ves funcionar es real:
 > el pipeline, el copiloto, la integración telefónica, el dashboard. Pero
@@ -16,7 +16,7 @@ dashboard gerencial con KPIs, filtros, gráficos y exportación a Excel/CSV.
 > [Honestidad de los números](#-honestidad-de-los-números-leer-antes-de-vender)
 > explica exactamente qué es demostración y qué se valida con datos reales.
 
-**Presentación gerencial:** `presentation/Kobra_Presentacion_Gerencial.pptx`
+**Presentación gerencial:** `presentation/MVKobraAI_Presentacion_Gerencial.pptx`
 (generada con `python presentation/build_ppt.py`) · versión **Canva** editable
 (reetiquetada, cifras marcadas como ilustrativas):
 <https://www.canva.com/d/VJ__8kGcZ2M3Q7D> (exportable a PDF/PPTX).
@@ -28,14 +28,14 @@ dashboard gerencial con KPIs, filtros, gráficos y exportación a Excel/CSV.
 Esta demo genera sus propios datos, y eso tiene una consecuencia directa sobre
 qué se puede afirmar frente a un cliente:
 
-1. **El "impacto de Kobra" (+pp de conversión/recupero) es un supuesto
+1. **El "impacto de MV Kobra AI" (+pp de conversión/recupero) es un supuesto
    programado, no un resultado medido.** El generador de gestiones
    (`data/generate_gestiones.py`) **inyecta por diseño** una mejora progresiva
-   en los gestores que "adoptan Kobra" (una curva de aprendizaje codificada).
+   en los gestores que "adoptan MV Kobra AI" (una curva de aprendizaje codificada).
    La pestaña *Gestores & Evolución* y `outputs/impacto_kobra.json` después
    "recuperan" ese efecto. Es **circular a propósito**: demuestra *cómo se
    mediría* el impacto (grupo con vs. sin herramienta, evolución mensual,
-   uplift por cohorte), no *cuánto* mejora Kobra. **Nunca presentar esos
+   uplift por cohorte), no *cuánto* mejora MV Kobra AI. **Nunca presentar esos
    números como ROI medido.**
 
 2. **El AUC del modelo tampoco prueba desempeño real.** La etiqueta `pago` del
@@ -74,7 +74,7 @@ así (y solo entonces se pueden afirmar números):
 - **Calibración medida, no asumida:** curvas de confiabilidad y Brier score
   sobre datos reales; recalibración periódica.
 - **Uplift causal con grupo de control:** asignación aleatoria de gestores o
-  subcarteras a "con Kobra" vs. "sin Kobra" durante el piloto; la diferencia
+  subcarteras a "con MV Kobra AI" vs. "sin MV Kobra AI" durante el piloto; la diferencia
   de tasa de cura / $ recuperado por hora de gestor / promesas cumplidas es el
   impacto real — exactamente el análisis que la pestaña *Gestores & Evolución*
   ya sabe hacer.
@@ -89,7 +89,7 @@ implementación completa con evidencia propia.
 
 ## 🎯 Qué resuelve
 
-| Problema tradicional | Con Kobra |
+| Problema tradicional | Con MV Kobra AI |
 |---|---|
 | Se gestiona igual a todos los deudores | Se prioriza por **valor esperado de recupero** |
 | Descuentos y planes "a ojo" | Decisiones según **probabilidad de pago** |
@@ -147,7 +147,7 @@ python presentation/build_ppt.py                      # presentación gerencial 
 
 ### 🪟 Instalador standalone para Windows (programa, sin instalar Python)
 
-Un **`Kobra_Setup.exe`** que instala Kobra como un programa (empaqueta Python y
+Un **`MVKobraAI_Setup.exe`** que instala MV Kobra AI como un programa (empaqueta Python y
 todas las librerías; doble clic → se abre el dashboard). Se construye en
 **Windows vía GitHub Actions** (no se puede compilar desde Linux/Mac):
 
@@ -160,8 +160,8 @@ todas las librerías; doble clic → se abre el dashboard). Se construye en
   con accesos directos e ícono).
 
 ```
-Actions → build-windows-installer → (Run workflow) → artefacto "Kobra_Setup_Windows"
-   o   → git tag v1.3.0 && push  → Release con Kobra_Setup_v1.3.0.exe
+Actions → build-windows-installer → (Run workflow) → artefacto "MVKobraAI_Setup_Windows"
+   o   → git tag v1.3.0 && push  → Release con MVKobraAI_Setup_v1.3.0.exe
 ```
 
 ### Dashboard sin instalar nada
@@ -188,7 +188,7 @@ Las keys se cargan de tres formas (prioridad de arriba hacia abajo):
 2. **Dashboard → pestaña “Configuración”**: se ingresan una vez y quedan
    **guardadas** (`$KOBRA_CONFIG_DIR/config.json`, por defecto `~/.kobra`), así
    se cargan solas en cada arranque sin reingresarlas.
-3. **Sin keys**: Kobra funciona igual (sin transcripción Whisper ni evaluación Claude).
+3. **Sin keys**: MV Kobra AI funciona igual (sin transcripción Whisper ni evaluación Claude).
 
 Con `OPENAI_API_KEY` se habilita la transcripción real (Whisper) y con
 `ANTHROPIC_API_KEY` la evaluación cualitativa con Claude.
@@ -327,8 +327,8 @@ python data/generate_audio_demo.py      # crea data/ejemplo_llamada.wav
 ### ☎️ Integración con telefonía (softphone / PBX)
 
 Un **PBX** es la central telefónica de la empresa; un **softphone** es el
-teléfono por software del gestor. Kobra **no los reemplaza**: se conecta al
-**audio** que ya manejan. Kobra es **agnóstico de la plataforma** — funciona
+teléfono por software del gestor. MV Kobra AI **no los reemplaza**: se conecta al
+**audio** que ya manejan. MV Kobra AI es **agnóstico de la plataforma** — funciona
 con Avaya, Genesys, Cisco, 3CX, Asterisk/FreePBX, Twilio, etc. — porque toma el
 audio por mecanismos estándar:
 
@@ -394,7 +394,7 @@ asesoría se enruta a la pantalla del gestor (WS `/ws`).
 
 ### ☎️ Conector Avaya / SIPREC (`realtime/conector_avaya.py`)
 
-Puente **RTP → Kobra** listo para producción: recibe el audio que la central
+Puente **RTP → MV Kobra AI** listo para producción: recibe el audio que la central
 forkea por RTP (**G.711 μ-law o A-law** — A-law es el estándar en Uruguay —,
 paquetes de 20 ms, una pata por puerto UDP), hace VAD por energía, corta cada
 turno al silencio y lo envía al Copiloto, que devuelve la asesoría en vivo y
@@ -434,7 +434,7 @@ turno a turno y gestión registrada al cortar.
    plan, canal, guion y prioridad, calculados por el pipeline. El marcador
    (p. ej. Avaya Proactive Outreach) puede tomar la lista priorizada exportada.
 2. **Durante** — el mensaje `start` de `/ws_audio` acepta `id_deudor` y
-   `gestor_id`: Kobra carga solo el briefing y ajusta la propuesta turno a
+   `gestor_id`: MV Kobra AI carga solo el briefing y ajusta la propuesta turno a
    turno según el sentimiento (voz + texto) del cliente.
 3. **Al colgar** — el mensaje `stop` (acepta `resultado` con la tipificación
    real del CRM; si falta, se infiere del clima + intención de pago) **persiste
@@ -490,11 +490,11 @@ Sobre el historial de gestiones responde:
   **matriz de emociones** por tramo/segmento.
 - **Cómo evolucionan mes a mes** (calidad, sentimiento, conversión, recupero).
 - **Relación calidad de gestión ↔ conversión/recupero.**
-- **Medición de impacto con grupo de control** (*con vs. sin Kobra*) y
+- **Medición de impacto con grupo de control** (*con vs. sin MV Kobra AI*) y
   evolución por gestor — la mecánica exacta que se usaría en un piloto real.
 
 > ⚠️ En la demo, el historial de gestiones es **sintético** y el "efecto
-> Kobra" está **inyectado por el generador** para ilustrar la metodología.
+> MV Kobra AI" está **inyectado por el generador** para ilustrar la metodología.
 > Los uplifts que muestra la pestaña *Gestores & Evolución* **no son
 > resultados medidos**. Con el registro post-llamada (`kobra/registro.py`)
 > la misma pestaña se alimenta de llamadas reales, y ahí los números sí
@@ -519,7 +519,7 @@ pipeline en cada push/PR.
 
 ## 🛡️ Cumplimiento, explicabilidad y caso de negocio
 
-Tres capas que hacen a Kobra vendible a una entidad regulada (banco, financiera,
+Tres capas que hacen a MV Kobra AI vendible a una entidad regulada (banco, financiera,
 cooperativa, estudio de cobranzas) y no solo demostrable.
 
 ### ⚖️ Cumplimiento normativo — `kobra/cumplimiento.py`
@@ -545,7 +545,7 @@ d = cp.puede_contactar("KB-100773", "Llamada")   # Decision(permitido, codigo, m
 ```
 
 > ⚠️ Herramienta de **apoyo al cumplimiento, no asesoría legal**: cada empresa
-> fija su política con su asesoría jurídica; Kobra provee el mecanismo para
+> fija su política con su asesoría jurídica; MV Kobra AI provee el mecanismo para
 > hacerla cumplir y auditar.
 
 ### 🔍 Explicabilidad de ProbPago — `kobra/explicabilidad.py`
@@ -576,7 +576,7 @@ python -m kobra.roi --cartera 100000000 --tasa-base 0.30 --costo-mensual 100000
 ```
 
 > ⚠️ El *uplift* es un **supuesto que carga el usuario, no un resultado
-> medido**. El módulo proyecta *cuánto valdría*, no afirma cuánto sube Kobra —
+> medido**. El módulo proyecta *cuánto valdría*, no afirma cuánto sube MV Kobra AI —
 > coherente con la sección [Honestidad de los números](#-honestidad-de-los-números-leer-antes-de-vender).
 
 ### 🧪 Probar con tu propia cartera — **desde el dashboard** (sin código)
@@ -598,7 +598,7 @@ La conversación se **simula**. Para **llamar de verdad** hace falta telefonía
 **consentimiento** de la persona — guía paso a paso en
 [`docs/GUIA_LLAMADA_REAL_TWILIO.md`](docs/GUIA_LLAMADA_REAL_TWILIO.md).
 
-> ⚖️ **Proteger Kobra en Uruguay** (derecho de autor + marca, con costos):
+> ⚖️ **Proteger MV Kobra AI en Uruguay** (derecho de autor + marca, con costos):
 > [`docs/GUIA_REGISTRO_LEGAL_URUGUAY.md`](docs/GUIA_REGISTRO_LEGAL_URUGUAY.md).
 
 > 💼 **Modelo comercial** (PoC + implementación + retainer, propuesta a
@@ -630,7 +630,7 @@ ERP o base de datos**:
   al webhook del ERP, con Bearer token) y **base de datos** (SQLAlchemy →
   PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, SQLite…).
 - **Mapeo de campos** opcional (`aplicar_mapeo`) para renombrar las columnas de
-  Kobra a las del ERP del cliente.
+  MV Kobra AI a las del ERP del cliente.
 - En el dashboard: pestaña **"🔌 Integración ERP"** con vista previa de la
   sábana, descarga, y envío/sincronización con un clic (las conexiones se
   guardan en *Configuración*).

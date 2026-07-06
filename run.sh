@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Kobra · runner end-to-end
+# MV Kobra AI · runner end-to-end
 # Uso:
 #   ./run.sh            -> instala deps, genera datos, corre pipeline y levanta el dashboard
 #   ./run.sh pipeline   -> solo genera datos + modelo + exports

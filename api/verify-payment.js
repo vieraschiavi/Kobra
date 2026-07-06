@@ -1,6 +1,6 @@
 // Verifica un pago de MercadoPago contra la API real (server-side) antes de habilitar
 // la descarga. Evita que alguien arme la URL de /descarga a mano sin haber pagado.
-// Si el pago está aprobado, emite automáticamente la licencia Kobra IA (firmada).
+// Si el pago está aprobado, emite automáticamente la licencia MV Kobra AI (firmada).
 
 const { sign } = require("./_license");
 

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kobra IA · Descarga</title>
-<link rel="icon" type="image/png" href="kobra_icon.png">
+<title>MV Kobra AI · Descarga</title>
+<link rel="icon" type="image/png" href="mv_icon.png">
 <style>
   :root{--green:#00C896;--bg:#0E1117;--panel:#1a1f2e;--border:#262b3d;--txt:#F5F6FA;--muted:#9aa4b2;--red:#FF7675;}
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -44,12 +44,12 @@ function esc(s){return String(s==null?'':s).replace(/[<>&]/g,function(c){return 
 function showOk(plan,license){
   var planName=PLAN_NAMES[plan]||plan;
   card.innerHTML='<h1>✅ ¡Pago confirmado!</h1>'
-    +'<p>Gracias por tu compra'+(plan?(' del plan <b>'+esc(planName)+'</b>'):'')+'. Descargá Kobra IA para PC (Windows/Linux/Mac vía Docker).</p>'
-    +'<a class="btn" href="/descargas/Kobra_Produccion_v1.1.0.zip">⬇ Descargar Kobra IA (PC)</a>'
+    +'<p>Gracias por tu compra'+(plan?(' del plan <b>'+esc(planName)+'</b>'):'')+'. Descargá MV Kobra AI para PC (Windows/Linux/Mac vía Docker).</p>'
+    +'<a class="btn" href="/descargas/MVKobraAI_Produccion_v1.1.0.zip">⬇ Descargar MV Kobra AI (PC)</a>'
     +'<div class="muted">Incluye instalador para Windows (.bat) y Linux/Mac (.sh). Guía paso a paso adentro del ZIP.<br>'
     +'SHA256: 85d213a4e17da182aebee85d48a7080a90db4f4584b9973a57be29c4a6d93a12</div>'
     +(license?(
-      '<div class="lic-box"><div class="lic-label">🔑 Tu licencia Kobra IA (guardala, es tu comprobante de activación):</div>'
+      '<div class="lic-box"><div class="lic-label">🔑 Tu licencia MV Kobra AI (guardala, es tu comprobante de activación):</div>'
       +'<div class="lic-row"><div class="lic-val" id="licVal">'+esc(license)+'</div>'
       +'<button class="copy-btn" onclick="copyLic()">Copiar</button></div>'
       +'<div class="muted" id="licMsg" style="margin-top:6px"></div></div>'

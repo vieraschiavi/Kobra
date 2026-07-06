@@ -1,5 +1,5 @@
 """
-Kobra · ProbPago
+MV Kobra AI · ProbPago
 ================
 Modelo de probabilidad de pago (payment propensity) para carteras de
 cobranzas. Entrena un Gradient Boosting sobre features de comportamiento

@@ -1,5 +1,5 @@
 """
-Kobra · Log de auditoría (append-only, con cadena de hashes)
+MV Kobra AI · Log de auditoría (append-only, con cadena de hashes)
 =============================================================
 Registro de **quién hizo qué y cuándo**, separado de los datos de negocio
 (`data/kobra_gestiones.csv`, la sábana de gestiones). Pensado para que una

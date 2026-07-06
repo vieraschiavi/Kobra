@@ -1,5 +1,5 @@
 """
-Kobra IA · Explicabilidad de ProbPago (reason codes por deudor)
+MV Kobra AI · Explicabilidad de ProbPago (reason codes por deudor)
 ===============================================================
 Responde, para un deudor concreto, **por qué** el modelo le asignó esa
 probabilidad de pago: qué características la empujan hacia arriba y cuáles

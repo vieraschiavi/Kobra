@@ -1,7 +1,7 @@
 """
-Kobra · Generador de presentación gerencial (PPTX)
+MV Kobra AI · Generador de presentación gerencial (PPTX)
 ==================================================
-Crea un deck comercial atractivo para vender Kobra a la gerencia de cualquier
+Crea un deck comercial atractivo para vender MV Kobra AI a la gerencia de cualquier
 empresa con cartera de cobranzas. Toma los KPIs reales del pipeline
 (outputs/kobra_bundle.json) y capturas del dashboard (assets/).
 
@@ -18,7 +18,7 @@ from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, "assets")
-OUT = os.path.join(ROOT, "presentation", "Kobra_Presentacion_Gerencial.pptx")
+OUT = os.path.join(ROOT, "presentation", "MVKobraAI_Presentacion_Gerencial.pptx")
 
 # Paleta de marca
 DARK = RGBColor(0x0E, 0x11, 0x17)
@@ -102,11 +102,11 @@ def build():
     # ---------- 1 · Portada -------------------------------------------------
     s = prs.slides.add_slide(blank); _bg(s)
     _box(s, 0, Inches(3.15), W, Inches(1.2), fill=None)
-    logo = os.path.join(ROOT, "assets", "brand", "kobra_icon.png")
+    logo = os.path.join(ROOT, "assets", "brand", "mv_icon.png")
     if os.path.exists(logo):
         s.shapes.add_picture(logo, Inches(5.92), Inches(0.85), height=Inches(1.5))
     _text(s, Inches(1), Inches(2.4), Inches(11.3), Inches(1.2),
-          "Kobra IA", size=66, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
+          "MV Kobra AI", size=66, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
     _text(s, Inches(1), Inches(3.7), Inches(11.3), Inches(0.7),
           "Plataforma de Cobranzas Inteligentes", size=28, color=WHITE,
           align=PP_ALIGN.CENTER)
@@ -137,7 +137,7 @@ def build():
     # ---------- 3 · La solución (3 pilares) --------------------------------
     s = prs.slides.add_slide(blank); _bg(s)
     _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
-          "La solución: Kobra", size=32, color=WHITE, bold=True)
+          "La solución: MV Kobra AI", size=32, color=WHITE, bold=True)
     _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
     cards = [
         ("🧠 ProbPago", GREEN,
@@ -209,7 +209,7 @@ def build():
         _text(s, x, yy + Inches(1.25), cw, Inches(0.5), lbl, size=14,
               color=GREY, align=PP_ALIGN.CENTER)
     _text(s, Inches(0.7), Inches(6.7), Inches(12), Inches(0.5),
-          "Datos sintéticos ilustrativos: muestran cómo Kobra prioriza el esfuerzo donde está "
+          "Datos sintéticos ilustrativos: muestran cómo MV Kobra AI prioriza el esfuerzo donde está "
           "el valor recuperable. Con la cartera real, estos KPIs se calculan de verdad.",
           size=14, color=GREY, align=PP_ALIGN.CENTER)
 
@@ -232,7 +232,7 @@ def build():
         ("realtime_stream.png", "Streaming en vivo durante la llamada",
          "SIPREC / Twilio Media Streams / Avaya DMCC: asesoría turno a turno mientras la llamada ocurre."),
         ("dashboard_gestores.png", "Gestores & Evolución",
-         "Impacto de Kobra en calidad, conversión y recupero; evolución mes a mes por gestor."),
+         "Impacto de MV Kobra AI en calidad, conversión y recupero; evolución mes a mes por gestor."),
     ]
     for img, title, sub in shots:
         s = prs.slides.add_slide(blank); _bg(s)
@@ -246,17 +246,17 @@ def build():
                  fill=None, line=PURPLE)
             s.shapes.add_picture(path, Inches(0.7), Inches(1.7), width=Inches(11.95))
 
-    # ---------- 8b · Impacto de Kobra en la gestión ------------------------
+    # ---------- 8b · Impacto de MV Kobra AI en la gestión ------------------------
     imp_path = os.path.join(ROOT, "outputs", "impacto_kobra.json")
     if os.path.exists(imp_path):
         with open(imp_path, encoding="utf-8") as fh:
             ik = json.load(fh)
         s = prs.slides.add_slide(blank); _bg(s)
         _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
-              "Cómo se mide el impacto de Kobra", size=32, color=WHITE, bold=True)
+              "Cómo se mide el impacto de MV Kobra AI", size=32, color=WHITE, bold=True)
         _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
         _text(s, Inches(0.9), Inches(1.7), Inches(11.5), Inches(0.6),
-              "Metodología: gestores con Kobra vs. grupo de control, mismo período. "
+              "Metodología: gestores con MV Kobra AI vs. grupo de control, mismo período. "
               "Cifras ILUSTRATIVAS sobre datos sintéticos — no son resultados medidos.",
               size=15, color=YELLOW)
         cards = [
@@ -273,10 +273,10 @@ def build():
             _text(s, x, y0 + Inches(1.7), cw, Inches(0.5), lbl, size=15,
                   color=GREY, align=PP_ALIGN.CENTER)
         _text(s, Inches(0.9), Inches(5.6), Inches(11.5), Inches(1),
-              f"Con Kobra: calidad {ik['con_kobra']['calidad_prom']:.0f} · "
+              f"Con MV Kobra AI: calidad {ik['con_kobra']['calidad_prom']:.0f} · "
               f"conversión {ik['con_kobra']['tasa_conversion']:.0%} · "
               f"recupero {ik['con_kobra']['tasa_recupero']:.0%}   |   "
-              f"Sin Kobra: calidad {ik['sin_kobra']['calidad_prom']:.0f} · "
+              f"Sin MV Kobra AI: calidad {ik['sin_kobra']['calidad_prom']:.0f} · "
               f"conversión {ik['sin_kobra']['tasa_conversion']:.0%} · "
               f"recupero {ik['sin_kobra']['tasa_recupero']:.0%}",
               size=14, color=WHITE, align=PP_ALIGN.CENTER)
@@ -285,10 +285,10 @@ def build():
               "MEDIDO — esa es la evidencia que se presenta, no esta simulación.",
               size=14, color=GREEN, align=PP_ALIGN.CENTER)
 
-    # ---------- 9 · Por qué Kobra / diferenciales --------------------------
+    # ---------- 9 · Por qué MV Kobra AI / diferenciales --------------------------
     s = prs.slides.add_slide(blank); _bg(s)
     _text(s, Inches(0.7), Inches(0.5), Inches(12), Inches(0.8),
-          "Por qué Kobra", size=32, color=WHITE, bold=True)
+          "Por qué MV Kobra AI", size=32, color=WHITE, bold=True)
     _box(s, Inches(0.7), Inches(1.4), Inches(0.15), Inches(0.7), fill=GREEN)
     why = [
         ("Más recupero: prioriza por valor esperado, no por antigüedad de la deuda.", GREEN),
@@ -329,7 +329,7 @@ def build():
           "Convierta su cartera en recupero.", size=40, color=WHITE, bold=True,
           align=PP_ALIGN.CENTER)
     _text(s, Inches(1), Inches(3.7), Inches(11.3), Inches(0.8),
-          "Kobra IA · Cobranzas Inteligentes", size=26, color=GREEN, bold=True,
+          "MV Kobra AI · Cobranzas Inteligentes", size=26, color=GREEN, bold=True,
           align=PP_ALIGN.CENTER)
     _text(s, Inches(1), Inches(4.6), Inches(11.3), Inches(0.6),
           "Demo lista para ejecutar · Solicite una prueba con su propia cartera.",

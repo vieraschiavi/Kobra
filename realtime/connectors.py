@@ -1,5 +1,5 @@
 """
-Kobra · Conectores de telefonía en vivo (streaming)
+MV Kobra AI · Conectores de telefonía en vivo (streaming)
 ===================================================
 Núcleo compartido para ingerir **audio en streaming** desde la central y
 asesorar al gestor mientras la llamada ocurre.

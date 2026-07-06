@@ -1,5 +1,5 @@
 """
-Kobra · Pipeline end-to-end
+MV Kobra AI · Pipeline end-to-end
 ===========================
 Orquesta todo el flujo:
 

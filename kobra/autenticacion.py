@@ -1,5 +1,5 @@
 """
-Kobra · Autenticación y roles del dashboard (Streamlit)
+MV Kobra AI · Autenticación y roles del dashboard (Streamlit)
 ========================================================
 El dashboard corre local (`streamlit run app/app.py`, `localhost:8501`), pero
 puede terminar accesible en una red compartida o en un servidor — y muestra
@@ -148,7 +148,7 @@ def render_gate() -> str | None:
     hay_sso = sso_oidc.configurado()
 
     if not configurado() and not hay_sso:
-        st.title("🔒 Configurar acceso a Kobra IA")
+        st.title("🔒 Configurar acceso a MV Kobra AI")
         st.info("Primer uso: definí una contraseña de administrador antes de entrar. "
                  "Se guarda cifrada (nunca en texto plano) — ver detalle en la pestaña "
                  "Configuración una vez adentro. (Si tu empresa usa SSO corporativo, "
@@ -170,7 +170,7 @@ def render_gate() -> str | None:
                 st.rerun()
         return None
 
-    st.title("🔒 Kobra IA · Iniciar sesión")
+    st.title("🔒 MV Kobra AI · Iniciar sesión")
     if hay_sso:
         _boton_sso(st)
         if configurado():

@@ -1,7 +1,7 @@
 """
-Kobra IA · "Mi cartera de prueba" (modo cliente, no premium)
+MV Kobra AI · "Mi cartera de prueba" (modo cliente, no premium)
 ============================================================
-Corré el flujo COMPLETO de Kobra sobre TUS propios contactos —nombre,
+Corré el flujo COMPLETO de MV Kobra AI sobre TUS propios contactos —nombre,
 teléfono, monto— para probarlo de punta a punta sin la cartera sintética:
 
     ProbPago (por qué)  →  estrategia + descuento + guion  →  chequeo de
@@ -144,7 +144,7 @@ def correr(contactos: list[dict], usar_claude: bool = True) -> list[dict]:
 
 
 def main():
-    ap = argparse.ArgumentParser(description='Kobra · "mi cartera de prueba"')
+    ap = argparse.ArgumentParser(description='MV Kobra AI · "mi cartera de prueba"')
     ap.add_argument("--base", default=BASE_DEFAULT,
                     help="CSV con columnas nombre, telefono, monto_deuda (deuda)")
     ap.add_argument("--sin-claude", action="store_true",

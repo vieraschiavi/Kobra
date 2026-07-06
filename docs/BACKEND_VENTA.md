@@ -1,4 +1,4 @@
-# Kobra IA — Backend de venta (licencias, gateway de APIs y descarga)
+# MV Kobra AI — Backend de venta (licencias, gateway de APIs y descarga)
 
 **Implementado** en `backend_venta/` (antes era solo este diseño en papel):
 `backend_venta/licencias.py` (licencias JWT), `backend_venta/uso.py`
@@ -167,7 +167,7 @@ async def pago(evt: dict):
 @app.get("/descargar/{token}")
 async def descargar(token: str):
     validar_token_descarga(token)          # un uso
-    return FileResponse("dist/KobraIA_Setup.exe")   # instalador Edición Venta
+    return FileResponse("dist/MVKobraAI_Setup.exe")   # instalador Edición Venta
 ```
 
 La cuenta bancaria de cobro se configura **una sola vez** en el panel de la
@@ -227,7 +227,7 @@ PRECIOS = {"pro": 149.0, "starter": 490.0}             # USD; ajustar por plan/c
 @app.post("/checkout/mercadopago")
 async def checkout_mp(plan: str, email: str):
     pref = {
-        "items": [{"title": f"Kobra IA · {plan}", "quantity": 1,
+        "items": [{"title": f"MV Kobra AI · {plan}", "quantity": 1,
                    "unit_price": PRECIOS[plan], "currency_id": "USD"}],
         "payer": {"email": email},
         "back_urls": {"success": f"{BASE}/gracias", "failure": f"{BASE}/precios",

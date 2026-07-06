@@ -1,5 +1,5 @@
 """
-Kobra · Entrenamiento ML de ProbPago (model selection)
+MV Kobra AI · Entrenamiento ML de ProbPago (model selection)
 ======================================================
 Mejora el modelo de probabilidad de pago pasando de un único estimador a una
 **selección de modelos**: entrena y compara varios algoritmos con validación

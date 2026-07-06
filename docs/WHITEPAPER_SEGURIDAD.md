@@ -1,4 +1,4 @@
-# Kobra IA — Whitepaper de seguridad (borrador)
+# MV Kobra AI — Whitepaper de seguridad (borrador)
 
 > **Este documento es un borrador de referencia**, pensado para responder el
 > cuestionario de seguridad que pide el área de compras/InfoSec de un banco,
@@ -12,9 +12,9 @@
 
 ---
 
-## 1. Qué es Kobra y cómo se despliega
+## 1. Qué es MV Kobra AI y cómo se despliega
 
-Kobra IA es un sistema de cobranzas inteligentes con dos superficies:
+MV Kobra AI es un sistema de cobranzas inteligentes con dos superficies:
 
 1. **Dashboard operativo** (`app/app.py`, Streamlit): corre **local**, en la
    máquina del cliente o en un servidor propio del cliente — no es un SaaS
@@ -27,7 +27,7 @@ Kobra IA es un sistema de cobranzas inteligentes con dos superficies:
    si el cliente elige la modalidad "Edición Venta" con APIs medidas en vez
    de traer sus propias claves (BYOK). Ver sección 6.
 
-## 2. Datos que procesa Kobra
+## 2. Datos que procesa MV Kobra AI
 
 - **Cartera de deudores**: identificador, segmento, producto, tramo de mora,
   monto de deuda, departamento. En la instalación estándar, estos datos
@@ -120,7 +120,7 @@ Solo aplica si el cliente elige la modalidad de APIs medidas en vez de BYOK:
   respeta automáticamente en llamadas y WhatsApp.
 - Esto es una **herramienta de apoyo al cumplimiento, no asesoría legal** —
   cada empresa fija su política según su marco regulatorio y su asesoría
-  jurídica; Kobra provee el mecanismo para hacerla cumplir.
+  jurídica; MV Kobra AI provee el mecanismo para hacerla cumplir.
 
 ## 9. Qué NO incluye hoy (declarado explícitamente)
 
@@ -162,4 +162,4 @@ Para que la evaluación de compras no dependa de asumir nada:
 
 Para preguntas de seguridad específicas de tu evaluación, o para acordar
 controles adicionales (VPC dedicada, revisión de código, pentest previo a
-la firma), contactar directamente al equipo de Kobra IA.
+la firma), contactar directamente al equipo de MV Kobra AI.

@@ -1,10 +1,10 @@
 """
-Kobra IA · Lanzador del programa standalone (Windows)
+MV Kobra AI · Lanzador del programa standalone (Windows)
 =====================================================
 Punto de entrada del ejecutable empaquetado con PyInstaller. Arranca el
 dashboard Streamlit embebido (sin necesidad de tener Python instalado) y abre
 el navegador. Es lo que se ejecuta cuando el usuario hace doble clic en el
-acceso directo "Kobra IA" que crea el instalador.
+acceso directo "MV Kobra AI" que crea el instalador.
 """
 import os
 import socket
@@ -21,7 +21,7 @@ def _base_dir() -> str:
 
 def _puerto_libre() -> int:
     """Elige un puerto libre para no chocar con otros programas (p. ej. otra
-    app en 8501). Prueba unos puertos propios de Kobra y, si están ocupados,
+    app en 8501). Prueba unos puertos propios de MV Kobra AI y, si están ocupados,
     pide uno efímero al sistema operativo."""
     for p in (8531, 8542, 8553, 8564, 8575):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

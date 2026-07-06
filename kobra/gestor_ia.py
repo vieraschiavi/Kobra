@@ -1,5 +1,5 @@
 """
-Kobra IA · Gestor IA (agente autónomo de negociación)
+MV Kobra AI · Gestor IA (agente autónomo de negociación)
 =====================================================
 El "gestor virtual": conduce la negociación completa con el deudor — por
 **voz** (voicebot) o por **WhatsApp** (chatbot) — igual que un gestor humano:

@@ -1,5 +1,5 @@
 """
-Kobra IA · Cumplimiento normativo (contact governance)
+MV Kobra AI · Cumplimiento normativo (contact governance)
 ======================================================
 Capa de gobierno que decide **cuándo** y **cómo** se puede contactar a un
 deudor, para que la cobranza —humana o del Gestor IA— opere dentro de la ley
@@ -20,7 +20,7 @@ llame a su cartera.
 
 > ⚠️ Es una **herramienta de apoyo al cumplimiento, no asesoría legal**. Cada
 > empresa fija su política según su marco regulatorio, contratos y el criterio
-> de su asesoría jurídica. Kobra provee el mecanismo para hacerla cumplir.
+> de su asesoría jurídica. MV Kobra AI provee el mecanismo para hacerla cumplir.
 """
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 """
-Kobra · Backend de venta — FastAPI (Edición Venta)
+MV Kobra AI · Backend de venta — FastAPI (Edición Venta)
 =====================================================
 Implementación real de `docs/BACKEND_VENTA.md` (que hasta ahora era solo
 diseño/esbozo): licencias JWT, gateway de APIs medido y webhook de pago +
@@ -36,7 +36,7 @@ from kobra import config as kconfig
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-app = FastAPI(title="Kobra IA · Backend de venta", version="1.0.0")
+app = FastAPI(title="MV Kobra AI · Backend de venta", version="1.0.0")
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +233,7 @@ async def descargar(token: str):
     r = descargas.validar_token_descarga(token)
     if not r["ok"]:
         raise HTTPException(403, r["error"])
-    ruta = os.environ.get("KOBRA_INSTALADOR_PATH", os.path.join(ROOT, "dist", "Kobra_Setup.exe"))
+    ruta = os.environ.get("KOBRA_INSTALADOR_PATH", os.path.join(ROOT, "dist", "MVKobraAI_Setup.exe"))
     if not os.path.exists(ruta):
         raise HTTPException(503, "El instalador todavía no está publicado en este servidor "
                                  "(configurá KOBRA_INSTALADOR_PATH).")
