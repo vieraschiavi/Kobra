@@ -642,6 +642,36 @@ ig.enviar_api(sab, "https://tu-erp.com/api/gestiones", api_key="…")
 ig.sincronizar_db(sab, "postgresql://user:pass@host/db", tabla="gestiones")
 ```
 
+### 🔎 Preguntá a tu base de datos (NL2SQL) — `kobra/consulta_bd.py`
+
+Se conecta a **cualquier base relacional del cliente** (PostgreSQL, MySQL/
+MariaDB, SQL Server, Oracle, SQLite… cualquiera compatible con SQLAlchemy) y
+responde preguntas en español, devolviendo el SQL usado, la tabla de
+resultados y un gráfico automático — sin inventar nombres de tabla/columna:
+
+1. **Extrae el catálogo completo** del esquema una sola vez: tablas, columnas,
+   PKs, FKs declaradas, vistas y relaciones inferidas por nombre de columna
+   (solo metadata — nunca el contenido real de las filas, salvo unas pocas
+   muestras de valores de texto para dar contexto de dominio).
+2. **RAG local (TF-IDF, sin salir a internet)** recupera las tablas más
+   relevantes a la pregunta.
+3. **Claude genera el SQL** usando solo ese esquema recuperado.
+4. Se **valida contra el catálogo** (tablas/columnas existen, es de solo
+   lectura — bloquea `INSERT/UPDATE/DELETE/DROP/ALTER`) antes de ejecutarlo.
+5. Se ejecuta con **límite de filas automático** y queda registrado en el
+   log de auditoría (host de la conexión, nunca la URL completa).
+
+En el dashboard: pestaña **"🔎 Preguntá a tu base de datos"** — pegá la URL de
+conexión (la misma de *Integración ERP* u otra), conectá, y preguntá.
+
+```python
+from kobra import consulta_bd as cb
+motor = cb.MotorConsultaBD("postgresql://user:pass@host/db")
+r = motor.responder("cuánto cobramos en marzo 2026 por departamento",
+                    api_key="sk-ant-...")
+df = motor.resultado_a_dataframe(r)
+```
+
 ---
 
 ## 📁 Estructura
@@ -659,6 +689,7 @@ Kobra/
 │   ├── explicabilidad.py           # reason codes por deudor (por qué esta ProbPago)
 │   ├── roi.py                      # estimador de caso de negocio (ROI)
 │   ├── integracion.py              # exportar/sincronizar la sábana a ERP/base de datos
+│   ├── consulta_bd.py              # NL2SQL: preguntá a la base del cliente en español
 │   ├── cartera_manual.py           # cargar tu propia cartera de prueba
 │   ├── registro.py                 # briefing pre-llamada + registro post-llamada
 │   ├── config.py                   # API keys persistentes (Configuración)

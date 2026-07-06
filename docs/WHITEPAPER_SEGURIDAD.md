@@ -40,6 +40,14 @@ MV Kobra AI es un sistema de cobranzas inteligentes con dos superficies:
 - **Ninguna base de datos con nombres/teléfonos reales viaja en este
   repositorio.** El dataset de demostración es 100% sintético (ver
   "Honestidad de los números" en `README.md`).
+- **Consultas en lenguaje natural sobre la base del cliente** (`kobra/consulta_bd.py`,
+  opcional): si el cliente conecta su propia base de datos para preguntarle en
+  español, a la API de Claude **solo le llega el esquema** (nombres de tabla/
+  columna/tipo y unas pocas muestras de valores de texto para dar contexto de
+  dominio) — **nunca los datos reales de las filas**. La conexión es de solo
+  lectura a nivel de aplicación: el validador bloquea cualquier SQL que no sea
+  `SELECT`/`WITH` antes de ejecutarlo. La URL de conexión nunca se loguea
+  completa (solo el host, igual que en `kobra/integracion.py`).
 
 ## 3. Autenticación y control de acceso
 

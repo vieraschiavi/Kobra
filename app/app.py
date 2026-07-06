@@ -30,6 +30,7 @@ from kobra import config as kconfig           # noqa: E402
 from kobra import roi as kroi                 # noqa: E402
 from kobra import integracion as kerp         # noqa: E402
 from kobra import auditoria as kauditoria     # noqa: E402
+from kobra import consulta_bd as kconsulta    # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -231,10 +232,11 @@ st.markdown("---")
 # ----------------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------------
-tabH, tab1, tab2, tab3, tab4, tab5, tab6, tab8, tab9, tabERP, tab7 = st.tabs(
+tabH, tab1, tab2, tab3, tab4, tab5, tab6, tab8, tab9, tabERP, tabNL2SQL, tab7 = st.tabs(
     ["❓ Guía & Ayuda", "📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
      "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo", "📇 Gestores & Evolución",
-     "🧪 Probar mi cartera", "💰 Caso de negocio", "🔌 Integración ERP", "⚙️ Configuración"])
+     "🧪 Probar mi cartera", "💰 Caso de negocio", "🔌 Integración ERP",
+     "🔎 Preguntá a tu base de datos", "⚙️ Configuración"])
 
 # ---- Tab Ayuda: guía paso a paso -------------------------------------------
 with tabH:
@@ -1007,6 +1009,125 @@ with tabERP:
     st.info("Las conexiones (URL / key / DB) también se guardan en la pestaña **Configuración** "
             "y se cargan solas. Motores soportados: PostgreSQL, MySQL/MariaDB, SQL Server, "
             "Oracle, SQLite y cualquiera compatible con SQLAlchemy (instalá su driver).", icon="🔌")
+
+# ---- Tab NL2SQL: preguntá a tu base de datos en lenguaje natural -----------
+with tabNL2SQL:
+    st.subheader("🔎 Preguntá a tu base de datos")
+    st.caption("Se conecta a la base del cliente (la misma URL de la pestaña Integración ERP, "
+               "o una distinta), extrae el esquema completo **una sola vez** —tablas, columnas, "
+               "PKs, FKs y relaciones inferidas— y responde preguntas en español devolviendo el "
+               "SQL usado, validado contra ese esquema, más la tabla y un gráfico automático. "
+               "**Solo lectura**: nunca ejecuta INSERT/UPDATE/DELETE/DROP, y a la IA solo le "
+               "llega el esquema (nombres de tabla/columna), nunca los datos reales de las filas.")
+
+    _cfg_nl = kconfig.cargar()
+    nl_url = st.text_input("URL de conexión", value=_cfg_nl.get("CONSULTA_DB_URL",
+                                                                _cfg_nl.get("ERP_DB_URL", "")),
+                           placeholder="postgresql://user:pass@host:5432/db", key="nl_db_url")
+    c_nl1, c_nl2 = st.columns([1, 3])
+    conectar_click = c_nl1.button("🔗 Conectar / actualizar esquema", use_container_width=True)
+
+    if conectar_click:
+        if nl_url.strip():
+            kconfig.guardar({"CONSULTA_DB_URL": nl_url.strip()})
+            st.cache_resource.clear()
+        else:
+            st.error("Falta la URL de conexión.")
+
+    @st.cache_resource(show_spinner="Conectando y extrayendo el esquema…")
+    def _cargar_motor_consulta(url):
+        return kconsulta.MotorConsultaBD(url)
+
+    motor_nl = None
+    if nl_url.strip():
+        try:
+            motor_nl = _cargar_motor_consulta(nl_url.strip())
+        except Exception as e:
+            st.error(f"⛔ No se pudo conectar o leer el esquema: {e}")
+
+    if motor_nl:
+        n_tablas = len(motor_nl.catalogo["tablas"])
+        n_vistas = len(motor_nl.catalogo.get("vistas", {}))
+        n_fks = len(motor_nl.catalogo["fks"])
+        c = st.columns(3)
+        c[0].metric("Tablas", n_tablas)
+        c[1].metric("Vistas", n_vistas)
+        c[2].metric("Relaciones (FK)", n_fks)
+        with st.expander("Ver esquema detectado"):
+            for t, info in motor_nl.catalogo["tablas"].items():
+                n = info.get("n_filas")
+                st.markdown(f"**{t}** ({n:,} filas)" if n is not None else f"**{t}**")
+                st.caption(", ".join(c["columna"] for c in info["columnas"]))
+
+        k_tablas = st.slider("Tablas a recuperar (RAG)", 2, 8, 4,
+                             help="Cuántas tablas del esquema se le pasan a Claude como contexto")
+        pregunta_nl = st.text_input(
+            "Tu pregunta:", placeholder="Ej: ¿cuánto cobramos en marzo 2026 por departamento?",
+            key="nl_pregunta")
+        if st.button("▶️ Consultar", type="primary", key="nl_consultar") and pregunta_nl.strip():
+            api_key_claude = kconfig.cargar().get("ANTHROPIC_API_KEY", "")
+            if not api_key_claude:
+                st.error("Falta configurar ANTHROPIC_API_KEY en la pestaña Configuración.")
+            else:
+                with st.spinner("Recuperando tablas relevantes y generando SQL…"):
+                    r = motor_nl.responder(pregunta_nl.strip(), api_key=api_key_claude, k=k_tablas)
+
+                st.markdown("##### 🎯 Tablas recuperadas (RAG)")
+                st.write(" · ".join(f"`{t}`" for t in r["tablas_recuperadas"]) or "—")
+
+                if r["sql"]:
+                    st.markdown("##### 🧾 SQL generado")
+                    st.code(r["sql"], language="sql")
+
+                if r["valido"]:
+                    st.success("✓ SQL validado contra el esquema (sin nombres inventados)")
+                elif r["sql"]:
+                    st.error("✗ La validación encontró problemas:")
+                    for p in r["problemas"]:
+                        st.write(f"  - {p}")
+                if r["problemas"] and r["valido"]:
+                    with st.expander("⚠️ Advertencias menores"):
+                        for p in r["problemas"]:
+                            st.write(f"  - {p}")
+
+                if r["error"]:
+                    st.error(f"Error: {r['error']}")
+
+                df_nl = motor_nl.resultado_a_dataframe(r)
+                if df_nl is not None:
+                    st.markdown("##### 📊 Resultado")
+                    m = st.columns(3)
+                    m[0].metric("Filas", f"{len(df_nl):,}")
+                    m[1].metric("Columnas", len(df_nl.columns))
+                    cols_num = df_nl.select_dtypes(include="number").columns.tolist()
+                    if cols_num:
+                        m[2].metric(f"Σ {cols_num[0]}", f"{df_nl[cols_num[0]].sum():,.0f}")
+
+                    t_tabla, t_graf = st.tabs(["📋 Tabla", "📈 Gráfico"])
+                    with t_tabla:
+                        st.dataframe(df_nl, use_container_width=True, height=380)
+                        st.download_button("⬇️ Descargar CSV", df_nl.to_csv(index=False).encode("utf-8"),
+                                           file_name="consulta_resultado.csv", mime="text/csv")
+                    with t_graf:
+                        cols_cat = [c for c in df_nl.columns if c not in cols_num]
+                        fig_nl = None
+                        try:
+                            if not df_nl.empty and len(df_nl) <= 200:
+                                if cols_cat and cols_num:
+                                    d = df_nl.sort_values(cols_num[0], ascending=False).head(30)
+                                    fig_nl = px.bar(d, x=cols_cat[0], y=cols_num[0],
+                                                    title=f"{cols_num[0]} por {cols_cat[0]}")
+                                elif len(cols_num) >= 2:
+                                    fig_nl = px.scatter(df_nl, x=cols_num[0], y=cols_num[1])
+                        except Exception:
+                            fig_nl = None
+                        if fig_nl:
+                            st.plotly_chart(fig_nl, use_container_width=True)
+                        else:
+                            st.info("No se pudo armar un gráfico automático para esta forma de datos.")
+    else:
+        st.info("Pegá la URL de conexión de la base del cliente y hacé click en "
+                "«Conectar / actualizar esquema» para empezar.", icon="🔎")
 
 # ---- Tab 7: Configuración (API keys persistentes) — solo admin ------------
 with tab7:

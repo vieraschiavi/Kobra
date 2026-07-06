@@ -53,6 +53,7 @@ hiddenimports += [
     "kobra.analitica", "kobra.cumplimiento", "kobra.explicabilidad",
     "kobra.roi", "kobra.cartera_manual", "kobra.registro", "kobra.config",
     "kobra.gestor_ia", "kobra.pipeline", "kobra.voz", "kobra.train",
+    "kobra.consulta_bd",
     "realtime.mi_cartera", "realtime.voicebot", "sklearn.utils._typedefs",
     "sklearn.neighbors._partition_nodes", "sklearn.utils._heap",
 ]

@@ -710,6 +710,126 @@ def test_integracion_api_sin_url_y_mapeo():
     assert "tipificacion" in mapeado.columns and "cuenta" in mapeado.columns
 
 
+def _armar_db_prueba(tmp_path):
+    """SQLite chica con 2 tablas + FK declarada, para probar consulta_bd sin BD real."""
+    import sqlite3
+    db = str(tmp_path / "consulta.db")
+    con = sqlite3.connect(db)
+    con.executescript("""
+        CREATE TABLE clientes (
+            cliente_id INTEGER PRIMARY KEY,
+            nombre TEXT,
+            departamento TEXT
+        );
+        CREATE TABLE pagos (
+            pago_id INTEGER PRIMARY KEY,
+            cliente_id INTEGER NOT NULL REFERENCES clientes(cliente_id),
+            monto REAL,
+            fecha_pago TEXT
+        );
+        INSERT INTO clientes VALUES (1,'Juan','Montevideo'),(2,'Ana','Canelones');
+        INSERT INTO pagos VALUES
+            (1,1,1000.0,'2026-01-05'),(2,1,500.0,'2026-02-10'),(3,2,2000.0,'2026-01-20');
+    """)
+    con.commit()
+    con.close()
+    return f"sqlite:///{db}"
+
+
+def test_consulta_bd_extraer_catalogo_y_fichas(tmp_path):
+    from kobra import consulta_bd as kcbd
+    url = _armar_db_prueba(tmp_path)
+    engine = kcbd.conectar(url)
+    catalogo = kcbd.extraer_catalogo(engine)
+
+    assert set(catalogo["tablas"]) == {"clientes", "pagos"}
+    assert catalogo["tablas"]["clientes"]["n_filas"] == 2
+    pk_pagos = {c["columna"] for c in catalogo["tablas"]["pagos"]["columnas"] if c["pk"]}
+    assert pk_pagos == {"pago_id"}
+    # FK declarada pagos.cliente_id -> clientes.cliente_id
+    assert any(fk["tabla_origen"] == "pagos" and fk["columna_origen"] == "cliente_id"
+              and fk["tabla_destino"] == "clientes" for fk in catalogo["fks"])
+
+    fichas = kcbd.catalogo_a_fichas(catalogo)
+    tablas_fichas = {f["tabla"] for f in fichas}
+    assert {"clientes", "pagos"} <= tablas_fichas
+    ficha_pagos = next(f["texto"] for f in fichas if f["tabla"] == "pagos")
+    assert "cliente_id" in ficha_pagos and "monto" in ficha_pagos
+
+
+def test_consulta_bd_recuperador_tfidf(tmp_path):
+    from kobra import consulta_bd as kcbd
+    url = _armar_db_prueba(tmp_path)
+    catalogo = kcbd.extraer_catalogo(kcbd.conectar(url))
+    fichas = kcbd.catalogo_a_fichas(catalogo)
+    rec = kcbd.RecuperadorEsquema(fichas)
+    top = rec.recuperar("cuánto pagó cada cliente", k=2)
+    assert {f["tabla"] for f in top} <= {"clientes", "pagos"}
+    assert len(top) >= 2
+
+
+def test_consulta_bd_validador_bloquea_dml_y_tablas_inventadas(tmp_path):
+    from kobra import consulta_bd as kcbd
+    url = _armar_db_prueba(tmp_path)
+    catalogo = kcbd.extraer_catalogo(kcbd.conectar(url))
+
+    ok, problemas = kcbd.validar_sql("SELECT * FROM pagos", catalogo)
+    assert ok and not problemas
+
+    ok, problemas = kcbd.validar_sql("DELETE FROM pagos WHERE 1=1", catalogo)
+    assert not ok and any("no permitida" in p for p in problemas)
+
+    ok, problemas = kcbd.validar_sql("SELECT * FROM tabla_fantasma", catalogo)
+    assert not ok and any("no existe" in p for p in problemas)
+
+
+def test_consulta_bd_ejecutar_sql_aplica_limite(tmp_path):
+    from kobra import consulta_bd as kcbd
+    url = _armar_db_prueba(tmp_path)
+    engine = kcbd.conectar(url)
+    cols, filas, sql_exec = kcbd.ejecutar_sql("SELECT * FROM pagos", engine, limite=2)
+    assert "pago_id" in cols
+    assert len(filas) == 2
+    assert "limit" in sql_exec.lower()
+
+
+def test_consulta_bd_motor_responder_pipeline_completo(tmp_path, monkeypatch):
+    from kobra import consulta_bd as kcbd
+    from kobra import auditoria as kaud
+
+    # Espía sobre registrar() en vez de redirigir LOG_FILE: el default de
+    # registrar() ya quedó fijado al importar el módulo, así que monkeypatchear
+    # kaud.LOG_FILE no alcanza para redirigir escrituras que no pasan archivo=.
+    llamadas = []
+    monkeypatch.setattr(kaud, "registrar",
+                        lambda accion, detalle=None, **kw: llamadas.append(accion))
+
+    url = _armar_db_prueba(tmp_path)
+    motor = kcbd.MotorConsultaBD(url)
+
+    # Sin API key real: simulamos la respuesta de Claude para probar el resto del pipeline
+    monkeypatch.setattr(kcbd, "generar_sql_claude",
+                        lambda pregunta, fichas, dialecto, api_key=None:
+                            "SELECT departamento, SUM(monto) AS total FROM pagos "
+                            "JOIN clientes ON clientes.cliente_id = pagos.cliente_id "
+                            "GROUP BY departamento")
+
+    r = motor.responder("cuánto pagó cada departamento", api_key="fake-key")
+    assert r["valido"]
+    assert not r["error"]
+    df = motor.resultado_a_dataframe(r)
+    assert df is not None and "total" in df.columns and len(df) == 2
+    assert "consulta_bd_nl2sql" in llamadas
+
+
+def test_consulta_bd_generar_sql_sin_key_falla_controlado(monkeypatch):
+    from kobra import consulta_bd as kcbd
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(RuntimeError):
+        kcbd.generar_sql_claude("una pregunta", [{"tabla": "x", "texto": "TABLA: x"}],
+                               "sqlite", api_key=None)
+
+
 def test_auditoria_encadena_y_verifica(tmp_path, monkeypatch):
     from kobra import auditoria as kaud
     archivo = str(tmp_path / "auditoria.log")
