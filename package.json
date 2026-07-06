@@ -1,0 +1,9 @@
+{
+  "name": "kobra-ia",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Kobra IA - landing, demo y funciones serverless (Vercel).",
+  "dependencies": {
+    "botid": "^1.4.5"
+  }
+}

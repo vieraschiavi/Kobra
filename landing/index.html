@@ -1,4 +1,5 @@
 <title>Kobra IA · Cobranzas Inteligentes</title>
+<script src="botid-init.js" defer></script>
 <style>
 :root{
   --navy:#081527; --navy2:#0c2137; --hero-a:#0d2440; --hero-b:#081324;
@@ -438,7 +439,19 @@ document.querySelectorAll('[data-pay]').forEach(function(btn){
       if(cf){cf.scrollIntoView({behavior:'smooth',block:'center'});var a=cf.querySelector('input,textarea');if(a)a.focus();}
       return;
     }
-    window.location.href='/api/checkout?plan='+encodeURIComponent(plan);
+    var original=btn.textContent;
+    btn.disabled=true; btn.textContent='Un momento…';
+    fetch('/api/checkout',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({plan:plan})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d && d.url){ window.location.href=d.url; return; }
+        btn.disabled=false; btn.textContent=original;
+        alert('No se pudo iniciar el pago. Probá de nuevo en un rato.');
+      })
+      .catch(function(){
+        btn.disabled=false; btn.textContent=original;
+        alert('No se pudo iniciar el pago. Probá de nuevo en un rato.');
+      });
   });
 });
 var CONTACT_TO="vieraschiavi@gmail.com";
