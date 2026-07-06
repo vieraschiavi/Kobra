@@ -1,5 +1,5 @@
 """
-Kobra IA · Integración con ERP / base de datos (sábana de gestiones)
+MV Kobra AI · Integración con ERP / base de datos (sábana de gestiones)
 ====================================================================
 Cierra el círculo: cada gestión —la haya hecho el **Gestor IA** o un **humano**—
 queda tipificada con su resultado y sus datos (fechas, montos, notas) y puede
@@ -9,7 +9,7 @@ queda tipificada con su resultado y sus datos (fechas, montos, notas) y puede
   - **API REST**: hace POST de la sábana al webhook/endpoint del ERP del cliente.
   - **Base de datos**: escribe en cualquier motor SQL vía SQLAlchemy
     (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, SQLite…) con una URL de conexión.
-  - **Mapeo de campos** opcional: renombra las columnas de Kobra a las del ERP.
+  - **Mapeo de campos** opcional: renombra las columnas de MV Kobra AI a las del ERP.
 
 Tipificaciones estándar de cobranza soportadas (el campo `resultado`):
   Pago · Arreglo de pago · Promesa de pago · Informado · No contactado ·
@@ -63,7 +63,7 @@ def sabana(gestiones: pd.DataFrame) -> pd.DataFrame:
 
 
 def aplicar_mapeo(df: pd.DataFrame, mapeo: dict | None) -> pd.DataFrame:
-    """Renombra columnas de Kobra → nombres del ERP del cliente (opcional)."""
+    """Renombra columnas de MV Kobra AI → nombres del ERP del cliente (opcional)."""
     if not mapeo:
         return df
     return df.rename(columns={k: v for k, v in mapeo.items() if k in df.columns})

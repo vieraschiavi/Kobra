@@ -14,7 +14,7 @@
 
 ## 1. Alcance
 
-Este acuerdo aplica a: **[Nombre del cliente]**, para el uso de Kobra IA en
+Este acuerdo aplica a: **[Nombre del cliente]**, para el uso de MV Kobra AI en
 la modalidad **[self-serve / PoC+implementación / Edición Venta con
 backend de licencias]**.
 
@@ -27,7 +27,7 @@ backend de licencias]**.
 - **Si se usa el backend de licencias/gateway** (`backend_venta/`) hosteado
   por nosotros: uptime objetivo mensual de **[ej. 99.0% / 99.5%]**,
   medido excluyendo ventanas de mantenimiento programado (ver punto 4).
-- **Landing/demo pública** (`kobra-ia.vercel.app`): mejor esfuerzo, sin
+- **Landing/demo pública** (`mvkobranzaia.com`): mejor esfuerzo, sin
   compromiso de SLA — es material de marketing, no un componente
   operativo del Servicio contratado.
 
@@ -90,7 +90,7 @@ punto 4.
 
 ---
 
-**Por el proveedor (Kobra IA)**
+**Por el proveedor (MV Kobra AI)**
 
 Firma: _______________________  Fecha: __________
 

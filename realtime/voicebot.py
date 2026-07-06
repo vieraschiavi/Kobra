@@ -1,5 +1,5 @@
 """
-Kobra IA · Voicebot (campañas salientes con Gestor IA)
+MV Kobra AI · Voicebot (campañas salientes con Gestor IA)
 ======================================================
 Corre campañas de llamadas donde el **Gestor IA** negocia como un humano:
 cargás una base de teléfonos y el bot llama, negocia según ProbPago,
@@ -8,7 +8,7 @@ completa los campos ERP y registra cada gestión (aparece en el dashboard
 
 Concurrencia: hasta **50 líneas simultáneas** (asyncio.Semaphore) — el motor
 de diálogo es puro CPU local, así que la concurrencia real la limita el canal
-de voz, no Kobra.
+de voz, no MV Kobra AI.
 
 Capas (para no depender de APIs externas):
   ┌───────────────────────────────────────────────────────────┐

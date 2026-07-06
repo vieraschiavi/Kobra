@@ -1,4 +1,4 @@
-# ⚖️ Proteger Kobra en Uruguay — guía práctica
+# ⚖️ Proteger MV Kobra AI en Uruguay — guía práctica
 
 > **Orientación, no asesoría jurídica.** Para el trámite final consultá al
 > **Consejo de Derechos de Autor** (Biblioteca Nacional / MEC), a la **DNPI**
@@ -28,7 +28,7 @@ tener **fecha cierta de autoría** si algún día tenés que reclamar.
 | Querés proteger… | Herramienta | Dónde | ¿Sirve? |
 |---|---|---|---|
 | **El código** (tu obra) | Derecho de autor | Consejo de Derechos de Autor (Biblioteca Nacional, MEC) | ✅ Automático; registrable para prueba |
-| **El nombre "Kobra IA" / logo** | Marca | **DNPI** (MIEM) | ✅ Muy recomendable si vas a vender |
+| **El nombre "MV Kobra AI" / logo** | Marca | **DNPI** (MIEM) | ✅ Muy recomendable si vas a vender |
 | **La IDEA / el concepto** ("cobranza con IA") | — | — | ❌ Las ideas no se registran |
 | **Un método técnico novedoso** | Patente | DNPI | ⚠️ Difícil: el software "como tal" en general no es patentable |
 
@@ -56,7 +56,7 @@ tener **fecha cierta de autoría** si algún día tenés que reclamar.
   (≈ USD 20–60). *Confirmar arancel vigente.*
 - **Para qué:** fecha cierta e inscripción oficial de que **vos** sos el autor.
 
-### 3. Registrá la MARCA "Kobra IA" (si vas a comercializar)
+### 3. Registrá la MARCA "MV Kobra AI" (si vas a comercializar)
 - **Dónde:** **DNPI — Dirección Nacional de la Propiedad Industrial** (MIEM).
   Se puede iniciar online.
 - **Clases (Clasificación de Niza)** que te interesan:
@@ -67,7 +67,7 @@ tener **fecha cierta de autoría** si algún día tenés que reclamar.
   clase** (búsqueda de antecedentes + solicitud + concesión); sumá honorarios si
   usás agente/abogado de marcas. *Confirmar aranceles DNPI vigentes.*
 - **Antes de pagar:** hacé una **búsqueda de antecedentes** en la DNPI para
-  verificar que "Kobra"/"Kobra IA" esté disponible en esas clases.
+  verificar que "MV Kobra AI"/"MV Kobra AI" esté disponible en esas clases.
 
 ### 4. Al vender: contratos que te protegen
 - **Licencia de uso** clara (no cedés el código fuente; licenciás el uso).
@@ -83,14 +83,14 @@ tener **fecha cierta de autoría** si algún día tenés que reclamar.
 |---|---|---|
 | Derecho de autor (código) automático | **$0** | — |
 | Registro derecho de autor (Biblioteca Nacional) | **~USD 20–60** | única vez |
-| Marca "Kobra IA" en DNPI (por clase) | **~USD 100–250** | cada 10 años (renovable) |
+| Marca "MV Kobra AI" en DNPI (por clase) | **~USD 100–250** | cada 10 años (renovable) |
 | 2 clases (9 + 42) | **~USD 200–500** | cada 10 años |
 | Abogado/agente de marcas (opcional) | variable | por trámite |
 
 **Prioridad práctica y económica:**
 1. Blindaje de autoría (gratis, ya está).
 2. Registro de derecho de autor (barato, alta prueba).
-3. Marca "Kobra IA" cuando estés por salir a vender (protege el nombre, que es
+3. Marca "MV Kobra AI" cuando estés por salir a vender (protege el nombre, que es
    con lo que te van a identificar en el mercado).
 
 > La **idea** no se protege; lo que te da ventaja defendible es tu **código**

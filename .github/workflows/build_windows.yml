@@ -1,6 +1,6 @@
 name: build-windows-installer
 
-# Construye el PROGRAMA STANDALONE de Windows (Kobra_Setup.exe): empaqueta
+# Construye el PROGRAMA STANDALONE de Windows (MVKobraAI_Setup.exe): empaqueta
 # Python + todas las librerías con PyInstaller y lo envuelve con Inno Setup.
 # El .exe queda descargable como artefacto de la corrida y, al taguear vX.Y.Z,
 # se publica en una Release de GitHub.
@@ -41,8 +41,8 @@ jobs:
 
       - name: Verificar salida de PyInstaller
         run: |
-          if (-Not (Test-Path "dist/Kobra/Kobra.exe")) {
-            Write-Error "No se generó dist/Kobra/Kobra.exe"; exit 1
+          if (-Not (Test-Path "dist/MVKobraAI/MVKobraAI.exe")) {
+            Write-Error "No se generó dist/MVKobraAI/MVKobraAI.exe"; exit 1
           }
           Write-Host "Bundle OK"
 
@@ -58,12 +58,12 @@ jobs:
       - name: Publicar instalador como artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: Kobra_Setup_Windows
-          path: dist/Kobra_Setup_*.exe
+          name: MVKobraAI_Setup_Windows
+          path: dist/MVKobraAI_Setup_*.exe
           if-no-files-found: error
 
       - name: Publicar en Release (solo en tags vX.Y.Z)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Kobra_Setup_*.exe
+          files: dist/MVKobraAI_Setup_*.exe

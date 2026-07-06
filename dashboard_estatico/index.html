@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kobra IA · Cobranzas Inteligentes</title>
-<link rel="icon" type="image/png" href="kobra_icon.png">
+<title>MV Kobra AI · Cobranzas Inteligentes</title>
+<link rel="icon" type="image/png" href="mv_icon.png">
 <script src="botid-init.js" defer></script>
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js"></script>
@@ -34,7 +34,7 @@
       +'border-radius:18px;padding:34px;color:#eaf1fb;box-shadow:0 30px 80px rgba(0,0,0,.5)">'
       +'<div style="font:800 12px/1 system-ui;letter-spacing:.14em;text-transform:uppercase;color:#FDCB6E;margin-bottom:12px">Demo · 3 días</div>'
       +'<div style="font:800 22px/1.25 system-ui;margin-bottom:10px">'+(expired?'Tu demo de 3 días venció':'Registrate para probar la demo completa')+'</div>'
-      +'<div style="color:#9db0c8;font-size:14.5px;margin-bottom:20px">'+(expired?'Volvé a registrarte para seguir probando Kobra IA, o comprá un plan.':'Es gratis y dura 3 días. Sin tarjeta.')+'</div>'
+      +'<div style="color:#9db0c8;font-size:14.5px;margin-bottom:20px">'+(expired?'Volvé a registrarte para seguir probando MV Kobra AI, o comprá un plan.':'Es gratis y dura 3 días. Sin tarjeta.')+'</div>'
       +'<a href="/" style="display:inline-block;background:#FDCB6E;color:#1c1305;font-weight:800;font-size:14.5px;text-decoration:none;padding:12px 22px;border-radius:10px">'+(expired?'Registrarme de nuevo':'Ir a registrarme')+'</a></div>';
     document.body.appendChild(ov);
     document.documentElement.style.overflow='hidden'; document.body.style.overflow='hidden';
@@ -88,7 +88,7 @@
 <body>
 <header>
   <div>
-    <h1><img src="kobra_icon.png" alt="Kobra IA" style="height:46px;vertical-align:-10px;margin-right:10px;">Kobra IA <span class="badge">Cobranzas Inteligentes</span></h1>
+    <h1><img src="mv_icon.png" alt="MV Kobra AI" style="height:46px;vertical-align:-10px;margin-right:10px;">MV Kobra AI <span class="badge">Cobranzas Inteligentes</span></h1>
     <div class="sub">ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero</div>
   </div>
   <div class="model" id="modelInfo"></div>
@@ -119,7 +119,7 @@
 
 <div class="card" style="margin-top:16px;">
   <h3>📞 Gestor IA por voz</h3>
-  <p class="sub" style="margin-bottom:10px;">Así llama y negocia Kobra IA por teléfono, con voz sintetizada en vivo (subí el volumen).</p>
+  <p class="sub" style="margin-bottom:10px;">Así llama y negocia MV Kobra AI por teléfono, con voz sintetizada en vivo (subí el volumen).</p>
   <div class="toolbar"><button onclick="reproducirLlamada()">▶ Reproducir llamada de ejemplo (con voz)</button>
     <button class="alt" onclick="detenerLlamada()">⏹ Detener</button>
     <span class="sub" id="callInfo"></span></div>
@@ -215,7 +215,7 @@ function renderAI(a){
   <div class="tablewrap"><table id="tablaResultados"></table></div>
 </div>
 
-<footer>Kobra IA · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). Sin nombres de clientes.</footer>
+<footer>MV Kobra AI · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). Sin nombres de clientes.</footer>
 
 <script>
 const D = (window.KOBRA && window.KOBRA.registros) ? window.KOBRA : {registros:[],kpis:{},metrics:{}};
@@ -405,7 +405,7 @@ analizarCopiloto();
 <script>
 // ---- Demo animada: Gestor IA por voz ----
 var CALL_SCRIPT=[
-  {who:'ia',text:'Buenos días, hablo de Kobra IA en representación de su entidad financiera. ¿Hablo con Juan Pérez?'},
+  {who:'ia',text:'Buenos días, hablo de MV Kobra AI en representación de su entidad financiera. ¿Hablo con Juan Pérez?'},
   {who:'cliente',text:'Sí, soy yo.'},
   {who:'ia',text:'Lo contacto por un saldo pendiente de 6.000 pesos con más de 60 días de atraso. ¿Podemos revisar juntos las opciones de pago disponibles?'},
   {who:'cliente',text:'La verdad ahora no puedo pagar todo junto, estoy complicado económicamente.'},
@@ -483,7 +483,7 @@ function reproducirLlamada(){
       return;
     }
     var turn=CALL_SCRIPT[i];
-    box.appendChild(chatBubble(turn.who,turn.text,'background:#16324a;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 Kobra IA (voz)','👤 Cliente'));
+    box.appendChild(chatBubble(turn.who,turn.text,'background:#16324a;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 MV Kobra AI (voz)','👤 Cliente'));
     box.scrollTop=box.scrollHeight;
     i++;
     var isIA = turn.who==='ia';
@@ -516,7 +516,7 @@ function reproducirWhatsApp(){
       return;
     }
     var turn=WSP_SCRIPT[i];
-    var bubble=chatBubble(turn.who,turn.text,'background:#0b3d2e;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 Kobra IA ✓✓','👤 Cliente');
+    var bubble=chatBubble(turn.who,turn.text,'background:#0b3d2e;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 MV Kobra AI ✓✓','👤 Cliente');
     box.appendChild(bubble);
     box.scrollTop=box.scrollHeight;
     i++;
@@ -587,8 +587,8 @@ function exportResultadosXLSX(){
 function exportResultadosWord(){
   var rows=RESULTADOS, cols=Object.keys(rows[0]||{});
   var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
-    +'<head><meta charset="utf-8"><title>Kobra IA · Resultados</title></head><body>'
-    +'<h2 style="font-family:Calibri,Arial,sans-serif">Kobra IA · Resultados enviados a ERP</h2>'
+    +'<head><meta charset="utf-8"><title>MV Kobra AI · Resultados</title></head><body>'
+    +'<h2 style="font-family:Calibri,Arial,sans-serif">MV Kobra AI · Resultados enviados a ERP</h2>'
     +'<table border="1" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt">'
     +'<tr>'+cols.map(function(c){return '<th style="background:#00C896;color:#fff;padding:4px 8px">'+c+'</th>';}).join('')+'</tr>'
     +rows.map(function(r){return '<tr>'+cols.map(function(c){return '<td style="padding:4px 8px">'+r[c]+'</td>';}).join('')+'</tr>';}).join('')
@@ -599,11 +599,11 @@ function exportResultadosPDF(){
   var rows=RESULTADOS, cols=Object.keys(rows[0]||{});
   var w=window.open('','_blank');
   if(!w){ alert('Habilitá las ventanas emergentes para exportar a PDF.'); return; }
-  var html='<html><head><title>Kobra IA · Resultados</title><style>'
+  var html='<html><head><title>MV Kobra AI · Resultados</title><style>'
     +'body{font-family:Arial,sans-serif;color:#111;padding:24px}h2{color:#00895f}'
     +'table{width:100%;border-collapse:collapse;font-size:12px}'
     +'th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#00C896;color:#fff}'
-    +'</style></head><body><h2>Kobra IA · Resultados enviados a ERP</h2><table><tr>'
+    +'</style></head><body><h2>MV Kobra AI · Resultados enviados a ERP</h2><table><tr>'
     +cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>'
     +rows.map(function(r){return '<tr>'+cols.map(function(c){return '<td>'+r[c]+'</td>';}).join('')+'</tr>';}).join('')
     +'</table></body></html>';

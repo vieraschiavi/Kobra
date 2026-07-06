@@ -1,9 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec para el programa standalone de Kobra IA (Windows, onedir).
+PyInstaller spec para el programa standalone de MV Kobra AI (Windows, onedir).
 Empaqueta el intérprete Python, todas las dependencias (Streamlit, scikit-learn,
-plotly, pandas, FastAPI…) y el código/datos de Kobra en dist/Kobra/, que luego
-el instalador Inno Setup convierte en Kobra_Setup.exe.
+plotly, pandas, FastAPI…) y el código/datos de MV Kobra AI en dist/MVKobraAI/, que
+luego el instalador Inno Setup convierte en MVKobraAI_Setup.exe.
 
 Construir (en Windows):
     pyinstaller packaging/kobra.spec --noconfirm
@@ -37,7 +37,7 @@ for _pkg in ["streamlit", "altair", "plotly", "pandas", "numpy",
     except Exception:
         pass
 
-# --- Código y recursos propios de Kobra ---
+# --- Código y recursos propios de MV Kobra AI ---
 def _dir(nombre):
     ruta = os.path.join(ROOT, nombre)
     return (ruta, nombre) if os.path.isdir(ruta) else None
@@ -53,6 +53,7 @@ hiddenimports += [
     "kobra.analitica", "kobra.cumplimiento", "kobra.explicabilidad",
     "kobra.roi", "kobra.cartera_manual", "kobra.registro", "kobra.config",
     "kobra.gestor_ia", "kobra.pipeline", "kobra.voz", "kobra.train",
+    "kobra.consulta_bd",
     "realtime.mi_cartera", "realtime.voicebot", "sklearn.utils._typedefs",
     "sklearn.neighbors._partition_nodes", "sklearn.utils._heap",
 ]
@@ -81,7 +82,7 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
-    name="Kobra",
+    name="MVKobraAI",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -91,5 +92,5 @@ exe = EXE(
 )
 coll = COLLECT(
     exe, a.binaries, a.zipfiles, a.datas,
-    strip=False, upx=False, name="Kobra",
+    strip=False, upx=False, name="MVKobraAI",
 )

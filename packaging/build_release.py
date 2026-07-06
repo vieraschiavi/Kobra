@@ -1,11 +1,11 @@
 """
-Kobra · Empaquetador de releases
-================================
+MV Kobra AI · Empaquetador de releases
+=======================================
 Arma los dos paquetes distribuibles, listos para entregar como software:
 
-  dist/Kobra_Demo_v{VERSION}.zip        → para prospectos: doble clic y corre
+  dist/MVKobraAI_Demo_v{VERSION}.zip        → para prospectos: doble clic y corre
                                           (dashboard offline, sin instalar nada)
-  dist/Kobra_Produccion_v{VERSION}.zip  → software completo con instalador
+  dist/MVKobraAI_Produccion_v{VERSION}.zip  → software completo con instalador
                                           (Docker o Python), manual y licencia
 
 Ambos incluyen lanzadores para Windows (.bat) y Linux/Mac (.sh), LEEME,
@@ -27,10 +27,10 @@ DIST = os.path.join(ROOT, "dist")
 # ---------------------------------------------------------------------------
 # Textos comunes
 # ---------------------------------------------------------------------------
-LICENCIA_DEMO = f"""KOBRA IA · LICENCIA DE EVALUACIÓN (DEMO) · v{VERSION}
+LICENCIA_DEMO = f"""MV KOBRA AI · LICENCIA DE EVALUACIÓN (DEMO) · v{VERSION}
 =====================================================
 
-Este paquete es una DEMOSTRACIÓN de Kobra IA, Plataforma de Cobranzas
+Este paquete es una DEMOSTRACIÓN de MV Kobra AI, Plataforma de Cobranzas
 Inteligentes, con DATOS 100% SINTÉTICOS (sin datos de personas reales).
 
 1. Se concede permiso de uso únicamente para EVALUACIÓN interna del
@@ -40,16 +40,16 @@ Inteligentes, con DATOS 100% SINTÉTICOS (sin datos de personas reales).
 3. Las métricas de impacto y de modelo incluidas son ILUSTRATIVAS de la
    metodología; no constituyen resultados medidos ni promesa de resultados.
 4. El software se entrega "TAL CUAL", sin garantías de ningún tipo.
-5. Todos los derechos reservados al titular de Kobra.
+5. Todos los derechos reservados al titular de MV Kobra AI.
 
 (Borrador comercial: revisar con asesoría legal antes de distribuir.)
 """
 
-LICENCIA_PROD = f"""KOBRA IA · CONTRATO DE LICENCIA DE USO (EULA) · v{VERSION}
+LICENCIA_PROD = f"""MV KOBRA AI · CONTRATO DE LICENCIA DE USO (EULA) · v{VERSION}
 ========================================================
 
-1. OBJETO. El titular de Kobra concede al cliente una licencia de uso, no
-   exclusiva e intransferible, del software Kobra IA (Plataforma de Cobranzas
+1. OBJETO. El titular de MV Kobra AI concede al cliente una licencia de uso, no
+   exclusiva e intransferible, del software MV Kobra AI (Plataforma de Cobranzas
    Inteligentes) para uso interno, según la propuesta comercial acordada.
 2. PROPIEDAD. El software, su código, diseño y documentación son propiedad
    del titular. Esta licencia no transfiere titularidad alguna.
@@ -114,35 +114,35 @@ def _sha256(path):
 # Paquete DEMO
 # ---------------------------------------------------------------------------
 def build_demo(tmp):
-    stage = os.path.join(tmp, f"Kobra_Demo_v{VERSION}")
+    stage = os.path.join(tmp, f"MVKobraAI_Demo_v{VERSION}")
     shutil.rmtree(stage, ignore_errors=True)
 
     # Dashboard offline completo (corre con doble clic, sin instalar nada)
     _copy("dashboard_estatico", os.path.join(stage, "dashboard"))
     # Reportes Excel de ejemplo
     _copy("outputs/kobra_scored.xlsx",
-          os.path.join(stage, "reportes_excel", "Kobra_Cartera_Scoreada.xlsx"))
+          os.path.join(stage, "reportes_excel", "MVKobraAI_Cartera_Scoreada.xlsx"))
     _copy("outputs/kobra_analitica_gestion.xlsx",
-          os.path.join(stage, "reportes_excel", "Kobra_Analitica_Gestion.xlsx"))
+          os.path.join(stage, "reportes_excel", "MVKobraAI_Analitica_Gestion.xlsx"))
     # Presentación gerencial
-    _copy("presentation/Kobra_Presentacion_Gerencial.pptx",
-          os.path.join(stage, "presentacion", "Kobra_Presentacion_Gerencial.pptx"))
+    _copy("presentation/MVKobraAI_Presentacion_Gerencial.pptx",
+          os.path.join(stage, "presentacion", "MVKobraAI_Presentacion_Gerencial.pptx"))
     # Capturas del producto completo
     for img in ("dashboard_overview.png", "dashboard_negociador.png",
                 "realtime_copiloto.png", "dashboard_gestores.png"):
         _copy(f"assets/{img}", os.path.join(stage, "capturas", img))
     # Video demo del copiloto en vivo + identidad de marca
-    _copy("assets/video/Kobra_Copiloto_Demo.mp4",
-          os.path.join(stage, "video", "Kobra_Copiloto_Demo.mp4"))
-    _copy("assets/brand/kobra.ico", os.path.join(stage, "kobra.ico"))
-    _copy("assets/brand/kobra_wordmark.png",
-          os.path.join(stage, "kobra_logo.png"))
+    _copy("assets/video/MVKobraAI_Copiloto_Demo.mp4",
+          os.path.join(stage, "video", "MVKobraAI_Copiloto_Demo.mp4"))
+    _copy("assets/brand/mv.ico", os.path.join(stage, "mv.ico"))
+    _copy("assets/brand/mv_wordmark.png",
+          os.path.join(stage, "mv_logo.png"))
 
     # Lanzadores
     _write(os.path.join(stage, "INICIAR_DEMO.bat"),
            "@echo off\r\n"
-           "title Kobra - Demo\r\n"
-           "echo Abriendo la demo de Kobra en su navegador...\r\n"
+           "title MV Kobra AI - Demo\r\n"
+           "echo Abriendo la demo de MV Kobra AI en su navegador...\r\n"
            "start \"\" \"%~dp0dashboard\\index.html\"\r\n"
            "exit\r\n")
     _write(os.path.join(stage, "iniciar_demo.sh"),
@@ -152,10 +152,10 @@ def build_demo(tmp):
     # autorun.inf: solo surte efecto en CD/DVD (Windows lo bloquea en USB/carpetas
     # por seguridad desde Win7); se incluye por compatibilidad con medios ópticos.
     _write(os.path.join(stage, "autorun.inf"),
-           "[autorun]\r\nopen=INICIAR_DEMO.bat\r\nicon=kobra.ico\r\n"
-           "label=Kobra IA Demo\r\n")
+           "[autorun]\r\nopen=INICIAR_DEMO.bat\r\nicon=mv.ico\r\n"
+           "label=MV Kobra AI Demo\r\n")
 
-    _write(os.path.join(stage, "LEEME.txt"), crlf=True, content=f"""KOBRA IA · DEMO v{VERSION}
+    _write(os.path.join(stage, "LEEME.txt"), crlf=True, content=f"""MV KOBRA AI · DEMO v{VERSION}
 Plataforma de Cobranzas Inteligentes
 =====================================
 
@@ -176,7 +176,7 @@ QUÉ INCLUYE
   presentacion/     Presentación gerencial (PPTX).
   capturas/         Vistas del producto completo (copiloto de voz en vivo,
                     analítica de gestores, integración telefónica).
-  kobra_logo.png / kobra.ico   Identidad de marca.
+  mv_logo.png / mv.ico   Identidad de marca.
 
 IMPORTANTE — HONESTIDAD DE LOS DATOS
   Esta demo usa datos 100% SINTÉTICOS (sin personas reales). Las métricas de
@@ -187,17 +187,17 @@ VERSIÓN COMPLETA
   La versión de producción agrega: modelo ProbPago entrenable con su cartera,
   copiloto de voz EN VIVO (transcripción + emoción de voz), integración con
   su central telefónica (Avaya, Genesys, Twilio…), analítica por gestor/mes
-  y despliegue con Docker. Solicite el paquete "Kobra Producción".
+  y despliegue con Docker. Solicite el paquete "MV Kobra AI Producción".
 
 Licencia de evaluación: ver LICENCIA.txt
 """)
     _write(os.path.join(stage, "LICENCIA.txt"), LICENCIA_DEMO, crlf=True)
     _write(os.path.join(stage, "VERSION.txt"),
-           f"Kobra IA Demo v{VERSION}\nDatos sintéticos · sin información personal real\n",
+           f"MV Kobra AI Demo v{VERSION}\nDatos sintéticos · sin información personal real\n",
            crlf=True)
 
     os.chmod(os.path.join(stage, "iniciar_demo.sh"), 0o755)
-    return _zipdir(stage, os.path.join(DIST, f"Kobra_Demo_v{VERSION}.zip"))
+    return _zipdir(stage, os.path.join(DIST, f"MVKobraAI_Demo_v{VERSION}.zip"))
 
 
 # ---------------------------------------------------------------------------
@@ -215,23 +215,23 @@ PROD_ITEMS = [
 
 
 def build_prod(tmp):
-    stage = os.path.join(tmp, f"Kobra_Produccion_v{VERSION}")
+    stage = os.path.join(tmp, f"MVKobraAI_Produccion_v{VERSION}")
     shutil.rmtree(stage, ignore_errors=True)
 
     for item in PROD_ITEMS:
         _copy(item, os.path.join(stage, "kobra_software", item))
     # Presentación lista para usar
-    _copy("presentation/Kobra_Presentacion_Gerencial.pptx",
-          os.path.join(stage, "presentacion", "Kobra_Presentacion_Gerencial.pptx"))
+    _copy("presentation/MVKobraAI_Presentacion_Gerencial.pptx",
+          os.path.join(stage, "presentacion", "MVKobraAI_Presentacion_Gerencial.pptx"))
 
     # Lanzador Windows: Docker si existe; si no, Python local
     _write(os.path.join(stage, "INSTALAR_Y_EJECUTAR.bat"),
            "@echo off\r\n"
-           "title Kobra - Instalador\r\n"
+           "title MV Kobra AI - Instalador\r\n"
            "cd /d \"%~dp0kobra_software\"\r\n"
            "where docker >nul 2>nul\r\n"
            "if %errorlevel%==0 (\r\n"
-           "  echo [Kobra] Docker detectado. Levantando dashboard y servicio de audio...\r\n"
+           "  echo [MV Kobra AI] Docker detectado. Levantando dashboard y servicio de audio...\r\n"
            "  docker compose up --build -d\r\n"
            "  echo.\r\n"
            "  echo   Dashboard:  http://localhost:8501\r\n"
@@ -242,7 +242,7 @@ def build_prod(tmp):
            ")\r\n"
            "where python >nul 2>nul\r\n"
            "if %errorlevel%==0 (\r\n"
-           "  echo [Kobra] Docker no encontrado. Instalando con Python local...\r\n"
+           "  echo [MV Kobra AI] Docker no encontrado. Instalando con Python local...\r\n"
            "  python -m pip install -r requirements.txt\r\n"
            "  python data\\generate_dataset.py --n 12000 --seed 42\r\n"
            "  python -m kobra.pipeline\r\n"
@@ -250,26 +250,26 @@ def build_prod(tmp):
            "  python -m streamlit run app\\app.py\r\n"
            "  exit /b\r\n"
            ")\r\n"
-           "echo [Kobra] Instale Docker Desktop (recomendado) o Python 3.11+ y reintente.\r\n"
+           "echo [MV Kobra AI] Instale Docker Desktop (recomendado) o Python 3.11+ y reintente.\r\n"
            "pause\r\n")
     _write(os.path.join(stage, "instalar_y_ejecutar.sh"),
            "#!/usr/bin/env bash\n"
            "set -e\n"
            "cd \"$(dirname \"$0\")/kobra_software\"\n"
            "if command -v docker >/dev/null 2>&1; then\n"
-           "  echo '[Kobra] Docker detectado. Levantando servicios...'\n"
+           "  echo '[MV Kobra AI] Docker detectado. Levantando servicios...'\n"
            "  docker compose up --build -d\n"
            "  echo '  Dashboard:  http://localhost:8501'\n"
            "  echo '  Realtime :  http://localhost:8000'\n"
            "else\n"
-           "  echo '[Kobra] Docker no encontrado. Instalación con Python local...'\n"
+           "  echo '[MV Kobra AI] Docker no encontrado. Instalación con Python local...'\n"
            "  pip3 install -r requirements.txt\n"
            "  python3 data/generate_dataset.py --n 12000 --seed 42\n"
            "  python3 -m kobra.pipeline\n"
            "  streamlit run app/app.py\n"
            "fi\n")
 
-    _write(os.path.join(stage, "LEEME_PRIMERO.txt"), crlf=True, content=f"""KOBRA IA · PRODUCCIÓN v{VERSION}
+    _write(os.path.join(stage, "LEEME_PRIMERO.txt"), crlf=True, content=f"""MV KOBRA AI · PRODUCCIÓN v{VERSION}
 Plataforma de Cobranzas Inteligentes
 =====================================
 
@@ -305,7 +305,7 @@ Licencia de uso: ver LICENCIA.txt
 """)
     _write(os.path.join(stage, "LICENCIA.txt"), LICENCIA_PROD, crlf=True)
     _write(os.path.join(stage, "VERSION.txt"),
-           f"Kobra IA Producción v{VERSION}\n", crlf=True)
+           f"MV Kobra AI Producción v{VERSION}\n", crlf=True)
 
     os.chmod(os.path.join(stage, "instalar_y_ejecutar.sh"), 0o755)
     sh = os.path.join(stage, "kobra_software", "run.sh")
@@ -314,7 +314,7 @@ Licencia de uso: ver LICENCIA.txt
     ep = os.path.join(stage, "kobra_software", "docker-entrypoint.sh")
     if os.path.exists(ep):
         os.chmod(ep, 0o755)
-    return _zipdir(stage, os.path.join(DIST, f"Kobra_Produccion_v{VERSION}.zip"))
+    return _zipdir(stage, os.path.join(DIST, f"MVKobraAI_Produccion_v{VERSION}.zip"))
 
 
 def main():

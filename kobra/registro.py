@@ -1,5 +1,5 @@
 """
-Kobra · Briefing pre-llamada y registro post-llamada
+MV Kobra AI · Briefing pre-llamada y registro post-llamada
 ====================================================
 Cierra el ciclo de la negociación con la central telefónica:
 

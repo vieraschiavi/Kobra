@@ -1,4 +1,4 @@
-# Kobra IA — Whitepaper de seguridad (borrador)
+# MV Kobra AI — Whitepaper de seguridad (borrador)
 
 > **Este documento es un borrador de referencia**, pensado para responder el
 > cuestionario de seguridad que pide el área de compras/InfoSec de un banco,
@@ -12,22 +12,22 @@
 
 ---
 
-## 1. Qué es Kobra y cómo se despliega
+## 1. Qué es MV Kobra AI y cómo se despliega
 
-Kobra IA es un sistema de cobranzas inteligentes con dos superficies:
+MV Kobra AI es un sistema de cobranzas inteligentes con dos superficies:
 
 1. **Dashboard operativo** (`app/app.py`, Streamlit): corre **local**, en la
    máquina del cliente o en un servidor propio del cliente — no es un SaaS
    multi-tenant hosteado por nosotros. El cliente controla dónde vive el
    dato en todo momento.
-2. **Landing + demo pública** (`kobra-ia.vercel.app`): sitio de marketing y
+2. **Landing + demo pública** (`mvkobranzaia.com`): sitio de marketing y
    demo con **datos 100% sintéticos** — nunca procesa datos reales de
    deudores de ningún cliente.
 3. **Backend de licencias/gateway** (`backend_venta/`, opcional): solo se usa
    si el cliente elige la modalidad "Edición Venta" con APIs medidas en vez
    de traer sus propias claves (BYOK). Ver sección 6.
 
-## 2. Datos que procesa Kobra
+## 2. Datos que procesa MV Kobra AI
 
 - **Cartera de deudores**: identificador, segmento, producto, tramo de mora,
   monto de deuda, departamento. En la instalación estándar, estos datos
@@ -40,6 +40,14 @@ Kobra IA es un sistema de cobranzas inteligentes con dos superficies:
 - **Ninguna base de datos con nombres/teléfonos reales viaja en este
   repositorio.** El dataset de demostración es 100% sintético (ver
   "Honestidad de los números" en `README.md`).
+- **Consultas en lenguaje natural sobre la base del cliente** (`kobra/consulta_bd.py`,
+  opcional): si el cliente conecta su propia base de datos para preguntarle en
+  español, a la API de Claude **solo le llega el esquema** (nombres de tabla/
+  columna/tipo y unas pocas muestras de valores de texto para dar contexto de
+  dominio) — **nunca los datos reales de las filas**. La conexión es de solo
+  lectura a nivel de aplicación: el validador bloquea cualquier SQL que no sea
+  `SELECT`/`WITH` antes de ejecutarlo. La URL de conexión nunca se loguea
+  completa (solo el host, igual que en `kobra/integracion.py`).
 
 ## 3. Autenticación y control de acceso
 
@@ -120,7 +128,7 @@ Solo aplica si el cliente elige la modalidad de APIs medidas en vez de BYOK:
   respeta automáticamente en llamadas y WhatsApp.
 - Esto es una **herramienta de apoyo al cumplimiento, no asesoría legal** —
   cada empresa fija su política según su marco regulatorio y su asesoría
-  jurídica; Kobra provee el mecanismo para hacerla cumplir.
+  jurídica; MV Kobra AI provee el mecanismo para hacerla cumplir.
 
 ## 9. Qué NO incluye hoy (declarado explícitamente)
 
@@ -162,4 +170,4 @@ Para que la evaluación de compras no dependa de asumir nada:
 
 Para preguntas de seguridad específicas de tu evaluación, o para acordar
 controles adicionales (VPC dedicada, revisión de código, pentest previo a
-la firma), contactar directamente al equipo de Kobra IA.
+la firma), contactar directamente al equipo de MV Kobra AI.

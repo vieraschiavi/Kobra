@@ -1,5 +1,5 @@
 """
-Kobra · Análisis de voz (diarización + emoción acústica)
+MV Kobra AI · Análisis de voz (diarización + emoción acústica)
 ========================================================
 Complementa al Copiloto con la señal de VOZ de la llamada:
 

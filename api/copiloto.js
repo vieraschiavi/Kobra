@@ -43,9 +43,9 @@ async function notifyOwner(limit) {
       method: "POST",
       headers: { Authorization: "Bearer " + process.env.RESEND_API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: "Kobra IA <onboarding@resend.dev>",
+        from: "MV Kobra AI <onboarding@resend.dev>",
         to: ["vieraschiavi@gmail.com"],
-        subject: "Kobra: se agotaron las " + limit + " demos de IA en vivo",
+        subject: "MV Kobra AI: se agotaron las " + limit + " demos de IA en vivo",
         text: "La demo de IA en vivo llegó al tope de " + limit + " análisis. " +
               "Cuando quieras ampliar, subí 'ai_limit' en el Edge Config (o pedímelo).",
       }),

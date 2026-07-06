@@ -1,5 +1,5 @@
 """
-Kobra IA · Dashboard Gerencial de Cobranzas Inteligentes
+MV Kobra AI · Dashboard Gerencial de Cobranzas Inteligentes
 ====================================================
 App Streamlit end-to-end: ProbPago + Agente IA Negociador sobre una cartera
 de cobranzas. Filtros, KPIs, gráficos, tablas y exportación a Excel/CSV.
@@ -30,21 +30,22 @@ from kobra import config as kconfig           # noqa: E402
 from kobra import roi as kroi                 # noqa: E402
 from kobra import integracion as kerp         # noqa: E402
 from kobra import auditoria as kauditoria     # noqa: E402
+from kobra import consulta_bd as kconsulta    # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
 # ----------------------------------------------------------------------------
 # Config & estilo
 # ----------------------------------------------------------------------------
-_ICON_PATH = os.path.join(ROOT, "assets", "brand", "kobra_icon_64.png")
+_ICON_PATH = os.path.join(ROOT, "assets", "brand", "mv_icon_64.png")
 # Ícono a nivel PC (ventana/pestaña del navegador): logo MV.
 _PC_ICON = os.path.join(ROOT, "assets", "brand", "mv_icon_64.png")
-st.set_page_config(page_title="Kobra IA · Cobranzas Inteligentes",
+st.set_page_config(page_title="MV Kobra AI · Cobranzas Inteligentes",
                    page_icon=_PC_ICON if os.path.exists(_PC_ICON)
                    else (_ICON_PATH if os.path.exists(_ICON_PATH) else "🐍"),
                    layout="wide", initial_sidebar_state="expanded")
 
-PRIMARY = "#00C896"       # verde Kobra IA
+PRIMARY = "#00C896"       # verde MV Kobra AI
 DARK = "#0E1117"
 ACCENT = "#6C5CE7"
 YELLOW = "#FDCB6E"
@@ -159,7 +160,7 @@ with c1:
             _logo_html = (f"<img src='data:image/png;base64,"
                           f"{_b64.b64encode(_f.read()).decode()}' "
                           f"style='height:52px;vertical-align:-12px;margin-right:10px;'>")
-    st.markdown(f"# {_logo_html}Kobra IA <span class='kobra-badge'>Cobranzas Inteligentes</span>",
+    st.markdown(f"# {_logo_html}MV Kobra AI <span class='kobra-badge'>Cobranzas Inteligentes</span>",
                 unsafe_allow_html=True)
     st.caption("ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero")
 with c2:
@@ -231,10 +232,11 @@ st.markdown("---")
 # ----------------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------------
-tabH, tab1, tab2, tab3, tab4, tab5, tab6, tab8, tab9, tabERP, tab7 = st.tabs(
+tabH, tab1, tab2, tab3, tab4, tab5, tab6, tab8, tab9, tabERP, tabNL2SQL, tab7 = st.tabs(
     ["❓ Guía & Ayuda", "📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
      "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo", "📇 Gestores & Evolución",
-     "🧪 Probar mi cartera", "💰 Caso de negocio", "🔌 Integración ERP", "⚙️ Configuración"])
+     "🧪 Probar mi cartera", "💰 Caso de negocio", "🔌 Integración ERP",
+     "🔎 Preguntá a tu base de datos", "⚙️ Configuración"])
 
 # ---- Tab Ayuda: guía paso a paso -------------------------------------------
 with tabH:
@@ -245,7 +247,7 @@ with tabH:
         return f"<div style='margin:3px 0'><span class='kh-key'>{clave}</span> — {etiqueta} · {marca}</div>"
 
     st.markdown(
-        "<div class='kh-hero'><h2>👋 Bienvenido a Kobra IA</h2>"
+        "<div class='kh-hero'><h2>👋 Bienvenido a MV Kobra AI</h2>"
         "<p>Plataforma de cobranzas inteligentes: prioriza tu cartera, negocia con IA "
         "(voz o WhatsApp), asesora en vivo y mide resultados. Esta guía te lleva paso a "
         "paso; no necesitás saber de programación.</p></div>", unsafe_allow_html=True)
@@ -295,7 +297,7 @@ with tabH:
             + _chip("TWILIO_AUTH_TOKEN", "Llamadas reales — Auth Token")
             + _chip("TWILIO_FROM", "Llamadas reales — tu número Twilio")
             + "<p style='margin-top:10px'>Se cargan y guardan en la pestaña "
-              "<b>⚙️ Configuración</b>. Kobra IA funciona igual sin claves (con menos "
+              "<b>⚙️ Configuración</b>. MV Kobra AI funciona igual sin claves (con menos "
               "extras). Se guardan cifradas/con permisos restringidos, fuera del repo.</p>"
             "</div>", unsafe_allow_html=True)
     with cb:
@@ -313,11 +315,11 @@ with tabH:
             "4. Poné el servidor de voz accesible (ngrok) y abrí `…/llamar`.\n"
             "5. Ingresá el teléfono y el monto → **📞 Llamar ahora**. El bot negocia y registra la gestión.\n\n"
             "⚠️ Necesitás el **consentimiento** de la persona. Empezá probando con tu propio celular.")
-    with st.expander("⚖️ Registrar Kobra IA legalmente en Uruguay (para que no te la copien)"):
+    with st.expander("⚖️ Registrar MV Kobra AI legalmente en Uruguay (para que no te la copien)"):
         st.markdown(
             "- El **código ya es tuyo** por derecho de autor automático (Ley 9.739/17.616).\n"
             "- Registralo barato en la **Biblioteca Nacional** (~USD 20–60) para tener fecha cierta.\n"
-            "- Registrá la **marca “Kobra IA”** en la **DNPI** (~USD 200–500 por 10 años) al salir a vender.\n"
+            "- Registrá la **marca “MV Kobra AI”** en la **DNPI** (~USD 200–500 por 10 años) al salir a vender.\n"
             "- La **idea** no se registra; te protegés con código + marca + contratos/NDAs.\n\n"
             "Guía completa: **docs/GUIA_REGISTRO_LEGAL_URUGUAY.md**.")
 
@@ -332,12 +334,12 @@ with tabH:
     _ct_tel = _cc3.text_input("Teléfono de contacto", key="ct_tel")
     _ct_asu = st.text_input("Asunto", key="ct_asu")
     _ct_pre = st.text_area("Consulta / pregunta", key="ct_pre", height=120)
-    _ct_subject = "[Kobra IA] " + (_ct_asu.strip() or "Consulta")
+    _ct_subject = "[MV Kobra AI] " + (_ct_asu.strip() or "Consulta")
     _ct_body = (_ct_pre.strip() + "\n\n----------------------------\nDatos de contacto\n"
                 + "Nombre: " + (_ct_nom.strip() or "-") + "\n"
                 + "Email: " + (_ct_mail.strip() or "-") + "\n"
                 + "Teléfono: " + (_ct_tel.strip() or "-") + "\n"
-                + "Enviado desde: app Kobra IA")
+                + "Enviado desde: app MV Kobra AI")
     _ct_mailto = ("mailto:vieraschiavi@gmail.com?subject="
                   + _urlparse.quote(_ct_subject) + "&body=" + _urlparse.quote(_ct_body))
     st.link_button("✉️ Enviar consulta por email", _ct_mailto, use_container_width=True)
@@ -743,9 +745,9 @@ with tab5:
 with tab6:
     st.subheader("📇 Gestores & Evolución de la gestión")
     st.caption("Qué características suceden más por tramo/segmento, cómo evolucionan mes a mes, "
-               "su impacto en la cobranza y si los gestores mejoran con las herramientas de Kobra IA.")
+               "su impacto en la cobranza y si los gestores mejoran con las herramientas de MV Kobra AI.")
     st.warning("⚠️ **Datos ilustrativos (demo).** El historial de gestiones es sintético y el "
-               "\"efecto Kobra IA\" está inyectado por el generador para demostrar la **metodología "
+               "\"efecto MV Kobra AI\" está inyectado por el generador para demostrar la **metodología "
                "de medición** (grupo con vs. sin herramienta, evolución por cohorte). Los uplifts "
                "que ves acá **no son resultados medidos**. Con el registro post-llamada, esta "
                "misma pestaña se alimenta de llamadas reales y los números pasan a ser evidencia.")
@@ -774,12 +776,12 @@ with tab6:
     if gf.empty:
         st.warning("No hay gestiones para los filtros seleccionados.")
     else:
-        # --- Impacto Kobra IA (KPIs) ---
+        # --- Impacto MV Kobra AI (KPIs) ---
         ik = analitica.impacto_kobra(gf)
-        st.markdown("#### 🚀 Impacto de las herramientas Kobra IA *(ilustrativo · datos sintéticos)*")
+        st.markdown("#### 🚀 Impacto de las herramientas MV Kobra AI *(ilustrativo · datos sintéticos)*")
         ck = st.columns(4)
         ck[0].metric("Calidad de gestión", f"{ik['con_kobra']['calidad_prom']:.0f}",
-                     f"+{ik['uplift_calidad']:.1f} vs sin Kobra IA")
+                     f"+{ik['uplift_calidad']:.1f} vs sin MV Kobra AI")
         ck[1].metric("Tasa de conversión", f"{ik['con_kobra']['tasa_conversion']:.0%}",
                      f"+{ik['uplift_conversion']*100:.1f} pp")
         ck[2].metric("Tasa de recupero", f"{ik['con_kobra']['tasa_recupero']:.0%}",
@@ -807,8 +809,8 @@ with tab6:
         with e2:
             fig = px.line(ev_kobra, x="mes", y="calidad_prom", color="usa_kobra",
                           markers=True, color_discrete_map={True: PRIMARY, False: "#FF7675"},
-                          title="Calidad: con Kobra IA vs. sin Kobra IA",
-                          labels={"usa_kobra": "Usa Kobra IA"})
+                          title="Calidad: con MV Kobra AI vs. sin MV Kobra AI",
+                          labels={"usa_kobra": "Usa MV Kobra AI"})
             fig.update_layout(template="plotly_dark", height=340,
                               legend=dict(orientation="h", y=1.15))
             st.plotly_chart(fig, use_container_width=True)
@@ -859,7 +861,7 @@ with tab6:
             st.metric("Correlación calidad ↔ conversión",
                       f"{ic.attrs['correlacion_calidad_conversion']:.2f}")
             st.info("La calidad de gestión (medida por el Copiloto) se traduce en "
-                    "más conversión y más recupero. Kobra IA la mejora sistemáticamente.")
+                    "más conversión y más recupero. MV Kobra AI la mejora sistemáticamente.")
 
         # --- Gestor IA vs. humanos ---
         comp = analitica.comparativa_ia(gf)
@@ -913,7 +915,7 @@ with tab6:
                     "recupero": st.column_config.NumberColumn("Recupero (UYU)", format="%.0f"),
                     "tasa_conversion": st.column_config.NumberColumn("Conversión", format="%.0f%%"),
                     "calidad_prom": st.column_config.NumberColumn("Calidad", format="%.0f"),
-                    "usa_kobra": st.column_config.CheckboxColumn("Kobra IA"),
+                    "usa_kobra": st.column_config.CheckboxColumn("MV Kobra AI"),
                 })
         with r2:
             mej = analitica.mejora_por_gestor(gf)
@@ -921,7 +923,7 @@ with tab6:
                 fig = px.bar(mej, x="delta_calidad", y="gestor", orientation="h",
                              color="usa_kobra", color_discrete_map={True: PRIMARY, False: "#FF7675"},
                              title="Mejora de calidad (últimos 3m vs. primeros 3m)",
-                             labels={"delta_calidad": "Δ calidad", "usa_kobra": "Usa Kobra IA"})
+                             labels={"delta_calidad": "Δ calidad", "usa_kobra": "Usa MV Kobra AI"})
                 fig.update_layout(template="plotly_dark", height=330,
                                   yaxis=dict(autorange="reversed"),
                                   legend=dict(orientation="h", y=1.15))
@@ -1008,6 +1010,125 @@ with tabERP:
             "y se cargan solas. Motores soportados: PostgreSQL, MySQL/MariaDB, SQL Server, "
             "Oracle, SQLite y cualquiera compatible con SQLAlchemy (instalá su driver).", icon="🔌")
 
+# ---- Tab NL2SQL: preguntá a tu base de datos en lenguaje natural -----------
+with tabNL2SQL:
+    st.subheader("🔎 Preguntá a tu base de datos")
+    st.caption("Se conecta a la base del cliente (la misma URL de la pestaña Integración ERP, "
+               "o una distinta), extrae el esquema completo **una sola vez** —tablas, columnas, "
+               "PKs, FKs y relaciones inferidas— y responde preguntas en español devolviendo el "
+               "SQL usado, validado contra ese esquema, más la tabla y un gráfico automático. "
+               "**Solo lectura**: nunca ejecuta INSERT/UPDATE/DELETE/DROP, y a la IA solo le "
+               "llega el esquema (nombres de tabla/columna), nunca los datos reales de las filas.")
+
+    _cfg_nl = kconfig.cargar()
+    nl_url = st.text_input("URL de conexión", value=_cfg_nl.get("CONSULTA_DB_URL",
+                                                                _cfg_nl.get("ERP_DB_URL", "")),
+                           placeholder="postgresql://user:pass@host:5432/db", key="nl_db_url")
+    c_nl1, c_nl2 = st.columns([1, 3])
+    conectar_click = c_nl1.button("🔗 Conectar / actualizar esquema", use_container_width=True)
+
+    if conectar_click:
+        if nl_url.strip():
+            kconfig.guardar({"CONSULTA_DB_URL": nl_url.strip()})
+            st.cache_resource.clear()
+        else:
+            st.error("Falta la URL de conexión.")
+
+    @st.cache_resource(show_spinner="Conectando y extrayendo el esquema…")
+    def _cargar_motor_consulta(url):
+        return kconsulta.MotorConsultaBD(url)
+
+    motor_nl = None
+    if nl_url.strip():
+        try:
+            motor_nl = _cargar_motor_consulta(nl_url.strip())
+        except Exception as e:
+            st.error(f"⛔ No se pudo conectar o leer el esquema: {e}")
+
+    if motor_nl:
+        n_tablas = len(motor_nl.catalogo["tablas"])
+        n_vistas = len(motor_nl.catalogo.get("vistas", {}))
+        n_fks = len(motor_nl.catalogo["fks"])
+        c = st.columns(3)
+        c[0].metric("Tablas", n_tablas)
+        c[1].metric("Vistas", n_vistas)
+        c[2].metric("Relaciones (FK)", n_fks)
+        with st.expander("Ver esquema detectado"):
+            for t, info in motor_nl.catalogo["tablas"].items():
+                n = info.get("n_filas")
+                st.markdown(f"**{t}** ({n:,} filas)" if n is not None else f"**{t}**")
+                st.caption(", ".join(c["columna"] for c in info["columnas"]))
+
+        k_tablas = st.slider("Tablas a recuperar (RAG)", 2, 8, 4,
+                             help="Cuántas tablas del esquema se le pasan a Claude como contexto")
+        pregunta_nl = st.text_input(
+            "Tu pregunta:", placeholder="Ej: ¿cuánto cobramos en marzo 2026 por departamento?",
+            key="nl_pregunta")
+        if st.button("▶️ Consultar", type="primary", key="nl_consultar") and pregunta_nl.strip():
+            api_key_claude = kconfig.cargar().get("ANTHROPIC_API_KEY", "")
+            if not api_key_claude:
+                st.error("Falta configurar ANTHROPIC_API_KEY en la pestaña Configuración.")
+            else:
+                with st.spinner("Recuperando tablas relevantes y generando SQL…"):
+                    r = motor_nl.responder(pregunta_nl.strip(), api_key=api_key_claude, k=k_tablas)
+
+                st.markdown("##### 🎯 Tablas recuperadas (RAG)")
+                st.write(" · ".join(f"`{t}`" for t in r["tablas_recuperadas"]) or "—")
+
+                if r["sql"]:
+                    st.markdown("##### 🧾 SQL generado")
+                    st.code(r["sql"], language="sql")
+
+                if r["valido"]:
+                    st.success("✓ SQL validado contra el esquema (sin nombres inventados)")
+                elif r["sql"]:
+                    st.error("✗ La validación encontró problemas:")
+                    for p in r["problemas"]:
+                        st.write(f"  - {p}")
+                if r["problemas"] and r["valido"]:
+                    with st.expander("⚠️ Advertencias menores"):
+                        for p in r["problemas"]:
+                            st.write(f"  - {p}")
+
+                if r["error"]:
+                    st.error(f"Error: {r['error']}")
+
+                df_nl = motor_nl.resultado_a_dataframe(r)
+                if df_nl is not None:
+                    st.markdown("##### 📊 Resultado")
+                    m = st.columns(3)
+                    m[0].metric("Filas", f"{len(df_nl):,}")
+                    m[1].metric("Columnas", len(df_nl.columns))
+                    cols_num = df_nl.select_dtypes(include="number").columns.tolist()
+                    if cols_num:
+                        m[2].metric(f"Σ {cols_num[0]}", f"{df_nl[cols_num[0]].sum():,.0f}")
+
+                    t_tabla, t_graf = st.tabs(["📋 Tabla", "📈 Gráfico"])
+                    with t_tabla:
+                        st.dataframe(df_nl, use_container_width=True, height=380)
+                        st.download_button("⬇️ Descargar CSV", df_nl.to_csv(index=False).encode("utf-8"),
+                                           file_name="consulta_resultado.csv", mime="text/csv")
+                    with t_graf:
+                        cols_cat = [c for c in df_nl.columns if c not in cols_num]
+                        fig_nl = None
+                        try:
+                            if not df_nl.empty and len(df_nl) <= 200:
+                                if cols_cat and cols_num:
+                                    d = df_nl.sort_values(cols_num[0], ascending=False).head(30)
+                                    fig_nl = px.bar(d, x=cols_cat[0], y=cols_num[0],
+                                                    title=f"{cols_num[0]} por {cols_cat[0]}")
+                                elif len(cols_num) >= 2:
+                                    fig_nl = px.scatter(df_nl, x=cols_num[0], y=cols_num[1])
+                        except Exception:
+                            fig_nl = None
+                        if fig_nl:
+                            st.plotly_chart(fig_nl, use_container_width=True)
+                        else:
+                            st.info("No se pudo armar un gráfico automático para esta forma de datos.")
+    else:
+        st.info("Pegá la URL de conexión de la base del cliente y hacé click en "
+                "«Conectar / actualizar esquema» para empezar.", icon="🔎")
+
 # ---- Tab 7: Configuración (API keys persistentes) — solo admin ------------
 with tab7:
     if ROL_ACTIVO != "admin":
@@ -1017,7 +1138,7 @@ with tab7:
         st.subheader("⚙️ Configuración de API keys")
         st.caption("Ingresá las keys una sola vez: quedan **guardadas** y se cargan solas en "
                    "cada arranque. Habilitan la transcripción real (Whisper) y la evaluación "
-                   "con Claude. El resto de Kobra IA funciona sin keys.")
+                   "con Claude. El resto de MV Kobra AI funciona sin keys.")
 
         with st.form("form_config"):
             nuevos = {}
@@ -1196,7 +1317,7 @@ with tab7:
 
 # ---- Tab 8: Probar mi cartera ----------------------------------------------
 with tab8:
-    st.subheader("🧪 Probá Kobra IA con tu propia cartera")
+    st.subheader("🧪 Probá MV Kobra AI con tu propia cartera")
     st.caption("Cargá tus contactos y el **Gestor IA** negocia cada caso: ProbPago + "
                "el porqué, estrategia, chequeo de cumplimiento y la conversación completa. "
                "Después descargás los resultados.")
@@ -1293,11 +1414,11 @@ with tab8:
 # ---- Tab 9: Caso de negocio (ROI) ------------------------------------------
 with tab9:
     st.subheader("💰 Caso de negocio (estimador de ROI)")
-    st.caption("Dimensioná el valor de Kobra IA sobre TU cartera bajo distintos supuestos "
+    st.caption("Dimensioná el valor de MV Kobra AI sobre TU cartera bajo distintos supuestos "
                "de mejora. Sirve para justificar un piloto pago.")
     st.warning("⚠️ El *uplift* (cuánto sube el recupero) es un **supuesto que cargás vos, "
                "no un resultado medido**. Esto proyecta *cuánto valdría*, no afirma cuánto "
-               "sube Kobra IA. El número real se mide en un piloto con grupo de control.")
+               "sube MV Kobra AI. El número real se mide en un piloto con grupo de control.")
 
     cA, cB, cC = st.columns(3)
     cartera = cA.number_input("Cartera gestionable (UYU)", min_value=0.0,
@@ -1306,7 +1427,7 @@ with tab9:
                                 max_value=100.0, value=30.0, step=1.0) / 100
     meses = cC.number_input("Horizonte (meses)", min_value=1, value=12, step=1)
     cD, cE, cF = st.columns(3)
-    costo_mes = cD.number_input("Costo mensual de Kobra IA (UYU)", min_value=0.0,
+    costo_mes = cD.number_input("Costo mensual de MV Kobra AI (UYU)", min_value=0.0,
                                 value=100_000.0, step=10_000.0, format="%.0f")
     costo_setup = cE.number_input("Setup / implementación (UYU)", min_value=0.0,
                                   value=300_000.0, step=50_000.0, format="%.0f")
@@ -1348,6 +1469,6 @@ if os.path.exists(_MV_PATH):
         f"vertical-align:middle'>"
         f"<b style='color:#dfe6f0;letter-spacing:.5px'>MV</b></div>",
         unsafe_allow_html=True)
-st.caption("Kobra IA · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). "
+st.caption("MV Kobra AI · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). "
            "Sin nombres de clientes. Reemplazable por la cartera real de cualquier empresa. "
            "Un producto de MV.")

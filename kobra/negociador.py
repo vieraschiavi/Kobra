@@ -1,5 +1,5 @@
 """
-Kobra · Agente IA Negociador
+MV Kobra AI · Agente IA Negociador
 ============================
 Motor de decisión que, combinando ProbPago + tramo de mora + monto + canal,
 recomienda para cada deudor:

@@ -1,5 +1,5 @@
 """
-Kobra · Tokens de descarga de un solo uso (Edición Venta)
+MV Kobra AI · Tokens de descarga de un solo uso (Edición Venta)
 ============================================================
 Implementación real de la sección 4 de `docs/BACKEND_VENTA.md`: al
 confirmarse el pago se crea un token de descarga corto y de un solo uso,

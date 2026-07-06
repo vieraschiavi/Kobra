@@ -1,5 +1,5 @@
 """
-Kobra · Simulador de streaming en vivo
+MV Kobra AI · Simulador de streaming en vivo
 ======================================
 Simula una central telefónica enviando el audio de la llamada en streaming al
 endpoint /ws_audio, turno a turno (con el audio real de cada canal), y muestra

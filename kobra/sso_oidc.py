@@ -1,5 +1,5 @@
 """
-Kobra · Single Sign-On corporativo (OpenID Connect)
+MV Kobra AI · Single Sign-On corporativo (OpenID Connect)
 =====================================================
 Login federado **genérico**, compatible con cualquier proveedor de identidad
 que hable OIDC estándar — Microsoft Entra ID / Azure AD, Okta, Google
@@ -12,7 +12,7 @@ Flujo (Authorization Code, el estándar para apps que no son SPA):
   1. El botón "Iniciar sesión con SSO" arma la URL de autorización del
      proveedor (con un `state` aleatorio guardado en la sesión, para evitar
      CSRF) y redirige al navegador ahí.
-  2. El usuario se autentica en SU proveedor de identidad (Kobra nunca ve
+  2. El usuario se autentica en SU proveedor de identidad (MV Kobra AI nunca ve
      su contraseña corporativa).
   3. El proveedor redirige de vuelta a la propia URL del dashboard con
      `?code=...&state=...` — Streamlit lo recibe como query params.

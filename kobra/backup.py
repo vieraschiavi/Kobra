@@ -1,5 +1,5 @@
 """
-Kobra · Backup y restauración de datos locales
+MV Kobra AI · Backup y restauración de datos locales
 =================================================
 El dashboard corre local — no hay backup automático "de nuestro lado"
 porque los datos viven en la máquina/servidor del cliente (ver
@@ -161,7 +161,7 @@ def restaurar_backup(ruta_zip: str, destino_root: str | None = None) -> dict:
 
 def _cli():
     import argparse
-    p = argparse.ArgumentParser(description="Backup/restauración de datos locales de Kobra")
+    p = argparse.ArgumentParser(description="Backup/restauración de datos locales de MV Kobra AI")
     sub = p.add_subparsers(dest="accion", required=True)
 
     p_crear = sub.add_parser("crear")

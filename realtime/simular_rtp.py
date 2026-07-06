@@ -1,12 +1,12 @@
 """
-Kobra IA · Simulador de central Avaya (emisor RTP)
+MV Kobra AI · Simulador de central Avaya (emisor RTP)
 ==================================================
 Hace de central telefónica: toma la grabación demo dual-channel y la emite
 como **RTP G.711** (μ-law o A-law) hacia el conector Avaya, tal como lo haría
 un SBC con SIPREC — paquetes de 20 ms, seq/timestamp reales, una pata por
 puerto. Sirve para probar el puente completo sin una Avaya física:
 
-    central (este simulador) ──RTP──► conector_avaya ──WS──► Kobra IA
+    central (este simulador) ──RTP──► conector_avaya ──WS──► MV Kobra AI
 
 Uso (con server y conector corriendo):
     python -m realtime.simular_rtp [--codec ulaw|alaw] [--speed 2.0]

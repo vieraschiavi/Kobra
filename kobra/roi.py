@@ -1,12 +1,12 @@
 """
-Kobra IA · Caso de negocio (estimador de ROI)
+MV Kobra AI · Caso de negocio (estimador de ROI)
 =============================================
 Traduce la cartera del comprador en un rango de valor esperado, para dar
 sustento económico a la venta y al precio del piloto.
 
 > ⚠️ **Honestidad primero.** El *uplift* (mejora de la tasa de recupero por
-> usar Kobra) es un **supuesto que carga el usuario**, NO un resultado medido.
-> Este módulo NO afirma que Kobra suba el recupero X puntos: proyecta *cuánto
+> usar MV Kobra AI) es un **supuesto que carga el usuario**, NO un resultado medido.
+> Este módulo NO afirma que MV Kobra AI suba el recupero X puntos: proyecta *cuánto
 > valdría* bajo distintos supuestos, para que el cliente vea el tamaño del
 > premio y se justifique un **piloto pago acotado** que mida el uplift real.
 > Recién con ese piloto los números dejan de ser hipótesis.
@@ -57,9 +57,9 @@ def estimar(cartera_total_uyu: float, tasa_recupero_base: float,
     Proyecta el caso de negocio sobre `meses` de operación.
 
     - `cartera_total_uyu`: monto gestionable en el período.
-    - `tasa_recupero_base`: tasa de recupero actual del cliente (0–1), SIN Kobra.
+    - `tasa_recupero_base`: tasa de recupero actual del cliente (0–1), SIN MV Kobra AI.
     - `escenarios`: {nombre: uplift_pp} en fracción (default conservador/base/optimista).
-    - `costo_mensual_uyu`: fee mensual de Kobra; `costo_implementacion_uyu`: setup único.
+    - `costo_mensual_uyu`: fee mensual de MV Kobra AI; `costo_implementacion_uyu`: setup único.
 
     El uplift se aplica de forma **absoluta** sobre la tasa (ej. 30 % → 35 % con
     +5 pp), acotado a 1.0.
@@ -104,7 +104,7 @@ def estimar(cartera_total_uyu: float, tasa_recupero_base: float,
 
 def _cli():
     import argparse
-    p = argparse.ArgumentParser(description="Kobra · estimador de caso de negocio")
+    p = argparse.ArgumentParser(description="MV Kobra AI · estimador de caso de negocio")
     p.add_argument("--cartera", type=float, required=True, help="Cartera gestionable (UYU)")
     p.add_argument("--tasa-base", type=float, required=True, help="Tasa de recupero actual (0-1)")
     p.add_argument("--meses", type=int, default=12)

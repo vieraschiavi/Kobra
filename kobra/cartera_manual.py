@@ -1,9 +1,9 @@
 """
-Kobra IA · Cartera manual (modo "mi cartera de prueba")
+MV Kobra AI · Cartera manual (modo "mi cartera de prueba")
 =======================================================
 Convierte una lista simple de contactos —nombre, teléfono, monto de deuda— en
 una cartera completa que el pipeline puede scorear y negociar, para que puedas
-**probar Kobra con tus propios casos** sin cargar todo el detalle de un ERP.
+**probar MV Kobra AI con tus propios casos** sin cargar todo el detalle de un ERP.
 
 Los campos que no aportás (días de mora, score de buró, etc.) se completan con
 **supuestos por defecto** claramente marcados: en una implementación real esos

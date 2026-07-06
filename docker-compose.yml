@@ -1,4 +1,4 @@
-# Kobra · despliegue de producción (dashboard + servicio realtime)
+# MV Kobra AI · despliegue de producción (dashboard + servicio realtime)
 # Uso:
 #   docker compose up --build
 #   Dashboard:  http://localhost:8501
@@ -7,7 +7,7 @@
 # Las API keys se pueden cargar de 3 formas (prioridad de arriba a abajo):
 #   1) variables de entorno / archivo .env (OPENAI_API_KEY, ANTHROPIC_API_KEY)
 #   2) desde el dashboard → pestaña "Configuración" (se guardan en el volumen kobra-config)
-#   3) sin keys: Kobra funciona igual (sin transcripción Whisper ni Claude)
+#   3) sin keys: MV Kobra AI funciona igual (sin transcripción Whisper ni Claude)
 
 services:
   dashboard:

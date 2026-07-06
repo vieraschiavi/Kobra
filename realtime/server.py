@@ -1,5 +1,5 @@
 """
-Kobra · Copiloto en Vivo — backend de audio en tiempo real
+MV Kobra AI · Copiloto en Vivo — backend de audio en tiempo real
 ==========================================================
 Servidor FastAPI + WebSocket que asiste al gestor DURANTE la llamada.
 
@@ -38,7 +38,7 @@ from realtime import connectors   # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
-app = FastAPI(title="Kobra · Copiloto en Vivo")
+app = FastAPI(title="MV Kobra AI · Copiloto en Vivo")
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -47,9 +47,9 @@ def index():
     return FileResponse(os.path.join(HERE, "index.html"))
 
 
-@app.get("/kobra_icon.png")
+@app.get("/mv_icon.png")
 def icono():
-    return FileResponse(os.path.join(HERE, "kobra_icon.png"))
+    return FileResponse(os.path.join(HERE, "mv_icon.png"))
 
 
 @app.get("/health")
@@ -440,7 +440,7 @@ def pagina_llamar():
 
 _HTML_LLAMAR = """<!doctype html><html lang=es><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>Kobra IA · Llamar</title>
+<title>MV Kobra AI · Llamar</title>
 <style>
  body{font-family:Segoe UI,system-ui,sans-serif;background:#0E1117;color:#e9edf5;
    margin:0;padding:32px;display:flex;justify-content:center}
@@ -536,5 +536,5 @@ async def twilio_media(sock: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
-    print(f"[Kobra] Copiloto en Vivo → http://localhost:{port}")
+    print(f"[MV Kobra AI] Copiloto en Vivo → http://localhost:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port)

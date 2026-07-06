@@ -1,4 +1,4 @@
-# Kobra · imagen única para dashboard y servicio realtime
+# MV Kobra AI · imagen única para dashboard y servicio realtime
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \

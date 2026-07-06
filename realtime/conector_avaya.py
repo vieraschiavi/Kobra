@@ -1,12 +1,12 @@
 """
-Kobra IA · Conector Avaya / SIPREC (puente RTP → Copiloto en vivo)
+MV Kobra AI · Conector Avaya / SIPREC (puente RTP → Copiloto en vivo)
 ==================================================================
 Recibe el audio que la central telefónica forkea por **RTP** (G.711 μ-law o
 A-law, 8 kHz) — el mecanismo estándar de SIPREC (Avaya Aura/SBC, Genesys,
-Cisco) y de Avaya DMCC/AES — y lo puentea al Copiloto de Kobra
+Cisco) y de Avaya DMCC/AES — y lo puentea al Copiloto de MV Kobra AI
 (`/ws_audio`), que asesora al gestor turno a turno.
 
-    Central (Avaya)                    Este conector                Kobra IA
+    Central (Avaya)                    Este conector                MV Kobra AI
     ───────────────                    ─────────────                ────────
     RTP gestor  → UDP :5004  ─┐   decodifica G.711 (PT 0/8),   ┌→ asesoría en
     RTP cliente → UDP :5006  ─┴─→ VAD por energía, corta el  ──┤  vivo por
@@ -123,7 +123,7 @@ class _CanalRTP(asyncio.DatagramProtocol):
 
 
 class PuenteAvaya:
-    """Orquesta: 2 sockets RTP → VAD → WebSocket /ws_audio de Kobra."""
+    """Orquesta: 2 sockets RTP → VAD → WebSocket /ws_audio de MV Kobra AI."""
 
     def __init__(self, args):
         self.args = args
@@ -212,7 +212,7 @@ class PuenteAvaya:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Conector Avaya/SIPREC → Kobra IA")
+    ap = argparse.ArgumentParser(description="Conector Avaya/SIPREC → MV Kobra AI")
     ap.add_argument("--kobra", default=os.getenv("KOBRA_WS", "ws://localhost:8000/ws_audio"))
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--puerto-gestor", type=int, default=5004)

@@ -1,4 +1,4 @@
-/* Kobra · Copiloto de Negociación — motor offline en JS
+/* MV Kobra AI · Copiloto de Negociación — motor offline en JS
  * Port del motor Python (kobra/copiloto.py): análisis de sentimiento,
  * emociones, técnicas, calidad y asesoría en vivo. Funciona sin backend.
  */
@@ -136,7 +136,7 @@
       if (probpago >= 0.65) tips.push(["📈 Alta propensión", "Apuntá a pago total o cuota inicial fuerte; poca o nula quita."]);
       else if (probpago < 0.35) tips.push(["📉 Baja propensión", "Asegurá CUALQUIER pago: habilitá quita/plan largo y compromiso escrito."]);
     }
-    if (estrategia) tips.push(["🎯 Estrategia sugerida", `Guion recomendado por Kobra: «${estrategia}».`]);
+    if (estrategia) tips.push(["🎯 Estrategia sugerida", `Guion recomendado por MV Kobra AI: «${estrategia}».`]);
     let next;
     if (cl > 0.2 || emo.has("intencion_pago")) next = "Perfecto, coordinemos: le envío ahora el link de pago y le llega el comprobante. ¿Le queda cómodo?";
     else if (emo.has("enojo") || emo.has("frustracion")) next = "Entiendo su molestia y quiero resolverlo hoy mismo. Le propongo una opción hecha a su medida, ¿la vemos?";

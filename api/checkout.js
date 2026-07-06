@@ -11,8 +11,8 @@
 const { checkBotId } = require("botid/server");
 
 const PLANS = {
-  pro:     { title: "Kobra IA · Pro (todo incluido)", price: 149.0 },
-  starter: { title: "Kobra IA · Starter (licencia)",  price: 490.0 },
+  pro:     { title: "MV Kobra AI · Pro (todo incluido)", price: 149.0 },
+  starter: { title: "MV Kobra AI · Starter (licencia)",  price: 490.0 },
 };
 const CURRENCY = process.env.MP_CURRENCY || "USD";  // coincide con los precios mostrados en la landing (US$)
 
@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
   const p = PLANS[plan];
   if (!p) { res.status(400).json({ error: "plan_invalido" }); return; }
 
-  const base = "https://" + (req.headers.host || "kobra-ia.vercel.app");
+  const base = "https://" + (req.headers.host || "mvkobranzaia.com");
   const token = process.env.MP_ACCESS_TOKEN;
   const link = process.env["MP_LINK_" + plan.toUpperCase()];
 

@@ -1,4 +1,4 @@
-# Kobra IA — Modelo comercial (propuesta, a confirmar)
+# MV Kobra AI — Modelo comercial (propuesta, a confirmar)
 
 > **Este documento es una propuesta basada en el informe de auditoría del
 > proyecto.** Las cifras son puntos de partida razonables, no precios
@@ -8,7 +8,7 @@
 
 | Canal | Qué es | Para quién sirve |
 |---|---|---|
-| **Web self-serve** (`kobra-ia.vercel.app`) | Landing + demo + checkout de MercadoPago (Starter US$490+US$29/mes, Pro US$149/mes) | Generar leads, dejar probar la demo, validar interés técnico. **No esperes que una financiera compre así** — el ciclo de venta B2B a bancos/mutuales es largo y requiere confianza, no un botón de "suscribirse". |
+| **Web self-serve** (`mvkobranzaia.com`) | Landing + demo + checkout de MercadoPago (Starter US$490+US$29/mes, Pro US$149/mes) | Generar leads, dejar probar la demo, validar interés técnico. **No esperes que una financiera compre así** — el ciclo de venta B2B a bancos/mutuales es largo y requiere confianza, no un botón de "suscribirse". |
 | **Venta directa / PoC** | Contacto 1 a 1, demo guiada, piloto pago acotado | **Es el motor de ingresos real en el corto plazo.** Así se cierran los primeros clientes. |
 
 La web no se descarta — sirve como vidriera y para calificar interés — pero el
@@ -73,11 +73,23 @@ Ideas concretas para destrabarlo:
   --costo-mensual ...`) para armar el caso de negocio a medida de ESE
   prospecto específico.
 
-## 5. Registro de marca — nota, sin acción tomada
+## 5. Registro de marca — decisión revertida: rebrand a "MV Kobra AI"
 
-El informe de auditoría marca un riesgo real: posible colisión con **"Red
-Kobra"** (kobra.red, activa en México/Colombia/Perú, mismo rubro). Decisión
-tomada: **se mantiene el nombre "Kobra"** — este documento no propone
-cambiarlo. Si en algún momento se avanza con el registro formal de marca,
-conviene verificar esa colisión primero con un agente de marcas antes de
-gastar en el trámite (no es algo que se resuelva por código).
+La nota anterior de este documento marcaba un riesgo ya conocido: posible
+colisión con **"Red Kobra"** (kobra.red, activa en México/Colombia/Perú,
+mismo rubro), decidiendo entonces mantener el nombre "Kobra" sin acción. Esa
+decisión quedó revertida al confirmarse una **segunda colisión independiente**:
+trykobra.com, un competidor de cobranza con IA activo en Chile, con
+posicionamiento y pitch casi calcados (agente conversacional que llama,
+negocia por WhatsApp/email, mismo rubro). Dos colisiones no relacionadas con
+el mismo nombre genérico en el mismo mercado regional son demasiado riesgo de
+confusión de marca para sostener "Kobra" a secas.
+
+**Decisión tomada:** renombrar el producto a **"MV Kobra AI"** en todo texto
+de cara al cliente (landing, dashboard, docs, instalador, entregables
+descargables). El paquete Python interno (`kobra/`, imports, nombres de
+variables/columnas) **no se renombra** — es infraestructura de código sin
+visibilidad para el cliente, y tocarlo es un refactor grande sin beneficio de
+marca. Si en algún momento se avanza con el registro formal de marca,
+verificar la disponibilidad de "MV Kobra AI" con un agente de marcas antes de
+gastar en el trámite (sigue sin ser algo que se resuelva por código).

@@ -1,5 +1,5 @@
 """
-Kobra · Medición de uso por licencia (Edición Venta)
+MV Kobra AI · Medición de uso por licencia (Edición Venta)
 ======================================================
 Implementación real de la tabla de uso descripta en la sección 3 de
 `docs/BACKEND_VENTA.md`. Cada llamada al gateway de APIs (Claude, TTS,
