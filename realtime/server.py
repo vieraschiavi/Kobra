@@ -23,7 +23,7 @@ Ejecutar:
 import os
 import sys
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,6 +34,8 @@ from kobra import copiloto   # noqa: E402
 from kobra import voz        # noqa: E402
 from kobra import config as kconfig   # noqa: E402
 from kobra import registro            # noqa: E402
+from kobra import voz_tts             # noqa: E402
+from kobra import auditoria as kauditoria   # noqa: E402
 from realtime import connectors   # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
@@ -308,8 +310,10 @@ async def ws_audio(sock: WebSocket):
 #   3) Twilio transcribe lo que dice el cliente y lo postea a /voz/turno
 #   4) el Gestor IA responde; se repite hasta cerrar (promesa / sin acuerdo)
 import html as _html                                    # noqa: E402
+import secrets                                          # noqa: E402
+from collections import OrderedDict                     # noqa: E402
 from urllib.parse import quote                          # noqa: E402
-from fastapi import Request                             # noqa: E402
+from fastapi import Request                              # noqa: E402
 from fastapi.responses import Response, HTMLResponse    # noqa: E402
 
 _SESIONES_VOZ: dict = {}
@@ -317,15 +321,40 @@ _TTS_VOICE = os.getenv("TWILIO_TTS_VOICE", "")          # ej. "Polly.Mia-Neural"
 _LANG_TTS = os.getenv("TWILIO_TTS_LANG", "es-MX")
 _LANG_ASR = os.getenv("TWILIO_ASR_LANG", "es-MX")
 
+# --- Voz premium opcional (ElevenLabs) ---------------------------------
+# Se activa con ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID configurados. Si
+# falla o falta cualquiera, cae solo a <Say>/Polly — nunca corta la llamada.
+_TTS_PROVIDER = os.getenv("TTS_PROVIDER", "twilio")     # "twilio" | "elevenlabs"
+_ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "")
+_AUDIO_CACHE_MAX = 200
+_AUDIO_CACHE: "OrderedDict[str, bytes]" = OrderedDict()   # token -> audio mp3
 
-def _say(texto: str) -> str:
+
+def _cachear_audio(audio: bytes) -> str:
+    token = secrets.token_urlsafe(12)
+    _AUDIO_CACHE[token] = audio
+    while len(_AUDIO_CACHE) > _AUDIO_CACHE_MAX:
+        _AUDIO_CACHE.popitem(last=False)   # descarta el más viejo (FIFO)
+    return token
+
+
+def _say(texto: str, request: "Request | None" = None) -> str:
+    if _TTS_PROVIDER == "elevenlabs" and _ELEVENLABS_VOICE_ID and request is not None:
+        r = voz_tts.sintetizar(texto, _ELEVENLABS_VOICE_ID)
+        if r["ok"]:
+            token = _cachear_audio(r["audio"])
+            kauditoria.registrar("tts_elevenlabs", {
+                "caracteres": r["caracteres"], "costo_est_usd": r["costo_est_usd"]})
+            base = _public_base(request)
+            return f'<Play>{base}/voz/audio/{token}.mp3</Play>'
+        # ElevenLabs falló (sin key, sin crédito, error de red…): sigue con Polly abajo.
     v = f' voice="{_TTS_VOICE}"' if _TTS_VOICE else ""
     return f'<Say{v} language="{_LANG_TTS}">{_html.escape(texto or "", quote=True)}</Say>'
 
 
-def _gather(action: str, prompt: str) -> str:
+def _gather(action: str, prompt: str, request: "Request | None" = None) -> str:
     return (f'<Gather input="speech" language="{_LANG_ASR}" speechTimeout="auto" '
-            f'action="{action}" method="POST">{_say(prompt)}</Gather>')
+            f'action="{action}" method="POST">{_say(prompt, request)}</Gather>')
 
 
 def _twiml(*cuerpo: str) -> Response:
@@ -367,8 +396,8 @@ async def voz_entrante(request: Request):
     _SESIONES_VOZ[call_sid] = ses
     r = ses.responder(None)                              # saludo
     action = f"/voz/turno?call={quote(call_sid)}"
-    return _twiml(_gather(action, r["texto"]),
-                  _say("No lo escuché. Lo llamaremos en otro momento. Hasta luego."))
+    return _twiml(_gather(action, r["texto"], request),
+                  _say("No lo escuché. Lo llamaremos en otro momento. Hasta luego.", request))
 
 
 @app.post("/voz/turno")
@@ -378,7 +407,7 @@ async def voz_turno(request: Request):
     call_sid = request.query_params.get("call") or form.get("CallSid") or "sin-sid"
     ses = _SESIONES_VOZ.get(call_sid)
     if ses is None:
-        return _twiml(_say("Disculpe, se interrumpió la comunicación. Hasta luego."))
+        return _twiml(_say("Disculpe, se interrumpió la comunicación. Hasta luego.", request))
     speech = (form.get("SpeechResult") or "").strip()
     r = ses.responder(speech)
     if r["fin"]:
@@ -387,10 +416,10 @@ async def voz_turno(request: Request):
         except Exception:
             pass
         _SESIONES_VOZ.pop(call_sid, None)
-        return _twiml(_say(r["texto"]))
+        return _twiml(_say(r["texto"], request))
     action = f"/voz/turno?call={quote(call_sid)}"
-    return _twiml(_gather(action, r["texto"]),
-                  _say("Si sigue en línea, dígame. Si no, hasta luego."))
+    return _twiml(_gather(action, r["texto"], request),
+                  _say("Si sigue en línea, dígame. Si no, hasta luego.", request))
 
 
 def _public_base(request: Request) -> str:
@@ -400,6 +429,15 @@ def _public_base(request: Request) -> str:
     proto = request.headers.get("x-forwarded-proto", request.url.scheme or "https")
     host = request.headers.get("x-forwarded-host") or request.headers.get("host")
     return f"{proto}://{host}"
+
+
+@app.get("/voz/audio/{token}.mp3")
+def voz_audio(token: str):
+    """Sirve el audio de ElevenLabs generado para un turno de `<Play>`."""
+    audio = _AUDIO_CACHE.get(token)
+    if audio is None:
+        raise HTTPException(404, "Audio no encontrado (venció el caché o el token es inválido).")
+    return Response(content=audio, media_type="audio/mpeg")
 
 
 @app.post("/voz/llamar")

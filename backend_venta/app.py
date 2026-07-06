@@ -160,9 +160,38 @@ async def gateway_claude(payload: dict, claims: dict = Depends(requerir_licencia
 
 @app.post("/gateway/tts")
 async def gateway_tts(payload: dict, claims: dict = Depends(requerir_licencia)):
-    _chequear_cupo(claims)
-    raise HTTPException(501, "Gateway de TTS: circuito de licencia/cupo listo, falta conectar "
-                             "un proveedor real (ElevenLabs/Azure/Google) — ver docstring del módulo.")
+    """
+    Voz premium (ElevenLabs) medida por carácter — a diferencia de la voz
+    básica (Twilio/Polly, incluida en "voz"), esta SÍ tiene costo real por
+    uso. Por eso exige la feature "voz_premium" aparte: se habilita
+    explícitamente por cliente (`emitir_licencia(..., features=[...])`),
+    no viene incluida por default en ningún plan — así el precio del plan
+    no termina subsidiando un costo variable que no cotizó.
+    """
+    if "voz_premium" not in claims.get("features", []):
+        raise HTTPException(403, "el plan no incluye voz premium (ElevenLabs)")
+
+    texto = str(payload.get("texto", ""))[:2000].strip()
+    voice_id = str(payload.get("voice_id", "")).strip()
+    if not texto or not voice_id:
+        raise HTTPException(400, "faltan 'texto' o 'voice_id'")
+
+    key = os.environ.get("ELEVENLABS_API_KEY") or kconfig.leer_extra("ELEVENLABS_API_KEY")
+    if not key:
+        raise HTTPException(503, "ELEVENLABS_API_KEY no configurada en el servidor del gateway")
+
+    from kobra import voz_tts
+    import base64
+
+    with uso.lock_cliente(claims["sub"]):
+        _chequear_cupo(claims)
+        r = voz_tts.sintetizar(texto, voice_id, api_key=key)
+        if not r["ok"]:
+            raise HTTPException(502, f"error llamando a ElevenLabs: {r['error']}")
+        uso.registrar_uso(claims["sub"], canal="tts_elevenlabs", gestion_id=payload.get("gestion_id"),
+                          unidades=r["caracteres"], costo_est=r["costo_est_usd"])
+        return {"ok": True, "audio_b64": base64.b64encode(r["audio"]).decode("ascii"),
+                "caracteres": r["caracteres"], "costo_est_usd": r["costo_est_usd"]}
 
 
 @app.post("/gateway/twilio")

@@ -9,6 +9,7 @@ copiloto de negociación. Corren en segundos con un dataset pequeño.
 import json
 import os
 import sys
+from datetime import date
 
 import pandas as pd
 import pytest
@@ -828,6 +829,89 @@ def test_consulta_bd_generar_sql_sin_key_falla_controlado(monkeypatch):
     with pytest.raises(RuntimeError):
         kcbd.generar_sql_claude("una pregunta", [{"tabla": "x", "texto": "TABLA: x"}],
                                "sqlite", api_key=None)
+
+
+def _gestiones_seguimiento():
+    """Cartera chica y determinística para probar seguimiento.py:
+    - KB-1: arreglo vencido, sin pago después -> debe salir en la agenda.
+    - KB-2: promesa vencida, pero con "Pago" posterior -> NO debe salir.
+    - KB-3: arreglo con fecha_pago cargada directo en la misma fila -> NO debe salir.
+    - KB-4: promesa cuya fecha_compromiso todavía no venció -> NO debe salir.
+    """
+    filas = [
+        dict(id_deudor="KB-1", fecha_gestion="2026-06-01 10:00", resultado="Arreglo de pago",
+            fecha_compromiso="2026-06-10", fecha_pago=None, monto_acordado=1000.0,
+            cuotas=1, canal="Llamada", gestor="G01", notas=""),
+        dict(id_deudor="KB-2", fecha_gestion="2026-06-01 10:00", resultado="Promesa",
+            fecha_compromiso="2026-06-05", fecha_pago=None, monto_acordado=500.0,
+            cuotas=1, canal="Llamada", gestor="G01", notas=""),
+        dict(id_deudor="KB-2", fecha_gestion="2026-06-06 10:00", resultado="Pago",
+            fecha_compromiso=None, fecha_pago="2026-06-06", monto_acordado=500.0,
+            cuotas=1, canal="Llamada", gestor="G01", notas=""),
+        dict(id_deudor="KB-3", fecha_gestion="2026-06-01 10:00", resultado="Arreglo de pago",
+            fecha_compromiso="2026-06-03", fecha_pago="2026-06-03", monto_acordado=300.0,
+            cuotas=1, canal="WhatsApp", gestor="IA01", notas=""),
+        dict(id_deudor="KB-4", fecha_gestion="2026-06-20 10:00", resultado="Promesa",
+            fecha_compromiso="2026-07-15", fecha_pago=None, monto_acordado=800.0,
+            cuotas=1, canal="Llamada", gestor="G01", notas=""),
+    ]
+    return pd.DataFrame(filas)
+
+
+def test_seguimiento_promesas_incumplidas_detecta_solo_lo_pendiente():
+    from kobra import seguimiento as kseg
+    hoy = date(2026, 7, 6)
+    r = kseg.promesas_incumplidas(_gestiones_seguimiento(), hoy=hoy)
+    assert set(r["id_deudor"]) == {"KB-1"}
+    fila = r.iloc[0]
+    assert fila["dias_vencida"] == (hoy - date(2026, 6, 10)).days
+    assert fila["monto_acordado"] == 1000.0
+
+
+def test_seguimiento_agenda_hoy_respeta_no_contactar(tmp_path):
+    from kobra import cumplimiento as kcump
+    from kobra import seguimiento as kseg
+
+    dnc = str(tmp_path / "no_contactar.csv")
+    kcump.registrar_no_contactar("KB-1", canal="todos", archivo=dnc)
+
+    hoy = date(2026, 7, 6)   # lunes
+    r = kseg.agenda_hoy(_gestiones_seguimiento(), hoy=hoy, archivo_dnc=dnc)
+    fila = r[r["id_deudor"] == "KB-1"].iloc[0]
+    assert bool(fila["contactable"]) is False
+    assert fila["motivo_bloqueo"] and "No Contactar" in fila["motivo_bloqueo"]
+
+
+def test_voz_tts_costo_estimado_y_key():
+    from kobra import voz_tts
+    assert voz_tts.costo_estimado_usd("a" * 1000) == voz_tts.COSTO_POR_1000_CHARS_USD
+    assert voz_tts.costo_estimado_usd("") == 0.0
+    assert voz_tts.api_key_configurada("corta") == ""
+    assert voz_tts.api_key_configurada("sk-una-key-bien-larga") == "sk-una-key-bien-larga"
+
+
+def test_voz_tts_sintetizar_sin_key_falla_controlado(monkeypatch):
+    from kobra import voz_tts
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+    r = voz_tts.sintetizar("hola", "voice123", api_key=None)
+    assert not r["ok"] and "ELEVENLABS_API_KEY" in r["error"]
+
+
+def test_voz_tts_sintetizar_ok_mockeado(monkeypatch):
+    from kobra import voz_tts
+
+    class _FakeResp:
+        content = b"\x00\x01audio-fake"
+        def raise_for_status(self):
+            pass
+
+    import requests as _requests
+    monkeypatch.setattr(_requests, "post", lambda *a, **kw: _FakeResp())
+
+    r = voz_tts.sintetizar("Hola, buenas tardes", "voice123", api_key="sk-fake-000111")
+    assert r["ok"] and r["audio"] == b"\x00\x01audio-fake"
+    assert r["caracteres"] == len("Hola, buenas tardes")
+    assert r["costo_est_usd"] > 0
 
 
 def test_auditoria_encadena_y_verifica(tmp_path, monkeypatch):
