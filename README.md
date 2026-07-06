@@ -704,6 +704,45 @@ fijo de un plan no termine subsidiando un costo variable no cotizado. Si
 falla o no está configurada, cae solo a Twilio/Polly — nunca corta la
 llamada.
 
+### 📣 Campaña automática de contacto — `kobra/campana.py`
+
+Orquesta el contacto saliente **sin intervención manual**, corriendo dentro
+de `realtime/server.py` (requiere que ese proceso quede levantado 24/7 —
+Docker/servidor real, no un `streamlit run` que solo vive con el dashboard
+abierto):
+
+1. **Prioridad**: promesas/arreglos vencidos primero (`kobra/seguimiento.py`),
+   después el resto de la cartera por `valor_esperado_recupero`.
+2. **Canal preferido por deudor**: no es una regla fija — se calcula del
+   **historial real de gestiones** de los últimos meses (dónde se lo contactó
+   o cerró más).
+3. **Horario preferido**: la hora del día más frecuente en ese historial,
+   siempre subordinado a `kobra.cumplimiento.puede_contactar` (horario legal,
+   feriados, topes de frecuencia, No Contactar tienen la última palabra).
+4. **Ejecución** por canal:
+   - **Llamada**: Twilio, ya integrado.
+   - **WhatsApp**: Twilio WhatsApp API con **plantilla aprobada por Meta**
+     (`TWILIO_WHATSAPP_CONTENT_SID`) — es un requisito de la plataforma de
+     WhatsApp Business para iniciar una conversación, no algo que se pueda
+     saltear desde acá.
+   - **Email**: SMTP corporativo que defina el cliente (`SMTP_HOST/USER/
+     PASSWORD/FROM`), con plantilla **customizable por tramo de mora**
+     (pestaña Configuración → "Plantillas de email por tramo de mora").
+
+Se activa/desactiva desde el dashboard (Configuración → "Campaña automática
+de contacto") sin reiniciar el servidor; el scheduler revisa el estado en
+cada corrida (`CAMPANA_INTERVALO_MIN`, default 60 min). Requiere
+`PUBLIC_BASE_URL` (para el callback de Twilio) y un CSV con los contactos
+reales de la cartera (`id_deudor,telefono,email` — el dataset sintético de
+la demo no trae contactos reales a propósito).
+
+```python
+from kobra import campana as kcamp
+plan = kcamp.plan_contacto_hoy(gestiones_df)          # prioridad + canal + horario + cumplimiento
+telefonos, emails = kcamp.cargar_contactos("mi_cartera_contactos.csv")
+kcamp.ejecutar_plan(plan, base_url="https://tu-servidor.com", telefonos=telefonos, emails=emails)
+```
+
 ---
 
 ## 📁 Estructura
@@ -726,6 +765,7 @@ Kobra/
 │   ├── registro.py                 # briefing pre-llamada + registro post-llamada
 │   ├── seguimiento.py              # agenda: promesas/arreglos vencidos sin pago
 │   ├── voz_tts.py                  # voz premium opcional (ElevenLabs) — costo por carácter
+│   ├── campana.py                  # campaña automática: canal/horario/prioridad + llamada/WhatsApp/email
 │   ├── config.py                   # API keys persistentes (Configuración)
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports

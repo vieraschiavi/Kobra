@@ -914,6 +914,225 @@ def test_voz_tts_sintetizar_ok_mockeado(monkeypatch):
     assert r["costo_est_usd"] > 0
 
 
+def _gestiones_campana():
+    """Historial con hora de gestión (a diferencia de _gestiones_seguimiento,
+    que no la necesita) para poder probar la preferencia de canal/horario."""
+    filas = [
+        # KB-1: siempre WhatsApp, siempre a la tarde (16hs) -> exitosas
+        dict(id_deudor="KB-1", fecha_gestion="2026-06-01 16:00", resultado="Promesa",
+            fecha_compromiso=None, fecha_pago=None, canal="WhatsApp",
+            monto_acordado=100.0, cuotas=1, gestor="IA01", notas=""),
+        dict(id_deudor="KB-1", fecha_gestion="2026-06-10 16:15", resultado="Pago",
+            fecha_compromiso=None, fecha_pago="2026-06-10", canal="WhatsApp",
+            monto_acordado=100.0, cuotas=1, gestor="IA01", notas=""),
+        # KB-2: casi siempre Llamada a la mañana (10hs), un intento fallido por WhatsApp
+        dict(id_deudor="KB-2", fecha_gestion="2026-06-02 10:00", resultado="Sin acuerdo",
+            fecha_compromiso=None, fecha_pago=None, canal="WhatsApp",
+            monto_acordado=None, cuotas=None, gestor="G01", notas=""),
+        dict(id_deudor="KB-2", fecha_gestion="2026-06-05 10:30", resultado="Promesa",
+            fecha_compromiso="2026-06-12", fecha_pago=None, canal="Llamada",
+            monto_acordado=200.0, cuotas=1, gestor="G01", notas=""),
+    ]
+    return pd.DataFrame(filas)
+
+
+def test_campana_preferencias_contacto():
+    from kobra import campana as kcamp
+    r = kcamp.preferencias_contacto(_gestiones_campana(), hoy=date(2026, 7, 6)).set_index("id_deudor")
+    assert r.loc["KB-1", "canal_preferido"] == "WhatsApp"
+    assert r.loc["KB-1", "hora_preferida"] == 16
+    assert r.loc["KB-2", "canal_preferido"] == "Llamada"   # prioriza la exitosa sobre el intento fallido
+    assert r.loc["KB-2", "hora_preferida"] == 10
+
+
+def test_campana_plan_contacto_hoy_prioriza_vencidas_y_excluye(monkeypatch):
+    from kobra import campana as kcamp
+    _prep_scored()
+
+    g = _gestiones_seguimiento()   # ya definida más arriba para los tests de seguimiento
+    hoy = date(2026, 7, 6)
+    ahora = pd.Timestamp("2026-07-06 10:00").to_pydatetime()   # lunes, horario permitido
+
+    plan = kcamp.plan_contacto_hoy(g, hoy=hoy, ahora=ahora, max_contactos=5)
+    assert not plan.empty
+    assert plan.iloc[0]["motivo"].startswith("Promesa/arreglo vencido")
+    assert plan["prioridad_rank"].is_monotonic_increasing
+
+    plan_excluido = kcamp.plan_contacto_hoy(g, hoy=hoy, ahora=ahora, max_contactos=5,
+                                            excluir={"KB-1"})
+    assert "KB-1" not in set(plan_excluido["id_deudor"])
+
+
+def test_campana_iniciar_llamada_sin_credenciales(monkeypatch):
+    from kobra import campana as kcamp
+    for var in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM"):
+        monkeypatch.delenv(var, raising=False)
+    r = kcamp.iniciar_llamada("+59899000000", "KB-1", 1000, "https://miserver.com")
+    assert not r["ok"] and "credenciales" in r["detalle"]
+
+
+def test_campana_iniciar_llamada_ok_mockeado(monkeypatch):
+    from kobra import campana as kcamp
+
+    class _FakeResp:
+        status_code = 201
+        text = ""
+        def json(self):
+            return {"sid": "CAxxxx"}
+
+    import requests as _requests
+    monkeypatch.setattr(_requests, "post", lambda *a, **kw: _FakeResp())
+    r = kcamp.iniciar_llamada("+59899000000", "KB-1", 1000, "https://miserver.com",
+                             sid="ACxxx", token="tok", from_="+10000000000")
+    assert r["ok"] and r["sid"] == "CAxxxx"
+
+
+def test_campana_enviar_whatsapp_sin_content_sid_falla_controlado(monkeypatch):
+    from kobra import campana as kcamp
+    monkeypatch.delenv("TWILIO_WHATSAPP_CONTENT_SID", raising=False)
+    r = kcamp.enviar_whatsapp("+59899000000", {"1": "KB-1"}, sid="ACxxx", token="tok",
+                              from_whatsapp="whatsapp:+10000000000")
+    assert not r["ok"] and "plantilla" in r["detalle"]
+
+
+def test_campana_enviar_whatsapp_ok_mockeado(monkeypatch):
+    from kobra import campana as kcamp
+
+    class _FakeResp:
+        status_code = 201
+        text = ""
+        def json(self):
+            return {"sid": "SMxxxx"}
+
+    import requests as _requests
+    monkeypatch.setattr(_requests, "post", lambda *a, **kw: _FakeResp())
+    r = kcamp.enviar_whatsapp("+59899000000", {"1": "KB-1"}, sid="ACxxx", token="tok",
+                              from_whatsapp="whatsapp:+10000000000", content_sid="HXxxxx")
+    assert r["ok"] and r["sid"] == "SMxxxx"
+
+
+def test_campana_enviar_email_sin_smtp_falla_controlado(monkeypatch):
+    from kobra import campana as kcamp
+    for var in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"):
+        monkeypatch.delenv(var, raising=False)
+    r = kcamp.enviar_email("cliente@mail.com", "31-60", {"monto": 1000, "dias_mora": 45})
+    assert not r["ok"] and "SMTP" in r["detalle"]
+
+
+def test_campana_enviar_email_ok_mockeado(monkeypatch):
+    from kobra import campana as kcamp
+
+    enviados = []
+
+    class _FakeSMTP:
+        def __init__(self, *a, **kw):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def starttls(self):
+            pass
+        def login(self, user, password):
+            enviados.append(("login", user))
+        def sendmail(self, from_, to, msg):
+            enviados.append(("sendmail", from_, to))
+
+    import smtplib
+    monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
+    r = kcamp.enviar_email("cliente@mail.com", "31-60", {"monto": 5000, "dias_mora": 40},
+                          smtp_host="smtp.miempresa.com", smtp_port=587, smtp_user="u",
+                          smtp_password="p", from_email="cobranzas@miempresa.com")
+    assert r["ok"]
+    assert ("sendmail", "cobranzas@miempresa.com", ["cliente@mail.com"]) == enviados[1]
+
+
+def test_campana_plantillas_default_y_customizadas(tmp_path, monkeypatch):
+    monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config"))
+    import importlib
+    from kobra import config as kconfig
+    importlib.reload(kconfig)
+    from kobra import campana as kcamp
+    importlib.reload(kcamp)
+
+    default = kcamp.obtener_plantillas_email()
+    assert "1-30" in default and "{monto" in default["1-30"]["cuerpo"]
+
+    kcamp.guardar_plantilla_email("1-30", "Asunto custom {empresa}", "Cuerpo custom {monto}")
+    actualizadas = kcamp.obtener_plantillas_email()
+    assert actualizadas["1-30"]["asunto"] == "Asunto custom {empresa}"
+    assert actualizadas["61-90"]["asunto"] == default["61-90"]["asunto"]   # el resto no cambió
+
+    importlib.reload(kconfig)
+
+
+def test_campana_renderizar_plantilla():
+    from kobra import campana as kcamp
+    asunto, cuerpo = kcamp.renderizar_plantilla(
+        {"asunto": "{empresa} debe $U {monto:,.0f}", "cuerpo": "{dias_mora} días de atraso"},
+        {"empresa": "ACME", "monto": 12345.678, "dias_mora": 30})
+    assert asunto == "ACME debe $U 12,346"
+    assert cuerpo == "30 días de atraso"
+
+
+def test_campana_contactados_hoy_por_campana(monkeypatch):
+    from kobra import campana as kcamp
+    from kobra import auditoria as kaud
+
+    hoy = date(2026, 7, 6)
+    entradas = [
+        {"ts": "2026-07-06T09:00:00", "accion": "campana_contacto", "detalle": {"id_deudor": "KB-1"}},
+        {"ts": "2026-07-06T09:05:00", "accion": "campana_contacto", "detalle": {"id_deudor": "KB-2"}},
+        {"ts": "2026-07-05T09:00:00", "accion": "campana_contacto", "detalle": {"id_deudor": "KB-3"}},
+        {"ts": "2026-07-06T09:10:00", "accion": "login_ok", "detalle": {}},
+    ]
+    monkeypatch.setattr(kaud, "leer", lambda *a, **kw: entradas)
+    vistos = kcamp.contactados_hoy_por_campana(hoy)
+    assert vistos == {"KB-1", "KB-2"}
+
+
+def test_campana_cargar_contactos(tmp_path):
+    from kobra import campana as kcamp
+    csv = tmp_path / "contactos.csv"
+    csv.write_text("id_deudor,telefono,email\nKB-1,+59899111111,kb1@mail.com\nKB-2,,kb2@mail.com\n",
+                  encoding="utf-8")
+    telefonos, emails = kcamp.cargar_contactos(str(csv))
+    assert telefonos == {"KB-1": "+59899111111"}
+    assert emails == {"KB-1": "kb1@mail.com", "KB-2": "kb2@mail.com"}
+
+    telefonos_vacio, emails_vacio = kcamp.cargar_contactos(str(tmp_path / "no_existe.csv"))
+    assert telefonos_vacio == {} and emails_vacio == {}
+
+
+def test_campana_ejecutar_plan_dispatcha_por_canal(monkeypatch):
+    from kobra import campana as kcamp
+    from kobra import auditoria as kaud
+
+    llamadas, whatsapps, emails_enviados, auditados = [], [], [], []
+    monkeypatch.setattr(kcamp, "iniciar_llamada",
+                        lambda tel, d, monto, base: llamadas.append(d) or {"ok": True, "detalle": None})
+    monkeypatch.setattr(kcamp, "enviar_whatsapp",
+                        lambda tel, cv, **kw: whatsapps.append(cv) or {"ok": True, "detalle": None})
+    monkeypatch.setattr(kcamp, "enviar_email",
+                        lambda mail, tramo, ctx, **kw: emails_enviados.append((mail, tramo)) or {"ok": True, "detalle": None})
+    monkeypatch.setattr(kaud, "registrar", lambda accion, detalle=None, **kw: auditados.append(detalle))
+
+    plan = pd.DataFrame([
+        {"id_deudor": "KB-1", "canal": "Llamada", "monto": 100, "motivo": "m"},
+        {"id_deudor": "KB-2", "canal": "WhatsApp", "monto": 200, "motivo": "m"},
+        {"id_deudor": "KB-3", "canal": "Email", "monto": 300, "motivo": "m", "tramo_mora": "31-60"},
+        {"id_deudor": "KB-4", "canal": "Llamada", "monto": 400, "motivo": "m"},   # sin teléfono
+    ])
+    resultados = kcamp.ejecutar_plan(plan, "https://miserver.com",
+                                     telefonos={"KB-1": "+599111", "KB-2": "+599222"},
+                                     emails={"KB-3": "kb3@mail.com"})
+    assert llamadas == ["KB-1"]
+    assert whatsapps and whatsapps[0]["1"] == "KB-2"
+    assert emails_enviados == [("kb3@mail.com", "31-60")]
+    assert len(auditados) == 4
+    assert resultados[3]["ok"] is False and "teléfono" in resultados[3]["detalle"]
+
+
 def test_auditoria_encadena_y_verifica(tmp_path, monkeypatch):
     from kobra import auditoria as kaud
     archivo = str(tmp_path / "auditoria.log")
