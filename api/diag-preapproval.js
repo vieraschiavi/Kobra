@@ -3,7 +3,7 @@
 // (suscripción recurrente) en USD, o si exige UYU. No cobra nada: crea el
 // preapproval en status "pending" (el pagador nunca llega a autorizarlo).
 //
-// Uso: GET /api/_diag_preapproval?clave=kobra-diag-2026
+// Uso: GET /api/diag-preapproval?clave=kobra-diag-2026
 
 module.exports = async (req, res) => {
   if (req.query.clave !== "kobra-diag-2026") { res.status(403).json({ error: "no autorizado" }); return; }
