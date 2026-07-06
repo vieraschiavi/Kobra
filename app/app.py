@@ -101,6 +101,8 @@ st.markdown(f"""
 # kobra/autenticacion.py). Roles: admin (todo) / gestor (sin Configuración).
 # ----------------------------------------------------------------------------
 from kobra import autenticacion as kauth          # noqa: E402
+from kobra import sso_oidc as ksso                # noqa: E402
+from kobra import backup as kbackup               # noqa: E402
 
 ROL_ACTIVO = kauth.render_gate()
 if ROL_ACTIVO is None:
@@ -1102,6 +1104,48 @@ with tab7:
                         st.success("✅ Contraseña de gestor guardada. Compartísela solo con el equipo operativo.")
 
         st.markdown("---")
+        st.subheader("🏢 SSO corporativo (OIDC)")
+        st.caption("Opcional — para que el equipo entre con su cuenta de Microsoft Entra ID/Azure AD, "
+                   "Okta, Google Workspace u otro proveedor OIDC, en vez de (o además de) la "
+                   "contraseña local. El login local sigue funcionando igual aunque configures esto.")
+        _sso_activo = ksso.configurado()
+        st.markdown(("🟢 SSO activo" if _sso_activo else "⚪ SSO no configurado"))
+        with st.form("form_sso"):
+            sso_issuer = st.text_input("Issuer / Authority", value="",
+                                       placeholder="https://login.microsoftonline.com/<tenant>/v2.0",
+                                       help="URL base del proveedor OIDC (con discovery en /.well-known/openid-configuration)")
+            sso_client_id = st.text_input("Client ID", value="", type="password")
+            sso_client_secret = st.text_input("Client Secret", value="", type="password")
+            sso_redirect = st.text_input("Redirect URI", value="",
+                                         placeholder="http://localhost:8501 (o la URL pública del dashboard)",
+                                         help="Tiene que coincidir exactamente con la registrada en el proveedor")
+            sso_admins = st.text_input("Emails que entran como Administrador (separados por coma)", value="",
+                                       placeholder="vos@empresa.com, otro-admin@empresa.com",
+                                       help="Cualquier otro email autenticado por SSO entra como Gestor")
+            b_sso1, b_sso2 = st.columns(2)
+            guardar_sso = b_sso1.form_submit_button("💾 Guardar SSO", type="primary")
+            borrar_sso = b_sso2.form_submit_button("🗑️ Desactivar SSO")
+        if guardar_sso:
+            faltantes = [n for n, v in [("Issuer", sso_issuer), ("Client ID", sso_client_id),
+                                        ("Client Secret", sso_client_secret), ("Redirect URI", sso_redirect)]
+                        if not v.strip()]
+            if faltantes:
+                st.error("Completá: " + ", ".join(faltantes))
+            else:
+                kconfig.guardar_extra("OIDC_ISSUER", sso_issuer.strip())
+                kconfig.guardar_extra("OIDC_CLIENT_ID", sso_client_id.strip())
+                kconfig.guardar_extra("OIDC_CLIENT_SECRET", sso_client_secret.strip())
+                kconfig.guardar_extra("OIDC_REDIRECT_URI", sso_redirect.strip())
+                kconfig.guardar_extra("OIDC_ADMINS", sso_admins.strip())
+                kauditoria.registrar("sso_configurado", {"issuer": sso_issuer.strip()}, rol=ROL_ACTIVO)
+                st.success("✅ SSO configurado. La próxima vez que alguien tenga que loguearse, va a ver el botón.")
+        if borrar_sso:
+            for k in ("OIDC_ISSUER", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "OIDC_REDIRECT_URI", "OIDC_ADMINS"):
+                kconfig.guardar_extra(k, "")
+            kauditoria.registrar("sso_desactivado", {}, rol=ROL_ACTIVO)
+            st.warning("🗑️ SSO desactivado. El login local sigue funcionando.")
+
+        st.markdown("---")
         st.subheader("🧾 Log de auditoría")
         _chk = kauditoria.verificar_integridad()
         if _chk["entradas"] == 0:
@@ -1123,6 +1167,32 @@ with tab7:
             )
             st.caption("Últimas 25 entradas (más reciente arriba). Cada línea encadena el hash "
                       "de la anterior — editar o borrar una rompe la verificación de arriba.")
+
+        st.markdown("---")
+        st.subheader("💾 Backup y restauración")
+        st.caption("Empaqueta cartera, gestiones, lista de no-contactar, log de auditoría, "
+                   "config cifrada y la base de uso del backend de licencias en un solo ZIP. "
+                   "Para automatizarlo: Programador de tareas (Windows) o cron ejecutando "
+                   "`python -m kobra.backup crear`.")
+        if st.button("📦 Crear backup ahora"):
+            r = kbackup.crear_backup()
+            if r["ok"]:
+                st.success(f"✅ Backup creado: `{r['ruta']}` ({r['archivos']} archivos, "
+                          f"{r['bytes']/1024:.0f} KB).")
+            else:
+                st.warning(r.get("detalle", "No se pudo crear el backup."))
+        _backups = kbackup.listar_backups()
+        if _backups:
+            st.dataframe(
+                pd.DataFrame([{"archivo": b["nombre"], "tamaño (KB)": round(b["bytes"]/1024),
+                              "creado": b["modificado"]} for b in _backups]),
+                use_container_width=True, hide_index=True,
+            )
+            st.caption(f"Guardados en `{kbackup.BACKUP_DIR_DEFAULT}` (configurable con "
+                      "la variable de entorno `KOBRA_BACKUP_DIR` — usá una carpeta ya "
+                      "sincronizada a la nube si querés backup fuera de esta máquina).")
+        else:
+            st.caption("Todavía no hay backups creados en este equipo.")
 
 # ---- Tab 8: Probar mi cartera ----------------------------------------------
 with tab8:

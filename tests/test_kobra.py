@@ -11,6 +11,7 @@ import os
 import sys
 
 import pandas as pd
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -750,6 +751,133 @@ def test_auditoria_detecta_manipulacion(tmp_path, monkeypatch):
     assert chk["primer_error"] == 0
 
 
+def _rsa_par_de_prueba():
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    priv_pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                 serialization.NoEncryption())
+    pub_pem = key.public_key().public_bytes(serialization.Encoding.PEM,
+                                            serialization.PublicFormat.SubjectPublicKeyInfo)
+    return priv_pem, pub_pem
+
+
+def _oidc_cfg_mock(monkeypatch, valores):
+    from kobra import sso_oidc
+    monkeypatch.setattr(sso_oidc.kconfig, "leer_extra", lambda k, default=None: valores.get(k, default))
+
+
+def test_oidc_no_configurado_sin_las_4_claves(monkeypatch):
+    from kobra import sso_oidc
+    _oidc_cfg_mock(monkeypatch, {"OIDC_ISSUER": "https://idp.example.com"})  # faltan las otras 3
+    assert sso_oidc.configurado() is False
+    assert sso_oidc.url_autorizacion({}) is None
+
+
+def test_oidc_rol_admin_vs_gestor(monkeypatch):
+    from kobra import sso_oidc
+    _oidc_cfg_mock(monkeypatch, {"OIDC_ADMINS": "ana@empresa.com, Otro@Empresa.com"})
+    assert sso_oidc.rol_para("ana@empresa.com") == "admin"
+    assert sso_oidc.rol_para("OTRO@empresa.com") == "admin"   # case-insensitive
+    assert sso_oidc.rol_para("cualquiera@empresa.com") == "gestor"
+
+
+def test_oidc_callback_verifica_token_de_verdad(monkeypatch):
+    """Genera un IdP simulado (par RSA propio) y confirma que procesar_callback
+    valida state + firma + issuer + audiencia contra un token real, sin pegarle
+    a la red (discovery/JWKS/token-exchange, todos mockeados)."""
+    import time
+    import jwt as pyjwt
+    from kobra import sso_oidc
+
+    priv_pem, pub_pem = _rsa_par_de_prueba()
+    issuer, client_id = "https://idp.example.com", "client-abc"
+    ahora = int(time.time())
+    claims = {"iss": issuer, "aud": client_id, "sub": "u1", "email": "ana@empresa.com",
+             "name": "Ana", "iat": ahora, "exp": ahora + 300}
+    token = pyjwt.encode(claims, priv_pem, algorithm="RS256", headers={"kid": "k1"})
+
+    _oidc_cfg_mock(monkeypatch, {
+        "OIDC_ISSUER": issuer, "OIDC_CLIENT_ID": client_id,
+        "OIDC_CLIENT_SECRET": "secreto", "OIDC_REDIRECT_URI": "http://localhost:8501",
+        "OIDC_ADMINS": "ana@empresa.com",
+    })
+    monkeypatch.setattr(sso_oidc, "_discovery", lambda iss: {
+        "authorization_endpoint": issuer + "/auth",
+        "token_endpoint": issuer + "/token",
+        "jwks_uri": issuer + "/jwks",
+    })
+
+    class _FakeResp:
+        def raise_for_status(self): pass
+        def json(self): return {"id_token": token, "access_token": "x"}
+    monkeypatch.setattr(sso_oidc.requests, "post", lambda *a, **kw: _FakeResp())
+
+    class _FakeSigningKey:
+        key = pub_pem
+    class _FakeJWKClient:
+        def __init__(self, *_a, **_kw): pass
+        def get_signing_key_from_jwt(self, _tok): return _FakeSigningKey()
+    monkeypatch.setattr(sso_oidc.jwt, "PyJWKClient", _FakeJWKClient)
+
+    session = {"kobra_oidc_state": "el-state-correcto"}
+    resultado = sso_oidc.procesar_callback("codigo-x", "el-state-correcto", session)
+    assert resultado == {"email": "ana@empresa.com", "nombre": "Ana", "rol": "admin"}
+    assert "kobra_oidc_state" not in session   # se consume, no se reutiliza
+
+
+def test_oidc_callback_rechaza_state_invalido(monkeypatch):
+    from kobra import sso_oidc
+    _oidc_cfg_mock(monkeypatch, {
+        "OIDC_ISSUER": "https://idp.example.com", "OIDC_CLIENT_ID": "c",
+        "OIDC_CLIENT_SECRET": "s", "OIDC_REDIRECT_URI": "http://localhost:8501",
+    })
+    session = {"kobra_oidc_state": "state-real"}
+    with pytest.raises(sso_oidc.CallbackError):
+        sso_oidc.procesar_callback("codigo", "state-falsificado", session)
+
+
+def test_oidc_callback_rechaza_firma_de_otra_clave(monkeypatch):
+    """Un token firmado con una clave distinta a la del JWKS del proveedor
+    (ej. un atacante con su propio par de claves) debe rechazarse."""
+    import time
+    import jwt as pyjwt
+    from kobra import sso_oidc
+
+    priv_atacante, _ = _rsa_par_de_prueba()
+    _, pub_real = _rsa_par_de_prueba()
+    issuer, client_id = "https://idp.example.com", "client-abc"
+    ahora = int(time.time())
+    claims = {"iss": issuer, "aud": client_id, "sub": "u1", "email": "atacante@fuera.com",
+             "iat": ahora, "exp": ahora + 300}
+    token_falso = pyjwt.encode(claims, priv_atacante, algorithm="RS256", headers={"kid": "k1"})
+
+    _oidc_cfg_mock(monkeypatch, {
+        "OIDC_ISSUER": issuer, "OIDC_CLIENT_ID": client_id,
+        "OIDC_CLIENT_SECRET": "s", "OIDC_REDIRECT_URI": "http://localhost:8501",
+    })
+    monkeypatch.setattr(sso_oidc, "_discovery", lambda iss: {
+        "authorization_endpoint": issuer + "/auth", "token_endpoint": issuer + "/token",
+        "jwks_uri": issuer + "/jwks",
+    })
+
+    class _FakeResp:
+        def raise_for_status(self): pass
+        def json(self): return {"id_token": token_falso}
+    monkeypatch.setattr(sso_oidc.requests, "post", lambda *a, **kw: _FakeResp())
+
+    class _FakeSigningKey:
+        key = pub_real   # el JWKS "real" del proveedor, distinto al del atacante
+    class _FakeJWKClient:
+        def __init__(self, *_a, **_kw): pass
+        def get_signing_key_from_jwt(self, _tok): return _FakeSigningKey()
+    monkeypatch.setattr(sso_oidc.jwt, "PyJWKClient", _FakeJWKClient)
+
+    session = {"kobra_oidc_state": "ok"}
+    with pytest.raises(sso_oidc.CallbackError):
+        sso_oidc.procesar_callback("codigo", "ok", session)
+
+
 def test_auditoria_concurrente_no_rompe_la_cadena(tmp_path):
     """Regresión: sin lock, escrituras concurrentes hacían que varias entradas
     leyeran el mismo 'último hash' y la cadena quedaba rota (ver historia del
@@ -805,3 +933,66 @@ def test_gestor_ia_tipifica_arreglo(tmp_path):
     g = ses.registrar(archivo=arch)
     assert g["tipo_gestor"] == "IA"
     assert g["resultado"] in ("Arreglo de pago", "Sin acuerdo")
+
+
+def test_backup_crea_y_restaura(tmp_path, monkeypatch):
+    from kobra import backup as kbackup
+    from kobra import config as kconfig
+    import importlib
+
+    monkeypatch.setattr(kbackup, "ROOT", str(tmp_path))
+    monkeypatch.setattr(kbackup, "_ARCHIVOS_NEGOCIO", ["data/kobra_gestiones.csv", "data/no_contactar.csv"])
+    monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config"))
+    importlib.reload(kconfig)
+
+    os.makedirs(tmp_path / "data")
+    (tmp_path / "data" / "kobra_gestiones.csv").write_text("id_gestion,resultado\nGR-1,Pago\n", encoding="utf-8")
+    (tmp_path / "data" / "no_contactar.csv").write_text("id_deudor\nKB-1\n", encoding="utf-8")
+    kconfig.guardar({"ANTHROPIC_API_KEY": "sk-ant-test-000111"})
+
+    destino = str(tmp_path / "backups")
+    r = kbackup.crear_backup(destino)
+    assert r["ok"] and r["archivos"] >= 2 and os.path.exists(r["ruta"])
+
+    listado = kbackup.listar_backups(destino)
+    assert len(listado) == 1 and listado[0]["ruta"] == r["ruta"]
+
+    # "perder" los datos originales y restaurar desde el backup
+    os.remove(tmp_path / "data" / "kobra_gestiones.csv")
+    assert not (tmp_path / "data" / "kobra_gestiones.csv").exists()
+    rr = kbackup.restaurar_backup(r["ruta"], destino_root=str(tmp_path))
+    assert rr["ok"] and rr["archivos"] >= 2
+    assert (tmp_path / "data" / "kobra_gestiones.csv").read_text(encoding="utf-8").startswith("id_gestion")
+
+    importlib.reload(kconfig)
+
+
+def test_backup_retencion_conserva_los_mas_recientes(tmp_path):
+    """No depende de crear_backup() real (el nombre usa timestamp al segundo,
+    así que llamarlo 5 veces seguidas podría pisar el mismo archivo) — arma
+    5 zips de backup "falsos" con nombres válidos y prueba la retención sola."""
+    import zipfile
+    from kobra import backup as kbackup
+    destino = str(tmp_path / "backups")
+    os.makedirs(destino)
+    for i in range(5):
+        ruta = os.path.join(destino, f"kobra_backup_2026010{i}_000000.zip")
+        with zipfile.ZipFile(ruta, "w") as z:
+            z.writestr("manifiesto.json", "{}")
+
+    listado_antes = kbackup.listar_backups(destino)
+    assert len(listado_antes) == 5
+    borrados = kbackup.limpiar_backups_viejos(destino, mantener=2)
+    assert borrados == 3
+    assert len(kbackup.listar_backups(destino)) == 2
+
+
+def test_backup_sin_datos_no_falsea_exito(tmp_path, monkeypatch):
+    from kobra import backup as kbackup
+    monkeypatch.setattr(kbackup, "ROOT", str(tmp_path))
+    monkeypatch.setattr(kbackup, "_ARCHIVOS_NEGOCIO", ["data/no_existe.csv"])
+    # aislar config/uso para que no "cuelen" archivos reales de este sandbox
+    monkeypatch.setattr(kbackup, "_archivos_config", lambda: [])
+    monkeypatch.setattr(kbackup, "_archivos_backend_venta", lambda: [])
+    r = kbackup.crear_backup(str(tmp_path / "backups"))
+    assert r["ok"] is False and r["archivos"] == 0

@@ -18,6 +18,12 @@ texto plano como último recurso).
 Para desarrollo/CI (correr el dashboard sin login interactivo), se puede
 saltear explícitamente con la variable de entorno `KOBRA_DASHBOARD_SIN_LOGIN=1`
 — pensado para pipelines/tests, no para uso normal.
+
+**SSO corporativo (OIDC)**: si se configura un proveedor de identidad en la
+pestaña Configuración (Azure AD/Entra ID, Okta, Google Workspace, etc.), se
+suma un botón "Iniciar sesión con SSO" — ver `kobra/sso_oidc.py`. No
+reemplaza el login local (sigue disponible como alternativa/respaldo);
+convive con él.
 """
 from __future__ import annotations
 
@@ -27,6 +33,7 @@ import secrets
 
 from kobra import auditoria as kauditoria
 from kobra import config as kconfig
+from kobra import sso_oidc
 
 ROLES = ("admin", "gestor")
 _ITERACIONES = 200_000
@@ -88,6 +95,38 @@ def requiere_login() -> bool:
     return os.environ.get("KOBRA_DASHBOARD_SIN_LOGIN", "").strip() != "1"
 
 
+def _procesar_callback_sso(st) -> bool:
+    """Si volvimos de la redirección del proveedor (?code=...&state=...),
+    procesa el login SSO. Devuelve True si consumió el callback (haya
+    funcionado o no) — el caller debe limpiar los query params y parar."""
+    qp = st.query_params
+    if "code" not in qp or "state" not in qp:
+        return False
+    try:
+        resultado = sso_oidc.procesar_callback(qp["code"], qp["state"], st.session_state)
+        st.session_state[_SESSION_KEY] = resultado["rol"]
+        kauditoria.registrar("login_sso_ok", {"email": resultado["email"]},
+                             usuario=resultado["email"], rol=resultado["rol"])
+    except sso_oidc.CallbackError as e:
+        st.session_state["kobra_sso_error"] = str(e)
+        kauditoria.registrar("login_sso_fallido", {"error": str(e)}, rol="desconocido")
+    st.query_params.clear()
+    st.rerun()
+    return True  # no se alcanza (st.rerun corta acá), queda por claridad
+
+
+def _boton_sso(st) -> None:
+    if not sso_oidc.configurado():
+        return
+    url = sso_oidc.url_autorizacion(st.session_state)
+    if url:
+        st.link_button("🏢 Iniciar sesión con SSO corporativo", url,
+                       type="primary", use_container_width=True)
+    error = st.session_state.pop("kobra_sso_error", None)
+    if error:
+        st.error(f"SSO: {error}")
+
+
 def render_gate() -> str | None:
     """
     Renderiza el flujo de login/setup en Streamlit. Devuelve el rol activo si
@@ -103,11 +142,17 @@ def render_gate() -> str | None:
     if rol:
         return rol
 
-    if not configurado():
+    if _procesar_callback_sso(st):
+        return None
+
+    hay_sso = sso_oidc.configurado()
+
+    if not configurado() and not hay_sso:
         st.title("🔒 Configurar acceso a Kobra IA")
         st.info("Primer uso: definí una contraseña de administrador antes de entrar. "
                  "Se guarda cifrada (nunca en texto plano) — ver detalle en la pestaña "
-                 "Configuración una vez adentro.")
+                 "Configuración una vez adentro. (Si tu empresa usa SSO corporativo, "
+                 "configuralo primero en esa misma pestaña y salteá este paso.)")
         with st.form("form_setup_auth"):
             p1 = st.text_input("Contraseña de administrador", type="password")
             p2 = st.text_input("Repetila", type="password")
@@ -126,16 +171,21 @@ def render_gate() -> str | None:
         return None
 
     st.title("🔒 Kobra IA · Iniciar sesión")
-    with st.form("form_login"):
-        password = st.text_input("Contraseña", type="password")
-        ok = st.form_submit_button("Entrar", type="primary")
-    if ok:
-        rol = login(password)
-        if rol:
-            st.session_state[_SESSION_KEY] = rol
-            kauditoria.registrar("login_ok", {}, rol=rol)
-            st.rerun()
-        else:
-            kauditoria.registrar("login_fallido", {}, rol="desconocido")
-            st.error("Contraseña incorrecta.")
+    if hay_sso:
+        _boton_sso(st)
+        if configurado():
+            st.markdown("— o con contraseña local —")
+    if configurado():
+        with st.form("form_login"):
+            password = st.text_input("Contraseña", type="password")
+            ok = st.form_submit_button("Entrar", type="primary")
+        if ok:
+            rol = login(password)
+            if rol:
+                st.session_state[_SESSION_KEY] = rol
+                kauditoria.registrar("login_ok", {}, rol=rol)
+                st.rerun()
+            else:
+                kauditoria.registrar("login_fallido", {}, rol="desconocido")
+                st.error("Contraseña incorrecta.")
     return None

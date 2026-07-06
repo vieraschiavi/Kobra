@@ -62,7 +62,10 @@ pico de operación del cliente.
 
 ## 6. Backup y continuidad
 
-- **Si los datos viven en infraestructura del cliente**: el backup es
+- **Si los datos viven en infraestructura del cliente**: el software incluye
+  `kobra/backup.py` (`python -m kobra.backup crear`) para empaquetar y
+  respaldar los datos locales, pero **correrlo con la frecuencia que
+  corresponda y guardar el resultado fuera de esta misma máquina** es
   responsabilidad del cliente (o se puede contratar como servicio
   adicional — a definir).
 - **Si se usa el backend de licencias/gateway hosteado**: se realizan
