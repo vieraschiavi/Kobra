@@ -6,6 +6,8 @@
 // al límite (30 por defecto) devuelve 429 y, si hay RESEND_API_KEY, manda un mail.
 // Para AMPLIAR el límite: subir "ai_limit" en el Edge Config (o pedírmelo).
 
+const { checkBotId } = require("botid/server");
+
 const MODEL = "claude-haiku-4-5-20251001";
 const MAX_INPUT = 4000;
 const MAX_TOKENS = 500;
@@ -63,6 +65,9 @@ module.exports = async (req, res) => {
   if (origin && !sameHost && !/(\.vercel\.app$)|(localhost)/.test(origin)) {
     res.status(403).json({ error: "origin" }); return;
   }
+
+  const verification = await checkBotId({ advancedOptions: { headers: req.headers } });
+  if (verification.isBot) { res.status(403).json({ error: "bot" }); return; }
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) { res.status(500).json({ error: "no_key" }); return; }
