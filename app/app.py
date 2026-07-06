@@ -33,6 +33,7 @@ from kobra import auditoria as kauditoria     # noqa: E402
 from kobra import consulta_bd as kconsulta    # noqa: E402
 from kobra import seguimiento as kseg         # noqa: E402
 from kobra import voz_tts                     # noqa: E402
+from kobra import campana as kcampana         # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -1262,6 +1263,63 @@ with tab7:
                 st.caption(f"Costo de referencia: ~US$ {voz_tts.COSTO_POR_1000_CHARS_USD:.2f} "
                           "cada 1.000 caracteres hablados (verificá contra tu plan real de "
                           "ElevenLabs antes de fijar el precio del plan que lo incluya).")
+
+        st.markdown("---")
+        st.subheader("📣 Campaña automática de contacto")
+        st.caption("Corre sola, sin que nadie abra el dashboard: llama, escribe por WhatsApp o "
+                   "manda un email según el canal donde más se contactó a cada deudor "
+                   "(historial real de gestiones), respetando siempre horario/feriados/topes/No "
+                   "Contactar y priorizando por ProbPago. **Requiere que `realtime/server.py` "
+                   "quede corriendo 24/7** (Docker/servidor real) — el scheduler vive ahí, no en "
+                   "este dashboard Streamlit.")
+        _campana_activa = bool(kconfig.leer_extra("CAMPANA_ACTIVA", False))
+        _contactos_csv_actual = kconfig.leer_extra("CAMPANA_CONTACTOS_CSV", "")
+        _max_corrida_actual = int(kconfig.leer_extra("CAMPANA_MAX_POR_CORRIDA", 50) or 50)
+        with st.form("form_campana"):
+            nueva_activa = st.checkbox("Campaña automática activa", value=_campana_activa)
+            nuevo_csv = st.text_input(
+                "Ruta al CSV de contactos reales (columnas: id_deudor,telefono,email)",
+                value=_contactos_csv_actual,
+                placeholder="/ruta/a/mi_cartera_contactos.csv")
+            nuevo_max = st.number_input("Máximo de contactos por corrida del scheduler",
+                                        min_value=1, max_value=1000, value=_max_corrida_actual)
+            guardar_campana = st.form_submit_button("💾 Guardar", type="primary")
+        if guardar_campana:
+            kconfig.guardar_extra("CAMPANA_ACTIVA", nueva_activa)
+            kconfig.guardar_extra("CAMPANA_CONTACTOS_CSV", nuevo_csv.strip())
+            kconfig.guardar_extra("CAMPANA_MAX_POR_CORRIDA", int(nuevo_max))
+            kauditoria.registrar("campana_configurada", {"activa": nueva_activa}, rol=ROL_ACTIVO)
+            st.success("✅ Guardado. El scheduler de `realtime/server.py` lo revisa en cada corrida "
+                      f"(cada {os.environ.get('CAMPANA_INTERVALO_MIN', '60')} min).")
+        if nueva_activa if guardar_campana else _campana_activa:
+            faltan = []
+            if not (nuevo_csv.strip() if guardar_campana else _contactos_csv_actual):
+                faltan.append("la ruta al CSV de contactos")
+            if not os.environ.get("PUBLIC_BASE_URL"):
+                faltan.append("la variable de entorno PUBLIC_BASE_URL en el servidor de `realtime/server.py`")
+            if faltan:
+                st.warning("⚠️ Con la campaña activa, todavía falta: " + "; ".join(faltan) + ".")
+
+        st.markdown("**Plantillas de email por tramo de mora**")
+        _tramo_elegido = st.selectbox("Tramo", ["1-30", "31-60", "61-90", "91-180", "180+"], key="tramo_plantilla")
+        _plantillas = kcampana.obtener_plantillas_email()
+        _plantilla_actual = _plantillas.get(_tramo_elegido, kcampana.PLANTILLA_EMAIL_DEFAULT["1-30"])
+        with st.form("form_plantilla_email"):
+            nuevo_asunto = st.text_input("Asunto (podés usar {empresa}, {monto}, {dias_mora})",
+                                        value=_plantilla_actual["asunto"])
+            nuevo_cuerpo = st.text_area("Cuerpo", value=_plantilla_actual["cuerpo"], height=160)
+            guardar_plantilla = st.form_submit_button("💾 Guardar plantilla de este tramo")
+        if guardar_plantilla:
+            kcampana.guardar_plantilla_email(_tramo_elegido, nuevo_asunto, nuevo_cuerpo)
+            kauditoria.registrar("plantilla_email_guardada", {"tramo": _tramo_elegido}, rol=ROL_ACTIVO)
+            st.success(f"✅ Plantilla de {_tramo_elegido} guardada.")
+        with st.expander("Vista previa"):
+            _asunto_prev, _cuerpo_prev = kcampana.renderizar_plantilla(
+                {"asunto": nuevo_asunto if guardar_plantilla else _plantilla_actual["asunto"],
+                 "cuerpo": nuevo_cuerpo if guardar_plantilla else _plantilla_actual["cuerpo"]},
+                {"empresa": "Tu Empresa", "monto": 45000.0, "dias_mora": 62})
+            st.markdown(f"**Asunto:** {_asunto_prev}")
+            st.text(_cuerpo_prev)
 
         st.markdown("---")
         st.subheader("🔐 Acceso y roles")

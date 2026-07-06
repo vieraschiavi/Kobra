@@ -36,6 +36,7 @@ from kobra import config as kconfig   # noqa: E402
 from kobra import registro            # noqa: E402
 from kobra import voz_tts             # noqa: E402
 from kobra import auditoria as kauditoria   # noqa: E402
+from kobra import campana             # noqa: E402
 from realtime import connectors   # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
@@ -569,6 +570,53 @@ async def twilio_media(sock: WebSocket):
                 break
     except WebSocketDisconnect:
         return
+
+
+# ---------------------------------------------------------------------------
+# Campaña automática de contacto (opcional, "Automático sin intervención")
+# ---------------------------------------------------------------------------
+# Corre en segundo plano mientras este servicio esté vivo — activarla exige
+# que este proceso quede corriendo 24/7 (Docker/servidor real, no un
+# `streamlit run` que solo vive mientras alguien tiene el dashboard abierto).
+# Se apaga/enciende sin reiniciar el proceso: revisa CAMPANA_ACTIVA en cada
+# corrida. Requiere PUBLIC_BASE_URL (para el callback de Twilio) y el CSV de
+# contactos reales del cliente (CAMPANA_CONTACTOS_CSV: id_deudor,telefono,email).
+CAMPANA_INTERVALO_MIN = int(os.getenv("CAMPANA_INTERVALO_MIN", "60"))
+
+
+def _job_campana():
+    if not kconfig.leer_extra("CAMPANA_ACTIVA"):
+        return
+    base_url = os.getenv("PUBLIC_BASE_URL")
+    contactos_csv = kconfig.leer_extra("CAMPANA_CONTACTOS_CSV", "")
+    if not base_url or not contactos_csv:
+        return   # sin URL pública o sin cartera de contactos reales, no hay a dónde llamar/escribir
+
+    gestiones_csv = os.path.join(ROOT, "data", "kobra_gestiones.csv")
+    if not os.path.exists(gestiones_csv):
+        return
+    import pandas as pd
+    gestiones = pd.read_csv(gestiones_csv)
+
+    excluir = campana.contactados_hoy_por_campana()
+    max_por_corrida = int(kconfig.leer_extra("CAMPANA_MAX_POR_CORRIDA", 50) or 50)
+    plan = campana.plan_contacto_hoy(gestiones, max_contactos=max_por_corrida, excluir=excluir)
+    if plan.empty:
+        return
+    telefonos, emails = campana.cargar_contactos(contactos_csv)
+    campana.ejecutar_plan(plan, base_url, telefonos, emails)
+
+
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    _scheduler = BackgroundScheduler()
+    _scheduler.add_job(_job_campana, "interval", minutes=CAMPANA_INTERVALO_MIN,
+                       id="campana_automatica")
+    _scheduler.start()
+    import atexit
+    atexit.register(lambda: _scheduler.shutdown(wait=False))
+except ImportError:
+    pass   # apscheduler no instalado: la campaña automática queda desactivada, el resto del servicio funciona igual
 
 
 if __name__ == "__main__":

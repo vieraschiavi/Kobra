@@ -42,6 +42,17 @@ MV Kobra AI es un sistema de cobranzas inteligentes con dos superficies:
   dice el deudor) se envía a ElevenLabs para sintetizar el audio de la
   llamada — solo si el cliente activa esto explícitamente; por default las
   llamadas siguen usando Twilio/Polly, sin este envío adicional.
+- **Campaña automática de contacto** (`kobra/campana.py`, opcional): si se
+  activa, el sistema envía **emails a través del SMTP corporativo que el
+  cliente configure** (nunca un servidor nuestro) y/o **WhatsApp mediante la
+  cuenta de WhatsApp Business del propio cliente** (Twilio, con plantilla ya
+  aprobada por Meta). Las credenciales SMTP y el SID de la plantilla de
+  WhatsApp se guardan con el mismo backend seguro que el resto de las claves
+  (sección 4). El contacto automático **sigue respetando** la política de
+  cumplimiento vigente (horario, feriados, topes de frecuencia, No
+  Contactar) en cada corrida — no hay excepción para el modo automático.
+  Requiere que `realtime/server.py` quede corriendo de forma continua
+  (Docker/servidor real); si el proceso no está levantado, no ocurre nada.
 - **Ninguna base de datos con nombres/teléfonos reales viaja en este
   repositorio.** El dataset de demostración es 100% sintético (ver
   "Honestidad de los números" en `README.md`).
@@ -76,7 +87,7 @@ MV Kobra AI es un sistema de cobranzas inteligentes con dos superficies:
 
 ## 4. Secretos y claves de API
 
-- Las API keys (Anthropic, OpenAI, Twilio, ElevenLabs, ERP) se guardan con una cadena de
+- Las API keys (Anthropic, OpenAI, Twilio, WhatsApp, ElevenLabs, SMTP, ERP) se guardan con una cadena de
   respaldo automática (`kobra/config.py`): **keyring del sistema operativo**
   (Windows Credential Manager / macOS Keychain / Secret Service en Linux de
   escritorio) cuando está disponible → si no, **archivo cifrado** (Fernet/
@@ -170,6 +181,15 @@ Para que la evaluación de compras no dependa de asumir nada:
   del cliente, o se puede conversar como servicio adicional.
 - El log de auditoría es un archivo local con cadena de hashes, no un
   servicio de logging externo gestionado.
+- **Campaña automática de contacto**: el scheduler vive dentro de
+  `realtime/server.py` — funciona solo mientras ese proceso está corriendo.
+  No hay un servicio externo gestionado por nosotros que la mantenga viva;
+  si el cliente corre el dashboard de forma esporádica (no como servicio
+  24/7), la campaña automática simplemente no dispara fuera de esas
+  ventanas. El envío de WhatsApp saliente además depende de que el cliente
+  tenga su propia cuenta de WhatsApp Business con al menos una plantilla
+  aprobada por Meta — sin eso, ese canal específico no funciona (el resto
+  del sistema sí).
 
 ## 10. Contacto
 

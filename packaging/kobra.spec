@@ -17,7 +17,7 @@ ROOT = os.path.abspath(os.getcwd())
 _PAQUETES = [
     "streamlit", "plotly", "altair", "pandas", "numpy", "sklearn",
     "scipy", "pyarrow", "xlsxwriter", "openpyxl", "joblib",
-    "fastapi", "starlette", "uvicorn", "pptx", "soundfile",
+    "fastapi", "starlette", "uvicorn", "pptx", "soundfile", "apscheduler",
 ]
 datas, binaries, hiddenimports = [], [], []
 for _pkg in _PAQUETES:
@@ -53,7 +53,7 @@ hiddenimports += [
     "kobra.analitica", "kobra.cumplimiento", "kobra.explicabilidad",
     "kobra.roi", "kobra.cartera_manual", "kobra.registro", "kobra.config",
     "kobra.gestor_ia", "kobra.pipeline", "kobra.voz", "kobra.train",
-    "kobra.consulta_bd", "kobra.seguimiento", "kobra.voz_tts",
+    "kobra.consulta_bd", "kobra.seguimiento", "kobra.voz_tts", "kobra.campana",
     "realtime.mi_cartera", "realtime.voicebot", "sklearn.utils._typedefs",
     "sklearn.neighbors._partition_nodes", "sklearn.utils._heap",
 ]
