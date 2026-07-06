@@ -1133,6 +1133,90 @@ def test_campana_ejecutar_plan_dispatcha_por_canal(monkeypatch):
     assert resultados[3]["ok"] is False and "teléfono" in resultados[3]["detalle"]
 
 
+def test_twilio_setup_buscar_numeros_sin_credenciales(monkeypatch):
+    from kobra import twilio_setup as ktw
+    for var in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"):
+        monkeypatch.delenv(var, raising=False)
+    r = ktw.buscar_numeros_disponibles("UY")
+    assert not r["ok"] and r["numeros"] == [] and "credenciales" in r["detalle"]
+
+
+def test_twilio_setup_buscar_numeros_ok_mockeado(monkeypatch):
+    from kobra import twilio_setup as ktw
+
+    class _FakeResp:
+        status_code = 200
+        def json(self):
+            return {"available_phone_numbers": [
+                {"phone_number": "+59890000001", "region": "MONTEVIDEO", "locality": "Montevideo"},
+                {"phone_number": "+59890000002", "region": "MONTEVIDEO", "locality": "Montevideo"},
+            ]}
+
+    import requests as _requests
+    monkeypatch.setattr(_requests, "get", lambda *a, **kw: _FakeResp())
+    r = ktw.buscar_numeros_disponibles("UY", sid="ACxxx", token="tok")
+    assert r["ok"] and len(r["numeros"]) == 2
+    assert r["numeros"][0]["numero"] == "+59890000001"
+
+
+def test_twilio_setup_comprar_numero_sin_credenciales(monkeypatch):
+    from kobra import twilio_setup as ktw
+    for var in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"):
+        monkeypatch.delenv(var, raising=False)
+    r = ktw.comprar_numero("+59890000001", "https://miserver.com/voz/entrante")
+    assert not r["ok"] and "credenciales" in r["detalle"]
+
+
+def test_twilio_setup_comprar_numero_ok_mockeado(monkeypatch):
+    from kobra import twilio_setup as ktw
+
+    class _FakeResp:
+        status_code = 201
+        text = ""
+        def json(self):
+            return {"sid": "PNxxxx", "phone_number": "+59890000001"}
+
+    import requests as _requests
+    monkeypatch.setattr(_requests, "post", lambda *a, **kw: _FakeResp())
+    r = ktw.comprar_numero("+59890000001", "https://miserver.com/voz/entrante",
+                          sid="ACxxx", token="tok")
+    assert r["ok"] and r["sid"] == "PNxxxx" and r["numero"] == "+59890000001"
+
+
+def test_twilio_setup_configurar_webhook_numero_no_encontrado(monkeypatch):
+    from kobra import twilio_setup as ktw
+
+    class _FakeRespVacia:
+        status_code = 200
+        def json(self):
+            return {"incoming_phone_numbers": []}
+
+    import requests as _requests
+    monkeypatch.setattr(_requests, "get", lambda *a, **kw: _FakeRespVacia())
+    r = ktw.configurar_webhook_numero("+59890000099", "https://miserver.com/voz/entrante",
+                                      sid="ACxxx", token="tok")
+    assert not r["ok"] and "no se encontró" in r["detalle"].lower()
+
+
+def test_twilio_setup_configurar_webhook_numero_ok_mockeado(monkeypatch):
+    from kobra import twilio_setup as ktw
+
+    class _FakeRespLista:
+        status_code = 200
+        def json(self):
+            return {"incoming_phone_numbers": [{"sid": "PNxxxx"}]}
+
+    class _FakeRespUpdate:
+        status_code = 200
+
+    import requests as _requests
+    monkeypatch.setattr(_requests, "get", lambda *a, **kw: _FakeRespLista())
+    monkeypatch.setattr(_requests, "post", lambda *a, **kw: _FakeRespUpdate())
+    r = ktw.configurar_webhook_numero("+59890000001", "https://miserver.com/voz/entrante",
+                                      sid="ACxxx", token="tok")
+    assert r["ok"]
+
+
 def test_auditoria_encadena_y_verifica(tmp_path, monkeypatch):
     from kobra import auditoria as kaud
     archivo = str(tmp_path / "auditoria.log")

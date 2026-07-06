@@ -37,14 +37,31 @@ formulario y botón, sin consola).
   propio celular en *Verified Caller IDs*.
 - Anotá **Account SID** y **Auth Token** (Console → Account Info).
 
-### 2. Conseguir un número
-- Console → **Phone Numbers → Buy a number** (con *Voice*). En trial se paga con
-  el crédito.
-
-### 3. Cargar las credenciales en MV Kobra AI (sin código)
+### 2. Cargar las credenciales en MV Kobra AI (sin código)
 - En el **dashboard → pestaña ⚙️ Configuración**, ingresá:
-  `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` (tu número Twilio).
-  Quedan guardadas.
+  `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`. Quedan guardadas.
+
+### 3. Conseguir un número y apuntar su webhook — con un botón
+En vez de ir a la Console de Twilio a comprar el número y configurar a mano
+su webhook de voz, la sección **📞 Auto-configurar número Twilio** (misma
+pestaña Configuración, justo debajo de las API keys) lo hace por vos:
+
+- **"Comprar número nuevo"**: busca números disponibles en tu país, elegís
+  uno y al comprarlo queda **ya apuntado** a `/voz/entrante` de tu servidor
+  — sin volver a la Console. Se guarda solo como `TWILIO_FROM`.
+- **"Ya tengo un número"**: si ya compraste un número a mano (o lo tenías de
+  antes), esta pestaña solo le actualiza el webhook de voz a tu servidor.
+
+> Requiere que ya tengas `PUBLIC_BASE_URL` seteada en el servidor (ver paso
+> 4) — sin eso no hay a qué URL apuntar el webhook. Comprar un número tiene
+> **costo real** (verificá la tarifa vigente antes de confirmar).
+
+Si preferís hacerlo a mano igual: Console → **Phone Numbers → Buy a
+number** (con *Voice*), y en la ficha del número, **Voice Configuration →
+"A call comes in" → Webhook**, pegá `https://tu-servidor/voz/entrante`
+(método `HTTP POST`) — este es el paso que la mayoría de las guías se
+saltea y por el que las llamadas *entrantes* no llegan al Gestor IA aunque
+las salientes ya funcionen.
 
 ### 4. Poner el servidor accesible desde internet
 Twilio necesita alcanzar tu servidor. Levantá el backend de voz y exponelo:
