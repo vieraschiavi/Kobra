@@ -31,6 +31,8 @@ from kobra import roi as kroi                 # noqa: E402
 from kobra import integracion as kerp         # noqa: E402
 from kobra import auditoria as kauditoria     # noqa: E402
 from kobra import consulta_bd as kconsulta    # noqa: E402
+from kobra import seguimiento as kseg         # noqa: E402
+from kobra import voz_tts                     # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -232,11 +234,11 @@ st.markdown("---")
 # ----------------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------------
-tabH, tab1, tab2, tab3, tab4, tab5, tab6, tab8, tab9, tabERP, tabNL2SQL, tab7 = st.tabs(
+tabH, tab1, tab2, tab3, tab4, tab5, tab6, tabAgenda, tab8, tab9, tabERP, tabNL2SQL, tab7 = st.tabs(
     ["❓ Guía & Ayuda", "📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
      "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo", "📇 Gestores & Evolución",
-     "🧪 Probar mi cartera", "💰 Caso de negocio", "🔌 Integración ERP",
-     "🔎 Preguntá a tu base de datos", "⚙️ Configuración"])
+     "📅 Agenda de seguimiento", "🧪 Probar mi cartera", "💰 Caso de negocio",
+     "🔌 Integración ERP", "🔎 Preguntá a tu base de datos", "⚙️ Configuración"])
 
 # ---- Tab Ayuda: guía paso a paso -------------------------------------------
 with tabH:
@@ -942,6 +944,47 @@ with tab6:
                            "kobra_analitica_gestion.xlsx",
                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
+@st.cache_data(show_spinner="Calculando la agenda de seguimiento…")
+def _agenda_hoy_cacheada(g):
+    return kseg.agenda_hoy(g)
+
+
+# ---- Tab Agenda: promesas vencidas + seguimiento ---------------------------
+with tabAgenda:
+    st.subheader("📅 Agenda de seguimiento")
+    st.caption("Detecta **promesas de pago y arreglos vencidos** sin que se haya registrado "
+               "el pago correspondiente, y arma la lista de a quién recontactar hoy — "
+               "respetando horario, feriados, topes de frecuencia y la lista de No Contactar "
+               "(los mismos límites que ya aplica el Gestor IA en cada llamada/WhatsApp).")
+
+    _agenda = _agenda_hoy_cacheada(gest)
+    if _agenda.empty:
+        st.success("✅ No hay promesas ni arreglos de pago vencidos sin seguimiento.")
+    else:
+        c = st.columns(4)
+        c[0].metric("Promesas/arreglos vencidos", f"{len(_agenda):,}")
+        c[1].metric("Contactables hoy", f"{int(_agenda['contactable'].sum()):,}")
+        c[2].metric("Monto comprometido", f"$U {_agenda['monto_acordado'].sum():,.0f}")
+        c[3].metric("Días de atraso (prom.)", f"{_agenda['dias_vencida'].mean():.0f}")
+
+        solo_contactables = st.checkbox("Mostrar solo los contactables ahora mismo", value=False)
+        vista = _agenda[_agenda["contactable"]] if solo_contactables else _agenda
+
+        tabla = vista[["id_deudor", "dias_vencida", "monto_acordado", "cuotas", "canal",
+                      "gestor", "resultado", "contactable", "motivo_bloqueo"]].copy()
+        st.dataframe(tabla, use_container_width=True, height=420, hide_index=True,
+                    column_config={
+                        "id_deudor": "Deudor", "dias_vencida": "Días vencida",
+                        "monto_acordado": st.column_config.NumberColumn("Monto acordado", format="$U %.0f"),
+                        "contactable": "¿Contactable hoy?", "motivo_bloqueo": "Motivo si no",
+                    })
+        st.download_button("⬇️ Descargar agenda (CSV)", vista.to_csv(index=False).encode("utf-8"),
+                           file_name="agenda_seguimiento.csv", mime="text/csv")
+
+        st.caption("El re-contacto se hace igual que cualquier otra gestión (Agente Negociador, "
+                   "«Probar mi cartera» o una llamada real vía `/voz/llamar`) y vuelve a quedar "
+                   "registrado acá una vez resuelto.")
+
 # ---- Tab Integración ERP ---------------------------------------------------
 with tabERP:
     st.subheader("🔌 Integración con tu ERP / base de datos")
@@ -1187,6 +1230,38 @@ with tab7:
         st.markdown(_backend_txt + " Fuera del repo en todos los casos. En producción podés "
                     "inyectarlas por variables de entorno / secretos de Docker; el entorno "
                     "tiene prioridad sobre lo guardado.")
+
+        st.markdown("---")
+        st.subheader("🎙️ Voz premium (ElevenLabs)")
+        st.caption("Opcional. Sin configurar, las llamadas siguen usando Twilio/Polly "
+                   "(incluido, sin costo extra). Con `ELEVENLABS_API_KEY` cargada acá arriba, "
+                   "podés elegir una voz clonada/premium — **tiene costo real por carácter** "
+                   "(ver `kobra/voz_tts.py`), así que queda desactivado hasta que elijas una voz.")
+        _eleven_key = kconfig.cargar().get("ELEVENLABS_API_KEY", "")
+        if not _eleven_key:
+            st.info("Cargá `ELEVENLABS_API_KEY` arriba y guardá para ver las voces disponibles.")
+        else:
+            _voces = voz_tts.voces_disponibles(_eleven_key)
+            if not _voces:
+                st.warning("No se pudo listar voces (key inválida o sin conexión).")
+            else:
+                _voice_actual = kconfig.leer_extra("ELEVENLABS_VOICE_ID", "")
+                _opciones = {"— Desactivado (usar Twilio/Polly) —": ""}
+                _opciones.update({f"{v['nombre']} ({v['voice_id'][:8]}…)": v["voice_id"] for v in _voces})
+                _labels = list(_opciones.keys())
+                _idx = next((i for i, v in enumerate(_opciones.values()) if v == _voice_actual), 0)
+                _elegida = st.selectbox("Voz para las llamadas reales", _labels, index=_idx)
+                if st.button("💾 Guardar voz elegida"):
+                    voice_id = _opciones[_elegida]
+                    kconfig.guardar_extra("ELEVENLABS_VOICE_ID", voice_id)
+                    kconfig.guardar_extra("TTS_PROVIDER", "elevenlabs" if voice_id else "twilio")
+                    kauditoria.registrar("voz_premium_configurada",
+                                         {"activada": bool(voice_id)}, rol=ROL_ACTIVO)
+                    st.success("✅ Guardado. Se aplica en el próximo arranque de `realtime/server.py` "
+                              "(o inmediatamente si ya está corriendo con auto-reload).")
+                st.caption(f"Costo de referencia: ~US$ {voz_tts.COSTO_POR_1000_CHARS_USD:.2f} "
+                          "cada 1.000 caracteres hablados (verificá contra tu plan real de "
+                          "ElevenLabs antes de fijar el precio del plan que lo incluya).")
 
         st.markdown("---")
         st.subheader("🔐 Acceso y roles")

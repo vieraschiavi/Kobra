@@ -132,9 +132,13 @@ async def claude(payload: dict, authorization: str = Header(...)):
     return resp.model_dump()
 ```
 
-Endpoints análogos para `/gateway/tts`, `/gateway/twilio`, `/gateway/whatsapp`.
-Cada uno inyecta su clave (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, credenciales
-Twilio/WhatsApp) desde variables de entorno del servidor.
+`/gateway/tts` (ElevenLabs, voz premium) ya está conectado de verdad — ver
+`kobra/voz_tts.py`. A diferencia de Claude, exige la feature `"voz_premium"`
+aparte (no viene en ningún plan por default: cobra por carácter, y ponerla
+por default en un plan de precio fijo le comería margen al plan sin haberlo
+cotizado — ver la nota en `backend_venta/licencias.py::PLANES`). `/gateway/twilio`
+y `/gateway/whatsapp` siguen como circuito de licencia+cupo+medición listo,
+sin proveedor conectado (siguen devolviendo `501` a propósito).
 
 ### Esquema de uso (para facturar)
 
@@ -266,17 +270,18 @@ licencia. Empezá con MercadoPago para LATAM y sumá dLocal para más métodos l
 Ya hecho en código (`backend_venta/`):
 - [x] Emisión/validación de licencia JWT con cupo y features por plan.
 - [x] Medición de uso por cliente/canal/mes (SQLite).
-- [x] Gateway medido de Claude (real) + TTS/Twilio/WhatsApp (circuito listo, sin proveedor conectado).
+- [x] Gateway medido de Claude (real) + TTS/ElevenLabs (real, feature `voz_premium` aparte) + Twilio/WhatsApp (circuito listo, sin proveedor conectado).
 - [x] Webhook de MercadoPago (re-verifica el pago contra la API real, no confía en el body) → emite licencia + token de descarga.
 - [x] Tokens de descarga de un solo uso con expiración.
 - [x] Tests automatizados de todo el flujo (`tests/test_backend_venta.py`).
 
 Pendiente — pasos de negocio/infraestructura, no de código:
 - [ ] Desplegar `backend_venta` en un servidor real (Render/Fly/EC2/lo que uses).
-- [ ] Cargar claves reales como secretos del servidor (`ANTHROPIC_API_KEY`, `MP_ACCESS_TOKEN`, y las de Twilio/WhatsApp/TTS cuando se conecten esos gateways).
+- [ ] Cargar claves reales como secretos del servidor (`ANTHROPIC_API_KEY`, `MP_ACCESS_TOKEN`, `ELEVENLABS_API_KEY`, y las de Twilio/WhatsApp cuando se conecten esos gateways).
 - [ ] `KOBRA_LICENSE_SECRET` y `KOBRA_BACKEND_ADMIN_TOKEN`: fijarlos explícitamente en producción (si no, se autogeneran una vez y quedan guardados localmente — ver el log del proceso la primera vez que arranca).
 - [ ] Conectar el webhook de MercadoPago a la URL pública de `/webhooks/mercadopago`.
 - [ ] Compilar el instalador `Edición Venta` y apuntar `KOBRA_INSTALADOR_PATH` a ese archivo.
 - [ ] Definir precios de excedente por canal (3–5× costo) — hoy `plan_permite_excedente()` solo dice si el plan lo permite, no calcula el cobro.
-- [ ] Conectar un proveedor real a `/gateway/tts`, `/gateway/twilio` y `/gateway/whatsapp` (hoy devuelven `501` a propósito).
+- [ ] Conectar un proveedor real a `/gateway/twilio` y `/gateway/whatsapp` (hoy devuelven `501` a propósito). `/gateway/tts` ya está conectado (ElevenLabs).
+- [ ] Decidir el precio de "voz_premium" antes de habilitarla para un cliente: `kobra/voz_tts.COSTO_POR_1000_CHARS_USD` es una referencia de mercado (~US$0.17–0.20/1000 caracteres), no el costo real de tu plan de ElevenLabs — verificalo y armá el precio con margen sobre eso, no sobre la referencia.
 - [ ] Envío de email con la licencia/link de descarga tras el pago (hoy el webhook devuelve esos datos en la respuesta HTTP, no manda mail).

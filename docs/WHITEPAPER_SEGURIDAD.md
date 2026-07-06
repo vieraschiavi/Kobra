@@ -37,6 +37,11 @@ MV Kobra AI es un sistema de cobranzas inteligentes con dos superficies:
   voz real (Twilio) o WhatsApp, el contenido de esas conversaciones se
   procesa para negociar y tipificar el resultado. Se envían a proveedores de
   IA de terceros (ver sección 4) solo si el cliente configura esas claves.
+- **Voz premium opcional (ElevenLabs)**: si se configura `ELEVENLABS_API_KEY`
+  y se elige una voz, el **texto que el Gestor IA va a decir** (no lo que
+  dice el deudor) se envía a ElevenLabs para sintetizar el audio de la
+  llamada — solo si el cliente activa esto explícitamente; por default las
+  llamadas siguen usando Twilio/Polly, sin este envío adicional.
 - **Ninguna base de datos con nombres/teléfonos reales viaja en este
   repositorio.** El dataset de demostración es 100% sintético (ver
   "Honestidad de los números" en `README.md`).
@@ -71,7 +76,7 @@ MV Kobra AI es un sistema de cobranzas inteligentes con dos superficies:
 
 ## 4. Secretos y claves de API
 
-- Las API keys (Anthropic, OpenAI, Twilio, ERP) se guardan con una cadena de
+- Las API keys (Anthropic, OpenAI, Twilio, ElevenLabs, ERP) se guardan con una cadena de
   respaldo automática (`kobra/config.py`): **keyring del sistema operativo**
   (Windows Credential Manager / macOS Keychain / Secret Service en Linux de
   escritorio) cuando está disponible → si no, **archivo cifrado** (Fernet/

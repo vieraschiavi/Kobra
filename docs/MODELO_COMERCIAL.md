@@ -93,3 +93,30 @@ visibilidad para el cliente, y tocarlo es un refactor grande sin beneficio de
 marca. Si en algún momento se avanza con el registro formal de marca,
 verificar la disponibilidad de "MV Kobra AI" con un agente de marcas antes de
 gastar en el trámite (sigue sin ser algo que se resuelva por código).
+
+## 6. Voz premium (ElevenLabs) — cómo cobrarla sin subsidiar el costo
+
+A raíz de comparar con un competidor ("Mozart") que anuncia un motor de voz
+propio con clonación y múltiples idiomas/acentos, se agregó **ElevenLabs**
+como motor de voz opcional (`kobra/voz_tts.py`), alternativo al Twilio/Polly
+que ya viene incluido sin costo extra. A diferencia de Polly, **ElevenLabs
+cobra por carácter** — real, variable, y crece con el uso del cliente.
+
+Decisiones de precio ya tomadas en el código, para que este costo no se
+termine subsidiando:
+
+- La feature `"voz_premium"` **no viene en ningún plan por default**
+  (`backend_venta/licencias.py::PLANES`) — se habilita explícitamente por
+  cliente cuando se emite su licencia, una vez que se decidió cómo cobrarla.
+- Cada uso queda medido en `backend_venta/uso.py` (caracteres + costo
+  estimado), igual que el uso de Claude — se puede facturar como excedente
+  o incluir en un plan superior con el margen ya calculado.
+- `kobra.voz_tts.COSTO_POR_1000_CHARS_USD` es una **referencia de mercado**
+  (~US$0.17–0.20 cada 1.000 caracteres según el plan de ElevenLabs, julio
+  2026) — no es el costo real de tu cuenta. Antes de ofrecerla a un cliente:
+  confirmar el costo real contra tu plan de ElevenLabs contratado, y fijar
+  el precio del addon (o del plan que la incluya) con margen sobre ese
+  costo real, no sobre la referencia.
+- Sugerencia de piso: cobrarla como addon mensual con un tope de caracteres
+  incluido (igual que el cupo de gestiones), no "ilimitada" a precio fijo —
+  así un cliente que la use mucho no se come el margen del plan.

@@ -24,6 +24,12 @@ from kobra import config as kconfig
 
 _CLAVE_SECRETO = "LICENSE_SECRET"
 
+# Nota sobre "voz_premium" (ElevenLabs, ver backend_venta/app.py::gateway_tts):
+# a propósito NO está en ningún plan de acá abajo. A diferencia de "voz"
+# (Twilio/Polly, costo marginal ~nulo), voz_premium cobra por carácter — si
+# se pusiera por default en un plan de precio fijo, cada uso real le resta
+# margen al plan sin que se haya cotizado. Se habilita explícitamente por
+# cliente: emitir_licencia(cliente_id, plan, features=[*PLANES[plan]["features"], "voz_premium"]).
 PLANES = {
     "trial":      {"cupo_mensual": 50,   "precio": 0.0,   "dias": 3,
                    "features": ["voz", "whatsapp", "copiloto", "erp"]},

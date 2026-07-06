@@ -672,6 +672,38 @@ r = motor.responder("cuánto cobramos en marzo 2026 por departamento",
 df = motor.resultado_a_dataframe(r)
 ```
 
+### 📅 Agenda de seguimiento — `kobra/seguimiento.py`
+
+Cierra el círculo después de una "Promesa de pago" o "Arreglo de pago":
+detecta cuándo la fecha comprometida venció **sin que se haya registrado el
+pago** (ni en la misma gestión, ni en una posterior), y arma la agenda del
+día — a quién recontactar y por qué — respetando la política de
+cumplimiento vigente (horario, feriados, topes de frecuencia, lista de No
+Contactar). No es un canal nuevo: el recontacto sigue siendo una gestión
+normal del Gestor IA o de un humano.
+
+En el dashboard: pestaña **"📅 Agenda de seguimiento"**.
+
+```python
+from kobra import seguimiento as kseg
+agenda = kseg.agenda_hoy(gestiones_df)   # + columnas contactable / motivo_bloqueo
+```
+
+### 🎙️ Voz premium opcional (ElevenLabs) — `kobra/voz_tts.py`
+
+Por defecto las llamadas usan `<Say>` de Twilio (voces Amazon Polly,
+incluidas en la cuenta de Twilio, sin costo extra). Configurando
+`ELEVENLABS_API_KEY` y eligiendo una voz en **Configuración**, las llamadas
+reales pasan a usar ElevenLabs — más voces, acentos regionales reales y
+clonación de voz. **Tiene costo real por carácter** (ver
+`COSTO_POR_1000_CHARS_USD` en el módulo — referencia de mercado, verificar
+contra tu plan real antes de fijar precio). Por eso, en el backend de venta
+(`backend_venta/`), esta voz premium requiere la feature `"voz_premium"`
+aparte — no viene incluida por default en ningún plan, para que el precio
+fijo de un plan no termine subsidiando un costo variable no cotizado. Si
+falla o no está configurada, cae solo a Twilio/Polly — nunca corta la
+llamada.
+
 ---
 
 ## 📁 Estructura
@@ -692,6 +724,8 @@ Kobra/
 │   ├── consulta_bd.py              # NL2SQL: preguntá a la base del cliente en español
 │   ├── cartera_manual.py           # cargar tu propia cartera de prueba
 │   ├── registro.py                 # briefing pre-llamada + registro post-llamada
+│   ├── seguimiento.py              # agenda: promesas/arreglos vencidos sin pago
+│   ├── voz_tts.py                  # voz premium opcional (ElevenLabs) — costo por carácter
 │   ├── config.py                   # API keys persistentes (Configuración)
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports

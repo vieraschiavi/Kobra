@@ -78,11 +78,56 @@ def test_gateway_claude_sin_key_da_503(entorno):
     assert r.status_code == 503
 
 
+def test_gateway_tts_requiere_feature_voz_premium(entorno):
+    """"voz_premium" (ElevenLabs) no viene en ningún plan por default — a
+    diferencia de "voz" (Twilio/Polly), tiene costo real por uso."""
+    app_mod, licencias, uso, descargas = entorno
+    client = TestClient(app_mod.app)
+    lic = licencias.emitir_licencia("cliente@mail.com", "enterprise")
+    r = client.post("/gateway/tts", json={"texto": "hola", "voice_id": "v1"},
+                    headers={"Authorization": f"Bearer {lic}"})
+    assert r.status_code == 403
+
+
+def test_gateway_tts_sin_key_da_503(entorno):
+    app_mod, licencias, uso, descargas = entorno
+    client = TestClient(app_mod.app)
+    lic = licencias.emitir_licencia("cliente@mail.com", "pro",
+                                    features=[*licencias.PLANES["pro"]["features"], "voz_premium"])
+    r = client.post("/gateway/tts", json={"texto": "hola", "voice_id": "v1"},
+                    headers={"Authorization": f"Bearer {lic}"})
+    assert r.status_code == 503
+
+
+def test_gateway_tts_ok_registra_uso_y_costo(entorno, monkeypatch):
+    app_mod, licencias, uso, descargas = entorno
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "sk-fake-000111")
+
+    from kobra import voz_tts
+    monkeypatch.setattr(voz_tts, "sintetizar", lambda texto, voice_id, api_key=None:
+                        {"ok": True, "audio": b"\x00\x01audio-falso", "caracteres": len(texto),
+                         "costo_est_usd": voz_tts.costo_estimado_usd(texto), "error": None})
+
+    client = TestClient(app_mod.app)
+    lic = licencias.emitir_licencia("cliente@mail.com", "pro",
+                                    features=[*licencias.PLANES["pro"]["features"], "voz_premium"])
+    r = client.post("/gateway/tts", json={"texto": "Hola, ¿cómo está?", "voice_id": "v1"},
+                    headers={"Authorization": f"Bearer {lic}"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ok"] is True and data["caracteres"] == len("Hola, ¿cómo está?")
+    assert data["costo_est_usd"] > 0
+
+    resumen = uso.uso_mes("cliente@mail.com")
+    assert resumen["unidades"] == len("Hola, ¿cómo está?")
+    assert resumen["costo_est"] > 0
+
+
 def test_gateway_no_implementado_da_501(entorno):
     app_mod, licencias, uso, descargas = entorno
     client = TestClient(app_mod.app)
     lic = licencias.emitir_licencia("cliente@mail.com", "pro")
-    for ruta in ("/gateway/tts", "/gateway/twilio", "/gateway/whatsapp"):
+    for ruta in ("/gateway/twilio", "/gateway/whatsapp"):
         r = client.post(ruta, json={}, headers={"Authorization": f"Bearer {lic}"})
         assert r.status_code == 501
 
@@ -96,7 +141,7 @@ def test_cupo_agotado_bloquea_antes_que_el_501(entorno):
     cupo = licencias.validar_licencia(lic)["cupo_mensual"]
     for _ in range(cupo):
         uso.registrar_uso("cliente@mail.com", canal="claude", unidades=1)
-    r = client.post("/gateway/tts", json={}, headers={"Authorization": f"Bearer {lic}"})
+    r = client.post("/gateway/twilio", json={}, headers={"Authorization": f"Bearer {lic}"})
     assert r.status_code == 402
 
 
@@ -106,7 +151,7 @@ def test_plan_enterprise_sin_tope_no_bloquea_por_cupo(entorno):
     lic = licencias.emitir_licencia("banco@mail.com", "enterprise", cupo_mensual=None)
     for _ in range(500):
         uso.registrar_uso("banco@mail.com", canal="claude", unidades=1)
-    r = client.post("/gateway/tts", json={}, headers={"Authorization": f"Bearer {lic}"})
+    r = client.post("/gateway/twilio", json={}, headers={"Authorization": f"Bearer {lic}"})
     assert r.status_code == 501  # no da 402: pasó el chequeo de cupo
 
 
