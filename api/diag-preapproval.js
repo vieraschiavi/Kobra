@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
   async function intentar(currency) {
     const body = {
       reason: "Kobra IA - diagnostico moneda (borrar)",
-      auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: 1, currency_id: currency },
+      auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: 20, currency_id: currency },
       back_url: base + "/",
       payer_email: "test_user_diag_kobra@testuser.com",
       status: "pending",
