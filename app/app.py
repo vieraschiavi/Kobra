@@ -44,7 +44,7 @@ st.set_page_config(page_title="Kobra IA · Cobranzas Inteligentes",
                    else (_ICON_PATH if os.path.exists(_ICON_PATH) else "🐍"),
                    layout="wide", initial_sidebar_state="expanded")
 
-PRIMARY = "#00C896"       # verde Kobra
+PRIMARY = "#00C896"       # verde Kobra IA
 DARK = "#0E1117"
 ACCENT = "#6C5CE7"
 YELLOW = "#FDCB6E"
@@ -295,7 +295,7 @@ with tabH:
             + _chip("TWILIO_AUTH_TOKEN", "Llamadas reales — Auth Token")
             + _chip("TWILIO_FROM", "Llamadas reales — tu número Twilio")
             + "<p style='margin-top:10px'>Se cargan y guardan en la pestaña "
-              "<b>⚙️ Configuración</b>. Kobra funciona igual sin claves (con menos "
+              "<b>⚙️ Configuración</b>. Kobra IA funciona igual sin claves (con menos "
               "extras). Se guardan cifradas/con permisos restringidos, fuera del repo.</p>"
             "</div>", unsafe_allow_html=True)
     with cb:
@@ -313,7 +313,7 @@ with tabH:
             "4. Poné el servidor de voz accesible (ngrok) y abrí `…/llamar`.\n"
             "5. Ingresá el teléfono y el monto → **📞 Llamar ahora**. El bot negocia y registra la gestión.\n\n"
             "⚠️ Necesitás el **consentimiento** de la persona. Empezá probando con tu propio celular.")
-    with st.expander("⚖️ Registrar Kobra legalmente en Uruguay (para que no te la copien)"):
+    with st.expander("⚖️ Registrar Kobra IA legalmente en Uruguay (para que no te la copien)"):
         st.markdown(
             "- El **código ya es tuyo** por derecho de autor automático (Ley 9.739/17.616).\n"
             "- Registralo barato en la **Biblioteca Nacional** (~USD 20–60) para tener fecha cierta.\n"
@@ -743,9 +743,9 @@ with tab5:
 with tab6:
     st.subheader("📇 Gestores & Evolución de la gestión")
     st.caption("Qué características suceden más por tramo/segmento, cómo evolucionan mes a mes, "
-               "su impacto en la cobranza y si los gestores mejoran con las herramientas de Kobra.")
+               "su impacto en la cobranza y si los gestores mejoran con las herramientas de Kobra IA.")
     st.warning("⚠️ **Datos ilustrativos (demo).** El historial de gestiones es sintético y el "
-               "\"efecto Kobra\" está inyectado por el generador para demostrar la **metodología "
+               "\"efecto Kobra IA\" está inyectado por el generador para demostrar la **metodología "
                "de medición** (grupo con vs. sin herramienta, evolución por cohorte). Los uplifts "
                "que ves acá **no son resultados medidos**. Con el registro post-llamada, esta "
                "misma pestaña se alimenta de llamadas reales y los números pasan a ser evidencia.")
@@ -774,12 +774,12 @@ with tab6:
     if gf.empty:
         st.warning("No hay gestiones para los filtros seleccionados.")
     else:
-        # --- Impacto Kobra (KPIs) ---
+        # --- Impacto Kobra IA (KPIs) ---
         ik = analitica.impacto_kobra(gf)
-        st.markdown("#### 🚀 Impacto de las herramientas Kobra *(ilustrativo · datos sintéticos)*")
+        st.markdown("#### 🚀 Impacto de las herramientas Kobra IA *(ilustrativo · datos sintéticos)*")
         ck = st.columns(4)
         ck[0].metric("Calidad de gestión", f"{ik['con_kobra']['calidad_prom']:.0f}",
-                     f"+{ik['uplift_calidad']:.1f} vs sin Kobra")
+                     f"+{ik['uplift_calidad']:.1f} vs sin Kobra IA")
         ck[1].metric("Tasa de conversión", f"{ik['con_kobra']['tasa_conversion']:.0%}",
                      f"+{ik['uplift_conversion']*100:.1f} pp")
         ck[2].metric("Tasa de recupero", f"{ik['con_kobra']['tasa_recupero']:.0%}",
@@ -807,8 +807,8 @@ with tab6:
         with e2:
             fig = px.line(ev_kobra, x="mes", y="calidad_prom", color="usa_kobra",
                           markers=True, color_discrete_map={True: PRIMARY, False: "#FF7675"},
-                          title="Calidad: con Kobra vs. sin Kobra",
-                          labels={"usa_kobra": "Usa Kobra"})
+                          title="Calidad: con Kobra IA vs. sin Kobra IA",
+                          labels={"usa_kobra": "Usa Kobra IA"})
             fig.update_layout(template="plotly_dark", height=340,
                               legend=dict(orientation="h", y=1.15))
             st.plotly_chart(fig, use_container_width=True)
@@ -859,7 +859,7 @@ with tab6:
             st.metric("Correlación calidad ↔ conversión",
                       f"{ic.attrs['correlacion_calidad_conversion']:.2f}")
             st.info("La calidad de gestión (medida por el Copiloto) se traduce en "
-                    "más conversión y más recupero. Kobra la mejora sistemáticamente.")
+                    "más conversión y más recupero. Kobra IA la mejora sistemáticamente.")
 
         # --- Gestor IA vs. humanos ---
         comp = analitica.comparativa_ia(gf)
@@ -913,7 +913,7 @@ with tab6:
                     "recupero": st.column_config.NumberColumn("Recupero (UYU)", format="%.0f"),
                     "tasa_conversion": st.column_config.NumberColumn("Conversión", format="%.0f%%"),
                     "calidad_prom": st.column_config.NumberColumn("Calidad", format="%.0f"),
-                    "usa_kobra": st.column_config.CheckboxColumn("Kobra"),
+                    "usa_kobra": st.column_config.CheckboxColumn("Kobra IA"),
                 })
         with r2:
             mej = analitica.mejora_por_gestor(gf)
@@ -921,7 +921,7 @@ with tab6:
                 fig = px.bar(mej, x="delta_calidad", y="gestor", orientation="h",
                              color="usa_kobra", color_discrete_map={True: PRIMARY, False: "#FF7675"},
                              title="Mejora de calidad (últimos 3m vs. primeros 3m)",
-                             labels={"delta_calidad": "Δ calidad", "usa_kobra": "Usa Kobra"})
+                             labels={"delta_calidad": "Δ calidad", "usa_kobra": "Usa Kobra IA"})
                 fig.update_layout(template="plotly_dark", height=330,
                                   yaxis=dict(autorange="reversed"),
                                   legend=dict(orientation="h", y=1.15))
@@ -1017,7 +1017,7 @@ with tab7:
         st.subheader("⚙️ Configuración de API keys")
         st.caption("Ingresá las keys una sola vez: quedan **guardadas** y se cargan solas en "
                    "cada arranque. Habilitan la transcripción real (Whisper) y la evaluación "
-                   "con Claude. El resto de Kobra funciona sin keys.")
+                   "con Claude. El resto de Kobra IA funciona sin keys.")
 
         with st.form("form_config"):
             nuevos = {}
@@ -1196,7 +1196,7 @@ with tab7:
 
 # ---- Tab 8: Probar mi cartera ----------------------------------------------
 with tab8:
-    st.subheader("🧪 Probá Kobra con tu propia cartera")
+    st.subheader("🧪 Probá Kobra IA con tu propia cartera")
     st.caption("Cargá tus contactos y el **Gestor IA** negocia cada caso: ProbPago + "
                "el porqué, estrategia, chequeo de cumplimiento y la conversación completa. "
                "Después descargás los resultados.")
@@ -1293,11 +1293,11 @@ with tab8:
 # ---- Tab 9: Caso de negocio (ROI) ------------------------------------------
 with tab9:
     st.subheader("💰 Caso de negocio (estimador de ROI)")
-    st.caption("Dimensioná el valor de Kobra sobre TU cartera bajo distintos supuestos "
+    st.caption("Dimensioná el valor de Kobra IA sobre TU cartera bajo distintos supuestos "
                "de mejora. Sirve para justificar un piloto pago.")
     st.warning("⚠️ El *uplift* (cuánto sube el recupero) es un **supuesto que cargás vos, "
                "no un resultado medido**. Esto proyecta *cuánto valdría*, no afirma cuánto "
-               "sube Kobra. El número real se mide en un piloto con grupo de control.")
+               "sube Kobra IA. El número real se mide en un piloto con grupo de control.")
 
     cA, cB, cC = st.columns(3)
     cartera = cA.number_input("Cartera gestionable (UYU)", min_value=0.0,
@@ -1306,7 +1306,7 @@ with tab9:
                                 max_value=100.0, value=30.0, step=1.0) / 100
     meses = cC.number_input("Horizonte (meses)", min_value=1, value=12, step=1)
     cD, cE, cF = st.columns(3)
-    costo_mes = cD.number_input("Costo mensual de Kobra (UYU)", min_value=0.0,
+    costo_mes = cD.number_input("Costo mensual de Kobra IA (UYU)", min_value=0.0,
                                 value=100_000.0, step=10_000.0, format="%.0f")
     costo_setup = cE.number_input("Setup / implementación (UYU)", min_value=0.0,
                                   value=300_000.0, step=50_000.0, format="%.0f")
