@@ -34,7 +34,7 @@
       +'border-radius:18px;padding:34px;color:#eaf1fb;box-shadow:0 30px 80px rgba(0,0,0,.5)">'
       +'<div style="font:800 12px/1 system-ui;letter-spacing:.14em;text-transform:uppercase;color:#FDCB6E;margin-bottom:12px">Demo · 3 días</div>'
       +'<div style="font:800 22px/1.25 system-ui;margin-bottom:10px">'+(expired?'Tu demo de 3 días venció':'Registrate para probar la demo completa')+'</div>'
-      +'<div style="color:#9db0c8;font-size:14.5px;margin-bottom:20px">'+(expired?'Volvé a registrarte para seguir probando Kobra, o comprá un plan.':'Es gratis y dura 3 días. Sin tarjeta.')+'</div>'
+      +'<div style="color:#9db0c8;font-size:14.5px;margin-bottom:20px">'+(expired?'Volvé a registrarte para seguir probando Kobra IA, o comprá un plan.':'Es gratis y dura 3 días. Sin tarjeta.')+'</div>'
       +'<a href="/" style="display:inline-block;background:#FDCB6E;color:#1c1305;font-weight:800;font-size:14.5px;text-decoration:none;padding:12px 22px;border-radius:10px">'+(expired?'Registrarme de nuevo':'Ir a registrarme')+'</a></div>';
     document.body.appendChild(ov);
     document.documentElement.style.overflow='hidden'; document.body.style.overflow='hidden';
@@ -119,7 +119,7 @@
 
 <div class="card" style="margin-top:16px;">
   <h3>📞 Gestor IA por voz</h3>
-  <p class="sub" style="margin-bottom:10px;">Así llama y negocia Kobra por teléfono, con voz sintetizada en vivo (subí el volumen).</p>
+  <p class="sub" style="margin-bottom:10px;">Así llama y negocia Kobra IA por teléfono, con voz sintetizada en vivo (subí el volumen).</p>
   <div class="toolbar"><button onclick="reproducirLlamada()">▶ Reproducir llamada de ejemplo (con voz)</button>
     <button class="alt" onclick="detenerLlamada()">⏹ Detener</button>
     <span class="sub" id="callInfo"></span></div>
@@ -483,7 +483,7 @@ function reproducirLlamada(){
       return;
     }
     var turn=CALL_SCRIPT[i];
-    box.appendChild(chatBubble(turn.who,turn.text,'background:#16324a;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 Kobra (voz)','👤 Cliente'));
+    box.appendChild(chatBubble(turn.who,turn.text,'background:#16324a;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 Kobra IA (voz)','👤 Cliente'));
     box.scrollTop=box.scrollHeight;
     i++;
     var isIA = turn.who==='ia';
@@ -516,7 +516,7 @@ function reproducirWhatsApp(){
       return;
     }
     var turn=WSP_SCRIPT[i];
-    var bubble=chatBubble(turn.who,turn.text,'background:#0b3d2e;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 Kobra ✓✓','👤 Cliente');
+    var bubble=chatBubble(turn.who,turn.text,'background:#0b3d2e;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 Kobra IA ✓✓','👤 Cliente');
     box.appendChild(bubble);
     box.scrollTop=box.scrollHeight;
     i++;
