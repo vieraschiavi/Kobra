@@ -120,3 +120,11 @@ termine subsidiando:
 - Sugerencia de piso: cobrarla como addon mensual con un tope de caracteres
   incluido (igual que el cupo de gestiones), no "ilimitada" a precio fijo —
   así un cliente que la use mucho no se come el margen del plan.
+
+**Decisión tomada:** passthrough con margen sobre el costo real (2-3x lo
+que cobra ElevenLabs), no addon fijo — solo para el cliente que pide
+**clonación de voz**. El resto sigue con la voz rioplatense de Twilio/Polly
+de siempre, **gratis** (incluida en el plan, sin activar "voz_premium").
+Así el que no necesita clonar no paga nada de más, y al que sí la pide se
+le cobra en proporción a lo que realmente consume — sin plata regalada ni
+plan fijo que se coma margen con uso alto.
