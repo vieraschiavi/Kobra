@@ -118,6 +118,7 @@ nav .wrap{display:flex;align-items:center;gap:16px;height:60px}
 .plan .amt{font-size:38px;font-weight:850;color:var(--ink-d);line-height:1;letter-spacing:-.02em}
 .plan .amt small{font-size:15px;color:var(--muted-d);font-weight:600}
 .plan .per{color:var(--muted-d);font-size:12.5px;margin-top:4px}
+.plan .uyu{color:var(--faint);font-size:11.5px;margin-top:3px}
 .plan ul{list-style:none;padding:0;margin:18px 0 22px;flex:1}
 .plan li{font-size:13px;color:var(--muted-d);padding:7px 0 7px 20px;position:relative;border-bottom:1px solid var(--line-d)}
 .plan li:last-child{border-bottom:0}.plan li::before{content:"→";position:absolute;left:0;color:var(--amber2)}
@@ -261,13 +262,14 @@ footer .legal{max-width:74ch;line-height:1.6}
 <section id="precios" class="panel"><div class="wrap">
   <div class="eyebrow" data-i="ey3">Planes</div>
   <h2 class="h2" data-i="st3">Elegí tu plan y empezá hoy</h2>
-  <p class="lead-d" data-i="sl3">Pagás en dólares con tarjeta, MercadoPago o transferencia. Al confirmarse el pago,
+  <p class="lead-d" data-i="sl3">Precio de referencia en dólares; se cobra en pesos uruguayos (MercadoPago, tarjeta o transferencia) al tipo de cambio del día. Al confirmarse el pago,
   descargás el programa con todo incluido.</p>
   <div class="pgrid">
     <div class="plan">
       <h3 data-i="p1t">Starter</h3>
       <div class="who" data-i="p1w">Traé tus propias APIs. Ideal para técnicos.</div>
       <div class="amt">US$490</div><div class="per" data-i="p1per">licencia + US$29/mes soporte</div>
+      <div class="uyu" data-i="p1uyu">≈ $U 19.600 + $U 1.160/mes · se cobra en pesos uruguayos</div>
       <ul><li data-i="p1a">App de PC completa</li><li data-i="p1b">Voz · WhatsApp · copiloto · ERP</li>
         <li data-i="p1c">Usás tus propias claves</li><li data-i="p1d">Actualizaciones incluidas</li></ul>
       <button class="btn btn-od" data-pay="starter" data-i="p1cta">Comprar Starter</button>
@@ -277,6 +279,7 @@ footer .legal{max-width:74ch;line-height:1.6}
       <h3 data-i="p2t">Pro · Todo incluido</h3>
       <div class="who" data-i="p2w">Abrí y usá. Sin configurar nada técnico.</div>
       <div class="amt">US$149<small>/mes</small></div><div class="per" data-i="p2per">+ uso · 1.000 gestiones incluidas</div>
+      <div class="uyu" data-i="p2uyu">≈ $U 5.960/mes · se cobra en pesos uruguayos</div>
       <ul><li data-i="p2a">APIs embebidas y medidas</li><li data-i="p2b">Voz neural incluida (sin costo/min)</li>
         <li data-i="p2c">Cupo mensual + excedente por gestión</li><li data-i="p2d">Soporte prioritario</li></ul>
       <button class="btn btn-a" data-pay="pro" data-i="p2cta">Suscribirme al Pro</button>
@@ -285,6 +288,7 @@ footer .legal{max-width:74ch;line-height:1.6}
       <h3 data-i="p3t">Enterprise</h3>
       <div class="who" data-i="p3w">Bancos, grandes estudios, white-label.</div>
       <div class="amt" data-i="p3amt">A medida</div><div class="per" data-i="p3per">desde US$1.500/mes</div>
+      <div class="uyu" data-i="p3uyu">≈ desde $U 60.000/mes · se cobra en pesos uruguayos</div>
       <ul><li data-i="p3a">Usuarios ilimitados · SSO</li><li data-i="p3b">Marca propia (white-label)</li>
         <li data-i="p3c">ERP a medida · SLA</li><li data-i="p3d">Onboarding dedicado</li></ul>
       <button class="btn btn-od" data-pay="enterprise" data-i="p3cta">Hablar con ventas</button>
@@ -378,10 +382,10 @@ var I18N={
     f2t:"Negociador por WhatsApp",f2p:"O mesmo agente fecha por chat, envia o link de pagamento e registra tudo sozinho.",
     f3t:"Copiloto para humanos",f3p:"Detecta o humor do cliente e sugere ao agente o que dizer, em tempo real.",
     f4t:"Integração com seu ERP",f4p:"Cada resultado — pagamento, acordo, informado — sincroniza ao seu ERP ou banco por API ou SQL.",f4a:"CSV · Excel · JSON",f4b:"API REST (Bearer) ou SQL",
-    ey3:"Planos",st3:"Escolha seu plano e comece hoje",sl3:"Pague em dólares com cartão, MercadoPago ou transferência. Ao confirmar o pagamento, baixe o programa com tudo incluído.",
-    p1t:"Starter",p1w:"Traga suas próprias APIs. Ideal para técnicos.",p1per:"licença + US$29/mês suporte",p1a:"App de PC completo",p1b:"Voz · WhatsApp · copiloto · ERP",p1c:"Use suas próprias chaves",p1d:"Atualizações incluídas",p1cta:"Comprar Starter",
-    poptag:"Recomendado",p2t:"Pro · Tudo incluído",p2w:"Abra e use. Sem configurar nada técnico.",p2per:"+ uso · 1.000 gestões incluídas",p2a:"APIs embutidas e medidas",p2b:"Voz neural incluída (sem custo/min)",p2c:"Cota mensal + excedente por gestão",p2d:"Suporte prioritário",p2cta:"Assinar o Pro",
-    p3t:"Enterprise",p3w:"Bancos, grandes escritórios, white-label.",p3amt:"Sob medida",p3per:"a partir de US$1.500/mês",p3a:"Usuários ilimitados · SSO",p3b:"Marca própria (white-label)",p3c:"ERP sob medida · SLA",p3d:"Onboarding dedicado",p3cta:"Falar com vendas",
+    ey3:"Planos",st3:"Escolha seu plano e comece hoje",sl3:"Preço de referência em dólares; cobrado em pesos uruguaios (MercadoPago, cartão ou transferência) na cotação do dia. Ao confirmar o pagamento,",
+    p1t:"Starter",p1w:"Traga suas próprias APIs. Ideal para técnicos.",p1per:"licença + US$29/mês suporte",p1uyu:"≈ $U 19.600 + $U 1.160/mês · cobrado em pesos uruguaios",p1a:"App de PC completo",p1b:"Voz · WhatsApp · copiloto · ERP",p1c:"Use suas próprias chaves",p1d:"Atualizações incluídas",p1cta:"Comprar Starter",
+    poptag:"Recomendado",p2t:"Pro · Tudo incluído",p2w:"Abra e use. Sem configurar nada técnico.",p2per:"+ uso · 1.000 gestões incluídas",p2uyu:"≈ $U 5.960/mês · cobrado em pesos uruguaios",p2a:"APIs embutidas e medidas",p2b:"Voz neural incluída (sem custo/min)",p2c:"Cota mensal + excedente por gestão",p2d:"Suporte prioritário",p2cta:"Assinar o Pro",
+    p3t:"Enterprise",p3w:"Bancos, grandes escritórios, white-label.",p3amt:"Sob medida",p3per:"a partir de US$1.500/mês",p3uyu:"≈ desde $U 60.000/mês · cobrado em pesos uruguaios",p3a:"Usuários ilimitados · SSO",p3b:"Marca própria (white-label)",p3c:"ERP sob medida · SLA",p3d:"Onboarding dedicado",p3cta:"Falar com vendas",
     paylead:"Meios de pagamento:",payb1:"Transferência",paysec:"🔒 Pagamento seguro · o dinheiro cai na sua conta configurada",
     dey:"Demo ao vivo",bandt:"Teste a Kobra IA agora mesmo",bandp:"Abra o painel interativo e veja como prioriza a carteira, negocia e registra cada gestão.",bandcta:"▶ Abrir a demo",
     eyc:"Contato",stc:"Caixa de contato",slc:"Tem uma dúvida ou quer uma demo? Preencha o formulário: seu e-mail abre com o assunto e a pergunta prontos para nos enviar a vieraschiavi@gmail.com.",
@@ -407,10 +411,10 @@ var I18N={
     f2t:"WhatsApp negotiator",f2p:"The same agent closes by chat, sends the payment link and logs everything itself.",
     f3t:"Copilot for humans",f3p:"Detects the customer's mood and tells the agent what to say, in real time.",
     f4t:"ERP integration",f4p:"Every result — paid, arrangement, informed — syncs to your ERP or database via API or SQL.",f4a:"CSV · Excel · JSON",f4b:"REST API (Bearer) or SQL",
-    ey3:"Plans",st3:"Pick your plan and start today",sl3:"Pay in dollars by card, MercadoPago or bank transfer. Once payment clears, download the program with everything included.",
-    p1t:"Starter",p1w:"Bring your own APIs. Ideal for technical teams.",p1per:"license + US$29/mo support",p1a:"Full PC app",p1b:"Voice · WhatsApp · copilot · ERP",p1c:"Use your own keys",p1d:"Updates included",p1cta:"Buy Starter",
-    poptag:"Recommended",p2t:"Pro · All-inclusive",p2w:"Open and use. No technical setup.",p2per:"+ usage · 1,000 cases included",p2a:"Embedded, metered APIs",p2b:"Neural voice included (no per-min cost)",p2c:"Monthly quota + overage per case",p2d:"Priority support",p2cta:"Subscribe to Pro",
-    p3t:"Enterprise",p3w:"Banks, large firms, white-label.",p3amt:"Custom",p3per:"from US$1,500/mo",p3a:"Unlimited users · SSO",p3b:"Your own brand (white-label)",p3c:"Custom ERP · SLA",p3d:"Dedicated onboarding",p3cta:"Talk to sales",
+    ey3:"Plans",st3:"Pick your plan and start today",sl3:"Reference price in US dollars; charged in Uruguayan pesos (MercadoPago, card or bank transfer) at the day's exchange rate. Once payment clears,",
+    p1t:"Starter",p1w:"Bring your own APIs. Ideal for technical teams.",p1per:"license + US$29/mo support",p1uyu:"≈ $U 19,600 + $U 1,160/mo · charged in Uruguayan pesos",p1a:"Full PC app",p1b:"Voice · WhatsApp · copilot · ERP",p1c:"Use your own keys",p1d:"Updates included",p1cta:"Buy Starter",
+    poptag:"Recommended",p2t:"Pro · All-inclusive",p2w:"Open and use. No technical setup.",p2per:"+ usage · 1,000 cases included",p2uyu:"≈ $U 5,960/mo · charged in Uruguayan pesos",p2a:"Embedded, metered APIs",p2b:"Neural voice included (no per-min cost)",p2c:"Monthly quota + overage per case",p2d:"Priority support",p2cta:"Subscribe to Pro",
+    p3t:"Enterprise",p3w:"Banks, large firms, white-label.",p3amt:"Custom",p3per:"from US$1,500/mo",p3uyu:"≈ from $U 60,000/mo · charged in Uruguayan pesos",p3a:"Unlimited users · SSO",p3b:"Your own brand (white-label)",p3c:"Custom ERP · SLA",p3d:"Dedicated onboarding",p3cta:"Talk to sales",
     paylead:"Payment methods:",payb1:"Bank transfer",paysec:"🔒 Secure payment · money lands in your configured account",
     dey:"Live demo",bandt:"Try Kobra IA right now",bandp:"Open the interactive dashboard and see how it prioritizes the portfolio, negotiates and logs every case.",bandcta:"▶ Open the demo",
     eyc:"Contact",stc:"Contact box",slc:"Have a question or want a demo? Fill out the form: your email opens with the subject and question ready to send to vieraschiavi@gmail.com.",
