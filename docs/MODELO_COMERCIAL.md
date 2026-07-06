@@ -8,7 +8,7 @@
 
 | Canal | Qué es | Para quién sirve |
 |---|---|---|
-| **Web self-serve** (`kobra-ia.vercel.app`) | Landing + demo + checkout de MercadoPago (Starter US$490+US$29/mes, Pro US$149/mes) | Generar leads, dejar probar la demo, validar interés técnico. **No esperes que una financiera compre así** — el ciclo de venta B2B a bancos/mutuales es largo y requiere confianza, no un botón de "suscribirse". |
+| **Web self-serve** (`mvkobranzaia.com`) | Landing + demo + checkout de MercadoPago (Starter US$490+US$29/mes, Pro US$149/mes) | Generar leads, dejar probar la demo, validar interés técnico. **No esperes que una financiera compre así** — el ciclo de venta B2B a bancos/mutuales es largo y requiere confianza, no un botón de "suscribirse". |
 | **Venta directa / PoC** | Contacto 1 a 1, demo guiada, piloto pago acotado | **Es el motor de ingresos real en el corto plazo.** Así se cierran los primeros clientes. |
 
 La web no se descarta — sirve como vidriera y para calificar interés — pero el

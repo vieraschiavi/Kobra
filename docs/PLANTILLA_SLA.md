@@ -27,7 +27,7 @@ backend de licencias]**.
 - **Si se usa el backend de licencias/gateway** (`backend_venta/`) hosteado
   por nosotros: uptime objetivo mensual de **[ej. 99.0% / 99.5%]**,
   medido excluyendo ventanas de mantenimiento programado (ver punto 4).
-- **Landing/demo pública** (`kobra-ia.vercel.app`): mejor esfuerzo, sin
+- **Landing/demo pública** (`mvkobranzaia.com`): mejor esfuerzo, sin
   compromiso de SLA — es material de marketing, no un componente
   operativo del Servicio contratado.
 

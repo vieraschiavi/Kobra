@@ -20,7 +20,7 @@ MV Kobra AI es un sistema de cobranzas inteligentes con dos superficies:
    máquina del cliente o en un servidor propio del cliente — no es un SaaS
    multi-tenant hosteado por nosotros. El cliente controla dónde vive el
    dato en todo momento.
-2. **Landing + demo pública** (`kobra-ia.vercel.app`): sitio de marketing y
+2. **Landing + demo pública** (`mvkobranzaia.com`): sitio de marketing y
    demo con **datos 100% sintéticos** — nunca procesa datos reales de
    deudores de ningún cliente.
 3. **Backend de licencias/gateway** (`backend_venta/`, opcional): solo se usa
