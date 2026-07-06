@@ -19,6 +19,7 @@ import os
 from datetime import datetime
 
 import pandas as pd
+import portalocker
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCORED_CSV = os.path.join(ROOT, "outputs", "kobra_scored.csv")
@@ -130,14 +131,8 @@ def registrar_gestion(id_deudor: str, gestor_id: str = "G01",
         else:
             recupero = 0.0
 
-    existentes = 0
-    if os.path.exists(archivo):
-        with open(archivo, encoding="utf-8") as f:
-            existentes = max(sum(1 for _ in f) - 1, 0)
-
     ahora = datetime.now()
     fila_out = dict(
-        id_gestion=f"GR-{existentes + 1:07d}",
         gestor_id=gestor_id,
         gestor=f"Gestor {gestor_id.lstrip('G') or gestor_id}",
         tipo_gestor=(tipo_gestor or ("IA" if str(gestor_id).upper().startswith("IA") else "Humano")),
@@ -166,10 +161,21 @@ def registrar_gestion(id_deudor: str, gestor_id: str = "G01",
         notas=notas,
     )
 
-    nueva = pd.DataFrame([fila_out], columns=GESTION_COLS)
+    # id_gestion + el append al CSV van bajo lock: contar líneas existentes y
+    # escribir la nueva no es atómico, así que con gestiones concurrentes
+    # (el Gestor IA corre hasta 50 conversaciones en paralelo, ver
+    # realtime/voicebot.py) dos llamadas podían terminar con el mismo
+    # id_gestion. portalocker serializa esto entre threads y entre procesos.
     os.makedirs(os.path.dirname(archivo), exist_ok=True)
-    nueva.to_csv(archivo, mode="a", index=False,
-                 header=not os.path.exists(archivo))
+    with portalocker.Lock(archivo + ".lock", timeout=10):
+        existentes = 0
+        if os.path.exists(archivo):
+            with open(archivo, encoding="utf-8") as f:
+                existentes = max(sum(1 for _ in f) - 1, 0)
+        fila_out["id_gestion"] = f"GR-{existentes + 1:07d}"
+        nueva = pd.DataFrame([fila_out], columns=GESTION_COLS)
+        nueva.to_csv(archivo, mode="a", index=False,
+                    header=not os.path.exists(archivo))
 
     from kobra import auditoria as kauditoria
     kauditoria.registrar("gestion_registrada", {

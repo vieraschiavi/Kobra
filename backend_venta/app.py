@@ -121,7 +121,6 @@ _PROMPT_COPILOTO = (
 async def gateway_claude(payload: dict, claims: dict = Depends(requerir_licencia)):
     if "copiloto" not in claims.get("features", []):
         raise HTTPException(403, "el plan no incluye el Copiloto IA")
-    _chequear_cupo(claims)
 
     texto = str(payload.get("texto", ""))[:4000].strip()
     if not texto:
@@ -131,26 +130,32 @@ async def gateway_claude(payload: dict, claims: dict = Depends(requerir_licencia
     if not key:
         raise HTTPException(503, "ANTHROPIC_API_KEY no configurada en el servidor del gateway")
 
-    try:
-        r = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-            json={"model": "claude-haiku-4-5", "max_tokens": 500,
-                  "messages": [{"role": "user", "content": _PROMPT_COPILOTO.format(texto=texto)}]},
-            timeout=30,
-        )
-        data = r.json()
-        if not r.ok:
-            raise HTTPException(502, (data.get("error") or {}).get("message", "error de Anthropic"))
-        usage = data.get("usage", {})
-        uso.registrar_uso(claims["sub"], canal="claude", gestion_id=payload.get("gestion_id"),
-                          tok_in=usage.get("input_tokens", 0), tok_out=usage.get("output_tokens", 0))
-        texto_resp = (data.get("content") or [{}])[0].get("text", "")
-        return {"ok": True, "raw": texto_resp}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, f"error llamando a Claude: {e}") from e
+    # Chequear cupo + llamar al proveedor + registrar el uso, bajo un lock
+    # por cliente: sin esto, dos pedidos concurrentes del mismo cliente
+    # pueden pasar el chequeo de cupo antes de que ninguno registre uso
+    # (ver docstring de uso.lock_cliente).
+    with uso.lock_cliente(claims["sub"]):
+        _chequear_cupo(claims)
+        try:
+            r = requests.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": "claude-haiku-4-5", "max_tokens": 500,
+                      "messages": [{"role": "user", "content": _PROMPT_COPILOTO.format(texto=texto)}]},
+                timeout=30,
+            )
+            data = r.json()
+            if not r.ok:
+                raise HTTPException(502, (data.get("error") or {}).get("message", "error de Anthropic"))
+            usage = data.get("usage", {})
+            uso.registrar_uso(claims["sub"], canal="claude", gestion_id=payload.get("gestion_id"),
+                              tok_in=usage.get("input_tokens", 0), tok_out=usage.get("output_tokens", 0))
+            texto_resp = (data.get("content") or [{}])[0].get("text", "")
+            return {"ok": True, "raw": texto_resp}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(500, f"error llamando a Claude: {e}") from e
 
 
 @app.post("/gateway/tts")

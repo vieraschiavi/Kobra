@@ -162,3 +162,28 @@ def test_salud():
     from backend_venta.app import app
     r = TestClient(app).get("/salud")
     assert r.status_code == 200 and r.json()["ok"] is True
+
+
+def test_cupo_concurrente_no_deja_pasar_de_mas(entorno):
+    """Regresión: chequear cupo y registrar uso en pasos separados dejaba que
+    pedidos concurrentes del mismo cliente pasaran el chequeo antes de que
+    ninguno registrara uso — un cupo de 10 dejaba pasar 22 de 30 pedidos
+    simultáneos. uso.lock_cliente() serializa check+registro por cliente."""
+    import concurrent.futures
+    app_mod, licencias, uso, descargas = entorno
+
+    cliente = "cliente-cupo@mail.com"
+    cupo = 10
+
+    def intentar(i):
+        with uso.lock_cliente(cliente):
+            if uso.gestiones_mes(cliente) >= cupo:
+                return "bloqueado"
+            uso.registrar_uso(cliente, canal="claude", unidades=1)
+            return "permitido"
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as ex:
+        resultados = list(ex.map(intentar, range(30)))
+
+    assert resultados.count("permitido") == cupo
+    assert uso.gestiones_mes(cliente) == cupo

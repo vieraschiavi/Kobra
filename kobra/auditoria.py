@@ -25,6 +25,8 @@ import json
 import os
 from datetime import datetime, timezone
 
+import portalocker
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOG_FILE = os.environ.get("KOBRA_AUDIT_LOG", os.path.join(ROOT, "data", "auditoria.log"))
 GENESIS_HASH = "0" * 64
@@ -64,18 +66,30 @@ def _calcular_hash(ts: str, usuario: str, rol: str, accion: str, detalle: dict, 
 
 def registrar(accion: str, detalle: dict | None = None, usuario: str | None = None,
              rol: str | None = None, archivo: str = LOG_FILE) -> dict:
-    """Agrega una entrada al log de auditoría. Devuelve la entrada escrita."""
+    """
+    Agrega una entrada al log de auditoría. Devuelve la entrada escrita.
+
+    Encadenar el hash exige leer la última entrada y escribir la nueva como
+    una sola operación atómica: con escrituras concurrentes (varias
+    sesiones/requests al mismo tiempo, ej. el gateway de `backend_venta`),
+    dos threads/procesos podrían leer el mismo "último hash" antes de que
+    ninguno escriba, rompiendo la cadena. Se usa un lock de archivo
+    (`portalocker`, funciona igual en Windows/macOS/Linux) para serializar
+    el read-then-write entre threads y entre procesos distintos.
+    """
     detalle = detalle or {}
     usuario = usuario or _usuario_actual()
     rol = rol or "desconocido"
-    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    hash_prev = _ultimo_hash(archivo)
-    hash_actual = _calcular_hash(ts, usuario, rol, accion, detalle, hash_prev)
-    entrada = {"ts": ts, "usuario": usuario, "rol": rol, "accion": accion,
-               "detalle": detalle, "hash_prev": hash_prev, "hash": hash_actual}
     os.makedirs(os.path.dirname(archivo), exist_ok=True)
-    with open(archivo, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entrada, ensure_ascii=False) + "\n")
+
+    with portalocker.Lock(archivo + ".lock", timeout=10):
+        ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        hash_prev = _ultimo_hash(archivo)
+        hash_actual = _calcular_hash(ts, usuario, rol, accion, detalle, hash_prev)
+        entrada = {"ts": ts, "usuario": usuario, "rol": rol, "accion": accion,
+                   "detalle": detalle, "hash_prev": hash_prev, "hash": hash_actual}
+        with open(archivo, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entrada, ensure_ascii=False) + "\n")
     return entrada
 
 

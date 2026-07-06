@@ -15,6 +15,7 @@ data/*_prueba.csv
 data/no_contactar.csv
 data/auditoria.log
 data/uso_licencias.db
+data/*.lock
 
 # Temporary session build scripts (video, mocks) — not repo deliverables
 scratchpad/

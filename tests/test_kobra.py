@@ -750,6 +750,46 @@ def test_auditoria_detecta_manipulacion(tmp_path, monkeypatch):
     assert chk["primer_error"] == 0
 
 
+def test_auditoria_concurrente_no_rompe_la_cadena(tmp_path):
+    """Regresión: sin lock, escrituras concurrentes hacían que varias entradas
+    leyeran el mismo 'último hash' y la cadena quedaba rota (ver historia del
+    commit). Con portalocker, 100 registros concurrentes deben verificar OK."""
+    import concurrent.futures
+    from kobra import auditoria as kaud
+    archivo = str(tmp_path / "audit_concurrente.log")
+
+    def escribir(i):
+        kaud.registrar("evento_test", {"i": i}, usuario="t", rol="admin", archivo=archivo)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as ex:
+        list(ex.map(escribir, range(100)))
+
+    chk = kaud.verificar_integridad(archivo)
+    assert chk == {"ok": True, "entradas": 100, "primer_error": None}
+
+
+def test_registrar_gestion_concurrente_no_duplica_ids(tmp_path):
+    """Regresión: contar líneas del CSV y después escribir no era atómico —
+    con gestiones concurrentes (el Gestor IA corre hasta 50 en paralelo,
+    ver realtime/voicebot.py), varias terminaban con el mismo id_gestion."""
+    import concurrent.futures
+    from kobra import registro
+    archivo = str(tmp_path / "gestiones_concurrentes.csv")
+
+    def registrar(i):
+        return registro.registrar_gestion(f"KB-{i}", gestor_id="IA01", canal="Llamada",
+                                          clima=0.5, resultado="Promesa", archivo=archivo)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as ex:
+        resultados = list(ex.map(registrar, range(50)))
+
+    ids = [r["id_gestion"] for r in resultados]
+    assert len(set(ids)) == 50
+    guardado = pd.read_csv(archivo)
+    assert len(guardado) == 50
+    assert guardado["id_gestion"].nunique() == 50
+
+
 def test_gestor_ia_tipifica_arreglo(tmp_path):
     from kobra.gestor_ia import SesionGestorIA
     from kobra import registro

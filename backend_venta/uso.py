@@ -13,9 +13,13 @@ falta escalar.
 """
 from __future__ import annotations
 
+import contextlib
+import hashlib
 import os
 import sqlite3
 from datetime import datetime, timezone
+
+import portalocker
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.environ.get("KOBRA_USO_DB", os.path.join(ROOT, "data", "uso_licencias.db"))
@@ -78,3 +82,22 @@ def uso_mes(cliente_id: str, mes: str | None = None, db_path: str = DB_PATH) -> 
 def gestiones_mes(cliente_id: str, mes: str | None = None, db_path: str = DB_PATH) -> int:
     """Cuántas 'gestiones' (unidad de cupo) consumió el cliente este mes."""
     return uso_mes(cliente_id, mes, db_path)["gestiones"]
+
+
+@contextlib.contextmanager
+def lock_cliente(cliente_id: str, db_path: str = DB_PATH, timeout: int = 10):
+    """
+    Lock exclusivo por cliente (no por servicio entero, para no serializar
+    a clientes distintos entre sí). Usar para que "leer cuánto usó este mes"
+    + "llamar al proveedor" + "registrar el uso" sea una sola operación
+    atómica — sin esto, dos pedidos concurrentes del mismo cliente pueden
+    leer el mismo cupo-restante antes de que ninguno registre uso, y ambos
+    pasan aunque en conjunto superen el cupo (comprobado con un test de
+    concurrencia real: sin lock, un cupo de 10 dejaba pasar 22 de 30
+    pedidos simultáneos).
+    """
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    clave = hashlib.sha256(cliente_id.encode("utf-8")).hexdigest()[:16]
+    ruta_lock = db_path + f".cliente-{clave}.lock"
+    with portalocker.Lock(ruta_lock, timeout=timeout):
+        yield
