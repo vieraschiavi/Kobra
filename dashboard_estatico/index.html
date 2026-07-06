@@ -406,9 +406,9 @@ analizarCopiloto();
 var CALL_SCRIPT=[
   {who:'ia',text:'Buenos días, hablo de Kobra IA en representación de su entidad financiera. ¿Hablo con Juan Pérez?'},
   {who:'cliente',text:'Sí, soy yo.'},
-  {who:'ia',text:'Lo contacto por un saldo pendiente de $6.000 con más de 60 días de atraso. ¿Podemos revisar juntos las opciones de pago disponibles?'},
+  {who:'ia',text:'Lo contacto por un saldo pendiente de 6.000 pesos con más de 60 días de atraso. ¿Podemos revisar juntos las opciones de pago disponibles?'},
   {who:'cliente',text:'La verdad ahora no puedo pagar todo junto, estoy complicado económicamente.'},
-  {who:'ia',text:'Entiendo la situación. Puedo ofrecerle cancelar hoy con un 5% de descuento, quedando en $5.700, o dividirlo en 3 cuotas de $1.900 sin recargo. ¿Cuál se ajusta mejor a su situación?'},
+  {who:'ia',text:'Entiendo la situación. Puedo ofrecerle cancelar hoy con un 5% de descuento, quedando en 5.700 pesos, o dividirlo en 3 cuotas de 1.900 pesos sin recargo. ¿Cuál se ajusta mejor a su situación?'},
   {who:'cliente',text:'Prefiero las 3 cuotas.'},
   {who:'ia',text:'Perfecto. Le voy a enviar por WhatsApp el link de pago de la primera cuota, con vencimiento en 5 días. ¿Confirma este número para el envío?'},
   {who:'cliente',text:'Sí, confirmo.'},
@@ -423,24 +423,39 @@ function chatBubble(who,text,styleOut,styleIn,labelOut,labelIn){
   return b;
 }
 // ---- Voz real (Web Speech API del navegador, sin backend ni archivos de audio) ----
+// Prioriza acento rioplatense/latino (nunca España) y, entre ellas, voz de hombre.
 var TTS_OK = typeof window!=='undefined' && 'speechSynthesis' in window;
 var ES_VOICES = [];
 function loadVoices(){ try{ ES_VOICES = window.speechSynthesis.getVoices()||[]; }catch(e){ ES_VOICES=[]; } }
 if(TTS_OK){ loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
+var LANG_PRIORIDAD = ['es-uy','es-ar','es-419','es-us','es-mx','es-co','es-cl'];
+var NOMBRES_HOMBRE = /jorge|diego|carlos|pablo|fernando|andr[eé]s|miguel|enrique|mateo|male|hombre/i;
 function pickVoice(){
   var es = ES_VOICES.filter(function(v){return /^es/i.test(v.lang);});
-  return es[0] || ES_VOICES[0] || null;
+  if(!es.length) return ES_VOICES[0] || null;
+  // 1) por idioma/acento, de mejor a peor (excluye es-ES hasta el final)
+  var noEspana = es.filter(function(v){return !/^es-es$/i.test(v.lang);});
+  var candidatos = noEspana.length ? noEspana : es;
+  var porAcento = candidatos.slice().sort(function(a,b){
+    var ia = LANG_PRIORIDAD.indexOf(a.lang.toLowerCase());
+    var ib = LANG_PRIORIDAD.indexOf(b.lang.toLowerCase());
+    return (ia<0?99:ia) - (ib<0?99:ib);
+  });
+  // 2) dentro del mismo nivel de prioridad, preferí una voz de hombre si el navegador la nombra
+  var hombre = porAcento.find(function(v){return NOMBRES_HOMBRE.test(v.name);});
+  return hombre || porAcento[0] || es[0];
 }
 function speak(text, pitch, rate, cb){
   if(!TTS_OK){ cb && cb(); return; }
   try{
     var u = new SpeechSynthesisUtterance(text);
-    u.lang = 'es-ES'; u.pitch = pitch; u.rate = rate;
-    var v = pickVoice(); if(v) u.voice = v;
+    var v = pickVoice();
+    u.lang = v ? v.lang : 'es-419'; u.pitch = pitch; u.rate = rate;
+    if(v) u.voice = v;
     var done=false; function fin(){ if(done)return; done=true; cb && cb(); }
     u.onend = fin; u.onerror = fin;
     window.speechSynthesis.speak(u);
-    setTimeout(fin, Math.max(4000, text.length*110)); // red de seguridad si el navegador no dispara onend
+    setTimeout(fin, Math.max(3500, text.length*95)); // red de seguridad si el navegador no dispara onend
   }catch(e){ cb && cb(); }
 }
 
@@ -471,16 +486,16 @@ function reproducirLlamada(){
     box.scrollTop=box.scrollHeight;
     i++;
     var isIA = turn.who==='ia';
-    speak(turn.text, isIA?0.95:1.15, isIA?0.98:1.05, function(){ if(gen===_llamadaGen) setTimeout(next, 300); });
+    speak(turn.text, isIA?0.88:1.12, 1.0, function(){ if(gen===_llamadaGen) setTimeout(next, 120); });
   }
   next();
 }
 
 // ---- Demo animada: Negociador por WhatsApp ----
 var WSP_SCRIPT=[
-  {who:'ia',text:'Hola Juan 👋 Soy el asistente de cobranzas de su entidad financiera. Tiene un saldo pendiente de $6.000 con más de 60 días de atraso. ¿Quiere que veamos opciones para regularizarlo?'},
+  {who:'ia',text:'Hola Juan 👋 Soy el asistente de cobranzas de su entidad financiera. Tiene un saldo pendiente de $U 6.000 con más de 60 días de atraso. ¿Quiere que veamos opciones para regularizarlo?'},
   {who:'cliente',text:'Hola, sí. Ahora no puedo pagar todo junto.'},
-  {who:'ia',text:'No hay problema. Puedo ofrecerle: 1) Pagar hoy $5.700 (5% de descuento), o 2) 3 cuotas de $1.900 sin recargo. ¿Cuál prefiere?'},
+  {who:'ia',text:'No hay problema. Puedo ofrecerle: 1) Pagar hoy $U 5.700 (5% de descuento), o 2) 3 cuotas de $U 1.900 sin recargo. ¿Cuál prefiere?'},
   {who:'cliente',text:'Las 3 cuotas, por favor.'},
   {who:'ia',text:'Perfecto ✅ Le comparto el link de pago de la primera cuota: kobra.pay/ab12c9 — vence en 5 días.'},
   {who:'cliente',text:'Listo, muchas gracias.'},

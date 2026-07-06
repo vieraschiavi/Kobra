@@ -129,9 +129,9 @@ class SesionGestorIA:
 
     def _texto_oferta(self, o: dict) -> str:
         if o["cuotas"] == 1:
-            return (f"pagando hoy ${o['total']:,.0f} cancela el total de "
-                    f"${o['monto']:,.0f} (un {o['desc']:.0%} de beneficio)")
-        return (f"regularizar en {o['cuotas']} cuotas de ${o['valor_cuota']:,.0f}"
+            return (f"pagando hoy {o['total']:,.0f} pesos cancela el total de "
+                    f"{o['monto']:,.0f} pesos (un {o['desc']:.0%} de beneficio)")
+        return (f"regularizar en {o['cuotas']} cuotas de {o['valor_cuota']:,.0f} pesos"
                 + (f" con {o['desc']:.0%} de beneficio" if o["desc"] > 0 else ""))
 
     # --- turno del gestor IA -------------------------------------------------
