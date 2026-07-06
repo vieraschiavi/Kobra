@@ -190,7 +190,7 @@ class SesionGestorIA:
 
         if self.estado == "validacion":
             self.estado = "negociacion"
-            base = (f"Gracias. Le comento: registra un saldo pendiente de ${o['monto']:,.0f}. "
+            base = (f"Gracias. Le comento: registra un saldo pendiente de {o['monto']:,.0f} pesos. "
                     f"Hoy puedo ofrecerle {self._texto_oferta(o)}. ¿Le sirve?")
             if i.get("enojo"):
                 base = ("Entiendo su molestia y le pido disculpas por la insistencia. "
@@ -244,7 +244,7 @@ class SesionGestorIA:
         if not self.usar_claude:
             return plantilla
         contexto = (
-            f"Deudor {self.id_deudor} · saldo ${self.brief['monto_deuda']:,.0f} · "
+            f"Deudor {self.id_deudor} · saldo {self.brief['monto_deuda']:,.0f} pesos · "
             f"estrategia: {self.brief['estrategia']} · "
             f"descuento máximo autorizado: {self.brief['descuento_recomendado']:.0%}.\n"
             "Últimos mensajes:\n" +
