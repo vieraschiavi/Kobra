@@ -170,4 +170,10 @@ def registrar_gestion(id_deudor: str, gestor_id: str = "G01",
     os.makedirs(os.path.dirname(archivo), exist_ok=True)
     nueva.to_csv(archivo, mode="a", index=False,
                  header=not os.path.exists(archivo))
+
+    from kobra import auditoria as kauditoria
+    kauditoria.registrar("gestion_registrada", {
+        "id_gestion": fila_out["id_gestion"], "id_deudor": id_deudor,
+        "gestor_id": gestor_id, "canal": canal, "resultado": resultado,
+    })
     return fila_out

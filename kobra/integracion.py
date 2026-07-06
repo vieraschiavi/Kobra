@@ -107,6 +107,7 @@ def enviar_api(df: pd.DataFrame, url: str, api_key: str | None = None,
         hdrs["Authorization"] = f"Bearer {api_key}"
     if headers:
         hdrs.update(headers)
+    from kobra import auditoria as kauditoria
     registros = json.loads(a_json(df))
     enviados, ultimo_status = 0, None
     for i in range(0, len(registros), max(lote, 1)):
@@ -116,11 +117,15 @@ def enviar_api(df: pd.DataFrame, url: str, api_key: str | None = None,
                               headers=hdrs, timeout=timeout)
             ultimo_status = r.status_code
             if r.status_code not in (200, 201, 202):
+                kauditoria.registrar("erp_envio_api", {"ok": False, "url": url,
+                                                       "status": r.status_code, "enviados": enviados})
                 return {"ok": False, "enviados": enviados, "status": r.status_code,
                         "detalle": r.text[:400]}
             enviados += len(chunk)
         except Exception as e:
+            kauditoria.registrar("erp_envio_api", {"ok": False, "url": url, "error": str(e)[:200]})
             return {"ok": False, "enviados": enviados, "detalle": str(e)[:400]}
+    kauditoria.registrar("erp_envio_api", {"ok": True, "url": url, "enviados": enviados})
     return {"ok": True, "enviados": enviados,
             "lotes": (len(registros) + lote - 1) // max(lote, 1),
             "status": ultimo_status, "detalle": "Sábana enviada al ERP."}
@@ -141,6 +146,10 @@ def sincronizar_db(df: pd.DataFrame, conn_url: str, tabla: str = "kobra_gestione
 
     `if_exists`: "append" (agrega) | "replace" (reemplaza la tabla).
     """
+    from kobra import auditoria as kauditoria
+    # nunca loguear la URL cruda: puede traer usuario:contraseña embebidos
+    _destino = conn_url.split("@")[-1] if conn_url else ""
+
     if not conn_url:
         return {"ok": False, "filas": 0, "detalle": "Falta la URL de conexión."}
     try:
@@ -152,7 +161,11 @@ def sincronizar_db(df: pd.DataFrame, conn_url: str, tabla: str = "kobra_gestione
         eng = create_engine(conn_url)
         df.to_sql(tabla, eng, if_exists=if_exists, index=False)
         eng.dispose()
+        kauditoria.registrar("erp_sync_db", {"ok": True, "destino": _destino,
+                                             "tabla": tabla, "filas": int(len(df))})
         return {"ok": True, "filas": int(len(df)), "tabla": tabla,
                 "detalle": f"{len(df)} gestiones escritas en «{tabla}»."}
     except Exception as e:
+        kauditoria.registrar("erp_sync_db", {"ok": False, "destino": _destino,
+                                             "tabla": tabla, "error": str(e)[:200]})
         return {"ok": False, "filas": 0, "detalle": str(e)[:400]}

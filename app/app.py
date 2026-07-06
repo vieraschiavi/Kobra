@@ -8,6 +8,7 @@ Ejecutar:
     streamlit run app/app.py
 """
 import io
+import json
 import os
 import sys
 
@@ -28,6 +29,7 @@ from kobra import analitica                   # noqa: E402
 from kobra import config as kconfig           # noqa: E402
 from kobra import roi as kroi                 # noqa: E402
 from kobra import integracion as kerp         # noqa: E402
+from kobra import auditoria as kauditoria     # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -93,6 +95,16 @@ st.markdown(f"""
     .kh-ok {{ color:#00C896; font-weight:700; }} .kh-off {{ color:#8593a8; }}
 </style>
 """, unsafe_allow_html=True)
+
+# ----------------------------------------------------------------------------
+# Acceso: login/setup obligatorio antes de mostrar cualquier dato (ver
+# kobra/autenticacion.py). Roles: admin (todo) / gestor (sin Configuración).
+# ----------------------------------------------------------------------------
+from kobra import autenticacion as kauth          # noqa: E402
+
+ROL_ACTIVO = kauth.render_gate()
+if ROL_ACTIVO is None:
+    st.stop()
 
 
 # ----------------------------------------------------------------------------
@@ -177,6 +189,12 @@ prob_min = st.sidebar.slider("ProbPago mínima", 0.0, 1.0, 0.0, 0.05)
 
 st.sidebar.markdown("---")
 st.sidebar.caption("Dataset sintético (Uruguay) · sin nombres de clientes · demo comercial")
+st.sidebar.markdown("---")
+_rol_txt = "🛡️ Administrador" if ROL_ACTIVO == "admin" else "👤 Gestor"
+st.sidebar.caption(f"Sesión: {_rol_txt}")
+if st.sidebar.button("Cerrar sesión", use_container_width=True):
+    kauth.cerrar_sesion()
+    st.rerun()
 
 f = df[
     df["segmento"].isin(seg) & df["producto"].isin(prod) &
@@ -988,51 +1006,123 @@ with tabERP:
             "y se cargan solas. Motores soportados: PostgreSQL, MySQL/MariaDB, SQL Server, "
             "Oracle, SQLite y cualquiera compatible con SQLAlchemy (instalá su driver).", icon="🔌")
 
-# ---- Tab 7: Configuración (API keys persistentes) -------------------------
+# ---- Tab 7: Configuración (API keys persistentes) — solo admin ------------
 with tab7:
-    st.subheader("⚙️ Configuración de API keys")
-    st.caption("Ingresá las keys una sola vez: quedan **guardadas** y se cargan solas en "
-               "cada arranque. Habilitan la transcripción real (Whisper) y la evaluación "
-               "con Claude. El resto de Kobra funciona sin keys.")
+    if ROL_ACTIVO != "admin":
+        st.warning("🔒 Esta sección es solo para el rol **Administrador**. "
+                   "Pedile a un admin que gestione las API keys y las contraseñas.")
+    else:
+        st.subheader("⚙️ Configuración de API keys")
+        st.caption("Ingresá las keys una sola vez: quedan **guardadas** y se cargan solas en "
+                   "cada arranque. Habilitan la transcripción real (Whisper) y la evaluación "
+                   "con Claude. El resto de Kobra funciona sin keys.")
 
-    with st.form("form_config"):
-        nuevos = {}
-        for clave, desc in kconfig.CLAVES.items():
-            nuevos[clave] = st.text_input(
-                clave, value="", type="password",
-                placeholder=("sk-… " if clave == "OPENAI_API_KEY" else "sk-ant-…"),
-                help=desc + " · dejá vacío para conservar la guardada")
-        b1, b2, _ = st.columns([0.25, 0.25, 0.5])
-        guardar_btn = b1.form_submit_button("💾 Guardar", type="primary")
-        limpiar_btn = b2.form_submit_button("🗑️ Borrar guardadas")
+        with st.form("form_config"):
+            nuevos = {}
+            for clave, desc in kconfig.CLAVES.items():
+                nuevos[clave] = st.text_input(
+                    clave, value="", type="password",
+                    placeholder=("sk-… " if clave == "OPENAI_API_KEY" else "sk-ant-…"),
+                    help=desc + " · dejá vacío para conservar la guardada")
+            b1, b2, _ = st.columns([0.25, 0.25, 0.5])
+            guardar_btn = b1.form_submit_button("💾 Guardar", type="primary")
+            limpiar_btn = b2.form_submit_button("🗑️ Borrar guardadas")
 
-    # Se procesan antes de mostrar el estado, sin recargar (se queda en la pestaña)
-    if guardar_btn:
-        if any(v.strip() for v in nuevos.values()):
-            kconfig.guardar(nuevos)
-            st.success("✅ Configuración guardada. Ya se usa en esta sesión y en próximos arranques.")
+        # Se procesan antes de mostrar el estado, sin recargar (se queda en la pestaña)
+        if guardar_btn:
+            if any(v.strip() for v in nuevos.values()):
+                claves_tocadas = sorted(k for k, v in nuevos.items() if v.strip())
+                kconfig.guardar(nuevos)
+                kauditoria.registrar("config_guardada", {"claves": claves_tocadas}, rol=ROL_ACTIVO)
+                st.success("✅ Configuración guardada. Ya se usa en esta sesión y en próximos arranques.")
+            else:
+                st.info("Ingresá al menos una key para guardar.")
+        if limpiar_btn:
+            kconfig.limpiar()
+            kauditoria.registrar("config_borrada", {}, rol=ROL_ACTIVO)
+            st.warning("🗑️ Configuración borrada.")
+
+        # Estado actual (refleja lo recién guardado/borrado)
+        est = kconfig.estado()
+        guardadas = kconfig.cargar()
+        cc = st.columns(2)
+        for i, (clave, desc) in enumerate(kconfig.CLAVES.items()):
+            with cc[i % len(cc)]:
+                activo = est.get(clave)
+                st.markdown(f"**{desc}**")
+                st.markdown(("🟢 Configurada" if activo else "⚪ No configurada") +
+                            (f" · `{kconfig.enmascarar(guardadas.get(clave,''))}`"
+                             if guardadas.get(clave) else ""))
+
+        st.markdown("---")
+        _backend = kconfig.backend_activo()
+        _backend_txt = {
+            "keyring": "🔐 **Keyring del sistema operativo** (Credential Manager / Keychain / Secret Service) — el backend más seguro, se usa automáticamente cuando está disponible.",
+            "cifrado": f"🔒 **Archivo cifrado** (`{kconfig.CONFIG_FILE_CIFRADO}`, Fernet/AES) — no hay keyring del SO disponible en este entorno; se cifra igual, con la clave en un archivo separado (permisos 600).",
+            "plano": f"⚠️ **Texto plano** (`{kconfig.CONFIG_FILE_PLANO}`, permisos 600) — instalá `keyring` o `cryptography` para que esto quede cifrado.",
+        }[_backend]
+        st.markdown(_backend_txt + " Fuera del repo en todos los casos. En producción podés "
+                    "inyectarlas por variables de entorno / secretos de Docker; el entorno "
+                    "tiene prioridad sobre lo guardado.")
+
+        st.markdown("---")
+        st.subheader("🔐 Acceso y roles")
+        st.caption("**Administrador**: ve y edita todo, incluida esta pestaña. "
+                   "**Gestor**: opera el resto del dashboard, sin acceso a Configuración. "
+                   "Las contraseñas se guardan como hash (PBKDF2-SHA256), nunca en texto plano.")
+        colA, colG = st.columns(2)
+        with colA:
+            st.markdown("**Contraseña de administrador**")
+            with st.form("form_pass_admin"):
+                np1 = st.text_input("Nueva contraseña", type="password", key="np_admin")
+                np2 = st.text_input("Repetila", type="password", key="np_admin2")
+                if st.form_submit_button("Actualizar admin"):
+                    if len(np1) < 6:
+                        st.error("Mínimo 6 caracteres.")
+                    elif np1 != np2:
+                        st.error("No coinciden.")
+                    else:
+                        kauth.establecer_password("admin", np1)
+                        kauditoria.registrar("password_admin_cambiada", {}, rol=ROL_ACTIVO)
+                        st.success("✅ Contraseña de administrador actualizada.")
+        with colG:
+            st.markdown("**Contraseña de gestor** " +
+                       ("🟢 configurada" if kauth.tiene_password("gestor") else "⚪ sin configurar"))
+            with st.form("form_pass_gestor"):
+                ng1 = st.text_input("Nueva contraseña", type="password", key="ng_gestor")
+                ng2 = st.text_input("Repetila", type="password", key="ng_gestor2")
+                if st.form_submit_button("Crear/actualizar gestor"):
+                    if len(ng1) < 6:
+                        st.error("Mínimo 6 caracteres.")
+                    elif ng1 != ng2:
+                        st.error("No coinciden.")
+                    else:
+                        kauth.establecer_password("gestor", ng1)
+                        kauditoria.registrar("password_gestor_cambiada", {}, rol=ROL_ACTIVO)
+                        st.success("✅ Contraseña de gestor guardada. Compartísela solo con el equipo operativo.")
+
+        st.markdown("---")
+        st.subheader("🧾 Log de auditoría")
+        _chk = kauditoria.verificar_integridad()
+        if _chk["entradas"] == 0:
+            st.caption("Todavía no hay entradas registradas.")
         else:
-            st.info("Ingresá al menos una key para guardar.")
-    if limpiar_btn:
-        kconfig.limpiar()
-        st.warning("🗑️ Configuración borrada.")
-
-    # Estado actual (refleja lo recién guardado/borrado)
-    est = kconfig.estado()
-    guardadas = kconfig.cargar()
-    cc = st.columns(2)
-    for i, (clave, desc) in enumerate(kconfig.CLAVES.items()):
-        with cc[i % len(cc)]:
-            activo = est.get(clave)
-            st.markdown(f"**{desc}**")
-            st.markdown(("🟢 Configurada" if activo else "⚪ No configurada") +
-                        (f" · `{kconfig.enmascarar(guardadas.get(clave,''))}`"
-                         if guardadas.get(clave) else ""))
-
-    st.markdown("---")
-    st.markdown(f"📁 Se guardan en `{kconfig.CONFIG_FILE}` (fuera del repo, permisos 600). "
-                "En producción podés inyectarlas por variables de entorno / secretos de "
-                "Docker; el entorno tiene prioridad sobre el archivo.")
+            if _chk["ok"]:
+                st.success(f"✅ Cadena íntegra · {_chk['entradas']} entradas registradas "
+                          f"(`{kauditoria.LOG_FILE}`).")
+            else:
+                st.error(f"⚠️ El log de auditoría no pasa la verificación de integridad "
+                         f"(entrada #{_chk['primer_error']}) — alguien pudo haberlo editado "
+                         f"por fuera de la app.")
+            _ult = kauditoria.leer(limite=25)[::-1]
+            st.dataframe(
+                pd.DataFrame([{"cuándo": e["ts"], "usuario": e["usuario"], "rol": e["rol"],
+                              "acción": e["accion"], "detalle": json.dumps(e["detalle"], ensure_ascii=False)}
+                             for e in _ult]),
+                use_container_width=True, hide_index=True,
+            )
+            st.caption("Últimas 25 entradas (más reciente arriba). Cada línea encadena el hash "
+                      "de la anterior — editar o borrar una rompe la verificación de arriba.")
 
 # ---- Tab 8: Probar mi cartera ----------------------------------------------
 with tab8:

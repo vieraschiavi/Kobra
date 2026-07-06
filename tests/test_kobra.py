@@ -6,6 +6,7 @@ copiloto de negociación. Corren en segundos con un dataset pequeño.
 
     pytest -q
 """
+import json
 import os
 import sys
 
@@ -281,6 +282,32 @@ def test_config_persistencia(tmp_path, monkeypatch):
     assert c.estado()["OPENAI_API_KEY"] is True
     c.limpiar()
     assert c.estado()["OPENAI_API_KEY"] is False
+    importlib.reload(c)
+
+
+def test_config_cifrado_no_es_texto_plano(tmp_path, monkeypatch):
+    """Sin keyring de SO disponible (caso típico en CI/servidor), la config debe
+    quedar cifrada en disco — nunca la API key en texto plano."""
+    monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path))
+    import importlib
+    from kobra import config as c
+    importlib.reload(c)
+    monkeypatch.setattr(c, "_keyring_disponible", lambda: None)  # forzar sin keyring
+    c.limpiar()
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    secreto = "sk-ant-super-secreto-000111222"
+    c.guardar({"ANTHROPIC_API_KEY": secreto})
+    assert c.backend_activo() == "cifrado"
+    assert os.path.exists(c.CONFIG_FILE_CIFRADO)
+    assert not os.path.exists(c.CONFIG_FILE_PLANO)
+    with open(c.CONFIG_FILE_CIFRADO, "rb") as f:
+        contenido = f.read()
+    assert secreto.encode() not in contenido
+    # y sigue siendo recuperable normalmente
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    c.aplicar()
+    assert os.environ.get("ANTHROPIC_API_KEY") == secreto
+    c.limpiar()
     importlib.reload(c)
 
 
@@ -680,6 +707,47 @@ def test_integracion_api_sin_url_y_mapeo():
     assert not r["ok"] and r["enviados"] == 0
     mapeado = ig.aplicar_mapeo(sab, {"resultado": "tipificacion", "id_deudor": "cuenta"})
     assert "tipificacion" in mapeado.columns and "cuenta" in mapeado.columns
+
+
+def test_auditoria_encadena_y_verifica(tmp_path, monkeypatch):
+    from kobra import auditoria as kaud
+    archivo = str(tmp_path / "auditoria.log")
+    monkeypatch.setattr(kaud, "LOG_FILE", archivo)
+
+    e1 = kaud.registrar("login_ok", {}, usuario="ana", rol="admin", archivo=archivo)
+    e2 = kaud.registrar("gestion_registrada", {"id_deudor": "KB-1"}, usuario="ana",
+                        rol="admin", archivo=archivo)
+    assert e1["hash_prev"] == kaud.GENESIS_HASH
+    assert e2["hash_prev"] == e1["hash"]
+
+    chk = kaud.verificar_integridad(archivo)
+    assert chk == {"ok": True, "entradas": 2, "primer_error": None}
+
+    entradas = kaud.leer(archivo)
+    assert [e["accion"] for e in entradas] == ["login_ok", "gestion_registrada"]
+    assert kaud.leer(archivo, limite=1)[0]["accion"] == "gestion_registrada"
+
+
+def test_auditoria_detecta_manipulacion(tmp_path, monkeypatch):
+    from kobra import auditoria as kaud
+    archivo = str(tmp_path / "auditoria.log")
+    monkeypatch.setattr(kaud, "LOG_FILE", archivo)
+
+    kaud.registrar("login_ok", {}, usuario="ana", rol="admin", archivo=archivo)
+    kaud.registrar("config_borrada", {}, usuario="ana", rol="admin", archivo=archivo)
+
+    # alguien edita el log "a mano", por fuera del módulo
+    with open(archivo, encoding="utf-8") as f:
+        lineas = f.readlines()
+    entrada = json.loads(lineas[0])
+    entrada["accion"] = "algo_distinto"
+    lineas[0] = json.dumps(entrada) + "\n"
+    with open(archivo, "w", encoding="utf-8") as f:
+        f.writelines(lineas)
+
+    chk = kaud.verificar_integridad(archivo)
+    assert chk["ok"] is False
+    assert chk["primer_error"] == 0
 
 
 def test_gestor_ia_tipifica_arreglo(tmp_path):
