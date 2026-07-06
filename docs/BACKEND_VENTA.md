@@ -1,8 +1,28 @@
 # Kobra IA — Backend de venta (licencias, gateway de APIs y descarga)
 
-Diseño y andamiaje para comercializar Kobra de forma profesional: entregar el
-programa con las APIs **embebidas y medidas**, cobrando por uso y quedando cubierto
-en costos. Complementa el plan comercial (ver el dossier de negocio).
+**Implementado** en `backend_venta/` (antes era solo este diseño en papel):
+`backend_venta/licencias.py` (licencias JWT), `backend_venta/uso.py`
+(medición SQLite), `backend_venta/descargas.py` (tokens de descarga de un
+solo uso) y `backend_venta/app.py` (el servicio FastAPI con todos los
+endpoints de este documento). Corre y se prueba local:
+
+```bash
+uvicorn backend_venta.app:app --reload --port 8100
+python -m pytest -q tests/test_backend_venta.py   # 15 tests, todo el flujo
+```
+
+Lo que sigue siendo diseño/pendiente (no es código, son pasos de negocio/infra
+que solo podés hacer vos — ver el checklist de la sección 7): desplegarlo en
+un servidor real, cargar las claves reales, conectar el webhook de la
+pasarela a la URL pública, y publicar el instalador. Los gateways de TTS,
+Twilio y WhatsApp (sección 3) tienen el circuito de licencia+cupo+medición
+ya armado pero **sin proveedor real conectado todavía** — devuelven `501`
+a propósito en vez de fingir una integración sin poder probarla contra una
+cuenta real.
+
+Entrega el programa con las APIs **embebidas y medidas**, cobrando por uso y
+quedando cubierto en costos. Complementa el plan comercial (ver el dossier
+de negocio).
 
 > **Nota de datos/seguridad:** ninguna clave de API real ni número de cuenta
 > bancaria se guarda en este repositorio. Las claves viven como variables de
@@ -243,9 +263,20 @@ licencia. Empezá con MercadoPago para LATAM y sumá dLocal para más métodos l
 
 ## 7. Checklist para poner en marcha
 
-- [ ] Cargar claves reales como secretos del servidor (Claude, OpenAI, Twilio, WhatsApp).
-- [ ] Definir `SECRETO` de firma de licencias (rotable).
-- [ ] Abrir cuenta en la pasarela y cargar la cuenta Itaú USD en su panel.
-- [ ] Conectar el webhook de la pasarela a `/webhooks/pago`.
-- [ ] Compilar instalador `Edición Venta` y publicarlo detrás de `/descargar/{token}`.
-- [ ] Definir precios de excedente por canal (3–5× costo).
+Ya hecho en código (`backend_venta/`):
+- [x] Emisión/validación de licencia JWT con cupo y features por plan.
+- [x] Medición de uso por cliente/canal/mes (SQLite).
+- [x] Gateway medido de Claude (real) + TTS/Twilio/WhatsApp (circuito listo, sin proveedor conectado).
+- [x] Webhook de MercadoPago (re-verifica el pago contra la API real, no confía en el body) → emite licencia + token de descarga.
+- [x] Tokens de descarga de un solo uso con expiración.
+- [x] Tests automatizados de todo el flujo (`tests/test_backend_venta.py`).
+
+Pendiente — pasos de negocio/infraestructura, no de código:
+- [ ] Desplegar `backend_venta` en un servidor real (Render/Fly/EC2/lo que uses).
+- [ ] Cargar claves reales como secretos del servidor (`ANTHROPIC_API_KEY`, `MP_ACCESS_TOKEN`, y las de Twilio/WhatsApp/TTS cuando se conecten esos gateways).
+- [ ] `KOBRA_LICENSE_SECRET` y `KOBRA_BACKEND_ADMIN_TOKEN`: fijarlos explícitamente en producción (si no, se autogeneran una vez y quedan guardados localmente — ver el log del proceso la primera vez que arranca).
+- [ ] Conectar el webhook de MercadoPago a la URL pública de `/webhooks/mercadopago`.
+- [ ] Compilar el instalador `Edición Venta` y apuntar `KOBRA_INSTALADOR_PATH` a ese archivo.
+- [ ] Definir precios de excedente por canal (3–5× costo) — hoy `plan_permite_excedente()` solo dice si el plan lo permite, no calcula el cobro.
+- [ ] Conectar un proveedor real a `/gateway/tts`, `/gateway/twilio` y `/gateway/whatsapp` (hoy devuelven `501` a propósito).
+- [ ] Envío de email con la licencia/link de descarga tras el pago (hoy el webhook devuelve esos datos en la respuesta HTTP, no manda mail).

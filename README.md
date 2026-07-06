@@ -604,6 +604,13 @@ La conversación se **simula**. Para **llamar de verdad** hace falta telefonía
 > 💼 **Modelo comercial** (PoC + implementación + retainer, propuesta a
 > confirmar): [`docs/MODELO_COMERCIAL.md`](docs/MODELO_COMERCIAL.md).
 
+> 🏦 **Vender a un banco/financiera** (procurement): whitepaper de seguridad
+> ([`docs/WHITEPAPER_SEGURIDAD.md`](docs/WHITEPAPER_SEGURIDAD.md)), plantilla
+> de acuerdo de tratamiento de datos ([`docs/PLANTILLA_DPA.md`](docs/PLANTILLA_DPA.md))
+> y plantilla de SLA ([`docs/PLANTILLA_SLA.md`](docs/PLANTILLA_SLA.md)) —
+> los tres son borradores para adaptar con tu asesor legal, no documentos
+> listos para firmar.
+
 > 🔒 **Privacidad.** Un CSV con nombres/teléfonos **reales** es privado:
 > `data/mi_cartera_prueba.csv` y `data/*_prueba.csv` están en `.gitignore` y
 > **no se suben al repo**. El producto que se vende sigue siendo 100 %
