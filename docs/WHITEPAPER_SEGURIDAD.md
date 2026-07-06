@@ -48,10 +48,18 @@ Kobra IA es un sistema de cobranzas inteligentes con dos superficies:
   (200.000 iteraciones) — nunca en texto plano.
 - **Dos roles**: `admin` (todo, incluida la configuración de API keys) y
   `gestor` (operación diaria, sin acceso a configuración ni secretos).
-- **Limitación conocida, declarada**: no hay SSO/SAML/OIDC contra un
-  directorio corporativo (Azure AD, Okta, etc.) todavía — es autenticación
-  local propia del producto. Si tu política exige SSO federado, es un punto
-  a conversar antes de contratar.
+- **SSO corporativo real vía OIDC** (`kobra/sso_oidc.py`), opcional: compatible
+  con cualquier proveedor estándar (Microsoft Entra ID/Azure AD, Okta, Google
+  Workspace, Auth0, Keycloak...). Authorization Code flow, verificación del
+  ID token contra el JWKS del proveedor (firma + emisor + audiencia — nunca
+  se confía en un token sin verificar), y mapeo de rol por lista de emails
+  administradores. Convive con el login local, no lo reemplaza. Se activa
+  solo, cargando el issuer/client id/secret propios en la pestaña
+  Configuración — no hace falta tocar código.
+- **Limitación conocida, declarada**: el SSO es autenticación (quién sos),
+  no aprovisionamiento automático de usuarios (SCIM) ni grupos de Azure
+  AD/Okta mapeados a roles — el mapeo de admin/gestor es una lista plana de
+  emails, no una integración con grupos del directorio.
 
 ## 4. Secretos y claves de API
 
@@ -118,15 +126,35 @@ Solo aplica si el cliente elige la modalidad de APIs medidas en vez de BYOK:
 
 Para que la evaluación de compras no dependa de asumir nada:
 
-- No hay multi-tenancy (una instalación = un cliente).
-- No hay SSO/SAML/OIDC corporativo.
+- **Multi-tenancy**: el dashboard Streamlit es de **instalación única por
+  cliente** (por diseño — cada empresa corre su propia instancia con sus
+  propios datos, no hay aislamiento "lógico" de varios clientes en un mismo
+  proceso porque no comparten proceso). El **backend de licencias/gateway**
+  (`backend_venta/`, opcional) sí es multi-cliente de fábrica: cada licencia
+  JWT está atada a un `cliente_id`, con cupo y uso medidos por separado por
+  cliente (`backend_venta/uso.py`) — eso es lo que se usa si varios clientes
+  comparten ese servicio hosteado.
+- **SSO**: sí disponible (sección 3) — OIDC genérico, no específicamente
+  SAML. Sin aprovisionamiento SCIM ni mapeo de grupos del directorio.
 - No hay un compromiso de SLA de uptime — el dashboard corre en la
   infraestructura que el cliente elija; el uptime es responsabilidad de esa
-  infraestructura, no de un servicio hosteado por nosotros.
+  infraestructura, no de un servicio hosteado por nosotros. (Plantilla en
+  `docs/PLANTILLA_SLA.md`, para completar con números reales si se ofrece.)
+- **Residencia de datos**: no hay un compromiso de dónde se alojan los datos
+  porque, en la instalación estándar, **los aloja el propio cliente** — la
+  pregunta de residencia se resuelve con dónde el cliente elige correr el
+  dashboard (su propio servidor en Uruguay, una VM en una región de AWS/Azure
+  específica, etc.), no con una decisión nuestra. Si se usa el backend de
+  licencias/gateway hosteado, ahí sí aplica preguntar dónde se despliega.
 - No hay certificación formal (ISO 27001, SOC 2) de la organización.
-- No hay backup/DR automatizado del lado nuestro — los datos viven donde el
-  cliente los aloja, y el backup de esa infraestructura es responsabilidad
-  del cliente (o se puede conversar como servicio adicional).
+- **Backup/DR**: `kobra/backup.py` (`python -m kobra.backup crear`) empaqueta
+  cartera, gestiones, lista de no-contactar, log de auditoría, config
+  cifrada y la base de uso del backend de licencias en un ZIP con fecha, al
+  destino que el cliente elija (carpeta local, o una ya sincronizada a la
+  nube). **No lo automatiza solo** — programarlo (Programador de tareas en
+  Windows, cron en Linux/macOS) y elegir dónde se guarda el backup (fuera de
+  esta misma máquina, para que sirva de verdad como DR) es responsabilidad
+  del cliente, o se puede conversar como servicio adicional.
 - El log de auditoría es un archivo local con cadena de hashes, no un
   servicio de logging externo gestionado.
 
