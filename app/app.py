@@ -35,6 +35,7 @@ from kobra import seguimiento as kseg         # noqa: E402
 from kobra import voz_tts                     # noqa: E402
 from kobra import campana as kcampana         # noqa: E402
 from kobra import twilio_setup as ktwilio     # noqa: E402
+from kobra import ayuda as kayuda             # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -326,6 +327,39 @@ with tabH:
             "- Registrá la **marca “MV Kobra AI”** en la **DNPI** (~USD 200–500 por 10 años) al salir a vender.\n"
             "- La **idea** no se registra; te protegés con código + marca + contratos/NDAs.\n\n"
             "Guía completa: **docs/GUIA_REGISTRO_LEGAL_URUGUAY.md**.")
+
+    st.divider()
+    st.markdown("### 🤖 Asistente de ayuda — preguntale al programa")
+    st.caption("Escribí tu duda sobre MV Kobra AI en español y te responde al instante, "
+               "usando la propia documentación del producto (no inventa funciones). "
+               "Con `ANTHROPIC_API_KEY` cargada responde redactado; sin key, te muestra "
+               "la sección exacta de la documentación que contesta tu duda.")
+    if "ayuda_chat" not in st.session_state:
+        st.session_state["ayuda_chat"] = []
+    for _p, _r in st.session_state["ayuda_chat"]:
+        with st.chat_message("user"):
+            st.markdown(_p)
+        with st.chat_message("assistant"):
+            st.markdown(_r["respuesta"])
+            if _r.get("fuentes"):
+                st.caption("Fuentes: " + " · ".join(f"`{f}`" for f in _r["fuentes"]))
+    with st.form("form_ayuda_ia", clear_on_submit=True):
+        _ay_c1, _ay_c2 = st.columns([0.82, 0.18])
+        _ay_preg = _ay_c1.text_input(
+            "Tu pregunta", key="ayuda_pregunta", label_visibility="collapsed",
+            placeholder="Ej.: ¿qué necesito para que llame de verdad por teléfono?")
+        _ay_enviar = _ay_c2.form_submit_button("Preguntar", type="primary",
+                                               use_container_width=True)
+    if _ay_enviar and _ay_preg.strip():
+        try:
+            with st.spinner("Buscando en la documentación…"):
+                _ay_resp = kayuda.responder(_ay_preg.strip())
+        except Exception as _ay_e:
+            _ay_resp = {"respuesta": f"No pude responder ahora ({str(_ay_e)[:120]}). "
+                                     "Probá de nuevo o usá el buzón de contacto de abajo.",
+                        "fuentes": [], "modo": "error"}
+        st.session_state["ayuda_chat"].append((_ay_preg.strip(), _ay_resp))
+        st.rerun()
 
     st.divider()
     st.markdown("### 📬 Buzón de contacto")

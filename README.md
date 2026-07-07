@@ -747,6 +747,20 @@ telefonos, emails = kcamp.cargar_contactos("mi_cartera_contactos.csv")
 kcamp.ejecutar_plan(plan, base_url="https://tu-servidor.com", telefonos=telefonos, emails=emails)
 ```
 
+### 🤖 Asistente de ayuda dentro del programa — `kobra/ayuda.py`
+
+En la pestaña **❓ Guía & Ayuda** hay un asistente con IA que responde dudas
+sobre el propio producto ("¿cómo cargo mi cartera?", "¿qué necesito para
+llamar de verdad?"), en español y al instante:
+
+1. La búsqueda de secciones relevantes es **TF-IDF local** sobre el README y
+   los `docs/*.md` del producto — la documentación no se sube a ningún lado.
+2. Con `ANTHROPIC_API_KEY`, Claude redacta la respuesta usando **solo** ese
+   contexto (mismo criterio "cero inventos" que el resto del producto: si la
+   respuesta no está en la documentación, lo dice).
+3. Sin API key **no se rompe**: muestra la sección exacta de la documentación
+   que contesta la duda, con su fuente.
+
 ---
 
 ## 📁 Estructura
@@ -771,6 +785,7 @@ Kobra/
 │   ├── voz_tts.py                  # voz premium opcional (ElevenLabs) — costo por carácter
 │   ├── campana.py                  # campaña automática: canal/horario/prioridad + llamada/WhatsApp/email
 │   ├── twilio_setup.py             # auto-configurar número Twilio (buscar/comprar/webhook) por API
+│   ├── ayuda.py                    # asistente de ayuda del producto (IA sobre la propia documentación)
 │   ├── config.py                   # API keys persistentes (Configuración)
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports

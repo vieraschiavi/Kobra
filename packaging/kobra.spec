@@ -48,13 +48,18 @@ for _n in ["app", "kobra", "realtime", "data", "assets",
     if par:
         datas.append(par)
 
+# README.md suelto: es la fuente principal del asistente de ayuda (kobra/ayuda.py)
+_readme = os.path.join(ROOT, "README.md")
+if os.path.isfile(_readme):
+    datas.append((_readme, "."))
+
 hiddenimports += [
     "kobra", "kobra.probpago", "kobra.negociador", "kobra.copiloto",
     "kobra.analitica", "kobra.cumplimiento", "kobra.explicabilidad",
     "kobra.roi", "kobra.cartera_manual", "kobra.registro", "kobra.config",
     "kobra.gestor_ia", "kobra.pipeline", "kobra.voz", "kobra.train",
     "kobra.consulta_bd", "kobra.seguimiento", "kobra.voz_tts", "kobra.campana",
-    "kobra.twilio_setup",
+    "kobra.twilio_setup", "kobra.ayuda",
     "realtime.mi_cartera", "realtime.voicebot", "sklearn.utils._typedefs",
     "sklearn.neighbors._partition_nodes", "sklearn.utils._heap",
 ]

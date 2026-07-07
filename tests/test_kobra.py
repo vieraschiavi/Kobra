@@ -1133,6 +1133,54 @@ def test_campana_ejecutar_plan_dispatcha_por_canal(monkeypatch):
     assert resultados[3]["ok"] is False and "teléfono" in resultados[3]["detalle"]
 
 
+def test_ayuda_construye_base_y_busca():
+    from kobra import ayuda as kayuda
+    fichas = kayuda.construir_base()
+    assert len(fichas) > 20   # README + docs dan decenas de secciones
+    assert all({"fuente", "titulo", "texto"} <= set(f) for f in fichas)
+
+    r = kayuda.buscar("¿cómo hago una llamada real con Twilio?", k=3, fichas=fichas)
+    assert r and any("TWILIO" in f["fuente"].upper() for f in r)
+
+
+def test_ayuda_responder_sin_key_devuelve_docs(monkeypatch):
+    from kobra import ayuda as kayuda
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    r = kayuda.responder("¿qué necesito para llamar de verdad por teléfono?")
+    assert r["modo"] == "docs"
+    assert r["fuentes"] and "Configuración" in r["respuesta"]
+
+
+def test_ayuda_responder_pregunta_vacia():
+    from kobra import ayuda as kayuda
+    r = kayuda.responder("   ")
+    assert r["modo"] == "vacio" and not r["fuentes"]
+
+
+def test_ayuda_responder_con_key_mockeado(monkeypatch):
+    from kobra import ayuda as kayuda
+
+    class _FakeResp:
+        status_code = 200
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return {"content": [{"text": "Cargá las claves de Twilio en ⚙️ Configuración."}]}
+
+    import requests as _requests
+    capturado = {}
+    def _fake_post(url, headers=None, json=None, timeout=None):
+        capturado["json"] = json
+        return _FakeResp()
+    monkeypatch.setattr(_requests, "post", _fake_post)
+    r = kayuda.responder("¿dónde cargo Twilio?", api_key="sk-ant-test-key-123")
+    assert r["modo"] == "ia"
+    assert "Configuración" in r["respuesta"]
+    # el contexto de docs viaja en el system prompt, la pregunta como user
+    assert "CONTEXTO DE DOCUMENTACIÓN" in capturado["json"]["system"]
+    assert capturado["json"]["messages"][0]["content"] == "¿dónde cargo Twilio?"
+
+
 def test_twilio_setup_buscar_numeros_sin_credenciales(monkeypatch):
     from kobra import twilio_setup as ktw
     for var in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"):
