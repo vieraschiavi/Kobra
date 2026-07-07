@@ -582,7 +582,9 @@ python -m kobra.roi --cartera 100000000 --tasa-base 0.30 --costo-mensual 100000
 ### 🧪 Probar con tu propia cartera — **desde el dashboard** (sin código)
 
 En el dashboard, pestaña **"🧪 Probar mi cartera"**: cargás tus contactos
-—**escribiéndolos en una tabla** o **subiendo un CSV/Excel**— y el Gestor IA
+—**escribiéndolos en una tabla**, **subiendo un CSV/Excel** o **trayéndolos
+directo de tu base de datos** (PostgreSQL, MySQL, SQL Server, SQLite… con una
+consulta de solo lectura; `cartera_manual.desde_base_de_datos`)— y el Gestor IA
 negocia cada caso (ProbPago + el porqué, estrategia, chequeo de cumplimiento y
 la conversación completa). Los resultados se **descargan** a CSV/Excel. Todo por
 menús; no hace falta correr nada.

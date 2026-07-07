@@ -1133,6 +1133,56 @@ def test_campana_ejecutar_plan_dispatcha_por_canal(monkeypatch):
     assert resultados[3]["ok"] is False and "teléfono" in resultados[3]["detalle"]
 
 
+def _db_cartera_sqlite(tmp_path):
+    """Base SQLite de prueba con una tabla 'cartera' como la tendría un cliente."""
+    import sqlite3
+    ruta = tmp_path / "cliente.db"
+    con = sqlite3.connect(ruta)
+    con.execute("CREATE TABLE cartera (nombre TEXT, telefono TEXT, deuda REAL, dias_mora INT)")
+    con.executemany("INSERT INTO cartera VALUES (?,?,?,?)", [
+        ("Ana", "099111222", 12000.0, 40),
+        ("Beto", "099333444", 6000.0, 95),
+        ("Sin Deuda", "099555666", None, 10),   # se descarta: sin monto válido
+    ])
+    con.commit(); con.close()
+    return f"sqlite:///{ruta}"
+
+
+def test_cartera_desde_base_de_datos(tmp_path):
+    from kobra import cartera_manual as cm
+    url = _db_cartera_sqlite(tmp_path)
+    contactos = cm.desde_base_de_datos(url, "SELECT nombre, telefono, deuda, dias_mora FROM cartera")
+    assert len(contactos) == 2   # la fila sin deuda se descarta
+    assert {c["nombre"] for c in contactos} == {"Ana", "Beto"}
+    assert all("monto_deuda" in c and c["telefono"].startswith("099") for c in contactos)
+
+    # y alimenta el pipeline igual que el CSV: cargar_manual la acepta
+    df = cm.cargar_manual(contactos)
+    assert len(df) == 2 and "tramo_mora" in df.columns
+
+
+def test_cartera_desde_base_de_datos_solo_lectura(tmp_path):
+    import pytest
+    from kobra import cartera_manual as cm
+    url = _db_cartera_sqlite(tmp_path)
+    for mala in ("DELETE FROM cartera", "DROP TABLE cartera",
+                 "SELECT * FROM cartera; DROP TABLE cartera --",
+                 "UPDATE cartera SET deuda=0", "   "):
+        with pytest.raises(ValueError):
+            cm.desde_base_de_datos(url, mala)
+    # la tabla sigue intacta después de todos los intentos
+    contactos = cm.desde_base_de_datos(url, "SELECT nombre, telefono, deuda FROM cartera")
+    assert len(contactos) == 2
+
+
+def test_cartera_desde_base_de_datos_respeta_limite(tmp_path):
+    from kobra import cartera_manual as cm
+    url = _db_cartera_sqlite(tmp_path)
+    contactos = cm.desde_base_de_datos(
+        url, "SELECT nombre, telefono, deuda FROM cartera WHERE deuda IS NOT NULL", limite=1)
+    assert len(contactos) == 1
+
+
 def test_ayuda_construye_base_y_busca():
     from kobra import ayuda as kayuda
     fichas = kayuda.construir_base()

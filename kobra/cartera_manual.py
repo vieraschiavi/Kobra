@@ -132,3 +132,39 @@ def desde_dataframe(df: pd.DataFrame) -> list[dict]:
 def leer_csv(ruta: str) -> list[dict]:
     """Lee un CSV de contactos (columnas: nombre, telefono, monto_deuda/deuda, …)."""
     return desde_dataframe(pd.read_csv(ruta, dtype=str).fillna(""))
+
+
+def desde_base_de_datos(conn_url: str, consulta: str, limite: int = 5000) -> list[dict]:
+    """
+    Trae la cartera directamente desde la base de datos del cliente (Postgres,
+    MySQL, SQL Server, SQLite… lo que soporte SQLAlchemy) y la normaliza al
+    mismo esquema que el CSV/tabla: la consulta debe devolver al menos una
+    columna de deuda (`monto_deuda`, `deuda` o `monto`) y opcionalmente
+    `nombre`, `telefono`, `id_deudor`, `dias_mora`, etc.
+
+    Solo lectura a nivel de aplicación: se rechaza cualquier consulta que no
+    empiece en SELECT/WITH o que contenga palabras de escritura — mismo
+    criterio que el validador de kobra/consulta_bd.py. La URL de conexión
+    nunca se loguea completa.
+    """
+    sql = (consulta or "").strip().rstrip(";")
+    if not sql:
+        raise ValueError("Escribí la consulta SQL que devuelve tu cartera.")
+    plano = " " + " ".join(sql.lower().split()) + " "
+    if not (plano.lstrip().startswith("select") or plano.lstrip().startswith("with")):
+        raise ValueError("Solo se permiten consultas de lectura (SELECT/WITH).")
+    from kobra.consulta_bd import _PROHIBIDAS
+    for p in _PROHIBIDAS:
+        if p in plano:
+            raise ValueError(f"Consulta rechazada: contiene '{p.strip()}' (solo lectura).")
+
+    from sqlalchemy import create_engine, text
+    eng = create_engine(conn_url)
+    try:
+        with eng.connect() as conn:
+            df = pd.read_sql(text(sql), conn)
+    finally:
+        eng.dispose()
+    if len(df) > limite:
+        df = df.head(limite)
+    return desde_dataframe(df)
