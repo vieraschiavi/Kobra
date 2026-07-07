@@ -34,6 +34,7 @@ from kobra import consulta_bd as kconsulta    # noqa: E402
 from kobra import seguimiento as kseg         # noqa: E402
 from kobra import voz_tts                     # noqa: E402
 from kobra import campana as kcampana         # noqa: E402
+from kobra import twilio_setup as ktwilio     # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -1231,6 +1232,73 @@ with tab7:
         st.markdown(_backend_txt + " Fuera del repo en todos los casos. En producción podés "
                     "inyectarlas por variables de entorno / secretos de Docker; el entorno "
                     "tiene prioridad sobre lo guardado.")
+
+        st.markdown("---")
+        st.subheader("📞 Auto-configurar número Twilio")
+        st.caption("Automatiza los pasos manuales de `docs/GUIA_LLAMADA_REAL_TWILIO.md` "
+                   "(buscar número → Buy a number → apuntar el webhook de voz en la Console): "
+                   "con `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN` ya cargados arriba, buscá, "
+                   "comprá y configurá el webhook de voz entrante en un solo paso, sin salir "
+                   "de este dashboard. **Comprar un número tiene costo real** (verificá la "
+                   "tarifa vigente de Twilio antes de confirmar).")
+        _twilio_sid = kconfig.cargar().get("TWILIO_ACCOUNT_SID", "")
+        _twilio_token = kconfig.cargar().get("TWILIO_AUTH_TOKEN", "")
+        _public_base = os.environ.get("PUBLIC_BASE_URL", "")
+        if not (_twilio_sid and _twilio_token):
+            st.info("Cargá `TWILIO_ACCOUNT_SID` y `TWILIO_AUTH_TOKEN` arriba y guardá para "
+                   "poder buscar/comprar números.")
+        elif not _public_base:
+            st.warning("⚠️ Falta la variable de entorno `PUBLIC_BASE_URL` en el proceso donde "
+                      "corre **este dashboard** (no alcanza con que la tenga `realtime/server.py`: "
+                      "auto-configurar el webhook necesita saber la URL desde acá) — sin eso no "
+                      "hay a qué URL apuntar el webhook de voz entrante.")
+        else:
+            _voice_url = _public_base.rstrip("/") + "/voz/entrante"
+            _tab_comprar, _tab_ya_tengo = st.tabs(["Comprar número nuevo", "Ya tengo un número"])
+            with _tab_comprar:
+                _pais = st.text_input("País (código ISO, ej. UY, AR, US)", value="UY",
+                                     key="twilio_pais_buscar")
+                if st.button("🔎 Buscar números disponibles"):
+                    _res_busqueda = ktwilio.buscar_numeros_disponibles(
+                        _pais.strip().upper(), sid=_twilio_sid, token=_twilio_token)
+                    st.session_state["twilio_numeros_disponibles"] = _res_busqueda
+                _res_busqueda = st.session_state.get("twilio_numeros_disponibles")
+                if _res_busqueda:
+                    if not _res_busqueda["ok"]:
+                        st.error(f"No se pudo buscar: {_res_busqueda['detalle']}")
+                    elif not _res_busqueda["numeros"]:
+                        st.info("No hay números disponibles para ese país en este momento.")
+                    else:
+                        _opciones_num = {
+                            f"{n['numero']} · {n.get('localidad') or n.get('region') or ''}": n["numero"]
+                            for n in _res_busqueda["numeros"]}
+                        _elegido_label = st.selectbox("Número a comprar", list(_opciones_num.keys()))
+                        _elegido_num = _opciones_num[_elegido_label]
+                        st.caption(f"Webhook de voz que se va a configurar: `{_voice_url}`")
+                        if st.button(f"💳 Comprar {_elegido_num} y configurar webhook"):
+                            _r_compra = ktwilio.comprar_numero(_elegido_num, _voice_url,
+                                                              sid=_twilio_sid, token=_twilio_token)
+                            if _r_compra["ok"]:
+                                kconfig.guardar({"TWILIO_FROM": _r_compra["numero"]})
+                                kauditoria.registrar("twilio_numero_comprado",
+                                                    {"numero": _r_compra["numero"]}, rol=ROL_ACTIVO)
+                                st.success(f"✅ Comprado y configurado: {_r_compra['numero']}. "
+                                          "Guardado como `TWILIO_FROM`.")
+                            else:
+                                st.error(f"No se pudo comprar: {_r_compra['detalle']}")
+            with _tab_ya_tengo:
+                _num_existente = st.text_input("Número ya comprado (formato +598…)",
+                                              value=kconfig.cargar().get("TWILIO_FROM", ""))
+                st.caption(f"Webhook de voz que se va a configurar: `{_voice_url}`")
+                if st.button("🔧 Configurar webhook para este número"):
+                    _r_webhook = ktwilio.configurar_webhook_numero(
+                        _num_existente.strip(), _voice_url, sid=_twilio_sid, token=_twilio_token)
+                    if _r_webhook["ok"]:
+                        kauditoria.registrar("twilio_webhook_configurado",
+                                            {"numero": _num_existente.strip()}, rol=ROL_ACTIVO)
+                        st.success("✅ Webhook de voz configurado.")
+                    else:
+                        st.error(f"No se pudo configurar: {_r_webhook['detalle']}")
 
         st.markdown("---")
         st.subheader("🎙️ Voz premium (ElevenLabs)")

@@ -596,7 +596,11 @@ supuestos y también se descarga.
 La conversación se **simula**. Para **llamar de verdad** hace falta telefonía
 (tu cuenta de Twilio con un número, o tu central Avaya/Asterisk) y el
 **consentimiento** de la persona — guía paso a paso en
-[`docs/GUIA_LLAMADA_REAL_TWILIO.md`](docs/GUIA_LLAMADA_REAL_TWILIO.md).
+[`docs/GUIA_LLAMADA_REAL_TWILIO.md`](docs/GUIA_LLAMADA_REAL_TWILIO.md). Comprar
+el número y apuntar su webhook de voz **no hace falta hacerlo a mano en la
+Console de Twilio**: la pestaña Configuración → "📞 Auto-configurar número
+Twilio" (`kobra/twilio_setup.py`) lo hace por API, con las credenciales que
+ya cargaste.
 
 > ⚖️ **Proteger MV Kobra AI en Uruguay** (derecho de autor + marca, con costos):
 > [`docs/GUIA_REGISTRO_LEGAL_URUGUAY.md`](docs/GUIA_REGISTRO_LEGAL_URUGUAY.md).
@@ -766,6 +770,7 @@ Kobra/
 │   ├── seguimiento.py              # agenda: promesas/arreglos vencidos sin pago
 │   ├── voz_tts.py                  # voz premium opcional (ElevenLabs) — costo por carácter
 │   ├── campana.py                  # campaña automática: canal/horario/prioridad + llamada/WhatsApp/email
+│   ├── twilio_setup.py             # auto-configurar número Twilio (buscar/comprar/webhook) por API
 │   ├── config.py                   # API keys persistentes (Configuración)
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports

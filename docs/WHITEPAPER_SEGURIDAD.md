@@ -37,6 +37,12 @@ MV Kobra AI es un sistema de cobranzas inteligentes con dos superficies:
   voz real (Twilio) o WhatsApp, el contenido de esas conversaciones se
   procesa para negociar y tipificar el resultado. Se envían a proveedores de
   IA de terceros (ver sección 4) solo si el cliente configura esas claves.
+- **Auto-configuración de Twilio** (`kobra/twilio_setup.py`, opcional): con
+  `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN` ya cargados, el dashboard puede
+  buscar/comprar un número y apuntar su webhook de voz **por API, contra la
+  cuenta de Twilio del propio cliente** — es una acción explícita del
+  administrador (botón "Comprar"), nunca automática, y tiene costo real
+  para el cliente (el número que compra Twilio se factura a su cuenta).
 - **Voz premium opcional (ElevenLabs)**: si se configura `ELEVENLABS_API_KEY`
   y se elige una voz, el **texto que el Gestor IA va a decir** (no lo que
   dice el deudor) se envía a ElevenLabs para sintetizar el audio de la
