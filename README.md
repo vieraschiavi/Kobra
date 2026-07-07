@@ -763,6 +763,33 @@ llamar de verdad?"), en español y al instante:
 3. Sin API key **no se rompe**: muestra la sección exacta de la documentación
    que contesta la duda, con su fuente.
 
+### 🖥️ Plataforma web profesional (React) — `webapp/`
+
+Además del dashboard Streamlit, hay una **app web SaaS profesional** con la
+misma data y los mismos motores — pensada para el cliente que espera una
+interfaz de producto comercial:
+
+- **Backend** (`webapp/backend/api.py`, FastAPI): API REST con **JWT**
+  (reutiliza las contraseñas admin/gestor de `kobra/autenticacion.py`) y
+  **multi-tenant por directorio** desde el día uno: la empresa `principal`
+  usa los datos del repo; cualquier otra resuelve a `data/tenants/<empresa>/`
+  con aislamiento verificado por test. Incluye **API entrante para
+  integradores** (`POST /api/integracion/cartera`): el core/ERP del cliente
+  empuja su cartera como JSON, sin archivos de por medio.
+- **Frontend** (`webapp/frontend/`, React + Vite + Recharts): login, tour de
+  bienvenida, Visión general (KPIs + 4 gráficos), Cartera priorizada con
+  filtros/paginado/export y **briefing por deudor con guion sugerido**,
+  Agenda de promesas vencidas, ranking de Gestores, **Asistente IA** y
+  Configuración de claves (solo admin).
+
+```bash
+cd webapp/frontend && npm install && npm run build   # compila el frontend
+python -m uvicorn webapp.backend.api:app --port 8800 # sirve API + frontend
+```
+
+El dashboard Streamlit sigue funcionando igual — conviven sobre los mismos
+CSV/modelos; la app React es la cara comercial, Streamlit el laboratorio.
+
 ---
 
 ## 📁 Estructura
@@ -792,6 +819,7 @@ Kobra/
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports
 ├── realtime/                       # copiloto de audio en vivo (FastAPI + WebSocket)
+├── webapp/                         # plataforma web profesional: backend FastAPI (JWT, multi-tenant) + frontend React
 ├── app/app.py                      # dashboard Streamlit (7 pestañas)
 ├── dashboard_estatico/             # dashboard + copiloto zero-install (offline)
 ├── presentation/build_ppt.py       # generador de presentación gerencial
