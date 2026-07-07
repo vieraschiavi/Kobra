@@ -1562,7 +1562,8 @@ with tab8:
             "(ver la guía de Twilio).", icon="🔒")
 
     modo = st.radio("¿Cómo cargás los contactos?",
-                    ["✍️ Escribir en una tabla", "📤 Subir archivo (CSV/Excel)"],
+                    ["✍️ Escribir en una tabla", "📤 Subir archivo (CSV/Excel)",
+                     "🗄️ Traer de mi base de datos"],
                     horizontal=True, key="modo_cartera")
 
     contactos = []
@@ -1584,7 +1585,7 @@ with tab8:
                               })
         from kobra import cartera_manual as _cm
         contactos = _cm.desde_dataframe(edit)
-    else:
+    elif modo.startswith("📤"):
         up = st.file_uploader("Subí un CSV o Excel con columnas: nombre, telefono, deuda "
                               "[, dias_mora]", type=["csv", "xlsx"])
         plantilla = "nombre,telefono,deuda,dias_mora\nWendy,099000001,10000,25\n"
@@ -1596,6 +1597,32 @@ with tab8:
                    else pd.read_excel(up, dtype=str))
             contactos = _cm.desde_dataframe(raw.fillna(""))
             st.dataframe(raw, use_container_width=True, hide_index=True)
+    else:
+        st.caption("Conectá tu base (PostgreSQL, MySQL, SQL Server, SQLite… vía SQLAlchemy) "
+                   "y traé la cartera con una consulta de **solo lectura**. La consulta debe "
+                   "devolver al menos la columna **deuda** (o `monto_deuda`/`monto`) y, "
+                   "opcionalmente, `nombre`, `telefono`, `id_deudor`, `dias_mora`, etc.")
+        _db_url_guardada = kconfig.cargar().get("ERP_DB_URL", "")
+        _db_url = st.text_input("URL de conexión",
+                                value=_db_url_guardada, type="password",
+                                placeholder="postgresql+psycopg2://usuario:clave@host/base",
+                                help="Si ya cargaste ERP_DB_URL en Configuración, aparece "
+                                     "precargada. No se loguea ni se guarda desde acá.")
+        _db_sql = st.text_area("Consulta SQL (solo SELECT/WITH)",
+                               value="SELECT nombre, telefono, deuda, dias_mora FROM cartera",
+                               height=90, key="sql_cartera_db")
+        if st.button("🗄️ Traer cartera de la base", disabled=not (_db_url and _db_sql.strip())):
+            from kobra import cartera_manual as _cm
+            try:
+                with st.spinner("Consultando tu base…"):
+                    st.session_state["contactos_db"] = _cm.desde_base_de_datos(_db_url, _db_sql)
+            except Exception as _db_e:
+                st.session_state.pop("contactos_db", None)
+                st.error(f"No se pudo traer la cartera: {str(_db_e)[:300]}")
+        contactos = st.session_state.get("contactos_db", [])
+        if contactos:
+            st.success(f"✅ {len(contactos)} contacto(s) traídos de tu base — listos para negociar.")
+            st.dataframe(pd.DataFrame(contactos), use_container_width=True, hide_index=True)
 
     usar_claude = st.checkbox(
         "Usar Claude para redactar más natural (necesita ANTHROPIC_API_KEY)", value=False,
