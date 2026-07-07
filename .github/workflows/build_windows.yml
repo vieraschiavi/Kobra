@@ -61,6 +61,9 @@ jobs:
           name: MVKobraAI_Setup_Windows
           path: dist/MVKobraAI_Setup_*.exe
           if-no-files-found: error
+          # El instalador pesa cientos de MB: sin retención corta, la cuota de
+          # almacenamiento de Actions se agota y la subida falla en PRs futuros.
+          retention-days: 3
 
       - name: Publicar en Release (solo en tags vX.Y.Z)
         if: startsWith(github.ref, 'refs/tags/v')
