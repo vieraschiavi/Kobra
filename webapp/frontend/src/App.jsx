@@ -1,0 +1,70 @@
+import React from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { getSesion, setSesion } from "./api.js";
+import Tour from "./components/Tour.jsx";
+import Login from "./pages/Login.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
+import Cartera from "./pages/Cartera.jsx";
+import Agenda from "./pages/Agenda.jsx";
+import Gestores from "./pages/Gestores.jsx";
+import Asistente from "./pages/Asistente.jsx";
+import Configuracion from "./pages/Configuracion.jsx";
+
+const NAV = [
+  { ruta: "/", ico: "📊", txt: "Visión general" },
+  { ruta: "/cartera", ico: "📋", txt: "Cartera priorizada" },
+  { ruta: "/agenda", ico: "📅", txt: "Agenda de hoy" },
+  { ruta: "/gestores", ico: "📇", txt: "Gestores" },
+  { ruta: "/asistente", ico: "🤖", txt: "Asistente IA" },
+  { ruta: "/configuracion", ico: "⚙️", txt: "Configuración", admin: true },
+];
+
+function Sidebar({ sesion }) {
+  const nav = useNavigate();
+  const loc = useLocation();
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <img src="/mv_icon.png" alt="MV Kobra AI" />
+        <b>MV KOBRA <span>AI</span></b>
+      </div>
+      {NAV.filter((n) => !n.admin || sesion.rol === "admin").map((n) => (
+        <button key={n.ruta} onClick={() => nav(n.ruta)}
+                className={"nav-item" + (loc.pathname === n.ruta ? " on" : "")}>
+          <span className="ico">{n.ico}</span><span className="txt">{n.txt}</span>
+        </button>
+      ))}
+      <div className="spacer" />
+      <div className="session-chip">
+        {sesion.rol === "admin" ? "🛡️ Administrador" : "👤 Gestor"} · {sesion.empresa}
+      </div>
+      <button className="nav-item" onClick={() => { setSesion(null); nav("/login"); }}>
+        <span className="ico">⏻</span><span className="txt">Cerrar sesión</span>
+      </button>
+    </aside>
+  );
+}
+
+export default function App() {
+  const sesion = getSesion();
+  const loc = useLocation();
+  if (!sesion && loc.pathname !== "/login") return <Navigate to="/login" replace />;
+  if (loc.pathname === "/login") return <Login />;
+  return (
+    <div className="layout">
+      <Sidebar sesion={sesion} />
+      <main className="main">
+        <Tour />
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/cartera" element={<Cartera />} />
+          <Route path="/agenda" element={<Agenda />} />
+          <Route path="/gestores" element={<Gestores />} />
+          <Route path="/asistente" element={<Asistente />} />
+          <Route path="/configuracion" element={<Configuracion />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}
