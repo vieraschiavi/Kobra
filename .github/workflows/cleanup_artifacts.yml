@@ -1,0 +1,44 @@
+# Limpieza de artifacts de Actions (manual, workflow_dispatch).
+#
+# Por qué existe: los builds del instalador de Windows suben artifacts de
+# cientos de MB; con la retención default de 90 días la cuota de
+# almacenamiento se agotó y las subidas nuevas fallan ("Artifact storage
+# quota has been hit"). GitHub no ofrece una pantalla global para borrarlos
+# a mano (solo se ven por run), así que este workflow los borra por API.
+#
+# Todos los artifacts son salidas reproducibles de CI (instaladores y el
+# modelo re-entrenable semanalmente) — borrarlos no pierde nada que no se
+# regenere con un re-run.
+name: cleanup-artifacts
+
+on:
+  workflow_dispatch:
+  # Auto-ejecución única: corre sola apenas este archivo llega a main (el
+  # token del bot no puede despachar workflows, así que mergear el PR ES el
+  # disparador). Solo se re-ejecuta si este mismo archivo vuelve a cambiar.
+  push:
+    branches: [main]
+    paths: [".github/workflows/cleanup_artifacts.yml"]
+
+permissions:
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Borrar todos los artifacts del repo
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.paginate(
+              github.rest.actions.listArtifactsForRepo,
+              { owner: context.repo.owner, repo: context.repo.repo, per_page: 100 });
+            let liberado = 0, borrados = 0;
+            for (const a of artifacts) {
+              await github.rest.actions.deleteArtifact(
+                { owner: context.repo.owner, repo: context.repo.repo, artifact_id: a.id });
+              liberado += a.size_in_bytes; borrados++;
+              core.info(`borrado: ${a.name} #${a.id} · ${(a.size_in_bytes / 1e6).toFixed(1)} MB · creado ${a.created_at}`);
+            }
+            core.notice(`Listo: ${borrados} artifact(s) borrados, ${(liberado / 1e9).toFixed(2)} GB liberados. La cuota puede tardar en recalcularse (GitHub la actualiza cada 6-12 h).`);
