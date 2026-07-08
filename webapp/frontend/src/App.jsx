@@ -4,6 +4,7 @@ import { getSesion, setSesion } from "./api.js";
 import Tour from "./components/Tour.jsx";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import Originacion from "./pages/Originacion.jsx";
 import Cartera from "./pages/Cartera.jsx";
 import Agenda from "./pages/Agenda.jsx";
 import Gestores from "./pages/Gestores.jsx";
@@ -12,6 +13,7 @@ import Configuracion from "./pages/Configuracion.jsx";
 
 const NAV = [
   { ruta: "/", ico: "📊", txt: "Visión general" },
+  { ruta: "/originacion", ico: "🏦", txt: "Originación" },
   { ruta: "/cartera", ico: "📋", txt: "Cartera priorizada" },
   { ruta: "/agenda", ico: "📅", txt: "Agenda de hoy" },
   { ruta: "/gestores", ico: "📇", txt: "Gestores" },
@@ -57,6 +59,7 @@ export default function App() {
         <Tour />
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/originacion" element={<Originacion />} />
           <Route path="/cartera" element={<Cartera />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/gestores" element={<Gestores />} />

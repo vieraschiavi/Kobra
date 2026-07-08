@@ -117,6 +117,20 @@ def test_api_originacion_score_y_metricas(cliente):
     assert "walk-forward" in m["validacion"]
 
 
+def test_api_originacion_cola(cliente):
+    h = _h(cliente)
+    r = cliente.get("/api/originacion/cola?n=8", headers=h)
+    assert r.status_code == 200
+    d = r.json()
+    assert len(d["solicitudes"]) == 8 and d["modelo_demo"] is True
+    s = d["solicitudes"][0]
+    assert {"id_solicitud", "score", "decision", "confianza",
+            "monto_solicitado", "fecha_solicitud"} <= set(s)
+    # el clamp de tamaño funciona
+    assert len(cliente.get("/api/originacion/cola?n=999",
+                           headers=h).json()["solicitudes"]) == 50
+
+
 def test_api_nba_por_deudor(cliente):
     h = _h(cliente)
     primero = cliente.get("/api/cartera?tamano=1", headers=h).json()["filas"][0]["id_deudor"]

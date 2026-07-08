@@ -343,6 +343,22 @@ def originacion_metricas(u: Usuario = Depends(usuario_actual)):
     return {**_originacion().metrics, "modelo_demo": True}
 
 
+@app.get("/api/originacion/cola")
+def originacion_cola(n: int = 15, u: Usuario = Depends(usuario_actual)):
+    """Cola de solicitudes pendientes de decisión (demo: solicitudes
+    sintéticas evaluadas por el modelo — con el cliente real, esta cola se
+    alimenta de su sistema vía POST /api/integracion/cartera o su core)."""
+    import json as _json
+    from kobra import originacion as korig
+    modelo = _originacion()
+    sols = korig.generar_solicitudes_sinteticas(
+        n=max(5, min(n, 50)), semilla=1234).drop(columns=[korig.TARGET])
+    out = modelo.evaluar_lote(sols)
+    out["fecha_solicitud"] = out["fecha_solicitud"].dt.strftime("%Y-%m-%d")
+    return {"solicitudes": _json.loads(out.to_json(orient="records")),
+            "modelo_demo": True, "metricas_modelo": modelo.metrics}
+
+
 @app.get("/api/nba/{id_deudor}")
 def next_best_action(id_deudor: str, u: Usuario = Depends(usuario_actual)):
     """Next-best-action de cobranza para un deudor: a quién ya lo decide la

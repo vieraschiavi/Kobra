@@ -34,3 +34,5 @@ export const fmtUYU = (n) =>
   "$U " + (n >= 1e6 ? (n / 1e6).toLocaleString("es-UY", { maximumFractionDigits: 1 }) + "M"
                     : Math.round(n).toLocaleString("es-UY"));
 export const fmtPct = (x, d = 1) => (x * 100).toFixed(d) + "%";
+// Estándar Bloque 8: montos completos con separador de miles, sin decimales.
+export const fmtMonto = (n) => "$" + Math.round(n || 0).toLocaleString("es-UY");
