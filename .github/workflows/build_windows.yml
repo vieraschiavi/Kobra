@@ -57,6 +57,9 @@ jobs:
 
       - name: Publicar instalador como artefacto
         uses: actions/upload-artifact@v4
+        # La cuota de artifacts se agota seguido y GitHub tarda 6-12 h en
+        # recalcularla; que eso no tumbe el build ni bloquee la Release.
+        continue-on-error: true
         with:
           name: MVKobraAI_Setup_Windows
           path: dist/MVKobraAI_Setup_*.exe
