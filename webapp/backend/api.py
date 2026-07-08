@@ -308,6 +308,62 @@ def config_guardar(datos: ConfigIn, u: Usuario = Depends(solo_admin)):
     return {"guardadas": sorted(validas)}
 
 
+# ---------------------------------------------------------------------------
+# Originación (Kobra 2.0 · Bloque 3) — mismo contrato para cliente directo y,
+# cuando se active ese canal, para partners API (Bloque 5, hoy diferido).
+# ---------------------------------------------------------------------------
+_MODELO_ORIGINACION = None
+
+
+def _originacion():
+    """Modelo de originación entrenado (lazy singleton). Sin datos reales del
+    cliente entrena sobre el dataset sintético de demo — el response lo dice."""
+    global _MODELO_ORIGINACION
+    if _MODELO_ORIGINACION is None:
+        from kobra import originacion as korig
+        df = korig.generar_solicitudes_sinteticas()
+        _MODELO_ORIGINACION = korig.OriginacionModel().fit(df)
+    return _MODELO_ORIGINACION
+
+
+class SolicitudIn(BaseModel):
+    solicitud: dict
+
+
+@app.post("/api/originacion/score")
+def originacion_score(datos: SolicitudIn, u: Usuario = Depends(usuario_actual)):
+    modelo = _originacion()
+    resultado = modelo.evaluar(datos.solicitud or {})
+    return {**resultado, "modelo_demo": True,
+            "metricas_modelo": modelo.metrics}
+
+
+@app.get("/api/originacion/metricas")
+def originacion_metricas(u: Usuario = Depends(usuario_actual)):
+    return {**_originacion().metrics, "modelo_demo": True}
+
+
+@app.get("/api/nba/{id_deudor}")
+def next_best_action(id_deudor: str, u: Usuario = Depends(usuario_actual)):
+    """Next-best-action de cobranza para un deudor: a quién ya lo decide la
+    prioridad de la cartera; esto responde POR QUÉ canal, con QUÉ estrategia
+    y con qué guion — la salida del Agente Negociador, como contrato API."""
+    f = _scored(u.empresa)
+    fila = f[f["id_deudor"] == id_deudor]
+    if fila.empty:
+        raise HTTPException(404, f"No existe el deudor {id_deudor}.")
+    r = fila.iloc[0]
+    return {"id_deudor": id_deudor,
+            "prioridad": int(r["prioridad"]),
+            "probpago": float(r["probpago"]),
+            "canal": r["canal_recomendado"],
+            "estrategia": r["estrategia"],
+            "descuento_recomendado": float(r["descuento_recomendado"]),
+            "plan_cuotas": int(r["plan_cuotas"]) if pd.notna(r.get("plan_cuotas")) else None,
+            "guion_sugerido": r["guion"],
+            "motivo": r["motivo_probpago"]}
+
+
 class CarteraEntranteIn(BaseModel):
     contactos: list[dict]
 

@@ -763,6 +763,22 @@ llamar de verdad?"), en español y al instante:
 3. Sin API key **no se rompe**: muestra la sección exacta de la documentación
    que contesta la duda, con su fuente.
 
+### 🏦 Motor de originación (credit decisioning) — `kobra/originacion.py`
+
+Extensión upstream del mismo motor: además de cobrar mejor, **decidir mejor a
+quién prestarle**. Para cada solicitud de crédito devuelve probabilidad de
+mora, score 0-1000, decisión sugerida (Aprobar / Derivar a análisis /
+Rechazar), monto y plazo sugeridos, **top-3 razones en lenguaje simple** y un
+nivel de confianza según cuántos datos reales llegaron — con datos
+insuficientes nunca auto-decide: deriva a un analista humano.
+
+Estándares ML del brief Kobra 2.0: validación **walk-forward temporal**
+(nunca random split), **anti-SMOTE** (ponderación de muestras), benchmark
+honesto contra la regla típica del oficial de crédito, y explicabilidad por
+decisión individual. API: `POST /api/originacion/score` y
+`GET /api/nba/{id_deudor}` (next-best-action de cobranza). Estado completo
+del brief: `docs/KOBRA_2_0.md`.
+
 ### 🖥️ Plataforma web profesional (React) — `webapp/`
 
 Además del dashboard Streamlit, hay una **app web SaaS profesional** con la
@@ -815,6 +831,7 @@ Kobra/
 │   ├── campana.py                  # campaña automática: canal/horario/prioridad + llamada/WhatsApp/email
 │   ├── twilio_setup.py             # auto-configurar número Twilio (buscar/comprar/webhook) por API
 │   ├── ayuda.py                    # asistente de ayuda del producto (IA sobre la propia documentación)
+│   ├── originacion.py              # motor de originación: score + decisión + razones al originar
 │   ├── config.py                   # API keys persistentes (Configuración)
 │   ├── train.py                    # entrenamiento ML (selección de modelos)
 │   └── pipeline.py                 # orquestación end-to-end + exports
