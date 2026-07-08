@@ -13,6 +13,12 @@ name: cleanup-artifacts
 
 on:
   workflow_dispatch:
+  # Auto-ejecución única: corre sola apenas este archivo llega a main (el
+  # token del bot no puede despachar workflows, así que mergear el PR ES el
+  # disparador). Solo se re-ejecuta si este mismo archivo vuelve a cambiar.
+  push:
+    branches: [main]
+    paths: [".github/workflows/cleanup_artifacts.yml"]
 
 permissions:
   actions: write
