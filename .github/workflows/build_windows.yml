@@ -11,8 +11,11 @@ on:
   # En main también corre completo para publicar/actualizar la Release: es el
   # único canal de descarga estable del instalador (los artifacts expiran y
   # su cuota se llena; el bot tampoco puede pushear tags ni despachar runs).
+  # Solo main y tags: los minutos de Windows facturan al DOBLE y compilar el
+  # instalador en cada push de una rama de trabajo agotó la cuota mensual de
+  # Actions (jul 2026) — en ramas alcanza con el CI de Ubuntu.
   push:
-    branches: ["claude/**", "main"]
+    branches: ["main"]
     tags: ["v*"]
 
 permissions:

@@ -1,8 +1,12 @@
 name: CI
 
+# push a main + pull_request, sin "claude/**" en push: cada commit de un PR
+# corría el CI DOS veces (una por el push a la rama y otra por el PR) — puro
+# gasto duplicado de minutos. El evento pull_request ya cubre las ramas de
+# trabajo, y el push a main valida lo mergeado.
 on:
   push:
-    branches: [main, "claude/**"]
+    branches: [main]
   pull_request:
     branches: [main]
 
