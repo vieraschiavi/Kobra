@@ -589,7 +589,8 @@ with tab5:
             st.info("Cargá o pegá una conversación para analizar.")
         else:
             res = copiloto.analizar_conversacion(
-                texto_conv, canal=canal, probpago=probpago_ref, estrategia=estrategia_ref)
+                texto_conv, canal=canal, probpago=probpago_ref, estrategia=estrategia_ref,
+                idioma=copiloto.idioma_configurado())
             cop = res["copiloto"]
             meta = res["meta"]
 
@@ -688,7 +689,7 @@ with tab5:
         try:
             res_audio = kvoz.copiloto_desde_audio(
                 audio_path, transcript_turnos=tt, probpago=probpago_ref,
-                estrategia=estrategia_ref)
+                estrategia=estrategia_ref, idioma=copiloto.idioma_configurado())
             va = res_audio["voz"]
         except Exception as e:
             va = res_audio = None

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api.js";
+import { t } from "../i18n/index.js";
 
 export default function Gestores() {
   const [datos, setDatos] = useState(null);
@@ -10,12 +11,11 @@ export default function Gestores() {
 
   return (
     <>
-      <h1 className="page-title">Gestores &amp; evolución</h1>
-      <p className="page-sub">Ranking por calidad de gestión y conversión (datos del registro
-        de gestiones — en la demo son sintéticos, con tu operación real pasan a ser evidencia).</p>
+      <h1 className="page-title">{t("gestores.titulo")}</h1>
+      <p className="page-sub">{t("gestores.subtitulo")}</p>
       {error && <div className="empty">{error}</div>}
       {datos && !datos.ranking.length && (
-        <div className="empty">Todavía no hay gestiones registradas.</div>
+        <div className="empty">{t("gestores.vacio_sin_gestiones")}</div>
       )}
       {datos && datos.ranking.length > 0 && (
         <div className="tablewrap">

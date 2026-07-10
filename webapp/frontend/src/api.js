@@ -23,23 +23,32 @@ export async function api(ruta, { metodo = "GET", cuerpo } = {}) {
   if (r.status === 401 && ruta !== "/api/auth/login") {
     setSesion(null);
     window.location.hash = "#/login";
-    throw new Error("Sesión vencida — iniciá sesión de nuevo.");
+    // Nota: no importa ./i18n/index.js acá (ese módulo importa getPais de
+    // este mismo archivo — evitamos el ciclo con un mensaje mínimo inline).
+    const idioma = getPais().idioma || "es";
+    throw new Error(idioma === "pt"
+      ? "Sessão expirada — faça login novamente."
+      : "Sesión vencida — iniciá sesión de nuevo.");
   }
   const datos = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(datos.detail || `Error ${r.status}`);
   return datos;
 }
 
-// País del tenant (Fase 1 LATAM) — cambia el símbolo/locale de formateo de
-// moneda en toda la webapp; no traduce nada (mismo español en los 6 países).
+// País del tenant (LATAM) — cambia el símbolo/locale de formateo de moneda
+// en toda la webapp, y (Fase 2, Brasil) también el idioma de la interfaz
+// vía el diccionario en ./i18n.
 const PAIS_KEY = "kobra_pais";
-const PAIS_UY = { codigo: "UY", nombre: "Uruguay", moneda: "UYU", simbolo: "$U", locale: "es-UY" };
+const PAIS_UY = { codigo: "UY", nombre: "Uruguay", moneda: "UYU", simbolo: "$U",
+                  locale: "es-UY", idioma: "es" };
 let _pais = null;
 
 export function getPais() {
   if (_pais) return _pais;
   try { _pais = JSON.parse(localStorage.getItem(PAIS_KEY)); } catch { _pais = null; }
-  return _pais || PAIS_UY;
+  // idioma es nuevo (Fase 2): un país cacheado de antes de este cambio no lo
+  // tiene — asumí español, que era el único idioma hasta ahora.
+  return _pais ? { idioma: "es", ..._pais } : PAIS_UY;
 }
 export function setPaisCache(p) {
   _pais = p || null;

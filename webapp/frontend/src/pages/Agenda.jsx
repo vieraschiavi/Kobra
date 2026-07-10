@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api, fmtUYU } from "../api.js";
+import { t } from "../i18n/index.js";
 
 export default function Agenda() {
   const [datos, setDatos] = useState(null);
@@ -10,20 +11,20 @@ export default function Agenda() {
 
   return (
     <>
-      <h1 className="page-title">Agenda de hoy</h1>
-      <p className="page-sub">Promesas y arreglos de pago <b>vencidos sin pago registrado</b>
-        — los casos que ya perdieron una fecha comprometida y conviene retomar primero.
-        El contacto real sigue pasando por el chequeo de cumplimiento.</p>
+      <h1 className="page-title">{t("agenda.titulo")}</h1>
+      <p className="page-sub" dangerouslySetInnerHTML={{ __html: t("agenda.subtitulo") }} />
       {error && <div className="empty">{error}</div>}
       {datos && datos.total === 0 && (
-        <div className="empty">🎉 No hay promesas vencidas pendientes.</div>
+        <div className="empty">{t("agenda.vacio_sin_pendientes")}</div>
       )}
       {datos && datos.total > 0 && (
         <div className="tablewrap">
           <table>
             <thead><tr>
-              <th>ID deudor</th><th>Resultado</th><th>Comprometido para</th>
-              <th>Días vencida</th><th>Monto acordado</th><th>Canal</th><th>Gestor</th>
+              <th>{t("agenda.tabla.col_id_deudor")}</th><th>{t("agenda.tabla.col_resultado")}</th>
+              <th>{t("agenda.tabla.col_comprometido")}</th>
+              <th>{t("agenda.tabla.col_dias_vencida")}</th><th>{t("agenda.tabla.col_monto_acordado")}</th>
+              <th>{t("agenda.tabla.col_canal")}</th><th>{t("agenda.tabla.col_gestor")}</th>
             </tr></thead>
             <tbody>
               {datos.vencidas.map((v, i) => (

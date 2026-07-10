@@ -112,6 +112,31 @@ def test_copiloto_analisis_completo():
     assert res["copiloto"]["proxima_frase"]
 
 
+def test_copiloto_sentimiento_pt():
+    pos = copiloto.analizar_sentimiento("Perfeito, obrigado, aceito o plano", idioma="pt")
+    neg = copiloto.analizar_sentimiento("nao consigo pagar sem dinheiro desempregado", idioma="pt")
+    assert pos.score > 0 and pos.etiqueta == "positivo"
+    assert neg.score < 0 and neg.etiqueta == "negativo"
+    # idioma no reconocido cae a español, no explota
+    assert copiloto.analizar_sentimiento("gracias", idioma="fr").etiqueta == "positivo"
+
+
+def test_copiloto_analisis_completo_pt():
+    texto = ("Gestor: Ola, bom dia, aqui e da MV Kobra, falo com o senhor?\n"
+             "Cliente: Sim, sou eu.\n"
+             "Gestor: Entendo sua situacao, vou oferecer uma opcao: parcelas em 3x.\n"
+             "Cliente: Aceito, combinamos assim.\n"
+             "Gestor: Combinamos, envio o link agora, fica combinado?")
+    res = copiloto.analizar_conversacion(texto, canal="llamada", probpago=0.7,
+                                         estrategia="Plano de parcelas", idioma="pt")
+    assert res["meta"]["idioma"] == "pt"
+    assert 0 <= res["calidad"]["score_total"] <= 100
+    assert any(res["tecnicas"].values())
+    assert res["copiloto"]["proxima_frase"]
+    # las etiquetas de criterios de calidad están en portugués
+    assert res["calidad"]["criterios"]["empatia"]["nombre"] == "Empatia"
+
+
 def test_copiloto_parser_plano():
     conv = copiloto.parsear_conversacion(
         "Gestor: Hola, buenos dias\nCliente: hola\nGestor: le ofrezco un plan",
@@ -460,8 +485,12 @@ def test_cumplimiento_feriados_por_pais():
     # Semana Santa (derivada de Pascua) también aplica a los países de Fase 1
     fer_ar = cp.feriados_por_pais("AR", 2026)
     assert any("Santo" in n for n in fer_ar.values())
-    # país sin tabla de feriados propia (no está en Fase 1) cae a Uruguay
-    assert cp.feriados_por_pais("BR", 2026) == cp.feriados_uruguay(2026)
+    # Brasil (Fase 2): tabla propia, en portugués, incluye Sexta-feira Santa
+    fer_br = cp.feriados_por_pais("BR", 2026)
+    assert any("Independência" in n for n in fer_br.values())
+    assert any("Sexta-feira Santa" in n for n in fer_br.values())
+    # país sin tabla de feriados propia (fuera del catálogo LATAM) cae a Uruguay
+    assert cp.feriados_por_pais("DE", 2026) == cp.feriados_uruguay(2026)
 
 
 def test_cumplimiento_topes_frecuencia():
@@ -1246,6 +1275,41 @@ def test_ayuda_responder_con_key_mockeado(monkeypatch):
     # el contexto de docs viaja en el system prompt, la pregunta como user
     assert "CONTEXTO DE DOCUMENTACIÓN" in capturado["json"]["system"]
     assert capturado["json"]["messages"][0]["content"] == "¿dónde cargo Twilio?"
+
+
+def test_ayuda_idioma_pt_usa_corpus_traducido(monkeypatch):
+    from kobra import ayuda as kayuda
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    r = kayuda.responder("O que é o ProbPago?", idioma="pt")
+    assert r["modo"] == "docs"
+    assert r["fuentes"] and all(f.endswith("_pt.md") for f in r["fuentes"])
+    assert "documentação" in r["respuesta"]      # intro en portugués, no español
+
+
+def test_ayuda_idioma_pt_cae_a_espanol_si_no_esta_traducido(monkeypatch):
+    from kobra import ayuda as kayuda
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    # Simula un tema que no tiene ningún match en el corpus pt (parcial, Fase 2)
+    # pero sí en el corpus es completo — fuerza el camino de fallback.
+    ficha_es = [{"fuente": "docs/GUIA_REGISTRO_LEGAL_URUGUAY.md", "titulo": "DNPI",
+                 "texto": "Trámite de registro de marca ante el DNPI.", "score": 0.5}]
+
+    def _buscar_falso(pregunta, k=4, fichas=None, idioma="es"):
+        return [] if idioma == "pt" else ficha_es
+    monkeypatch.setattr(kayuda, "buscar", _buscar_falso)
+
+    r = kayuda.responder("Como registro minha marca?", idioma="pt")
+    assert r["modo"] == "docs"
+    assert "não foi traduzida" in r["respuesta"]   # aviso honesto de fallback
+    assert "docs/GUIA_REGISTRO_LEGAL_URUGUAY.md" in r["fuentes"]
+
+
+def test_ayuda_idioma_desconocido_cae_a_espanol(monkeypatch):
+    from kobra import ayuda as kayuda
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    r = kayuda.responder("¿qué es ProbPago?", idioma="fr")
+    assert r["modo"] == "docs"
+    assert any(not f.endswith("_pt.md") for f in r["fuentes"])
 
 
 def test_twilio_setup_buscar_numeros_sin_credenciales(monkeypatch):

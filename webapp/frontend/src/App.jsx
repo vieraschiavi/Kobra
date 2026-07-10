@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { api, cargarPais, getPais, getSesion, setSesion } from "./api.js";
+import { api, cargarPais, getPais, getSesion, setPaisCache, setSesion } from "./api.js";
+import { t } from "./i18n/index.js";
 import Tour from "./components/Tour.jsx";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -12,13 +13,13 @@ import Asistente from "./pages/Asistente.jsx";
 import Configuracion from "./pages/Configuracion.jsx";
 
 const NAV = [
-  { ruta: "/", ico: "📊", txt: "Visión general" },
-  { ruta: "/originacion", ico: "🏦", txt: "Originación" },
-  { ruta: "/cartera", ico: "📋", txt: "Cartera priorizada" },
-  { ruta: "/agenda", ico: "📅", txt: "Agenda de hoy" },
-  { ruta: "/gestores", ico: "📇", txt: "Gestores" },
-  { ruta: "/asistente", ico: "🤖", txt: "Asistente IA" },
-  { ruta: "/configuracion", ico: "⚙️", txt: "Configuración", admin: true },
+  { ruta: "/", ico: "📊", clave: "app.nav.vision_general" },
+  { ruta: "/originacion", ico: "🏦", clave: "app.nav.originacion" },
+  { ruta: "/cartera", ico: "📋", clave: "app.nav.cartera" },
+  { ruta: "/agenda", ico: "📅", clave: "app.nav.agenda" },
+  { ruta: "/gestores", ico: "📇", clave: "app.nav.gestores" },
+  { ruta: "/asistente", ico: "🤖", clave: "app.nav.asistente" },
+  { ruta: "/configuracion", ico: "⚙️", clave: "app.nav.configuracion", admin: true },
 ];
 
 function PaisSelector({ esAdmin }) {
@@ -48,10 +49,11 @@ function PaisSelector({ esAdmin }) {
         onChange={async (e) => {
           setGuardando(true);
           try {
-            await api("/api/tenant/pais", { metodo: "POST", cuerpo: { codigo: e.target.value } });
-            // Recarga completa: los formateadores de moneda leen un caché
-            // de módulo, y es un cambio raro (una vez por tenant) — más
-            // simple que enchufar un contexto reactivo para esto.
+            const nuevo = await api("/api/tenant/pais", { metodo: "POST", cuerpo: { codigo: e.target.value } });
+            // Cachear ANTES de recargar: si no, la primera pintada de la
+            // página recargada (sidebar incluido) lee el país viejo de
+            // localStorage hasta que el propio PaisSelector vuelva a pedirlo.
+            setPaisCache(nuevo);
             window.location.reload();
           } catch {
             setGuardando(false);
@@ -78,16 +80,16 @@ function Sidebar({ sesion }) {
       {NAV.filter((n) => !n.admin || sesion.rol === "admin").map((n) => (
         <button key={n.ruta} onClick={() => nav(n.ruta)}
                 className={"nav-item" + (loc.pathname === n.ruta ? " on" : "")}>
-          <span className="ico">{n.ico}</span><span className="txt">{n.txt}</span>
+          <span className="ico">{n.ico}</span><span className="txt">{t(n.clave)}</span>
         </button>
       ))}
       <div className="spacer" />
       <PaisSelector esAdmin={sesion.rol === "admin"} />
       <div className="session-chip">
-        {sesion.rol === "admin" ? "🛡️ Administrador" : "👤 Gestor"} · {sesion.empresa}
+        {sesion.rol === "admin" ? t("app.sidebar.rol_admin") : t("app.sidebar.rol_gestor")} · {sesion.empresa}
       </div>
       <button className="nav-item" onClick={() => { setSesion(null); nav("/login"); }}>
-        <span className="ico">⏻</span><span className="txt">Cerrar sesión</span>
+        <span className="ico">⏻</span><span className="txt">{t("app.sidebar.cerrar_sesion")}</span>
       </button>
     </aside>
   );

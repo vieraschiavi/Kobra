@@ -27,55 +27,129 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 # ---------------------------------------------------------------------------
-# Léxico de sentimiento y emociones (español rioplatense, contexto cobranzas)
+# Léxico de sentimiento y emociones, por idioma (contexto cobranzas)
 # ---------------------------------------------------------------------------
-POS_WORDS = {
-    "gracias", "perfecto", "excelente", "bien", "buenísimo", "buenisimo",
-    "genial", "acepto", "acepto", "dale", "listo", "ok", "okey", "de acuerdo",
-    "acuerdo", "puedo", "quiero", "pago", "pagar", "abonar", "abono",
-    "solucion", "solución", "ayuda", "ayudar", "tranquilo", "tranquila",
-    "conforme", "contento", "contenta", "agradezco", "dispuesto", "dispuesta",
-    "dispongo", "coordinar", "coordinamos", "dinero", "dabuena", "dabuen",
-    "dabuenagana", "dabuenaonda", "dabuenafe", "compromiso", "comprometo",
-    "dabuenavoluntad", "cuota", "cuotas", "cerramos", "cerrar", "hecho",
+# "es" = español rioplatense (Fase 1 LATAM: mismo léxico sirve para Uruguay,
+# Argentina, México, Chile, Colombia, Perú — validado en producción).
+# "pt" = portugués brasileño (Fase 2): traducción y adaptación propia, NO
+# validada aún por un profesional de cobranza nativo de Brasil. Tratarlo
+# como primera versión — revisar con un experto local antes de producción.
+IDIOMA_DEFAULT = "es"
+
+
+def idioma_configurado() -> str:
+    """Idioma del copiloto de voz en vivo para este despliegue.
+
+    El servicio de tiempo real (`realtime/server.py`) no es multi-tenant
+    (es un proceso de audio en vivo, no el panel web) — hoy un despliegue
+    atiende un país/idioma a la vez, configurado por variable de entorno
+    `KOBRA_IDIOMA_COPILOTO` ("es" por defecto, "pt" para Brasil)."""
+    val = os.getenv("KOBRA_IDIOMA_COPILOTO", IDIOMA_DEFAULT).strip().lower()
+    return val if val in POS_WORDS_POR_IDIOMA else IDIOMA_DEFAULT
+
+POS_WORDS_POR_IDIOMA = {
+    "es": {
+        "gracias", "perfecto", "excelente", "bien", "buenísimo", "buenisimo",
+        "genial", "acepto", "acepto", "dale", "listo", "ok", "okey", "de acuerdo",
+        "acuerdo", "puedo", "quiero", "pago", "pagar", "abonar", "abono",
+        "solucion", "solución", "ayuda", "ayudar", "tranquilo", "tranquila",
+        "conforme", "contento", "contenta", "agradezco", "dispuesto", "dispuesta",
+        "dispongo", "coordinar", "coordinamos", "dinero", "dabuena", "dabuen",
+        "dabuenagana", "dabuenaonda", "dabuenafe", "compromiso", "comprometo",
+        "dabuenavoluntad", "cuota", "cuotas", "cerramos", "cerrar", "hecho",
+    },
+    "pt": {
+        "obrigado", "obrigada", "perfeito", "excelente", "bom", "otimo", "ótimo",
+        "aceito", "beleza", "combinado", "ok", "okay", "de acordo", "acordo",
+        "posso", "quero", "pago", "pagar", "quitar", "solucao", "solução",
+        "ajuda", "ajudar", "tranquilo", "tranquila", "conforme", "contente",
+        "agradeco", "agradeço", "disposto", "disposta", "combinar", "combinamos",
+        "dinheiro", "compromisso", "comprometo", "parcela", "parcelas",
+        "fechado", "fechar", "feito", "boa vontade", "de boa",
+    },
 }
-NEG_WORDS = {
-    "no", "nunca", "imposible", "problema", "problemas", "molesto", "molesta",
-    "cansado", "cansada", "harto", "harta", "mal", "peor", "pesimo", "pésimo",
-    "reclamo", "queja", "enojado", "enojada", "bronca", "estafa", "mentira",
-    "mienten", "vergüenza", "verguenza", "amenaza", "abogado", "denuncia",
-    "denunciar", "no puedo", "sin plata", "sin dinero", "desocupado",
-    "desempleado", "endeudado", "urgente", "grave", "encima", "basta", "dejen",
-    "dejenme", "déjenme", "acoso", "hostigamiento", "presion", "presión",
-    "cortame", "cortar", "colgar", "cuelgo", "nervioso", "nerviosa",
-    "preocupado", "preocupada", "angustia", "angustiado", "difícil", "dificil",
+NEG_WORDS_POR_IDIOMA = {
+    "es": {
+        "no", "nunca", "imposible", "problema", "problemas", "molesto", "molesta",
+        "cansado", "cansada", "harto", "harta", "mal", "peor", "pesimo", "pésimo",
+        "reclamo", "queja", "enojado", "enojada", "bronca", "estafa", "mentira",
+        "mienten", "vergüenza", "verguenza", "amenaza", "abogado", "denuncia",
+        "denunciar", "no puedo", "sin plata", "sin dinero", "desocupado",
+        "desempleado", "endeudado", "urgente", "grave", "encima", "basta", "dejen",
+        "dejenme", "déjenme", "acoso", "hostigamiento", "presion", "presión",
+        "cortame", "cortar", "colgar", "cuelgo", "nervioso", "nerviosa",
+        "preocupado", "preocupada", "angustia", "angustiado", "difícil", "dificil",
+    },
+    "pt": {
+        "nao", "não", "nunca", "impossivel", "impossível", "problema", "problemas",
+        "chateado", "chateada", "cansado", "cansada", "farto", "farta", "mal",
+        "pior", "pessimo", "péssimo", "reclamacao", "reclamação", "queixa",
+        "irritado", "irritada", "raiva", "golpe", "mentira", "mentem",
+        "vergonha", "ameaca", "ameaça", "advogado", "denuncia", "denúncia",
+        "denunciar", "nao posso", "não posso", "sem dinheiro", "desempregado",
+        "desempregada", "endividado", "endividada", "urgente", "grave", "chega",
+        "basta", "parem", "me deixem", "assedio", "assédio", "pressao", "pressão",
+        "cortar", "desligar", "desligo", "nervoso", "nervosa", "preocupado",
+        "preocupada", "angustia", "angústia", "angustiado", "dificil", "difícil",
+    },
 }
 # Intensificadores / atenuadores
-BOOST = {"muy", "super", "súper", "recontra", "demasiado", "bastante", "tan"}
-NEGATORS = {"no", "nunca", "jamas", "jamás", "tampoco", "ni"}
-
-# Señales de emoción (regex) → etiqueta
-EMOCIONES = {
-    "frustracion": r"\b(harto|harta|cansad|otra vez|siempre lo mismo|ya les dije|basta|hasta cuando)\b",
-    "enojo": r"\b(enojad|bronca|indignad|estafa|mentira|verg[uü]enza|amenaz|denunci|abogad|acoso)\b",
-    "ansiedad": r"\b(nervios|angustia|preocupad|no s[eé] qu[eé] hacer|desesperad|urgente|ayuda por favor)\b",
-    "dificultad_economica": r"\b(sin (plata|dinero|trabajo)|desemplead|desocupad|no me alcanza|no llego|no tengo)\b",
-    "satisfaccion": r"\b(gracias|perfecto|excelente|buen[ií]simo|genial|de acuerdo|me sirve|tranquil)\b",
-    "intencion_pago": r"\b(quiero pagar|puedo pagar|voy a pagar|c[oó]mo (pago|abono)|acepto|dale|coordinamos|me sirve)\b",
-    "objecion": r"\b(pero|el tema es|el problema es|no puedo|es mucho|no me alcanza|m[aá]s adelante|despu[eé]s)\b",
+BOOST_POR_IDIOMA = {
+    "es": {"muy", "super", "súper", "recontra", "demasiado", "bastante", "tan"},
+    "pt": {"muito", "super", "bastante", "tao", "tão", "demais"},
+}
+NEGATORS_POR_IDIOMA = {
+    "es": {"no", "nunca", "jamas", "jamás", "tampoco", "ni"},
+    "pt": {"nao", "não", "nunca", "jamais", "tampouco", "nem"},
 }
 
-# Técnicas de negociación (del gestor) → regex
-TECNICAS = {
-    "Anclaje": r"\b(el total es|la deuda total|monto total|son \$?\s?\d)",
-    "Fraccionamiento": r"\b(cuotas?|en partes|dividir|fraccionar|50%|mitad|una parte)\b",
-    "Alternativas": r"\b(opci[oó]n|alternativa|o bien|otra posibilidad|le ofrezco|puede elegir|tambi[eé]n puede)\b",
-    "Reciprocidad": r"\b(si (usted|hace|paga).*(yo|le|hacemos|bonific)|a cambio|por su parte)\b",
-    "Urgencia": r"\b(hoy|ahora|antes de|v[aá]lid[ao] hasta|por tiempo limitado|vence|[uú]ltimo d[ií]a|solo por hoy)\b",
-    "Escasez": r"\b(beneficio [uú]nico|oferta especial|solo (por hoy|esta semana)|no lo vamos a repetir|excepci[oó]n)\b",
-    "Validacion": r"\b(entiendo|comprendo|me pongo en su lugar|s[eé] que|imagino que|tiene raz[oó]n)\b",
-    "Prueba_social": r"\b(muchos clientes|la mayor[ií]a|otras personas|lo que suelen hacer)\b",
-    "Cierre": r"\b(coordinamos|le env[ií]o el (link|qr)|queda acordado|entonces quedamos|confirmamos)\b",
+# Señales de emoción (regex) → etiqueta. Las claves son las mismas en los dos
+# idiomas (son códigos internos, no texto mostrado); solo cambia el patrón.
+EMOCIONES_POR_IDIOMA = {
+    "es": {
+        "frustracion": r"\b(harto|harta|cansad|otra vez|siempre lo mismo|ya les dije|basta|hasta cuando)\b",
+        "enojo": r"\b(enojad|bronca|indignad|estafa|mentira|verg[uü]enza|amenaz|denunci|abogad|acoso)\b",
+        "ansiedad": r"\b(nervios|angustia|preocupad|no s[eé] qu[eé] hacer|desesperad|urgente|ayuda por favor)\b",
+        "dificultad_economica": r"\b(sin (plata|dinero|trabajo)|desemplead|desocupad|no me alcanza|no llego|no tengo)\b",
+        "satisfaccion": r"\b(gracias|perfecto|excelente|buen[ií]simo|genial|de acuerdo|me sirve|tranquil)\b",
+        "intencion_pago": r"\b(quiero pagar|puedo pagar|voy a pagar|c[oó]mo (pago|abono)|acepto|dale|coordinamos|me sirve)\b",
+        "objecion": r"\b(pero|el tema es|el problema es|no puedo|es mucho|no me alcanza|m[aá]s adelante|despu[eé]s)\b",
+    },
+    "pt": {
+        "frustracion": r"\b(fart|cansad|de novo|sempre a mesma coisa|j[aá] disse|chega|at[eé] quando)\b",
+        "enojo": r"\b(irritad|raiva|indignad|golpe|mentira|vergonha|amea[cç]|denunci|advogad|ass[eé]dio)\b",
+        "ansiedad": r"\b(nervos|ang[uú]stia|preocupad|n[aã]o sei o que fazer|desesperad|urgente|ajuda por favor)\b",
+        "dificultad_economica": r"\b(sem (dinheiro|trabalho|grana)|desempregad|n[aã]o d[aá]|n[aã]o consigo|n[aã]o tenho)\b",
+        "satisfaccion": r"\b(obrigad|perfeito|excelente|[oó]timo|de acordo|me ajuda|tranquil)\b",
+        "intencion_pago": r"\b(quero pagar|posso pagar|vou pagar|como (pago|quito)|aceito|combinamos|me ajuda)\b",
+        "objecion": r"\b(mas|o problema [eé]|n[aã]o posso|[eé] muito|n[aã]o d[aá]|mais pra frente|depois)\b",
+    },
+}
+
+# Técnicas de negociación (del gestor) → regex. Mismas claves, distinto patrón.
+TECNICAS_POR_IDIOMA = {
+    "es": {
+        "Anclaje": r"\b(el total es|la deuda total|monto total|son \$?\s?\d)",
+        "Fraccionamiento": r"\b(cuotas?|en partes|dividir|fraccionar|50%|mitad|una parte)\b",
+        "Alternativas": r"\b(opci[oó]n|alternativa|o bien|otra posibilidad|le ofrezco|puede elegir|tambi[eé]n puede)\b",
+        "Reciprocidad": r"\b(si (usted|hace|paga).*(yo|le|hacemos|bonific)|a cambio|por su parte)\b",
+        "Urgencia": r"\b(hoy|ahora|antes de|v[aá]lid[ao] hasta|por tiempo limitado|vence|[uú]ltimo d[ií]a|solo por hoy)\b",
+        "Escasez": r"\b(beneficio [uú]nico|oferta especial|solo (por hoy|esta semana)|no lo vamos a repetir|excepci[oó]n)\b",
+        "Validacion": r"\b(entiendo|comprendo|me pongo en su lugar|s[eé] que|imagino que|tiene raz[oó]n)\b",
+        "Prueba_social": r"\b(muchos clientes|la mayor[ií]a|otras personas|lo que suelen hacer)\b",
+        "Cierre": r"\b(coordinamos|le env[ií]o el (link|qr)|queda acordado|entonces quedamos|confirmamos)\b",
+    },
+    "pt": {
+        "Anclaje": r"\b(o total [eé]|a d[ií]vida total|valor total|s[aã]o \$?\s?\d)",
+        "Fraccionamiento": r"\b(parcelas?|em partes|dividir|parcelar|50%|metade|uma parte)\b",
+        "Alternativas": r"\b(op[cç][aã]o|alternativa|ou ent[aã]o|outra possibilidade|ofere[cç]o|pode escolher|tamb[eé]m pode)\b",
+        "Reciprocidad": r"\b(se (voc[eê]|fizer|pagar).*(eu|lhe|fazemos|bonific)|em troca|por sua vez)\b",
+        "Urgencia": r"\b(hoje|agora|antes de|v[aá]lido at[eé]|por tempo limitado|vence|[uú]ltimo dia|s[oó] hoje)\b",
+        "Escasez": r"\b(benef[ií]cio [uú]nico|oferta especial|s[oó] (hoje|esta semana)|n[aã]o vamos repetir|exce[cç][aã]o)\b",
+        "Validacion": r"\b(entendo|compreendo|me coloco no seu lugar|sei que|imagino que|voc[eê] tem raz[aã]o)\b",
+        "Prueba_social": r"\b(muitos clientes|a maioria|outras pessoas|o que costumam fazer)\b",
+        "Cierre": r"\b(combinamos|envio o (link|qr)|fica combinado|ent[aã]o ficamos|confirmamos)\b",
+    },
 }
 
 
@@ -194,31 +268,38 @@ class Sentimiento:
     emociones: list = field(default_factory=list)
 
 
-def analizar_sentimiento(texto: str, voz: dict | None = None) -> Sentimiento:
+def analizar_sentimiento(texto: str, voz: dict | None = None,
+                         idioma: str = IDIOMA_DEFAULT) -> Sentimiento:
     """
-    Sentimiento léxico en español con manejo de negación e intensificadores.
+    Sentimiento léxico (español o portugués, ver `idioma`) con manejo de
+    negación e intensificadores.
     `voz` (opcional): features acústicas normalizadas para negociación
     telefónica en vivo, p. ej. {"energia":0-1, "pitch_var":0-1, "ritmo":0-1}.
     En producción provienen de un modelo de speech-emotion; acá se combinan
     si están disponibles.
     """
+    idioma = idioma if idioma in POS_WORDS_POR_IDIOMA else IDIOMA_DEFAULT
+    pos = {_strip(w) for w in POS_WORDS_POR_IDIOMA[idioma]}
+    neg = {_strip(w) for w in NEG_WORDS_POR_IDIOMA[idioma]}
+    boost = {_strip(w) for w in BOOST_POR_IDIOMA[idioma]}
+    negators = {_strip(w) for w in NEGATORS_POR_IDIOMA[idioma]}
+
     tokens = _strip(texto).split()
     score = 0.0
     i = 0
     while i < len(tokens):
         tok = tokens[i]
         val = 0
-        if tok in {_strip(w) for w in POS_WORDS}:
+        if tok in pos:
             val = 1
-        elif tok in {_strip(w) for w in NEG_WORDS}:
+        elif tok in neg:
             val = -1
         if val != 0:
             # intensificador previo
-            if i > 0 and tokens[i - 1] in {_strip(w) for w in BOOST}:
+            if i > 0 and tokens[i - 1] in boost:
                 val *= 1.6
             # negación en ventana de 2 palabras previas
-            if any(tokens[j] in {_strip(w) for w in NEGATORS}
-                   for j in range(max(0, i - 2), i)):
+            if any(tokens[j] in negators for j in range(max(0, i - 2), i)):
                 val *= -0.8
             score += val
         i += 1
@@ -233,62 +314,105 @@ def analizar_sentimiento(texto: str, voz: dict | None = None) -> Sentimiento:
         norm = max(-1.0, min(1.0, norm - (tension - 0.5) * 0.6))
 
     etiqueta = "positivo" if norm > 0.15 else "negativo" if norm < -0.15 else "neutro"
-    emo = [e for e, pat in EMOCIONES.items() if re.search(pat, _strip(texto))]
+    emo = [e for e, pat in EMOCIONES_POR_IDIOMA[idioma].items()
+           if re.search(pat, _strip(texto))]
     return Sentimiento(round(norm, 3), etiqueta, emo)
 
 
 # ---------------------------------------------------------------------------
 # Detección de técnicas de negociación (del gestor)
 # ---------------------------------------------------------------------------
-def detectar_tecnicas(conv: Conversacion) -> dict:
+def detectar_tecnicas(conv: Conversacion, idioma: str = IDIOMA_DEFAULT) -> dict:
+    idioma = idioma if idioma in TECNICAS_POR_IDIOMA else IDIOMA_DEFAULT
     texto_gestor = " ".join(_strip(t.texto) for t in conv.turnos if t.emisor == "gestor")
-    return {nombre: bool(re.search(pat, texto_gestor)) for nombre, pat in TECNICAS.items()}
+    return {nombre: bool(re.search(pat, texto_gestor))
+            for nombre, pat in TECNICAS_POR_IDIOMA[idioma].items()}
 
 
 # ---------------------------------------------------------------------------
 # Scoring de calidad (heurístico, 16 criterios) — funciona sin LLM
 # ---------------------------------------------------------------------------
-CRITERIOS = [
-    ("saludo_inicial", "Saludo Inicial", 5),
-    ("identificacion", "Identificación", 5),
-    ("validacion_datos", "Validación Datos", 10),
-    ("empatia", "Empatía", 15),
-    ("claridad", "Claridad", 10),
-    ("solucion", "Solución", 15),
-    ("objeciones", "Manejo Objeciones", 15),
-    ("cierre", "Cierre", 15),
-    ("registro", "Registro", 10),
+# ids y pesos son iguales en todos los idiomas; solo cambia el nombre mostrado.
+_CRITERIOS_IDS = [
+    ("saludo_inicial", 5), ("identificacion", 5), ("validacion_datos", 10),
+    ("empatia", 15), ("claridad", 10), ("solucion", 15),
+    ("objeciones", 15), ("cierre", 15), ("registro", 10),
 ]
+NOMBRES_CRITERIOS_POR_IDIOMA = {
+    "es": {
+        "saludo_inicial": "Saludo Inicial", "identificacion": "Identificación",
+        "validacion_datos": "Validación Datos", "empatia": "Empatía",
+        "claridad": "Claridad", "solucion": "Solución",
+        "objeciones": "Manejo Objeciones", "cierre": "Cierre", "registro": "Registro",
+    },
+    "pt": {
+        "saludo_inicial": "Saudação Inicial", "identificacion": "Identificação",
+        "validacion_datos": "Validação de Dados", "empatia": "Empatia",
+        "claridad": "Clareza", "solucion": "Solução",
+        "objeciones": "Tratamento de Objeções", "cierre": "Fechamento",
+        "registro": "Registro",
+    },
+}
+CRITERIOS = [(cid, NOMBRES_CRITERIOS_POR_IDIOMA[IDIOMA_DEFAULT][cid], peso)
+             for cid, peso in _CRITERIOS_IDS]
+
+_CHECKS_PATRONES_POR_IDIOMA = {
+    "es": {
+        "saludo_inicial": r"\b(hola|buenos d[ií]as|buenas tardes|buen d[ií]a)\b",
+        "identificacion": r"\b(soy|le habla|mi nombre|de parte de|del [aá]rea)\b",
+        "validacion_datos": r"\b(confirm|verific|es usted|hablo con|su documento|sus datos)\b",
+        "empatia": r"\b(entiendo|comprendo|me pongo en su lugar|tranquil|s[eé] que)\b",
+        "solucion": r"\b(le ofrezco|opci[oó]n|alternativa|plan|cuotas?|descuento|facilidad)\b",
+        "objeciones": r"\b(entiendo (pero|que)|de todas formas|le propongo|podemos|qu[eé] le parece)\b",
+        "cierre": r"\b(coordinamos|le env[ií]o|queda acordado|confirmamos|entonces quedamos|link|qr)\b",
+        "registro": r"\b(le env[ií]o (el|un) (comprobante|resumen|detalle)|por escrito|le llega|confirmaci[oó]n)\b",
+    },
+    "pt": {
+        "saludo_inicial": r"\b(ol[aá]|bom dia|boa tarde|boa noite)\b",
+        "identificacion": r"\b(sou|aqui [eé]|meu nome [eé]|da [aá]rea|falando)\b",
+        "validacion_datos": r"\b(confirm|verific|[eé] voc[eê]|falo com|seu documento|seus dados)\b",
+        "empatia": r"\b(entendo|compreendo|me coloco no seu lugar|tranquil|sei que)\b",
+        "solucion": r"\b(ofere[cç]o|op[cç][aã]o|alternativa|plano|parcelas?|desconto|facilidade)\b",
+        "objeciones": r"\b(entendo (mas|que)|de qualquer forma|proponho|podemos|o que acha)\b",
+        "cierre": r"\b(combinamos|envio|fica combinado|confirmamos|ent[aã]o ficamos|link|qr)\b",
+        "registro": r"\b(envio o (comprovante|resumo|detalhe)|por escrito|chega pra voc[eê]|confirma[cç][aã]o)\b",
+    },
+}
 
 
 def _busca(txt, pat):
     return bool(re.search(pat, txt))
 
 
-def evaluar_calidad(conv: Conversacion) -> dict:
+def evaluar_calidad(conv: Conversacion, idioma: str = IDIOMA_DEFAULT) -> dict:
+    idioma = idioma if idioma in _CHECKS_PATRONES_POR_IDIOMA else IDIOMA_DEFAULT
+    pat = _CHECKS_PATRONES_POR_IDIOMA[idioma]
+    nombres = NOMBRES_CRITERIOS_POR_IDIOMA[idioma]
+    criterios = [(cid, nombres[cid], peso) for cid, peso in _CRITERIOS_IDS]
+
     g = [t.texto for t in conv.turnos if t.emisor == "gestor"]
     gtxt = _strip(" ".join(g))
     prim = _strip(g[0]) if g else ""
 
     checks = {
-        "saludo_inicial": _busca(prim, r"\b(hola|buenos d[ií]as|buenas tardes|buen d[ií]a)\b"),
-        "identificacion": _busca(gtxt, r"\b(soy|le habla|mi nombre|de parte de|del [aá]rea)\b"),
-        "validacion_datos": _busca(gtxt, r"\b(confirm|verific|es usted|hablo con|su documento|sus datos)\b"),
-        "empatia": _busca(gtxt, r"\b(entiendo|comprendo|me pongo en su lugar|tranquil|s[eé] que)\b"),
+        "saludo_inicial": _busca(prim, pat["saludo_inicial"]),
+        "identificacion": _busca(gtxt, pat["identificacion"]),
+        "validacion_datos": _busca(gtxt, pat["validacion_datos"]),
+        "empatia": _busca(gtxt, pat["empatia"]),
         "claridad": len(gtxt) > 0 and (sum(len(x) for x in g) / max(len(g), 1)) < 320,
-        "solucion": _busca(gtxt, r"\b(le ofrezco|opci[oó]n|alternativa|plan|cuotas?|descuento|facilidad)\b"),
-        "objeciones": _busca(gtxt, r"\b(entiendo (pero|que)|de todas formas|le propongo|podemos|qu[eé] le parece)\b"),
-        "cierre": _busca(gtxt, r"\b(coordinamos|le env[ií]o|queda acordado|confirmamos|entonces quedamos|link|qr)\b"),
-        "registro": _busca(gtxt, r"\b(le env[ií]o (el|un) (comprobante|resumen|detalle)|por escrito|le llega|confirmaci[oó]n)\b"),
+        "solucion": _busca(gtxt, pat["solucion"]),
+        "objeciones": _busca(gtxt, pat["objeciones"]),
+        "cierre": _busca(gtxt, pat["cierre"]),
+        "registro": _busca(gtxt, pat["registro"]),
     }
     detalle = {}
     total = 0.0
-    for cid, nombre, peso in CRITERIOS:
+    for cid, nombre, peso in criterios:
         cumple = checks.get(cid, False)
         sc = 100 if cumple else 35
         total += sc * peso / 100
         detalle[cid] = {"nombre": nombre, "peso": peso, "score": sc, "cumple": cumple}
-    total = total / sum(p for _, _, p in CRITERIOS) * 100
+    total = total / sum(p for _, _, p in criterios) * 100
     return {"score_total": round(total, 1), "criterios": detalle}
 
 
@@ -303,14 +427,71 @@ def _clima(sentts):
     return sum(s * wi for s, wi in zip(sentts, w)) / sum(w)
 
 
+_TIPS_POR_IDIOMA = {
+    "es": {
+        "enojo": ("🔴 Cliente enojado", "Bajá el ritmo, validá su malestar ANTES de ofrecer. "
+                  "Evitá justificar; usá 'entiendo su molestia, resolvámoslo juntos'."),
+        "frustracion": ("🟠 Frustración", "Reconocé el historial: 'sé que ya hablamos otras veces'. "
+                        "Ofrecé algo concreto y distinto a lo anterior."),
+        "ansiedad": ("🟠 Ansiedad", "Transmití calma y control. Dá pasos claros y cortos: "
+                     "'hagamos una sola cosa hoy'."),
+        "dificultad_economica": ("💸 Dificultad económica", "Priorizá plan de cuotas o quita; no presiones el "
+                                 "pago total. Preguntá cuánto puede afrontar hoy."),
+        "intencion_pago": ("🟢 Señal de compra", "El clima es favorable: CERRÁ ahora con fecha y medio de pago. "
+                           "Enviá el link/QR de inmediato."),
+        "objecion": ("🟡 Objeción activa", "No rebatas de frente: '¿qué parte le complica?' y "
+                     "ofrecé 2 alternativas para que elija."),
+        "propension_alta": ("📈 Alta propensión", "Deudor con alta probabilidad de pago: apuntá a pago total o "
+                            "cuota inicial fuerte; poca o nula quita."),
+        "propension_baja": ("📉 Baja propensión", "Propensión baja: prioridad es asegurar CUALQUIER pago. "
+                            "Habilitá quita/plan largo y compromiso escrito."),
+        "estrategia": "🎯 Estrategia sugerida",
+        "estrategia_texto": "Guion recomendado por MV Kobra AI: «{estrategia}».",
+        "todo_en_orden": ("🟢 Todo en orden", "Mantené el tono y avanzá hacia el cierre con una propuesta concreta."),
+        "next_cierre": "Perfecto, coordinemos: le envío ahora el link de pago y le llega el comprobante. ¿Le queda cómodo?",
+        "next_enojo": "Entiendo su molestia y quiero resolverlo hoy mismo. Le propongo una opción hecha a su medida, ¿la vemos?",
+        "next_dificultad": "Sin problema, busquemos algo acorde a su situación. ¿Cuánto podría afrontar este mes?",
+        "next_default": "¿Qué le parece si lo dividimos en cuotas cómodas y arrancamos con una hoy?",
+    },
+    "pt": {
+        "enojo": ("🔴 Cliente irritado", "Diminua o ritmo, valide o incômodo ANTES de oferecer. "
+                  "Evite se justificar; use 'entendo seu incômodo, vamos resolver juntos'."),
+        "frustracion": ("🟠 Frustração", "Reconheça o histórico: 'sei que já conversamos outras vezes'. "
+                        "Ofereça algo concreto e diferente do anterior."),
+        "ansiedad": ("🟠 Ansiedade", "Transmita calma e controle. Dê passos claros e curtos: "
+                     "'vamos resolver uma coisa só hoje'."),
+        "dificultad_economica": ("💸 Dificuldade financeira", "Priorize plano de parcelas ou desconto; não "
+                                 "pressione o pagamento total. Pergunte quanto consegue pagar hoje."),
+        "intencion_pago": ("🟢 Sinal de compra", "O clima está favorável: FECHE agora com data e forma de "
+                           "pagamento. Envie o link/QR imediatamente."),
+        "objecion": ("🟡 Objeção ativa", "Não rebata de frente: 'o que está complicando?' e "
+                     "ofereça 2 alternativas para ele escolher."),
+        "propension_alta": ("📈 Alta propensão", "Devedor com alta probabilidade de pagamento: mire no pagamento "
+                            "total ou numa entrada forte; pouco ou nenhum desconto."),
+        "propension_baja": ("📉 Baixa propensão", "Propensão baixa: prioridade é garantir QUALQUER pagamento. "
+                            "Habilite desconto/plano longo e compromisso por escrito."),
+        "estrategia": "🎯 Estratégia sugerida",
+        "estrategia_texto": "Roteiro recomendado pela MV Kobra AI: «{estrategia}».",
+        "todo_en_orden": ("🟢 Tudo em ordem", "Mantenha o tom e avance para o fechamento com uma proposta concreta."),
+        "next_cierre": "Perfeito, vamos combinar: envio agora o link de pagamento e o comprovante chega em seguida. Fica bom assim?",
+        "next_enojo": "Entendo seu incômodo e quero resolver isso hoje mesmo. Vou propor uma opção feita sob medida, vamos ver?",
+        "next_dificultad": "Sem problema, vamos buscar algo de acordo com sua situação. Quanto conseguiria pagar este mês?",
+        "next_default": "O que acha de dividirmos em parcelas confortáveis e começarmos com uma hoje?",
+    },
+}
+
+
 def sugerencias_en_vivo(conv: Conversacion, probpago: float | None = None,
-                        estrategia: str | None = None) -> dict:
+                        estrategia: str | None = None,
+                        idioma: str = IDIOMA_DEFAULT) -> dict:
     """
     Analiza el estado actual de la negociación y devuelve recomendaciones
     accionables para el gestor, más el clima emocional y la próxima jugada.
     """
-    sents = [analizar_sentimiento(t.texto) for t in conv.turnos]
-    cli_idx = [i for i, t in enumerate(conv.turnos) if t.emisor == "cliente"]
+    idioma = idioma if idioma in _TIPS_POR_IDIOMA else IDIOMA_DEFAULT
+    t = _TIPS_POR_IDIOMA[idioma]
+    sents = [analizar_sentimiento(x.texto, idioma=idioma) for x in conv.turnos]
+    cli_idx = [i for i, x in enumerate(conv.turnos) if x.emisor == "cliente"]
     cli_sents = [sents[i].score for i in cli_idx]
     clima = _clima(cli_sents)
     ultima = conv.turnos[-1] if conv.turnos else None
@@ -323,47 +504,39 @@ def sugerencias_en_vivo(conv: Conversacion, probpago: float | None = None,
     tips = []
     # Reglas basadas en emoción del cliente
     if "enojo" in emociones_cli:
-        tips.append(("🔴 Cliente enojado", "Bajá el ritmo, validá su malestar ANTES de ofrecer. "
-                     "Evitá justificar; usá 'entiendo su molestia, resolvámoslo juntos'."))
+        tips.append(t["enojo"])
     if "frustracion" in emociones_cli:
-        tips.append(("🟠 Frustración", "Reconocé el historial: 'sé que ya hablamos otras veces'. "
-                     "Ofrecé algo concreto y distinto a lo anterior."))
+        tips.append(t["frustracion"])
     if "ansiedad" in emociones_cli:
-        tips.append(("🟠 Ansiedad", "Transmití calma y control. Dá pasos claros y cortos: "
-                     "'hagamos una sola cosa hoy'."))
+        tips.append(t["ansiedad"])
     if "dificultad_economica" in emociones_cli:
-        tips.append(("💸 Dificultad económica", "Priorizá plan de cuotas o quita; no presiones el pago total. "
-                     "Preguntá cuánto puede afrontar hoy."))
+        tips.append(t["dificultad_economica"])
     if "intencion_pago" in emociones_cli or clima > 0.2:
-        tips.append(("🟢 Señal de compra", "El clima es favorable: CERRÁ ahora con fecha y medio de pago. "
-                     "Enviá el link/QR de inmediato."))
+        tips.append(t["intencion_pago"])
     if "objecion" in emociones_cli and clima <= 0.2:
-        tips.append(("🟡 Objeción activa", "No rebatas de frente: '¿qué parte le complica?' y "
-                     "ofrecé 2 alternativas para que elija."))
+        tips.append(t["objecion"])
 
     # Ligar con ProbPago / estrategia recomendada
     if probpago is not None:
         if probpago >= 0.65:
-            tips.append(("📈 Alta propensión", "Deudor con alta probabilidad de pago: apuntá a pago total o "
-                         "cuota inicial fuerte; poca o nula quita."))
+            tips.append(t["propension_alta"])
         elif probpago < 0.35:
-            tips.append(("📉 Baja propensión", "Propensión baja: prioridad es asegurar CUALQUIER pago. "
-                         "Habilitá quita/plan largo y compromiso escrito."))
+            tips.append(t["propension_baja"])
     if estrategia:
-        tips.append(("🎯 Estrategia sugerida", f"Guion recomendado por MV Kobra AI: «{estrategia}»."))
+        tips.append((t["estrategia"], t["estrategia_texto"].format(estrategia=estrategia)))
 
     # Próxima frase sugerida
     if clima > 0.2 or "intencion_pago" in emociones_cli:
-        next_line = "Perfecto, coordinemos: le envío ahora el link de pago y le llega el comprobante. ¿Le queda cómodo?"
+        next_line = t["next_cierre"]
     elif emociones_cli & {"enojo", "frustracion"}:
-        next_line = "Entiendo su molestia y quiero resolverlo hoy mismo. Le propongo una opción hecha a su medida, ¿la vemos?"
+        next_line = t["next_enojo"]
     elif "dificultad_economica" in emociones_cli:
-        next_line = "Sin problema, busquemos algo acorde a su situación. ¿Cuánto podría afrontar este mes?"
+        next_line = t["next_dificultad"]
     else:
-        next_line = "¿Qué le parece si lo dividimos en cuotas cómodas y arrancamos con una hoy?"
+        next_line = t["next_default"]
 
     if not tips:
-        tips.append(("🟢 Todo en orden", "Mantené el tono y avanzá hacia el cierre con una propuesta concreta."))
+        tips.append(t["todo_en_orden"])
 
     return {
         "clima_emocional": round(clima, 3),
@@ -374,9 +547,9 @@ def sugerencias_en_vivo(conv: Conversacion, probpago: float | None = None,
         "sugerencias": tips,
         "proxima_frase": next_line,
         "sentimientos_turnos": [
-            {"orden": t.orden, "emisor": t.emisor, "texto": t.texto,
+            {"orden": x.orden, "emisor": x.emisor, "texto": x.texto,
              "score": s.score, "etiqueta": s.etiqueta, "emociones": s.emociones}
-            for t, s in zip(conv.turnos, sents)
+            for x, s in zip(conv.turnos, sents)
         ],
     }
 
@@ -384,18 +557,20 @@ def sugerencias_en_vivo(conv: Conversacion, probpago: float | None = None,
 def analizar_conversacion(texto: str, canal: str = "whatsapp",
                           probpago: float | None = None,
                           estrategia: str | None = None,
-                          nombre_gestor: str | None = None) -> dict:
+                          nombre_gestor: str | None = None,
+                          idioma: str = IDIOMA_DEFAULT) -> dict:
     """Pipeline completo del copiloto sobre una conversación (texto/transcripción)."""
     conv = parsear_conversacion(texto, canal, nombre_gestor)
-    calidad = evaluar_calidad(conv)
-    tecnicas = detectar_tecnicas(conv)
-    vivo = sugerencias_en_vivo(conv, probpago, estrategia)
+    calidad = evaluar_calidad(conv, idioma=idioma)
+    tecnicas = detectar_tecnicas(conv, idioma=idioma)
+    vivo = sugerencias_en_vivo(conv, probpago, estrategia, idioma=idioma)
     return {
         "meta": {
             "gestor": conv.nombre_gestor, "cliente": conv.nombre_cliente,
             "canal": conv.canal, "mensajes": conv.total_mensajes,
             "tiempo_primera_respuesta_min": conv.tiempo_primera_respuesta_min,
             "duracion_total_horas": conv.duracion_total_horas,
+            "idioma": idioma if idioma in _TIPS_POR_IDIOMA else IDIOMA_DEFAULT,
         },
         "calidad": calidad,
         "tecnicas": tecnicas,
@@ -406,8 +581,9 @@ def analizar_conversacion(texto: str, canal: str = "whatsapp",
 # ---------------------------------------------------------------------------
 # Enriquecimiento opcional con APIs (Whisper / Claude) — solo si hay keys
 # ---------------------------------------------------------------------------
-def transcribir_audio(audio_path: str) -> str | None:
-    """Transcribe audio con Whisper si OPENAI_API_KEY está disponible."""
+def transcribir_audio(audio_path: str, idioma: str = IDIOMA_DEFAULT) -> str | None:
+    """Transcribe audio con Whisper si OPENAI_API_KEY está disponible.
+    `idioma`: código ISO 639-1 de 2 letras para Whisper ("es" o "pt")."""
     key = os.getenv("OPENAI_API_KEY", "")
     if len(key) < 10:
         return None
@@ -418,7 +594,7 @@ def transcribir_audio(audio_path: str) -> str | None:
                 "https://api.openai.com/v1/audio/transcriptions",
                 headers={"Authorization": f"Bearer {key}"},
                 files={"file": f},
-                data={"model": "whisper-1", "language": "es"}, timeout=120)
+                data={"model": "whisper-1", "language": idioma}, timeout=120)
         r.raise_for_status()
         return r.json().get("text")
     except Exception:

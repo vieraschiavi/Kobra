@@ -1,0 +1,228 @@
+{
+  "common": {
+    "marca": "MV KOBRA <span>AI</span>",
+    "cargando": "Cargando…",
+    "propension": {
+      "alta": "Alta",
+      "media": "Media",
+      "baja": "Baja"
+    }
+  },
+  "app": {
+    "nav": {
+      "vision_general": "Visión general",
+      "originacion": "Originación",
+      "cartera": "Cartera priorizada",
+      "agenda": "Agenda de hoy",
+      "gestores": "Gestores",
+      "asistente": "Asistente IA",
+      "configuracion": "Configuración"
+    },
+    "sidebar": {
+      "rol_admin": "🛡️ Administrador",
+      "rol_gestor": "👤 Gestor",
+      "cerrar_sesion": "Cerrar sesión"
+    }
+  },
+  "login": {
+    "marca": "MV KOBRA <span>AI</span>",
+    "subtitulo": "Plataforma de cobranzas inteligentes",
+    "input": {
+      "placeholder_password": "Contraseña"
+    },
+    "boton": {
+      "entrando": "Entrando…",
+      "entrar": "Entrar"
+    }
+  },
+  "dashboard": {
+    "titulo": "Visión general",
+    "subtitulo": "Tu cartera completa, priorizada por el modelo ProbPago — los mismos números que el pipeline, en tiempo real.",
+    "kpi": {
+      "deudores": "Deudores",
+      "cartera_label": "Cartera ({{moneda}})",
+      "recupero_esperado": "Recupero esperado",
+      "recupero_esperado_delta": "{{pct}} de la cartera",
+      "probpago_promedio": "ProbPago promedio",
+      "mora_promedio": "Mora promedio",
+      "mora_promedio_valor": "{{dias}} días",
+      "cartera_riesgo": "Cartera en riesgo"
+    },
+    "chart": {
+      "cartera_vs_recupero": "Cartera vs. recupero esperado por tramo de mora",
+      "serie_cartera": "Cartera",
+      "serie_recupero_esperado": "Recupero esperado",
+      "distribucion_propension": "Distribución por propensión de pago",
+      "recupero_por_segmento": "Recupero esperado por segmento",
+      "top_departamentos": "Top 10 departamentos por cartera"
+    }
+  },
+  "originacion": {
+    "titulo": "Originación — cola de decisiones",
+    "subtitulo": "Cada solicitud llega evaluada: score, decisión sugerida y explicación. Hacé clic en una fila para ver el porqué. La decisión final siempre es del oficial de crédito.",
+    "modelo": {
+      "prefijo": "Modelo (demo sintética · se reentrena con tus datos):",
+      "auc_label": "AUC walk-forward",
+      "ks_label": "· KS",
+      "mejora_label": "· mejora vs. regla del oficial",
+      "validacion_label": "· validación:"
+    },
+    "tabla": {
+      "col_solicitud": "Solicitud",
+      "col_fecha": "Fecha",
+      "col_tipo": "Tipo",
+      "col_monto": "Monto",
+      "col_plazo": "Plazo",
+      "col_ingreso": "Ingreso",
+      "col_score": "Score",
+      "col_decision": "Decisión sugerida",
+      "col_confianza": "Confianza",
+      "plazo_sufijo": "m"
+    },
+    "decision": {
+      "aprobar": "Aprobar",
+      "derivar": "Derivar a análisis",
+      "rechazar": "Rechazar"
+    },
+    "drawer": {
+      "probabilidad_mora": "Probabilidad de mora",
+      "solicita": "Solicita",
+      "meses_sufijo": "meses",
+      "sugerido": "Sugerido",
+      "ingreso_declarado": "Ingreso declarado",
+      "perfil": "Perfil",
+      "historial_interno": "Historial interno",
+      "creditos_previos_sufijo": "créditos previos",
+      "atrasos_sufijo": "atrasos",
+      "confianza_modelo": "Confianza del modelo",
+      "datos_presentes_sufijo": "datos presentes",
+      "por_que_titulo": "Por qué (top {{n}}):",
+      "pp_sufijo": "pp",
+      "decision_final": "La decisión final es del oficial de crédito — el modelo sugiere y explica."
+    }
+  },
+  "cartera": {
+    "titulo": "Cartera priorizada",
+    "subtitulo": "Ordenada por prioridad del Agente Negociador (valor esperado de recupero). Hacé clic en una fila para ver el briefing completo del deudor.",
+    "toolbar": {
+      "buscar_placeholder": "Buscar ID…",
+      "segmento_todos": "Segmento (todos)",
+      "tramo_todos": "Tramo (todos)",
+      "propension_todas": "Propensión (todas)",
+      "exportar_csv": "⬇ Exportar CSV"
+    },
+    "filtro": {
+      "segmento_corporativo": "Corporativo",
+      "segmento_pyme": "Pyme",
+      "segmento_retail": "Retail"
+    },
+    "tabla": {
+      "col_numero": "#",
+      "col_id": "ID",
+      "col_segmento": "Segmento",
+      "col_producto": "Producto",
+      "col_depto": "Depto",
+      "col_tramo": "Tramo",
+      "col_monto": "Monto",
+      "col_probpago": "ProbPago",
+      "col_prop": "Prop.",
+      "col_estrategia": "Estrategia",
+      "col_desc": "Desc.",
+      "col_canal": "Canal"
+    },
+    "pager": {
+      "pagina_de": "Página {{pagina}} de {{total}} ·",
+      "deudores_sufijo": "deudores"
+    },
+    "drawer": {
+      "propension_sufijo": "propensión · ProbPago {{pct}}",
+      "segmento": "Segmento",
+      "departamento": "Departamento",
+      "mora": "Mora",
+      "mora_valor": "{{dias}} días (tramo {{tramo}})",
+      "deuda": "Deuda",
+      "recupero_esperado": "Recupero esperado",
+      "estrategia": "Estrategia",
+      "descuento_sugerido": "Descuento sugerido",
+      "canal_recomendado": "Canal recomendado",
+      "por_que_probpago": "Por qué esta ProbPago",
+      "guion_sugerido": "Guion sugerido para el gestor:"
+    }
+  },
+  "agenda": {
+    "titulo": "Agenda de hoy",
+    "subtitulo": "Promesas y arreglos de pago <b>vencidos sin pago registrado</b> — los casos que ya perdieron una fecha comprometida y conviene retomar primero. El contacto real sigue pasando por el chequeo de cumplimiento.",
+    "vacio_sin_pendientes": "🎉 No hay promesas vencidas pendientes.",
+    "tabla": {
+      "col_id_deudor": "ID deudor",
+      "col_resultado": "Resultado",
+      "col_comprometido": "Comprometido para",
+      "col_dias_vencida": "Días vencida",
+      "col_monto_acordado": "Monto acordado",
+      "col_canal": "Canal",
+      "col_gestor": "Gestor"
+    }
+  },
+  "gestores": {
+    "titulo": "Gestores & evolución",
+    "subtitulo": "Ranking por calidad de gestión y conversión (datos del registro de gestiones — en la demo son sintéticos, con tu operación real pasan a ser evidencia).",
+    "vacio_sin_gestiones": "Todavía no hay gestiones registradas."
+  },
+  "asistente": {
+    "titulo": "Asistente IA",
+    "subtitulo": "Preguntale al programa en español — responde con la propia documentación del producto (no inventa funciones). Con <code>ANTHROPIC_API_KEY</code> cargada, redacta; sin key, te muestra la sección exacta que contesta.",
+    "placeholder_input": "Tu pregunta sobre MV Kobra AI…",
+    "boton_preguntar": "Preguntar",
+    "chat": {
+      "ejemplo": "Ejemplos: “¿qué necesito para llamar de verdad por teléfono?” · “¿cómo conecto mi ERP?” · “¿qué es ProbPago?”",
+      "fuentes_prefijo": "Fuentes:",
+      "buscando": "Buscando en la documentación…"
+    },
+    "error_no_pude_responder": "No pude responder: "
+  },
+  "configuracion": {
+    "titulo": "Configuración",
+    "subtitulo": "Las claves se guardan cifradas en el servidor (keyring del sistema o archivo cifrado, igual que en el dashboard clásico) y se cargan solas en cada arranque. Dejá vacío lo que no quieras cambiar.",
+    "nota": {
+      "ingresar_clave": "Ingresá al menos una clave.",
+      "guardadas_prefijo": "✅ Guardadas: ",
+      "error_prefijo": "Error: "
+    },
+    "tabla": {
+      "col_clave": "Clave",
+      "col_estado": "Estado",
+      "col_nuevo_valor": "Nuevo valor"
+    },
+    "estado": {
+      "configurada": "🟢 configurada",
+      "sin_configurar": "⚪ sin configurar"
+    },
+    "boton_guardar": "💾 Guardar claves"
+  },
+  "tour": {
+    "paso1": {
+      "titulo": "👋 Bienvenido a MV Kobra AI",
+      "texto": "Tu cobranza priorizada por IA: el modelo ProbPago calcula la probabilidad de pago de cada deudor y el Agente Negociador elige estrategia y canal. Este tour te ubica en 4 pasos."
+    },
+    "paso2": {
+      "titulo": "📋 Cartera priorizada",
+      "texto": "La lista ya viene ordenada por valor esperado de recupero. Filtrá por segmento/tramo/propensión y hacé clic en cualquier fila para ver el briefing completo del deudor, con guion sugerido."
+    },
+    "paso3": {
+      "titulo": "📅 Agenda y gestores",
+      "texto": "En Agenda están las promesas vencidas que conviene retomar hoy. En Gestores, el ranking de tu equipo por calidad y conversión — con datos reales cuando registres gestiones."
+    },
+    "paso4": {
+      "titulo": "🤖 Asistente IA",
+      "texto": "Cualquier duda sobre el programa, preguntala en el Asistente: responde con la documentación real del producto, en español. Y en Configuración cargás tus claves una sola vez."
+    },
+    "boton_saltar": "Saltar",
+    "boton_siguiente": "Siguiente →",
+    "boton_empezar": "¡Empezar!"
+  },
+  "api": {
+    "error": {
+      "sesion_vencida": "Sesión vencida — iniciá sesión de nuevo."
+    }
+  }
+}

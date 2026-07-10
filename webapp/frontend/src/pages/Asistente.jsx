@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { api } from "../api.js";
+import { t } from "../i18n/index.js";
 
 export default function Asistente() {
   const [chat, setChat] = useState([]);
@@ -16,7 +17,7 @@ export default function Asistente() {
       const r = await api("/api/ayuda", { metodo: "POST", cuerpo: { pregunta: p } });
       setChat((c) => [...c, { user: false, texto: r.respuesta, fuentes: r.fuentes }]);
     } catch (err) {
-      setChat((c) => [...c, { user: false, texto: "No pude responder: " + err.message }]);
+      setChat((c) => [...c, { user: false, texto: t("asistente.error_no_pude_responder") + err.message }]);
     } finally {
       setCargando(false);
     }
@@ -24,30 +25,27 @@ export default function Asistente() {
 
   return (
     <>
-      <h1 className="page-title">Asistente IA</h1>
-      <p className="page-sub">Preguntale al programa en español — responde con la propia
-        documentación del producto (no inventa funciones). Con <code>ANTHROPIC_API_KEY</code>
-        cargada, redacta; sin key, te muestra la sección exacta que contesta.</p>
+      <h1 className="page-title">{t("asistente.titulo")}</h1>
+      <p className="page-sub" dangerouslySetInnerHTML={{ __html: t("asistente.subtitulo") }} />
 
       <div className="chat-box">
         {chat.length === 0 && (
-          <div className="msg bot">Ejemplos: “¿qué necesito para llamar de verdad por
-            teléfono?” · “¿cómo conecto mi ERP?” · “¿qué es ProbPago?”</div>
+          <div className="msg bot">{t("asistente.chat.ejemplo")}</div>
         )}
         {chat.map((m, i) => (
           <div key={i} className={"msg " + (m.user ? "user" : "bot")}>
             {m.texto}
             {m.fuentes?.length > 0 && (
-              <div className="fuentes">Fuentes: {m.fuentes.join(" · ")}</div>
+              <div className="fuentes">{t("asistente.chat.fuentes_prefijo")} {m.fuentes.join(" · ")}</div>
             )}
           </div>
         ))}
-        {cargando && <div className="msg bot">Buscando en la documentación…</div>}
+        {cargando && <div className="msg bot">{t("asistente.chat.buscando")}</div>}
       </div>
       <form className="chat-form" onSubmit={preguntar}>
-        <input type="text" value={pregunta} placeholder="Tu pregunta sobre MV Kobra AI…"
+        <input type="text" value={pregunta} placeholder={t("asistente.placeholder_input")}
                onChange={(e) => setPregunta(e.target.value)} />
-        <button className="btn" disabled={cargando || !pregunta.trim()}>Preguntar</button>
+        <button className="btn" disabled={cargando || !pregunta.trim()}>{t("asistente.boton_preguntar")}</button>
       </form>
     </>
   );

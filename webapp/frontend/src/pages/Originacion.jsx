@@ -1,11 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { api, fmtMonto } from "../api.js";
+import { t } from "../i18n/index.js";
 
+// La API de originación (kobra/originacion.py) siempre devuelve estas 3
+// decisiones en español — son datos, no texto de UI — así que la clave de
+// esta tabla queda en español; solo la etiqueta que se muestra se traduce.
 const PILL_DECISION = {
   "Aprobar": "alta",
   "Derivar a análisis": "media",
   "Rechazar": "baja",
 };
+const CLAVE_DECISION = {
+  "Aprobar": "originacion.decision.aprobar",
+  "Derivar a análisis": "originacion.decision.derivar",
+  "Rechazar": "originacion.decision.rechazar",
+};
+const tDecision = (d) => t(CLAVE_DECISION[d] || d);
 
 const CAMPOS_SOLICITUD = [
   "edad", "ingreso_declarado", "antiguedad_laboral_meses", "monto_solicitado",
@@ -33,34 +43,34 @@ function DrawerSolicitud({ solicitud, onClose }) {
         {detalle && (
           <>
             <span className={"pill " + PILL_DECISION[detalle.decision]}>
-              {detalle.decision} · score {detalle.score}
+              {tDecision(detalle.decision)} · score {detalle.score}
             </span>
             <div className="kv">
-              <span className="k">Probabilidad de mora</span>
+              <span className="k">{t("originacion.drawer.probabilidad_mora")}</span>
               <span className="tnum">{(detalle.prob_mora * 100).toFixed(1)}%</span>
-              <span className="k">Solicita</span>
-              <span className="tnum">{fmtMonto(solicitud.monto_solicitado)} · {solicitud.plazo_meses} meses</span>
-              <span className="k">Sugerido</span>
+              <span className="k">{t("originacion.drawer.solicita")}</span>
+              <span className="tnum">{fmtMonto(solicitud.monto_solicitado)} · {solicitud.plazo_meses} {t("originacion.drawer.meses_sufijo")}</span>
+              <span className="k">{t("originacion.drawer.sugerido")}</span>
               <span className="tnum">
                 {detalle.monto_sugerido > 0
-                  ? `${fmtMonto(detalle.monto_sugerido)} · ${detalle.plazo_sugerido_meses} meses`
+                  ? `${fmtMonto(detalle.monto_sugerido)} · ${detalle.plazo_sugerido_meses} ${t("originacion.drawer.meses_sufijo")}`
                   : "—"}
               </span>
-              <span className="k">Ingreso declarado</span>
+              <span className="k">{t("originacion.drawer.ingreso_declarado")}</span>
               <span className="tnum">{fmtMonto(solicitud.ingreso_declarado)}</span>
-              <span className="k">Perfil</span>
+              <span className="k">{t("originacion.drawer.perfil")}</span>
               <span>{solicitud.situacion_laboral} · {solicitud.tipo_credito} · {solicitud.departamento}</span>
-              <span className="k">Historial interno</span>
-              <span>{solicitud.creditos_previos} créditos previos · {solicitud.atrasos_previos} atrasos</span>
-              <span className="k">Confianza del modelo</span>
-              <span>{detalle.confianza} ({detalle.datos_presentes} datos presentes)</span>
+              <span className="k">{t("originacion.drawer.historial_interno")}</span>
+              <span>{solicitud.creditos_previos} {t("originacion.drawer.creditos_previos_sufijo")} · {solicitud.atrasos_previos} {t("originacion.drawer.atrasos_sufijo")}</span>
+              <span className="k">{t("originacion.drawer.confianza_modelo")}</span>
+              <span>{detalle.confianza} ({detalle.datos_presentes} {t("originacion.drawer.datos_presentes_sufijo")})</span>
             </div>
             <div className="guion">
-              <b>Por qué (top {detalle.razones.length}):</b>{"\n"}
+              <b>{t("originacion.drawer.por_que_titulo", { n: detalle.razones.length })}</b>{"\n"}
               {detalle.razones.map((r) =>
-                `• ${r.factor}: ${r.direccion} (${r.efecto_pp > 0 ? "+" : ""}${r.efecto_pp} pp)`
+                `• ${r.factor}: ${r.direccion} (${r.efecto_pp > 0 ? "+" : ""}${r.efecto_pp} ${t("originacion.drawer.pp_sufijo")})`
               ).join("\n")}
-              {"\n\n"}La decisión final es del oficial de crédito — el modelo sugiere y explica.
+              {"\n\n"}{t("originacion.drawer.decision_final")}
             </div>
           </>
         )}
@@ -80,32 +90,33 @@ export default function Originacion() {
 
   return (
     <>
-      <h1 className="page-title">Originación — cola de decisiones</h1>
-      <p className="page-sub">Cada solicitud llega evaluada: score, decisión sugerida y
-        explicación. Hacé clic en una fila para ver el porqué. La decisión final siempre
-        es del oficial de crédito.</p>
+      <h1 className="page-title">{t("originacion.titulo")}</h1>
+      <p className="page-sub">{t("originacion.subtitulo")}</p>
 
       {datos && (
         <div className="card" style={{ marginBottom: 16, fontSize: 13 }}>
-          <b>Modelo (demo sintética · se reentrena con tus datos):</b>{" "}
-          AUC walk-forward <span className="tnum">{datos.metricas_modelo.auc_walk_forward}</span>
-          {" "}· KS <span className="tnum">{datos.metricas_modelo.ks_walk_forward}</span>
-          {" "}· mejora vs. regla del oficial{" "}
+          <b>{t("originacion.modelo.prefijo")}</b>{" "}
+          {t("originacion.modelo.auc_label")} <span className="tnum">{datos.metricas_modelo.auc_walk_forward}</span>
+          {" "}{t("originacion.modelo.ks_label")} <span className="tnum">{datos.metricas_modelo.ks_walk_forward}</span>
+          {" "}{t("originacion.modelo.mejora_label")}{" "}
           <span className="tnum" style={{ color: "var(--green-deep)" }}>
             +{datos.metricas_modelo.mejora_vs_regla}
           </span>
-          {" "}· validación: {datos.metricas_modelo.validacion}
+          {" "}{t("originacion.modelo.validacion_label")} {datos.metricas_modelo.validacion}
         </div>
       )}
 
       {error && <div className="empty">{error}</div>}
-      {!datos && !error && <div className="empty">Cargando…</div>}
+      {!datos && !error && <div className="empty">{t("common.cargando")}</div>}
       {datos && (
         <div className="tablewrap">
           <table>
             <thead><tr>
-              <th>Solicitud</th><th>Fecha</th><th>Tipo</th><th>Monto</th><th>Plazo</th>
-              <th>Ingreso</th><th>Score</th><th>Decisión sugerida</th><th>Confianza</th>
+              <th>{t("originacion.tabla.col_solicitud")}</th><th>{t("originacion.tabla.col_fecha")}</th>
+              <th>{t("originacion.tabla.col_tipo")}</th><th>{t("originacion.tabla.col_monto")}</th>
+              <th>{t("originacion.tabla.col_plazo")}</th>
+              <th>{t("originacion.tabla.col_ingreso")}</th><th>{t("originacion.tabla.col_score")}</th>
+              <th>{t("originacion.tabla.col_decision")}</th><th>{t("originacion.tabla.col_confianza")}</th>
             </tr></thead>
             <tbody>
               {datos.solicitudes.map((s) => (
@@ -114,10 +125,10 @@ export default function Originacion() {
                   <td>{s.fecha_solicitud}</td>
                   <td>{s.tipo_credito}</td>
                   <td className="tnum">{fmtMonto(s.monto_solicitado)}</td>
-                  <td className="tnum">{s.plazo_meses} m</td>
+                  <td className="tnum">{s.plazo_meses} {t("originacion.tabla.plazo_sufijo")}</td>
                   <td className="tnum">{fmtMonto(s.ingreso_declarado)}</td>
                   <td className="tnum"><b>{s.score}</b></td>
-                  <td><span className={"pill " + PILL_DECISION[s.decision]}>{s.decision}</span></td>
+                  <td><span className={"pill " + PILL_DECISION[s.decision]}>{tDecision(s.decision)}</span></td>
                   <td>{s.confianza}</td>
                 </tr>
               ))}

@@ -198,6 +198,7 @@ footer .legal{max-width:74ch;line-height:1.6}
         <option value="CL">🇨🇱 Chile</option>
         <option value="CO">🇨🇴 Colombia</option>
         <option value="PE">🇵🇪 Perú</option>
+        <option value="BR">🇧🇷 Brasil</option>
       </select>
     </div>
     <a href="#precios" class="btn btn-a btn-buy" data-i="navbuy">Comprar</a>
@@ -458,17 +459,24 @@ function setLang(lang){
 }
 document.querySelectorAll('.lang button').forEach(function(b){b.addEventListener('click',function(){setLang(b.getAttribute('data-lang'));});});
 
-// País (Fase 1 LATAM): solo cambia la conversión de referencia del precio —
-// el producto es el mismo español en los 6 países, no hay nada que traducir.
-// El cobro real hoy sigue yendo por Mercado Pago Uruguay (ver nota); habilitar
-// cobro nativo por país es un paso de negocio aparte, no de esta conversión.
+// País: solo cambia la conversión de referencia del precio (y, para Brasil,
+// el idioma) — el producto en los 6 países de Fase 1 es el mismo español,
+// no hay nada que traducir. El cobro real hoy sigue yendo por Mercado Pago
+// Uruguay (ver nota); habilitar cobro nativo por país es un paso de negocio
+// aparte, no de esta conversión.
 var PAISES_PRECIO={
   AR:{nombre:'Argentina',moneda:'ARS',simbolo:'$',locale:'es-AR',tasaPorUsd:1500},
   MX:{nombre:'México',moneda:'MXN',simbolo:'$',locale:'es-MX',tasaPorUsd:17.5},
   CL:{nombre:'Chile',moneda:'CLP',simbolo:'$',locale:'es-CL',tasaPorUsd:928},
   CO:{nombre:'Colombia',moneda:'COP',simbolo:'$',locale:'es-CO',tasaPorUsd:3340},
-  PE:{nombre:'Perú',moneda:'PEN',simbolo:'S/',locale:'es-PE',tasaPorUsd:3.41}
+  PE:{nombre:'Perú',moneda:'PEN',simbolo:'S/',locale:'es-PE',tasaPorUsd:3.41},
+  // Fase 2: único país no hispanohablante del catálogo — ver docs/KOBRA_2_0.md (B16).
+  BR:{nombre:'Brasil',moneda:'BRL',simbolo:'R$',locale:'pt-BR',tasaPorUsd:5.2}
 };
+// Idioma que corresponde a cada país (Fase 2): elegir Brasil cambia el
+// idioma de la página a portugués automáticamente (el usuario puede
+// volver a cambiarlo con el selector ES/PT/EN si prefiere).
+var PAIS_IDIOMA={BR:'pt'};
 var TXT_PAIS_NOTA={
   es:function(m,p){return '≈ '+m+' '+p.moneda+' (referencia) — hoy se cobra en pesos uruguayos vía Mercado Pago; escribinos para habilitar cobro en tu moneda.';},
   pt:function(m,p){return '≈ '+m+' '+p.moneda+' (referência) — hoje cobrado em pesos uruguaios via Mercado Pago; fale conosco para habilitar cobrança na sua moeda.';},
@@ -498,7 +506,8 @@ function pintarPaisPrecios(){
   if(guardado&&PAISES_PRECIO[guardado])sel.value=guardado;
   sel.addEventListener('change',function(){
     try{localStorage.setItem('kobra_pais',sel.value);}catch(e){}
-    pintarPaisPrecios();
+    if(PAIS_IDIOMA[sel.value]&&PAIS_IDIOMA[sel.value]!==CUR_LANG)setLang(PAIS_IDIOMA[sel.value]);
+    else pintarPaisPrecios();
   });
   var langGuardado=null;
   try{langGuardado=localStorage.getItem('kobra_lang');}catch(e){}

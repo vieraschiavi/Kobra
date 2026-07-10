@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, setSesion } from "../api.js";
+import { t } from "../i18n/index.js";
 
 export default function Login() {
   const nav = useNavigate();
@@ -27,12 +28,12 @@ export default function Login() {
       <div className="card login-card">
         <img src="/mv_icon.png" alt="MV Kobra AI" />
         <h1>MV KOBRA <span>AI</span></h1>
-        <p>Plataforma de cobranzas inteligentes</p>
+        <p>{t("login.subtitulo")}</p>
         <form onSubmit={entrar}>
-          <input type="password" placeholder="Contraseña" value={password}
+          <input type="password" placeholder={t("login.input.placeholder_password")} value={password}
                  onChange={(e) => setPassword(e.target.value)} autoFocus />
           <button className="btn" disabled={cargando || !password}>
-            {cargando ? "Entrando…" : "Entrar"}
+            {cargando ? t("login.boton.entrando") : t("login.boton.entrar")}
           </button>
         </form>
         {error && <div className="error-note">{error}</div>}
