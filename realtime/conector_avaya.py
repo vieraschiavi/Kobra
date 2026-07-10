@@ -175,6 +175,7 @@ class PuenteAvaya:
 
     async def vigilar_turnos(self):
         """Corta el turno de una pata cuando entra en silencio y lo envía."""
+        import websockets
         while True:
             await asyncio.sleep(0.1)
             for canal, proto in self.canales.items():
@@ -185,10 +186,13 @@ class PuenteAvaya:
                     pcm = (np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes()
                     texto = (self.hints[canal].pop(0)
                              if self.hints.get(canal) else None)
-                    await self.ws.send(json.dumps({
-                        "tipo": "media", "canal": canal,
-                        "pcm_b64": base64.b64encode(pcm).decode(),
-                        "texto": texto, "fin_turno": True}))
+                    try:
+                        await self.ws.send(json.dumps({
+                            "tipo": "media", "canal": canal,
+                            "pcm_b64": base64.b64encode(pcm).decode(),
+                            "texto": texto, "fin_turno": True}))
+                    except websockets.exceptions.ConnectionClosed:
+                        return
 
     async def correr(self):
         await self.conectar_ws()
@@ -206,7 +210,9 @@ class PuenteAvaya:
         if self.args.duracion:
             await asyncio.sleep(self.args.duracion)
             await self.ws.send(json.dumps({"tipo": "stop"}))
-            await asyncio.wait(tareas, timeout=10)
+            _hechas, pendientes = await asyncio.wait(tareas, timeout=10)
+            for t in pendientes:
+                t.cancel()
         else:
             await asyncio.gather(*tareas)
 

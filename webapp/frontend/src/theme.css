@@ -54,6 +54,14 @@ button { font-family: inherit; }
 .nav-item .ico { width: 18px; text-align: center; }
 .sidebar .spacer { flex: 1; }
 .session-chip { color: var(--faint); font-size: 12px; padding: 8px 12px; }
+.pais-chip {
+  display: flex; align-items: center; gap: 6px; color: var(--muted);
+  font-size: 12.5px; font-weight: 600; padding: 6px 12px;
+}
+.pais-chip select {
+  background: var(--navy-800); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 7px; font: inherit; font-size: 12px; padding: 3px 6px; flex: 1; min-width: 0;
+}
 
 /* ---- cards / KPIs ---- */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
@@ -146,6 +154,6 @@ select:focus, input:focus, textarea:focus { border-color: var(--green); }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; }
 @media (max-width: 860px) {
   .sidebar { width: 64px; padding: 18px 8px; }
-  .sidebar .brand b, .sidebar .nav-item .txt, .session-chip { display: none; }
+  .sidebar .brand b, .sidebar .nav-item .txt, .session-chip, .pais-chip { display: none; }
   .main { padding: 20px 16px 50px; }
 }

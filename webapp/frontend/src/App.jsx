@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { getSesion, setSesion } from "./api.js";
+import { api, cargarPais, getPais, getSesion, setSesion } from "./api.js";
 import Tour from "./components/Tour.jsx";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -21,6 +21,51 @@ const NAV = [
   { ruta: "/configuracion", ico: "⚙️", txt: "Configuración", admin: true },
 ];
 
+function PaisSelector({ esAdmin }) {
+  const [pais, setPais] = useState(getPais());
+  const [catalogo, setCatalogo] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    cargarPais().then(setPais).catch(() => {});
+    if (esAdmin) api("/api/paises").then((r) => setCatalogo(r.paises)).catch(() => {});
+  }, [esAdmin]);
+
+  if (!esAdmin) {
+    return (
+      <div className="pais-chip" title={pais.nota_cumplimiento || ""}>
+        🌎 {pais.nombre} · {pais.moneda}
+      </div>
+    );
+  }
+
+  return (
+    <div className="pais-chip" title={pais.nota_cumplimiento || ""}>
+      🌎
+      <select
+        disabled={guardando || !catalogo}
+        value={pais.codigo}
+        onChange={async (e) => {
+          setGuardando(true);
+          try {
+            await api("/api/tenant/pais", { metodo: "POST", cuerpo: { codigo: e.target.value } });
+            // Recarga completa: los formateadores de moneda leen un caché
+            // de módulo, y es un cambio raro (una vez por tenant) — más
+            // simple que enchufar un contexto reactivo para esto.
+            window.location.reload();
+          } catch {
+            setGuardando(false);
+          }
+        }}
+      >
+        {(catalogo || [pais]).map((p) => (
+          <option key={p.codigo} value={p.codigo}>{p.nombre} ({p.moneda})</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function Sidebar({ sesion }) {
   const nav = useNavigate();
   const loc = useLocation();
@@ -37,6 +82,7 @@ function Sidebar({ sesion }) {
         </button>
       ))}
       <div className="spacer" />
+      <PaisSelector esAdmin={sesion.rol === "admin"} />
       <div className="session-chip">
         {sesion.rol === "admin" ? "🛡️ Administrador" : "👤 Gestor"} · {sesion.empresa}
       </div>

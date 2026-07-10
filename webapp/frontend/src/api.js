@@ -30,9 +30,36 @@ export async function api(ruta, { metodo = "GET", cuerpo } = {}) {
   return datos;
 }
 
-export const fmtUYU = (n) =>
-  "$U " + (n >= 1e6 ? (n / 1e6).toLocaleString("es-UY", { maximumFractionDigits: 1 }) + "M"
-                    : Math.round(n).toLocaleString("es-UY"));
+// País del tenant (Fase 1 LATAM) — cambia el símbolo/locale de formateo de
+// moneda en toda la webapp; no traduce nada (mismo español en los 6 países).
+const PAIS_KEY = "kobra_pais";
+const PAIS_UY = { codigo: "UY", nombre: "Uruguay", moneda: "UYU", simbolo: "$U", locale: "es-UY" };
+let _pais = null;
+
+export function getPais() {
+  if (_pais) return _pais;
+  try { _pais = JSON.parse(localStorage.getItem(PAIS_KEY)); } catch { _pais = null; }
+  return _pais || PAIS_UY;
+}
+export function setPaisCache(p) {
+  _pais = p || null;
+  if (p) localStorage.setItem(PAIS_KEY, JSON.stringify(p));
+  else localStorage.removeItem(PAIS_KEY);
+}
+export async function cargarPais() {
+  const p = await api("/api/tenant/pais");
+  setPaisCache(p);
+  return p;
+}
+
+export const fmtUYU = (n) => {
+  const p = getPais();
+  return p.simbolo + " " + (n >= 1e6 ? (n / 1e6).toLocaleString(p.locale, { maximumFractionDigits: 1 }) + "M"
+                    : Math.round(n).toLocaleString(p.locale));
+};
 export const fmtPct = (x, d = 1) => (x * 100).toFixed(d) + "%";
 // Estándar Bloque 8: montos completos con separador de miles, sin decimales.
-export const fmtMonto = (n) => "$" + Math.round(n || 0).toLocaleString("es-UY");
+export const fmtMonto = (n) => {
+  const p = getPais();
+  return p.simbolo + Math.round(n || 0).toLocaleString(p.locale);
+};

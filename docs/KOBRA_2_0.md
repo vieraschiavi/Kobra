@@ -44,8 +44,9 @@
   cuentas protegidas, won't-build) son cláusulas de contrato — redactarlas
   con abogado antes del primer partner.
 - **B6 · Explicabilidad y compliance** — razones por decisión ✅ en los dos
-  motores; guardrails de cobranza ✅ (`kobra/cumplimiento.py`); auditoría ✅
-  (`kobra/auditoria.py`, cadena de hashes). Mapa regulatorio por país =
+  motores; guardrails de cobranza ✅ (`kobra/cumplimiento.py`, ahora con
+  feriados por país — ver B16); auditoría ✅ (`kobra/auditoria.py`, cadena de
+  hashes). Mapa regulatorio por país (más allá de feriados) sigue siendo
   tarea legal previa a vender fuera de Uruguay (no código).
 - **B7 · Datos e integraciones** — ✅ ya cubierto: CSV/Excel manual, BD
   directa (PR #29), API entrante (`POST /api/integracion/cartera`, PR #30),
@@ -73,3 +74,14 @@
   alcance.
 - **B15 · Roadmap 90 días** — semanas 3–6 ("construir originación sobre el
   motor existente, con datos sintéticos si no hay piloto") = ✅ hecho.
+- **B16 · Expansión LATAM (Fase 1)** — ✅ selector de país (Argentina, México,
+  Chile, Colombia, Perú, además de Uruguay) en la landing y en la webapp:
+  mismo producto en español, solo cambia moneda/formato de número
+  (`kobra/paises.py`, `GET/POST /api/tenant/pais`) y el calendario de
+  feriados que usa `kobra.cumplimiento` (antes hardcodeado a Uruguay para
+  cualquier país). El cobro real sigue yendo por Mercado Pago Uruguay —
+  habilitar cobro nativo por país es un paso de negocio, no de esta fase.
+  **Fase 2 (Brasil/portugués) queda deliberadamente afuera**: el léxico de
+  sentimiento del copiloto y el corpus del asistente están a mano en
+  español y necesitan traducción + validación con un experto local antes
+  de ofrecerse, más investigación de LGPD — no es un simple selector.
