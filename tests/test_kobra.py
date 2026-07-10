@@ -447,6 +447,23 @@ def test_cumplimiento_feriado():
     assert any("Turismo" in n for n in fer.values())
 
 
+def test_cumplimiento_feriados_por_pais():
+    from datetime import datetime
+    from kobra import cumplimiento as cp
+    # México: 16 de setiembre (Independencia) es feriado ahí, no en Uruguay.
+    pol_mx = cp.PoliticaContacto(pais="MX")
+    d = cp.puede_contactar("KB-1", "Llamada", datetime(2026, 9, 16, 10, 0), politica=pol_mx)
+    assert not d.permitido and d.codigo == "FERIADO"
+    # el mismo día, con política Uruguay (default), no es feriado uruguayo
+    d_uy = cp.puede_contactar("KB-1", "Llamada", datetime(2026, 9, 16, 10, 0))
+    assert d_uy.permitido
+    # Semana Santa (derivada de Pascua) también aplica a los países de Fase 1
+    fer_ar = cp.feriados_por_pais("AR", 2026)
+    assert any("Santo" in n for n in fer_ar.values())
+    # país sin tabla de feriados propia (no está en Fase 1) cae a Uruguay
+    assert cp.feriados_por_pais("BR", 2026) == cp.feriados_uruguay(2026)
+
+
 def test_cumplimiento_topes_frecuencia():
     from datetime import datetime, timedelta
     from kobra import cumplimiento as cp

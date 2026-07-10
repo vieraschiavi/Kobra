@@ -3,7 +3,7 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { api, fmtPct, fmtUYU } from "../api.js";
+import { api, fmtPct, fmtUYU, getPais } from "../api.js";
 
 const VERDE = "#00c896", LIMA = "#7cc242", AMBAR = "#f2b441", ROJO = "#ff7675",
       AZUL = "#6c8cd5", GRIS = "#24344f", TINTA = "#93a5c0";
@@ -45,8 +45,8 @@ export default function Dashboard() {
         mismos números que el pipeline, en tiempo real.</p>
 
       <div className="kpi-grid">
-        <Kpi label="Deudores" value={kpis.deudores.toLocaleString("es-UY")} />
-        <Kpi label="Cartera (UYU)" value={fmtUYU(kpis.cartera_uyu)} />
+        <Kpi label="Deudores" value={kpis.deudores.toLocaleString(getPais().locale)} />
+        <Kpi label={`Cartera (${getPais().moneda})`} value={fmtUYU(kpis.cartera_uyu)} />
         <Kpi label="Recupero esperado" value={fmtUYU(kpis.recupero_esperado_uyu)}
              delta={fmtPct(kpis.recupero_pct) + " de la cartera"} />
         <Kpi label="ProbPago promedio" value={fmtPct(kpis.probpago_promedio)} />

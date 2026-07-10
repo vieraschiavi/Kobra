@@ -26,6 +26,7 @@ Correr:  python -m uvicorn webapp.backend.api:app --port 8800
 from __future__ import annotations
 
 import io
+import json
 import os
 import sys
 import time
@@ -44,6 +45,7 @@ from kobra import autenticacion as kauth           # noqa: E402
 from kobra import ayuda as kayuda                  # noqa: E402
 from kobra import cartera_manual as kcartera       # noqa: E402
 from kobra import config as kconfig                # noqa: E402
+from kobra import paises as kpaises                # noqa: E402
 from kobra import registro as kregistro            # noqa: E402
 from kobra import seguimiento as kseg              # noqa: E402
 
@@ -123,6 +125,30 @@ def _scored(empresa: str) -> pd.DataFrame:
 def _gestiones(empresa: str) -> pd.DataFrame | None:
     ruta = _datos_de(empresa)["gestiones"]
     return pd.read_csv(ruta) if os.path.exists(ruta) else None
+
+
+def _archivo_pais(empresa: str) -> str:
+    base = os.path.join(ROOT, "data") if empresa == EMPRESA_DEFAULT else _dir_tenant(empresa)
+    return os.path.join(base, "pais.json")
+
+
+def _pais_de(empresa: str) -> str:
+    """Código de país del tenant (Fase 1 LATAM). Uruguay si no se configuró."""
+    ruta = _archivo_pais(empresa)
+    if not os.path.exists(ruta):
+        return kpaises.PAIS_DEFAULT
+    try:
+        with open(ruta, encoding="utf-8") as f:
+            return json.load(f).get("codigo", kpaises.PAIS_DEFAULT)
+    except (OSError, ValueError):
+        return kpaises.PAIS_DEFAULT
+
+
+def _guardar_pais_de(empresa: str, codigo: str) -> None:
+    ruta = _archivo_pais(empresa)
+    os.makedirs(os.path.dirname(ruta), exist_ok=True)
+    with open(ruta, "w", encoding="utf-8") as f:
+        json.dump({"codigo": codigo}, f)
 
 
 def _aplicar_filtros(df: pd.DataFrame, segmento: str | None, tramo: str | None,
@@ -287,6 +313,36 @@ class PreguntaIn(BaseModel):
 @app.post("/api/ayuda")
 def ayuda(datos: PreguntaIn, u: Usuario = Depends(usuario_actual)):
     return kayuda.responder(datos.pregunta)
+
+
+@app.get("/api/paises")
+def paises_catalogo(u: Usuario = Depends(usuario_actual)):
+    """Catálogo Fase 1 LATAM (mismo idioma en todos — ver docs/KOBRA_2_0.md)."""
+    return {"paises": kpaises.listar()}
+
+
+@app.get("/api/tenant/pais")
+def tenant_pais(u: Usuario = Depends(usuario_actual)):
+    p = kpaises.obtener(_pais_de(u.empresa))
+    return dict(codigo=p.codigo, nombre=p.nombre, moneda=p.moneda,
+                simbolo=p.simbolo, locale=p.locale,
+                nota_cumplimiento=p.nota_cumplimiento)
+
+
+class PaisIn(BaseModel):
+    codigo: str
+
+
+@app.post("/api/tenant/pais")
+def tenant_pais_guardar(datos: PaisIn, u: Usuario = Depends(solo_admin)):
+    codigo = datos.codigo.upper()
+    if codigo not in kpaises.CATALOGO:
+        raise HTTPException(400, f"País '{datos.codigo}' no está en el catálogo de Fase 1 LATAM.")
+    _guardar_pais_de(u.empresa, codigo)
+    p = kpaises.obtener(codigo)
+    return dict(codigo=p.codigo, nombre=p.nombre, moneda=p.moneda,
+                simbolo=p.simbolo, locale=p.locale,
+                nota_cumplimiento=p.nota_cumplimiento)
 
 
 @app.get("/api/config/estado")

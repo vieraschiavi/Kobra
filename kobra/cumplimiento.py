@@ -83,6 +83,71 @@ def feriados_uruguay(anio: int) -> dict[date, str]:
 
 
 # ---------------------------------------------------------------------------
+# Feriados nacionales — Fase 1 LATAM (fechas fijas y derivadas de Pascua)
+# ---------------------------------------------------------------------------
+# Solo fechas fijas + Semana Santa. Varios países trasladan ciertos feriados
+# al lunes siguiente (p. ej. la Ley Emiliani en Colombia) — esa regla NO está
+# modelada acá; ver el disclaimer en kobra/paises.py.
+_FERIADOS_FIJOS_POR_PAIS = {
+    "AR": {
+        (1, 1): "Año Nuevo", (3, 24): "Día de la Memoria",
+        (4, 2): "Día del Veterano y de los Caídos en Malvinas",
+        (5, 1): "Día del Trabajador", (5, 25): "Día de la Revolución de Mayo",
+        (6, 20): "Día de la Bandera", (7, 9): "Día de la Independencia",
+        (10, 12): "Día del Respeto a la Diversidad Cultural",
+        (11, 20): "Día de la Soberanía Nacional",
+        (12, 8): "Inmaculada Concepción", (12, 25): "Navidad",
+    },
+    "MX": {
+        (1, 1): "Año Nuevo", (5, 1): "Día del Trabajo",
+        (9, 16): "Día de la Independencia", (11, 20): "Revolución Mexicana",
+        (12, 25): "Navidad",
+    },
+    "CL": {
+        (1, 1): "Año Nuevo", (5, 1): "Día del Trabajo",
+        (5, 21): "Día de las Glorias Navales", (6, 29): "San Pedro y San Pablo",
+        (7, 16): "Virgen del Carmen", (8, 15): "Asunción de la Virgen",
+        (9, 18): "Independencia Nacional", (9, 19): "Glorias del Ejército",
+        (10, 12): "Encuentro de Dos Mundos",
+        (10, 31): "Día de las Iglesias Evangélicas y Protestantes",
+        (11, 1): "Día de Todos los Santos", (12, 8): "Inmaculada Concepción",
+        (12, 25): "Navidad",
+    },
+    "CO": {
+        (1, 1): "Año Nuevo", (5, 1): "Día del Trabajo",
+        (6, 29): "San Pedro y San Pablo", (7, 20): "Día de la Independencia",
+        (8, 7): "Batalla de Boyacá", (8, 15): "Asunción de la Virgen",
+        (10, 12): "Día de la Raza", (11, 1): "Todos los Santos",
+        (11, 11): "Independencia de Cartagena",
+        (12, 8): "Inmaculada Concepción", (12, 25): "Navidad",
+    },
+    "PE": {
+        (1, 1): "Año Nuevo", (5, 1): "Día del Trabajo",
+        (6, 29): "San Pedro y San Pablo", (7, 28): "Independencia",
+        (7, 29): "Fiestas Patrias", (8, 30): "Santa Rosa de Lima",
+        (10, 8): "Combate de Angamos", (11, 1): "Todos los Santos",
+        (12, 8): "Inmaculada Concepción", (12, 25): "Navidad",
+    },
+}
+
+
+def feriados_por_pais(pais: str, anio: int) -> dict[date, str]:
+    """Feriados nacionales para el país dado (ISO alfa-2). Uruguay usa el
+    calendario completo de `feriados_uruguay`; el resto de la Fase 1 LATAM
+    usa fechas fijas + Semana Santa derivada de Pascua (ver disclaimer)."""
+    if (pais or "UY").upper() == "UY":
+        return feriados_uruguay(anio)
+    fijos = _FERIADOS_FIJOS_POR_PAIS.get(pais.upper())
+    if fijos is None:
+        return feriados_uruguay(anio)
+    fer = {date(anio, m, d): nombre for (m, d), nombre in fijos.items()}
+    pascua = _pascua(anio)
+    fer[pascua - timedelta(days=3)] = "Jueves Santo"
+    fer[pascua - timedelta(days=2)] = "Viernes Santo"
+    return fer
+
+
+# ---------------------------------------------------------------------------
 # Política de contacto
 # ---------------------------------------------------------------------------
 @dataclass
@@ -190,10 +255,10 @@ def puede_contactar(id_deudor: str, canal: str = "Llamada",
 
     fecha = ahora.date()
     if not pol.permitir_feriados:
-        fer = feriados_uruguay(fecha.year)
+        fer = feriados_por_pais(pol.pais, fecha.year)
         if fecha in fer:
             return Decision(False, "FERIADO",
-                            f"Feriado en Uruguay: {fer[fecha]}.",
+                            f"Feriado en {pol.pais}: {fer[fecha]}.",
                             {"feriado": fer[fecha]})
 
     if ahora.weekday() not in pol.dias_habiles:

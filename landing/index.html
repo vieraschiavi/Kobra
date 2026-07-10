@@ -39,6 +39,10 @@ nav .wrap{display:flex;align-items:center;gap:16px;height:60px}
 .lang button{background:none;border:0;color:var(--faint);font-size:11.5px;font-weight:800;padding:5px 8px;
   border-radius:6px;cursor:pointer;font-family:inherit;letter-spacing:.03em}
 .lang button.on{background:var(--amber);color:var(--amber-ink)}
+.pais-sel select{background:rgba(255,255,255,.06);border:1px solid var(--line2);color:var(--faint);
+  font-size:11.5px;font-weight:700;padding:6px 7px;border-radius:8px;font-family:inherit;cursor:pointer}
+.pais-precio{font-size:12.5px;color:var(--faint);margin-top:4px;line-height:1.5}
+.pais-precio:empty{display:none}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:750;font-size:14px;
   border-radius:9px;padding:10px 17px;cursor:pointer;border:1px solid transparent;font-family:inherit;transition:transform .12s}
 .btn:hover{transform:translateY(-1px)}
@@ -186,6 +190,16 @@ footer .legal{max-width:74ch;line-height:1.6}
     <div class="lang" role="group" aria-label="Idioma">
       <button data-lang="es" class="on">ES</button><button data-lang="pt">PT</button><button data-lang="en">EN</button>
     </div>
+    <div class="pais-sel">
+      <select id="paisSel" aria-label="País">
+        <option value="UY">🇺🇾 Uruguay</option>
+        <option value="AR">🇦🇷 Argentina</option>
+        <option value="MX">🇲🇽 México</option>
+        <option value="CL">🇨🇱 Chile</option>
+        <option value="CO">🇨🇴 Colombia</option>
+        <option value="PE">🇵🇪 Perú</option>
+      </select>
+    </div>
     <a href="#precios" class="btn btn-a btn-buy" data-i="navbuy">Comprar</a>
   </div>
 </div></nav>
@@ -271,6 +285,7 @@ footer .legal{max-width:74ch;line-height:1.6}
       <div class="who" data-i="p1w">Traé tus propias APIs. Ideal para técnicos.</div>
       <div class="amt">US$490</div><div class="per" data-i="p1per">licencia + US$29/mes soporte</div>
       <div class="uyu" data-i="p1uyu">≈ $U 19.600 + $U 1.160/mes · se cobra en pesos uruguayos</div>
+      <div class="pais-precio" data-pais-precio="p1"></div>
       <ul><li data-i="p1a">App de PC completa</li><li data-i="p1b">Voz · WhatsApp · copiloto · ERP</li>
         <li data-i="p1c">Usás tus propias claves</li><li data-i="p1d">Actualizaciones incluidas</li></ul>
       <button class="btn btn-od" data-pay="starter" data-i="p1cta">Comprar Starter</button>
@@ -281,6 +296,7 @@ footer .legal{max-width:74ch;line-height:1.6}
       <div class="who" data-i="p2w">Abrí y usá. Sin configurar nada técnico.</div>
       <div class="amt">US$149<small>/mes</small></div><div class="per" data-i="p2per">+ uso · 1.000 gestiones incluidas</div>
       <div class="uyu" data-i="p2uyu">≈ $U 5.960/mes · se cobra en pesos uruguayos</div>
+      <div class="pais-precio" data-pais-precio="p2"></div>
       <ul><li data-i="p2a">APIs embebidas y medidas</li><li data-i="p2b">Voz neural incluida (sin costo/min)</li>
         <li data-i="p2c">Cupo mensual + excedente por gestión</li><li data-i="p2d">Soporte prioritario</li></ul>
       <button class="btn btn-a" data-pay="pro" data-i="p2cta">Suscribirme al Pro</button>
@@ -290,6 +306,7 @@ footer .legal{max-width:74ch;line-height:1.6}
       <div class="who" data-i="p3w">Bancos, grandes estudios, white-label.</div>
       <div class="amt" data-i="p3amt">A medida</div><div class="per" data-i="p3per">desde US$1.500/mes</div>
       <div class="uyu" data-i="p3uyu">≈ desde $U 60.000/mes · se cobra en pesos uruguayos</div>
+      <div class="pais-precio" data-pais-precio="p3"></div>
       <ul><li data-i="p3a">Usuarios ilimitados · SSO</li><li data-i="p3b">Marca propia (white-label)</li>
         <li data-i="p3c">ERP a medida · SLA</li><li data-i="p3d">Onboarding dedicado</li></ul>
       <button class="btn btn-od" data-pay="enterprise" data-i="p3cta">Hablar con ventas</button>
@@ -426,7 +443,9 @@ var I18N={
 };
 var ORIG={};
 document.querySelectorAll('[data-i]').forEach(function(el){ORIG[el.getAttribute('data-i')]=el.innerHTML;});
+var CUR_LANG='es';
 function setLang(lang){
+  CUR_LANG=lang;
   var dict=lang==='es'?null:I18N[lang];
   document.querySelectorAll('[data-i]').forEach(function(el){
     var k=el.getAttribute('data-i');
@@ -434,8 +453,58 @@ function setLang(lang){
   });
   document.documentElement.lang=lang;
   document.querySelectorAll('.lang button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-lang')===lang);});
+  try{localStorage.setItem('kobra_lang',lang);}catch(e){}
+  pintarPaisPrecios();
 }
 document.querySelectorAll('.lang button').forEach(function(b){b.addEventListener('click',function(){setLang(b.getAttribute('data-lang'));});});
+
+// País (Fase 1 LATAM): solo cambia la conversión de referencia del precio —
+// el producto es el mismo español en los 6 países, no hay nada que traducir.
+// El cobro real hoy sigue yendo por Mercado Pago Uruguay (ver nota); habilitar
+// cobro nativo por país es un paso de negocio aparte, no de esta conversión.
+var PAISES_PRECIO={
+  AR:{nombre:'Argentina',moneda:'ARS',simbolo:'$',locale:'es-AR',tasaPorUsd:1500},
+  MX:{nombre:'México',moneda:'MXN',simbolo:'$',locale:'es-MX',tasaPorUsd:17.5},
+  CL:{nombre:'Chile',moneda:'CLP',simbolo:'$',locale:'es-CL',tasaPorUsd:928},
+  CO:{nombre:'Colombia',moneda:'COP',simbolo:'$',locale:'es-CO',tasaPorUsd:3340},
+  PE:{nombre:'Perú',moneda:'PEN',simbolo:'S/',locale:'es-PE',tasaPorUsd:3.41}
+};
+var TXT_PAIS_NOTA={
+  es:function(m,p){return '≈ '+m+' '+p.moneda+' (referencia) — hoy se cobra en pesos uruguayos vía Mercado Pago; escribinos para habilitar cobro en tu moneda.';},
+  pt:function(m,p){return '≈ '+m+' '+p.moneda+' (referência) — hoje cobrado em pesos uruguaios via Mercado Pago; fale conosco para habilitar cobrança na sua moeda.';},
+  en:function(m,p){return '≈ '+m+' '+p.moneda+' (reference) — currently billed in Uruguayan pesos via Mercado Pago; contact us to enable billing in your currency.';}
+};
+var USD_BASE={p1:[490,29],p2:[149,null],p3:[1500,null]};
+function fmtLocal(usd,p){
+  return Math.round(usd*p.tasaPorUsd).toLocaleString(p.locale);
+}
+function pintarPaisPrecios(){
+  var codigo=document.getElementById('paisSel').value;
+  var nodos=document.querySelectorAll('[data-pais-precio]');
+  if(codigo==='UY'){nodos.forEach(function(n){n.textContent='';});return;}
+  var p=PAISES_PRECIO[codigo];
+  var txt=TXT_PAIS_NOTA[CUR_LANG]||TXT_PAIS_NOTA.es;
+  nodos.forEach(function(n){
+    var plan=n.getAttribute('data-pais-precio');
+    var base=USD_BASE[plan];
+    var m=p.simbolo+fmtLocal(base[0],p)+(base[1]!=null?' + '+p.simbolo+fmtLocal(base[1],p)+'/mes':'');
+    n.textContent=txt(m,p);
+  });
+}
+(function(){
+  var sel=document.getElementById('paisSel');
+  var guardado=null;
+  try{guardado=localStorage.getItem('kobra_pais');}catch(e){}
+  if(guardado&&PAISES_PRECIO[guardado])sel.value=guardado;
+  sel.addEventListener('change',function(){
+    try{localStorage.setItem('kobra_pais',sel.value);}catch(e){}
+    pintarPaisPrecios();
+  });
+  var langGuardado=null;
+  try{langGuardado=localStorage.getItem('kobra_lang');}catch(e){}
+  if(langGuardado&&langGuardado!=='es')setLang(langGuardado);
+  else pintarPaisPrecios();
+})();
 document.querySelectorAll('[data-pay]').forEach(function(btn){
   btn.addEventListener('click',function(){
     var plan=btn.getAttribute('data-pay');
