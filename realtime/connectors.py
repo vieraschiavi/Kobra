@@ -106,7 +106,7 @@ class StreamSession:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 sf.write(tmp.name, samples, self.sr)
                 path = tmp.name
-            texto = copiloto.transcribir_audio(path)
+            texto = copiloto.transcribir_audio(path, idioma=copiloto.idioma_configurado())
             try:
                 os.remove(path)
             except OSError:
@@ -129,7 +129,8 @@ class StreamSession:
         feat = voz.extraer_features(samples, self.sr)
         emo = voz.emocion_acustica(feat)
         vozc = voz.voz_para_copiloto(feat)
-        sent_fusion = (copiloto.analizar_sentimiento(texto, voz=vozc).score
+        sent_fusion = (copiloto.analizar_sentimiento(texto, voz=vozc,
+                                                     idioma=copiloto.idioma_configurado()).score
                        if texto else None)
 
         if texto:
@@ -141,7 +142,7 @@ class StreamSession:
             res = copiloto.analizar_conversacion(
                 "\n".join(self.turnos), canal="llamada",
                 probpago=self.probpago, estrategia=self.estrategia,
-                nombre_gestor="Gestor")
+                nombre_gestor="Gestor", idioma=copiloto.idioma_configurado())
             cop, cal, tec = res["copiloto"], res["calidad"], res["tecnicas"]
 
         resultado = {

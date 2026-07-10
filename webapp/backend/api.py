@@ -312,12 +312,13 @@ class PreguntaIn(BaseModel):
 
 @app.post("/api/ayuda")
 def ayuda(datos: PreguntaIn, u: Usuario = Depends(usuario_actual)):
-    return kayuda.responder(datos.pregunta)
+    idioma = kpaises.obtener(_pais_de(u.empresa)).idioma
+    return kayuda.responder(datos.pregunta, idioma=idioma)
 
 
 @app.get("/api/paises")
 def paises_catalogo(u: Usuario = Depends(usuario_actual)):
-    """Catálogo Fase 1 LATAM (mismo idioma en todos — ver docs/KOBRA_2_0.md)."""
+    """Catálogo LATAM (Fase 1 hispanohablante + Fase 2 Brasil) — ver docs/KOBRA_2_0.md."""
     return {"paises": kpaises.listar()}
 
 
@@ -325,7 +326,7 @@ def paises_catalogo(u: Usuario = Depends(usuario_actual)):
 def tenant_pais(u: Usuario = Depends(usuario_actual)):
     p = kpaises.obtener(_pais_de(u.empresa))
     return dict(codigo=p.codigo, nombre=p.nombre, moneda=p.moneda,
-                simbolo=p.simbolo, locale=p.locale,
+                simbolo=p.simbolo, locale=p.locale, idioma=p.idioma,
                 nota_cumplimiento=p.nota_cumplimiento)
 
 
@@ -337,11 +338,11 @@ class PaisIn(BaseModel):
 def tenant_pais_guardar(datos: PaisIn, u: Usuario = Depends(solo_admin)):
     codigo = datos.codigo.upper()
     if codigo not in kpaises.CATALOGO:
-        raise HTTPException(400, f"País '{datos.codigo}' no está en el catálogo de Fase 1 LATAM.")
+        raise HTTPException(400, f"País '{datos.codigo}' no está en el catálogo LATAM.")
     _guardar_pais_de(u.empresa, codigo)
     p = kpaises.obtener(codigo)
     return dict(codigo=p.codigo, nombre=p.nombre, moneda=p.moneda,
-                simbolo=p.simbolo, locale=p.locale,
+                simbolo=p.simbolo, locale=p.locale, idioma=p.idioma,
                 nota_cumplimiento=p.nota_cumplimiento)
 
 

@@ -1,9 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { api, fmtPct, fmtUYU, getSesion } from "../api.js";
+import { api, fmtPct, fmtUYU, getPais, getSesion } from "../api.js";
+import { t } from "../i18n/index.js";
 
 const TRAMOS = ["1-30", "31-60", "61-90", "91-180", "180+"];
+// La API (kobra/analitica.py) siempre devuelve estos valores en español —
+// son datos, no texto de UI — así que las claves quedan en español; solo
+// la etiqueta mostrada se traduce (ver tProp / CLAVE_SEGMENTO abajo).
 const SEGMENTOS = ["Corporativo", "Pyme", "Retail"];
+const CLAVE_SEGMENTO = {
+  "Corporativo": "cartera.filtro.segmento_corporativo",
+  "Pyme": "cartera.filtro.segmento_pyme",
+  "Retail": "cartera.filtro.segmento_retail",
+};
 const PROPENSIONES = ["Alta", "Media", "Baja"];
+const CLAVE_PROPENSION = {
+  "Alta": "common.propension.alta", "Media": "common.propension.media", "Baja": "common.propension.baja",
+};
+const tProp = (p) => t(CLAVE_PROPENSION[p] || p);
 
 function Drawer({ id, onClose }) {
   const [d, setD] = useState(null);
@@ -21,21 +34,21 @@ function Drawer({ id, onClose }) {
         {d && (
           <>
             <span className={"pill " + (d.segmento_propension || "").toLowerCase()}>
-              {d.segmento_propension} propensión · ProbPago {fmtPct(d.probpago)}
+              {tProp(d.segmento_propension)} {t("cartera.drawer.propension_sufijo", { pct: fmtPct(d.probpago) })}
             </span>
             <div className="kv">
-              <span className="k">Segmento</span><span>{d.segmento} · {d.producto}</span>
-              <span className="k">Departamento</span><span>{d.departamento}</span>
-              <span className="k">Mora</span><span>{d.dias_mora} días (tramo {d.tramo_mora})</span>
-              <span className="k">Deuda</span><span className="tnum">{fmtUYU(d.monto_deuda)}</span>
-              <span className="k">Recupero esperado</span><span className="tnum">{fmtUYU(d.valor_esperado_recupero)}</span>
-              <span className="k">Estrategia</span><span>{d.estrategia}</span>
-              <span className="k">Descuento sugerido</span><span>{d.descuento_recomendado}</span>
-              <span className="k">Canal recomendado</span><span>{d.canal_recomendado}</span>
-              <span className="k">Por qué esta ProbPago</span><span>{d.motivo_probpago}</span>
+              <span className="k">{t("cartera.drawer.segmento")}</span><span>{d.segmento} · {d.producto}</span>
+              <span className="k">{t("cartera.drawer.departamento")}</span><span>{d.departamento}</span>
+              <span className="k">{t("cartera.drawer.mora")}</span><span>{t("cartera.drawer.mora_valor", { dias: d.dias_mora, tramo: d.tramo_mora })}</span>
+              <span className="k">{t("cartera.drawer.deuda")}</span><span className="tnum">{fmtUYU(d.monto_deuda)}</span>
+              <span className="k">{t("cartera.drawer.recupero_esperado")}</span><span className="tnum">{fmtUYU(d.valor_esperado_recupero)}</span>
+              <span className="k">{t("cartera.drawer.estrategia")}</span><span>{d.estrategia}</span>
+              <span className="k">{t("cartera.drawer.descuento_sugerido")}</span><span>{d.descuento_recomendado}</span>
+              <span className="k">{t("cartera.drawer.canal_recomendado")}</span><span>{d.canal_recomendado}</span>
+              <span className="k">{t("cartera.drawer.por_que_probpago")}</span><span>{d.motivo_probpago}</span>
             </div>
             {d.guion && (
-              <div className="guion"><b>Guion sugerido para el gestor:</b>{"\n"}{d.guion}</div>
+              <div className="guion"><b>{t("cartera.drawer.guion_sugerido")}</b>{"\n"}{d.guion}</div>
             )}
           </>
         )}
@@ -79,26 +92,25 @@ export default function Cartera() {
 
   return (
     <>
-      <h1 className="page-title">Cartera priorizada</h1>
-      <p className="page-sub">Ordenada por prioridad del Agente Negociador (valor esperado de
-        recupero). Hacé clic en una fila para ver el briefing completo del deudor.</p>
+      <h1 className="page-title">{t("cartera.titulo")}</h1>
+      <p className="page-sub">{t("cartera.subtitulo")}</p>
 
       <div className="toolbar">
-        <input type="text" placeholder="Buscar ID…" value={filtros.busqueda}
+        <input type="text" placeholder={t("cartera.toolbar.buscar_placeholder")} value={filtros.busqueda}
                onChange={setF("busqueda")} style={{ width: 150 }} />
         <select value={filtros.segmento} onChange={setF("segmento")}>
-          <option value="">Segmento (todos)</option>
-          {SEGMENTOS.map((s) => <option key={s}>{s}</option>)}
+          <option value="">{t("cartera.toolbar.segmento_todos")}</option>
+          {SEGMENTOS.map((s) => <option key={s} value={s}>{t(CLAVE_SEGMENTO[s])}</option>)}
         </select>
         <select value={filtros.tramo} onChange={setF("tramo")}>
-          <option value="">Tramo (todos)</option>
-          {TRAMOS.map((t) => <option key={t}>{t}</option>)}
+          <option value="">{t("cartera.toolbar.tramo_todos")}</option>
+          {TRAMOS.map((tr) => <option key={tr}>{tr}</option>)}
         </select>
         <select value={filtros.propension} onChange={setF("propension")}>
-          <option value="">Propensión (todas)</option>
-          {PROPENSIONES.map((p) => <option key={p}>{p}</option>)}
+          <option value="">{t("cartera.toolbar.propension_todas")}</option>
+          {PROPENSIONES.map((p) => <option key={p} value={p}>{tProp(p)}</option>)}
         </select>
-        <button className="btn ghost" onClick={exportar}>⬇ Exportar CSV</button>
+        <button className="btn ghost" onClick={exportar}>{t("cartera.toolbar.exportar_csv")}</button>
       </div>
 
       {error && <div className="empty">{error}</div>}
@@ -107,9 +119,13 @@ export default function Cartera() {
           <div className="tablewrap">
             <table>
               <thead><tr>
-                <th>#</th><th>ID</th><th>Segmento</th><th>Producto</th><th>Depto</th>
-                <th>Tramo</th><th>Monto</th><th>ProbPago</th><th>Prop.</th>
-                <th>Estrategia</th><th>Desc.</th><th>Canal</th>
+                <th>{t("cartera.tabla.col_numero")}</th><th>{t("cartera.tabla.col_id")}</th>
+                <th>{t("cartera.tabla.col_segmento")}</th><th>{t("cartera.tabla.col_producto")}</th>
+                <th>{t("cartera.tabla.col_depto")}</th>
+                <th>{t("cartera.tabla.col_tramo")}</th><th>{t("cartera.tabla.col_monto")}</th>
+                <th>{t("cartera.tabla.col_probpago")}</th><th>{t("cartera.tabla.col_prop")}</th>
+                <th>{t("cartera.tabla.col_estrategia")}</th><th>{t("cartera.tabla.col_desc")}</th>
+                <th>{t("cartera.tabla.col_canal")}</th>
               </tr></thead>
               <tbody>
                 {datos.filas.map((f) => (
@@ -123,7 +139,7 @@ export default function Cartera() {
                     <td className="tnum">{fmtUYU(f.monto_deuda)}</td>
                     <td className="tnum">{fmtPct(f.probpago, 0)}</td>
                     <td><span className={"pill " + (f.segmento_propension || "").toLowerCase()}>
-                      {f.segmento_propension}</span></td>
+                      {tProp(f.segmento_propension)}</span></td>
                     <td>{f.estrategia}</td>
                     <td className="tnum">{Math.round((f.descuento_recomendado || 0) * 100)}%</td>
                     <td>{f.canal_recomendado}</td>
@@ -135,8 +151,8 @@ export default function Cartera() {
           <div className="pager">
             <button className="btn ghost" disabled={pagina <= 1}
                     onClick={() => setPagina(pagina - 1)}>←</button>
-            <span className="tnum">Página {pagina} de {totalPaginas} ·
-              {" "}{datos.total.toLocaleString("es-UY")} deudores</span>
+            <span className="tnum">{t("cartera.pager.pagina_de", { pagina, total: totalPaginas })}
+              {" "}{datos.total.toLocaleString(getPais().locale)} {t("cartera.pager.deudores_sufijo")}</span>
             <button className="btn ghost" disabled={pagina >= totalPaginas}
                     onClick={() => setPagina(pagina + 1)}>→</button>
           </div>

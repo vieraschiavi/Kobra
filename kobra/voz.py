@@ -285,8 +285,9 @@ def _emisor(hablante: str) -> str:
     return "gestor" if str(hablante).lower().startswith("gestor") else "cliente"
 
 
-def _whisper_segmentos(path: str):
-    """Whisper con timestamps por segmento (si hay OPENAI_API_KEY)."""
+def _whisper_segmentos(path: str, idioma: str = "es"):
+    """Whisper con timestamps por segmento (si hay OPENAI_API_KEY).
+    `idioma`: código ISO 639-1 de 2 letras ("es" o "pt")."""
     import os
     key = os.getenv("OPENAI_API_KEY", "")
     if len(key) < 10:
@@ -298,7 +299,7 @@ def _whisper_segmentos(path: str):
                 "https://api.openai.com/v1/audio/transcriptions",
                 headers={"Authorization": f"Bearer {key}"},
                 files={"file": f},
-                data={"model": "whisper-1", "language": "es",
+                data={"model": "whisper-1", "language": idioma,
                       "response_format": "verbose_json",
                       "timestamp_granularities[]": "segment"}, timeout=180)
         r.raise_for_status()
@@ -316,7 +317,8 @@ def _hablante_por_overlap(a, b, segs):
     return mejor
 
 
-def transcribir_llamada(path, transcript_turnos=None, etiqueta_canal=("Gestor", "Cliente")):
+def transcribir_llamada(path, transcript_turnos=None, etiqueta_canal=("Gestor", "Cliente"),
+                        idioma: str = "es"):
     """
     Transcripción alineada por hablante. Devuelve (lista, modo).
     Cada item: {inicio, fin, hablante, texto}.
@@ -325,9 +327,11 @@ def transcribir_llamada(path, transcript_turnos=None, etiqueta_canal=("Gestor", 
     - modo 'alineado': usa una transcripción provista (turnos {emisor,texto}) y
       la alinea a los segmentos diarizados por orden de hablante.
     - modo 'sin_texto': solo segmentos (sin texto disponible).
+
+    `idioma`: código ISO 639-1 de 2 letras para Whisper ("es" o "pt").
     """
     segs = diarizar(path, etiqueta_canal)
-    wseg = _whisper_segmentos(path)
+    wseg = _whisper_segmentos(path, idioma)
     if wseg:
         out = [{"inicio": round(w["start"], 2), "fin": round(w["end"], 2),
                 "hablante": _hablante_por_overlap(w["start"], w["end"], segs),
@@ -356,15 +360,18 @@ def transcribir_llamada(path, transcript_turnos=None, etiqueta_canal=("Gestor", 
 
 
 def copiloto_desde_audio(path, transcript_turnos=None, probpago=None,
-                         estrategia=None, etiqueta_canal=("Gestor", "Cliente")):
+                         estrategia=None, etiqueta_canal=("Gestor", "Cliente"),
+                         idioma: str = "es"):
     """
     Pipeline completo desde una grabación: diarización + transcripción por
     hablante + emoción acústica + fusión voz/texto + asesoría del copiloto.
+    `idioma`: "es" o "pt" — para Whisper y para el léxico de sentimiento
+    del copiloto (kobra.copiloto).
     """
     from kobra import copiloto
     y, sr, canales = cargar_audio(path)
     mono_full = y.mean(axis=1)
-    trans, modo = transcribir_llamada(path, transcript_turnos, etiqueta_canal)
+    trans, modo = transcribir_llamada(path, transcript_turnos, etiqueta_canal, idioma)
 
     turnos_fusion = []
     for t in trans:
@@ -376,8 +383,9 @@ def copiloto_desde_audio(path, transcript_turnos=None, probpago=None,
         feat = extraer_features(audio, sr)
         emo_voz = emocion_acustica(feat)
         vozc = voz_para_copiloto(feat)
-        s_texto = copiloto.analizar_sentimiento(t["texto"]) if t["texto"] else None
-        s_fusion = copiloto.analizar_sentimiento(t["texto"], voz=vozc) if t["texto"] else None
+        s_texto = copiloto.analizar_sentimiento(t["texto"], idioma=idioma) if t["texto"] else None
+        s_fusion = (copiloto.analizar_sentimiento(t["texto"], voz=vozc, idioma=idioma)
+                    if t["texto"] else None)
         turnos_fusion.append({
             "inicio": t["inicio"], "fin": t["fin"], "hablante": t["hablante"],
             "emisor": _emisor(t["hablante"]), "texto": t["texto"],
@@ -388,7 +396,8 @@ def copiloto_desde_audio(path, transcript_turnos=None, probpago=None,
 
     texto = "\n".join(f"{t['hablante']}: {t['texto']}" for t in trans if t["texto"])
     cop = (copiloto.analizar_conversacion(texto, canal="llamada", probpago=probpago,
-                                          estrategia=estrategia, nombre_gestor="Gestor")
+                                          estrategia=estrategia, nombre_gestor="Gestor",
+                                          idioma=idioma)
            if texto else None)
     return {
         "modo_transcripcion": modo,

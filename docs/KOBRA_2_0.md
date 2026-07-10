@@ -74,14 +74,36 @@
   alcance.
 - **B15 · Roadmap 90 días** — semanas 3–6 ("construir originación sobre el
   motor existente, con datos sintéticos si no hay piloto") = ✅ hecho.
-- **B16 · Expansión LATAM (Fase 1)** — ✅ selector de país (Argentina, México,
-  Chile, Colombia, Perú, además de Uruguay) en la landing y en la webapp:
-  mismo producto en español, solo cambia moneda/formato de número
-  (`kobra/paises.py`, `GET/POST /api/tenant/pais`) y el calendario de
-  feriados que usa `kobra.cumplimiento` (antes hardcodeado a Uruguay para
-  cualquier país). El cobro real sigue yendo por Mercado Pago Uruguay —
-  habilitar cobro nativo por país es un paso de negocio, no de esta fase.
-  **Fase 2 (Brasil/portugués) queda deliberadamente afuera**: el léxico de
-  sentimiento del copiloto y el corpus del asistente están a mano en
-  español y necesitan traducción + validación con un experto local antes
-  de ofrecerse, más investigación de LGPD — no es un simple selector.
+- **B16 · Expansión LATAM**:
+  - **Fase 1 (hispanohablante)** — ✅ selector de país (Argentina, México,
+    Chile, Colombia, Perú, además de Uruguay) en la landing y en la webapp:
+    mismo producto en español, solo cambia moneda/formato de número
+    (`kobra/paises.py`, `GET/POST /api/tenant/pais`) y el calendario de
+    feriados que usa `kobra.cumplimiento` (antes hardcodeado a Uruguay para
+    cualquier país). El cobro real sigue yendo por Mercado Pago Uruguay —
+    habilitar cobro nativo por país es un paso de negocio, no de esta fase.
+  - **Fase 2 (Brasil/portugués)** — ✅ construida end-to-end, con un límite
+    honesto explícito: es una **primera versión sin validar por un
+    profesional de cobranza nativo de Brasil**, no lista para vender sin
+    esa revisión.
+    - `kobra/copiloto.py`: léxico de sentimiento, técnicas de negociación y
+      criterios de calidad de gestión, en portugués (`idioma="pt"`) —
+      traducción y adaptación propia.
+    - `kobra/ayuda.py`: corpus del asistente parcialmente traducido
+      (`docs/README_pt.md`, `docs/GUIA_LLAMADA_REAL_TWILIO_pt.md`); el modo
+      docs cae a español con aviso si el tema todavía no está traducido, el
+      modo IA responde siempre en portugués aunque el contexto esté en
+      español.
+    - `kobra/voz.py` + `realtime/`: Whisper y el copiloto de voz en vivo
+      soportan `idioma="pt"` (antes forzado a "es"); un despliegue de
+      copiloto en vivo elige su idioma con la variable de entorno
+      `KOBRA_IDIOMA_COPILOTO` (no es multi-tenant como la webapp).
+    - `webapp/frontend`: i18n real (`src/i18n/`), toda la interfaz cambia a
+      portugués cuando el tenant elige Brasil.
+    - `docs/GUIA_REGISTRO_LEGAL_BRASIL.md`: mapa de obligaciones LGPD
+      relevantes a cobranza — informativo, no asesoría legal. Señala dos
+      brechas estructurales en `kobra/cumplimiento.py` para cuando se
+      encare de verdad: `PoliticaContacto` no distingue horario de sábado
+      vs. día hábil (São Paulo exige corte más temprano los sábados), y
+      `pais` tiene granularidad de país, no de estado (las normas de
+      horario de contacto varían por UF en Brasil).

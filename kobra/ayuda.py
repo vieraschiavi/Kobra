@@ -19,6 +19,14 @@ Cómo funciona:
 
 Mismo criterio de "cero inventos" que kobra/consulta_bd.py: si la respuesta
 no está en la documentación, el asistente lo dice.
+
+Fase 2 LATAM (Brasil): `idioma="pt"` usa el corpus traducido en
+`docs/*_pt.md` (hoy solo el README — traducción propia, no validada por un
+hablante nativo, ver la nota al pie de esos archivos). En modo docs, si el
+tema preguntado no está todavía traducido, se muestra el fragmento en
+español con un aviso. En modo IA no hace falta traducir toda la
+documentación: el system prompt le pide a Claude que lea contexto en
+español si hace falta pero responda siempre en portugués.
 """
 from __future__ import annotations
 
@@ -26,8 +34,11 @@ import os
 import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+IDIOMA_DEFAULT = "es"
 
-# Qué documentación alimenta al asistente (rutas relativas a la raíz del repo).
+# Qué documentación alimenta al asistente, por idioma (rutas relativas a la
+# raíz del repo). "pt" es un corpus parcial (Fase 2) — los archivos que no
+# existan todavía se saltean solos (ver `construir_base`).
 FUENTES_DOCS = [
     "README.md",
     "docs/GUIA_LLAMADA_REAL_TWILIO.md",
@@ -37,7 +48,13 @@ FUENTES_DOCS = [
     "docs/BACKEND_VENTA.md",
     "docs/PLANTILLA_SLA.md",
     "docs/PLANTILLA_DPA.md",
+    "docs/GUIA_REGISTRO_LEGAL_BRASIL.md",
 ]
+FUENTES_DOCS_PT = [
+    "docs/README_pt.md",
+    "docs/GUIA_LLAMADA_REAL_TWILIO_pt.md",
+]
+FUENTES_DOCS_POR_IDIOMA = {"es": FUENTES_DOCS, "pt": FUENTES_DOCS_PT}
 
 SYSTEM_PROMPT = """Sos el asistente de ayuda de MV Kobra AI, una plataforma de cobranzas
 inteligentes. Respondés dudas de usuarios (gerentes de cobranza, gestores,
@@ -56,6 +73,52 @@ Reglas estrictas:
 CONTEXTO DE DOCUMENTACIÓN:
 {contexto}
 """
+
+SYSTEM_PROMPT_PT = """Você é o assistente de ajuda da MV Kobra AI, uma plataforma de cobrança
+inteligente. Você responde dúvidas de usuários (gerentes de cobrança,
+operadores, administradores) sobre como usar o programa.
+
+Regras estritas:
+- Responda SOMENTE com informações do contexto de documentação fornecido abaixo.
+- Se a resposta não estiver no contexto, diga isso com honestidade ("isso não
+  está na documentação que tenho — escreva para a caixa de contato") em vez
+  de inventar. NUNCA invente funções, preços ou passos que não estejam descritos.
+- Alguns trechos do contexto abaixo podem estar em espanhol (parte da
+  documentação ainda não foi traduzida) — leia-os normalmente, mas responda
+  SEMPRE em português do Brasil, claro e direto, sem tecnicismos desnecessários.
+- Respostas curtas: 2 a 6 frases, ou uma lista breve de passos.
+- Se a dúvida for sobre um passo concreto, cite a aba ou o arquivo exato
+  (ex.: "aba ⚙️ Configuração", "docs/GUIA_LLAMADA_REAL_TWILIO.md").
+
+CONTEXTO DE DOCUMENTAÇÃO:
+{contexto}
+"""
+SYSTEM_PROMPT_POR_IDIOMA = {"es": SYSTEM_PROMPT, "pt": SYSTEM_PROMPT_PT}
+
+_TEXTOS_POR_IDIOMA = {
+    "es": {
+        "vacia": "Escribí una pregunta sobre el programa.",
+        "sin_resultados": ("No encontré nada en la documentación sobre eso. "
+                           "Probá reformular la pregunta, o escribinos por el "
+                           "buzón de contacto de esta misma pestaña."),
+        "docs_intro": ("Sin `ANTHROPIC_API_KEY` configurada te muestro lo que dice la "
+                      "documentación (cargá la key en ⚙️ Configuración para respuestas "
+                      "redactadas):\n\n"),
+        "fallback_es": ("_Esta parte de la documentación todavía no está traducida al "
+                        "portugués — te muestro el original en español:_\n\n"),
+    },
+    "pt": {
+        "vacia": "Escreva uma pergunta sobre o programa.",
+        "sin_resultados": ("Não encontrei nada na documentação sobre isso. "
+                           "Tente reformular a pergunta, ou escreva para nós pela "
+                           "caixa de contato desta mesma aba."),
+        "docs_intro": ("Sem `ANTHROPIC_API_KEY` configurada, mostro o que diz a "
+                      "documentação (configure a chave em ⚙️ Configuração para "
+                      "respostas redigidas):\n\n"),
+        "fallback_es": ("_Esta parte da documentação ainda não foi traduzida para o "
+                        "português — mostro o original em espanhol:_\n\n"),
+    },
+}
 
 
 # ---------------------------------------------------------------------------
@@ -82,10 +145,11 @@ def _trocear_markdown(texto: str, fuente: str, max_chars: int = 1800) -> list[di
     return fichas
 
 
-def construir_base(root: str | None = None) -> list[dict]:
+def construir_base(root: str | None = None, idioma: str = IDIOMA_DEFAULT) -> list[dict]:
     root = root or ROOT
+    idioma = idioma if idioma in FUENTES_DOCS_POR_IDIOMA else IDIOMA_DEFAULT
     fichas = []
-    for rel in FUENTES_DOCS:
+    for rel in FUENTES_DOCS_POR_IDIOMA[idioma]:
         path = os.path.join(root, rel)
         if not os.path.exists(path):
             continue
@@ -94,21 +158,22 @@ def construir_base(root: str | None = None) -> list[dict]:
     return fichas
 
 
-_BASE_CACHE: list[dict] | None = None
+_BASE_CACHE: dict[str, list[dict]] = {}
 
 
-def _base() -> list[dict]:
-    global _BASE_CACHE
-    if _BASE_CACHE is None:
-        _BASE_CACHE = construir_base()
-    return _BASE_CACHE
+def _base(idioma: str = IDIOMA_DEFAULT) -> list[dict]:
+    idioma = idioma if idioma in FUENTES_DOCS_POR_IDIOMA else IDIOMA_DEFAULT
+    if idioma not in _BASE_CACHE:
+        _BASE_CACHE[idioma] = construir_base(idioma=idioma)
+    return _BASE_CACHE[idioma]
 
 
 # ---------------------------------------------------------------------------
 # 2) Retrieval local (TF-IDF, sin red)
 # ---------------------------------------------------------------------------
-def buscar(pregunta: str, k: int = 4, fichas: list[dict] | None = None) -> list[dict]:
-    fichas = fichas if fichas is not None else _base()
+def buscar(pregunta: str, k: int = 4, fichas: list[dict] | None = None,
+          idioma: str = IDIOMA_DEFAULT) -> list[dict]:
+    fichas = fichas if fichas is not None else _base(idioma)
     if not fichas or not pregunta.strip():
         return []
     from sklearn.feature_extraction.text import TfidfVectorizer
@@ -125,31 +190,37 @@ def buscar(pregunta: str, k: int = 4, fichas: list[dict] | None = None) -> list[
 # ---------------------------------------------------------------------------
 # 3) Respuesta: Claude si hay key, docs crudos si no
 # ---------------------------------------------------------------------------
-def responder(pregunta: str, api_key: str | None = None, k: int = 4) -> dict:
+def responder(pregunta: str, api_key: str | None = None, k: int = 4,
+             idioma: str = IDIOMA_DEFAULT) -> dict:
     """
     Devuelve {"respuesta": str, "fuentes": [str], "modo": "ia"|"docs"|"vacio"}.
     Nunca lanza por falta de API key — degrada a mostrar la documentación.
+
+    `idioma`: "es" (default) o "pt" (Fase 2 LATAM). En modo docs, si el
+    corpus en portugués (parcial: hoy solo el README, ver FUENTES_DOCS_PT)
+    no tiene nada relevante, cae a español con un aviso — nunca se rompe.
     """
+    idioma = idioma if idioma in FUENTES_DOCS_POR_IDIOMA else IDIOMA_DEFAULT
+    textos = _TEXTOS_POR_IDIOMA[idioma]
     pregunta = (pregunta or "").strip()
     if not pregunta:
-        return {"respuesta": "Escribí una pregunta sobre el programa.", "fuentes": [], "modo": "vacio"}
+        return {"respuesta": textos["vacia"], "fuentes": [], "modo": "vacio"}
 
-    relevantes = buscar(pregunta, k=k)
+    relevantes = buscar(pregunta, k=k, idioma=idioma)
+    fallback_es = False
+    if not relevantes and idioma != IDIOMA_DEFAULT:
+        relevantes = buscar(pregunta, k=k, idioma=IDIOMA_DEFAULT)
+        fallback_es = bool(relevantes)
     if not relevantes:
-        return {"respuesta": ("No encontré nada en la documentación sobre eso. "
-                              "Probá reformular la pregunta, o escribinos por el "
-                              "buzón de contacto de esta misma pestaña."),
-                "fuentes": [], "modo": "vacio"}
+        return {"respuesta": textos["sin_resultados"], "fuentes": [], "modo": "vacio"}
 
     fuentes = sorted({f["fuente"] for f in relevantes})
     key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
     if len(key) < 10:
         cuerpo = "\n\n---\n\n".join(
             f"**{f['titulo']}** · _{f['fuente']}_\n\n{f['texto']}" for f in relevantes[:2])
-        return {"respuesta": ("Sin `ANTHROPIC_API_KEY` configurada te muestro lo que dice la "
-                              "documentación (cargá la key en ⚙️ Configuración para respuestas "
-                              "redactadas):\n\n" + cuerpo),
-                "fuentes": fuentes, "modo": "docs"}
+        prefijo = textos["docs_intro"] + (textos["fallback_es"] if fallback_es else "")
+        return {"respuesta": prefijo + cuerpo, "fuentes": fuentes, "modo": "docs"}
 
     import requests
     contexto = "\n\n---\n\n".join(f"[{f['fuente']} · {f['titulo']}]\n{f['texto']}" for f in relevantes)
@@ -158,7 +229,7 @@ def responder(pregunta: str, api_key: str | None = None, k: int = 4) -> dict:
         headers={"x-api-key": key, "anthropic-version": "2023-06-01",
                  "content-type": "application/json"},
         json={"model": "claude-sonnet-5", "max_tokens": 600,
-              "system": SYSTEM_PROMPT.format(contexto=contexto),
+              "system": SYSTEM_PROMPT_POR_IDIOMA[idioma].format(contexto=contexto),
               "messages": [{"role": "user", "content": pregunta}]},
         timeout=60)
     r.raise_for_status()

@@ -128,6 +128,16 @@ _FERIADOS_FIJOS_POR_PAIS = {
         (10, 8): "Combate de Angamos", (11, 1): "Todos los Santos",
         (12, 8): "Inmaculada Concepción", (12, 25): "Navidad",
     },
+    # Brasil (Fase 2) — feriados nacionais fixos (não inclui pontos
+    # facultativos nem feriados estaduais/municipais, p. ex. Corpus Christi).
+    "BR": {
+        (1, 1): "Confraternização Universal", (4, 21): "Tiradentes",
+        (5, 1): "Dia do Trabalho", (9, 7): "Independência do Brasil",
+        (10, 12): "Nossa Senhora Aparecida", (11, 2): "Finados",
+        (11, 15): "Proclamação da República",
+        (11, 20): "Dia Nacional de Zumbi e da Consciência Negra",
+        (12, 25): "Natal",
+    },
 }
 
 
@@ -142,8 +152,12 @@ def feriados_por_pais(pais: str, anio: int) -> dict[date, str]:
         return feriados_uruguay(anio)
     fer = {date(anio, m, d): nombre for (m, d), nombre in fijos.items()}
     pascua = _pascua(anio)
-    fer[pascua - timedelta(days=3)] = "Jueves Santo"
-    fer[pascua - timedelta(days=2)] = "Viernes Santo"
+    if pais.upper() == "BR":
+        fer[pascua - timedelta(days=3)] = "Quinta-feira Santa"
+        fer[pascua - timedelta(days=2)] = "Sexta-feira Santa"
+    else:
+        fer[pascua - timedelta(days=3)] = "Jueves Santo"
+        fer[pascua - timedelta(days=2)] = "Viernes Santo"
     return fer
 
 

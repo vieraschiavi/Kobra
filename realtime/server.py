@@ -58,7 +58,8 @@ def icono():
 @app.get("/health")
 def health():
     return {"ok": True, "whisper": bool(os.getenv("OPENAI_API_KEY")),
-            "claude": bool(os.getenv("ANTHROPIC_API_KEY"))}
+            "claude": bool(os.getenv("ANTHROPIC_API_KEY")),
+            "idioma": copiloto.idioma_configurado()}
 
 
 @app.post("/transcribe")
@@ -67,7 +68,7 @@ async def transcribe(audio: UploadFile = File(...)):
     tmp = os.path.join("/tmp", audio.filename or "chunk.webm")
     with open(tmp, "wb") as f:
         f.write(await audio.read())
-    texto = copiloto.transcribir_audio(tmp)
+    texto = copiloto.transcribir_audio(tmp, idioma=copiloto.idioma_configurado())
     try:
         os.remove(tmp)
     except OSError:
@@ -125,7 +126,7 @@ def copiloto_demo():
         with open(txt_path, encoding="utf-8") as f:
             conv = copiloto.parsear_conversacion(f.read(), nombre_gestor="Gestor")
         tt = [{"emisor": t.emisor, "texto": t.texto} for t in conv.turnos]
-    return voz.copiloto_desde_audio(wav, transcript_turnos=tt)
+    return voz.copiloto_desde_audio(wav, transcript_turnos=tt, idioma=copiloto.idioma_configurado())
 
 
 @app.post("/copiloto_audio")
@@ -143,7 +144,7 @@ async def copiloto_audio(audio: UploadFile = File(...), transcript: str = Form("
         conv = copiloto.parsear_conversacion(transcript, nombre_gestor="Gestor")
         tt = [{"emisor": t.emisor, "texto": t.texto} for t in conv.turnos]
     try:
-        return voz.copiloto_desde_audio(tmp, transcript_turnos=tt)
+        return voz.copiloto_desde_audio(tmp, transcript_turnos=tt, idioma=copiloto.idioma_configurado())
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     finally:
@@ -181,7 +182,7 @@ async def ws(sock: WebSocket):
             res = copiloto.analizar_conversacion(
                 "\n".join(turnos), canal="llamada",
                 probpago=probpago, estrategia=estrategia,
-                nombre_gestor="Gestor")
+                nombre_gestor="Gestor", idioma=copiloto.idioma_configurado())
             cop = res["copiloto"]
             ult = cop["sentimientos_turnos"][-1] if cop["sentimientos_turnos"] else {}
             await sock.send_json({
