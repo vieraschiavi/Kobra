@@ -3,8 +3,19 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { api, fmtPct, fmtUYU, getPais } from "../api.js";
+import { api, fmtPct, fmtUYU, getPais, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
+
+async function descargarInforme() {
+  const ses = getSesion();
+  const r = await fetch("/api/informe/ejecutivo.pdf",
+                        { headers: { Authorization: `Bearer ${ses.token}` } });
+  const blob = await r.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "informe_ejecutivo.pdf";
+  a.click();
+}
 
 const VERDE = "#00c896", LIMA = "#7cc242", AMBAR = "#f2b441", ROJO = "#ff7675",
       AZUL = "#6c8cd5", GRIS = "#24344f", TINTA = "#93a5c0";
@@ -41,8 +52,15 @@ export default function Dashboard() {
 
   return (
     <>
-      <h1 className="page-title">{t("dashboard.titulo")}</h1>
-      <p className="page-sub">{t("dashboard.subtitulo")}</p>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+        <div>
+          <h1 className="page-title">{t("dashboard.titulo")}</h1>
+          <p className="page-sub">{t("dashboard.subtitulo")}</p>
+        </div>
+        <button className="btn ghost" style={{ flexShrink: 0 }} onClick={descargarInforme}>
+          {t("dashboard.boton_informe")}
+        </button>
+      </div>
 
       <div className="kpi-grid">
         <Kpi label={t("dashboard.kpi.deudores")} value={kpis.deudores.toLocaleString(getPais().locale)} />

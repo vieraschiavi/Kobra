@@ -45,6 +45,7 @@ from kobra import autenticacion as kauth           # noqa: E402
 from kobra import ayuda as kayuda                  # noqa: E402
 from kobra import cartera_manual as kcartera       # noqa: E402
 from kobra import config as kconfig                # noqa: E402
+from kobra import informe_ejecutivo as kinforme    # noqa: E402
 from kobra import paises as kpaises                # noqa: E402
 from kobra import registro as kregistro            # noqa: E402
 from kobra import seguimiento as kseg              # noqa: E402
@@ -264,6 +265,21 @@ def cartera_export(u: Usuario = Depends(usuario_actual), segmento: str | None = 
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition":
                              "attachment; filename=cartera_priorizada.csv"})
+
+
+@app.get("/api/informe/ejecutivo.pdf")
+def informe_ejecutivo(u: Usuario = Depends(usuario_actual)):
+    """Informe ejecutivo de cartera en PDF, con un clic — lo que el gerente
+    de cobranzas lleva a su directorio. Idioma y moneda según el país del
+    tenant; la empresa "principal" (datos del repo) lleva el disclaimer de
+    demo sintética."""
+    pdf = kinforme.generar_pdf(
+        _scored(u.empresa), _gestiones(u.empresa), empresa=u.empresa,
+        codigo_pais=_pais_de(u.empresa),
+        datos_demo=(u.empresa == EMPRESA_DEFAULT))
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition":
+                             "attachment; filename=informe_ejecutivo.pdf"})
 
 
 @app.get("/api/deudor/{id_deudor}")

@@ -38,6 +38,7 @@
   "dashboard": {
     "titulo": "Visión general",
     "subtitulo": "Tu cartera completa, priorizada por el modelo ProbPago — los mismos números que el pipeline, en tiempo real.",
+    "boton_informe": "📄 Informe ejecutivo (PDF)",
     "kpi": {
       "deudores": "Deudores",
       "cartera_label": "Cartera ({{moneda}})",
