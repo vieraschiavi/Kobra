@@ -25,6 +25,11 @@ import os
 
 COSTO_POR_1000_CHARS_USD = 0.18  # referencia de mercado, ver docstring — ajustar a tu plan real
 MODELO_DEFAULT = "eleven_multilingual_v2"   # soporta español/inglés/portugués y más
+# Para LLAMADAS en vivo usar el modelo flash: ~75 ms de inferencia (el
+# multilingual v2 tarda cientos de ms por frase = "lag" audible en la
+# conversación) y cuesta la mitad de créditos por carácter. Calidad apenas
+# menor, imperceptible por teléfono (el audio va en 8 kHz igual).
+MODELO_LLAMADAS = "eleven_flash_v2_5"
 _BASE_URL = "https://api.elevenlabs.io/v1"
 
 

@@ -21,3 +21,4 @@ PyJWT>=2.7
 httpx2>=2.0
 portalocker>=2.8
 apscheduler>=3.10
+fpdf2>=2.7

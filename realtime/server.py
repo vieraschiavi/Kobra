@@ -319,9 +319,23 @@ from fastapi import Request                              # noqa: E402
 from fastapi.responses import Response, HTMLResponse    # noqa: E402
 
 _SESIONES_VOZ: dict = {}
-_TTS_VOICE = os.getenv("TWILIO_TTS_VOICE", "")          # ej. "Polly.Mia-Neural"
-_LANG_TTS = os.getenv("TWILIO_TTS_LANG", "es-MX")
-_LANG_ASR = os.getenv("TWILIO_ASR_LANG", "es-MX")
+# Voz por defecto: Polly Lupe (neural, es-US) — la voz latina más natural
+# incluida vía Twilio. Sin TWILIO_TTS_VOICE, Twilio usaba su voz estándar
+# (robótica y con dejo peninsular), que es lo primero que un cliente
+# rioplatense nota mal. OJO: no existe NINGUNA voz Polly rioplatense — el
+# acento rioplatense real es la voz premium ElevenLabs (elegirla en
+# ⚙️ Configuración). Las voces -Neural tienen un pequeño costo por carácter
+# en Twilio (verificar el pricing de <Say> del plan).
+# Prioridad: variable de entorno > lo elegido en ⚙️ Configuración > default.
+# kconfig.aplicar() solo exporta valores no vacíos, así que "voz estándar"
+# (guardada como "") se lee del extra, no del entorno.
+_TTS_VOICE = os.getenv("TWILIO_TTS_VOICE",
+                       kconfig.leer_extra("TWILIO_TTS_VOICE", "Polly.Lupe-Neural"))
+_LANG_TTS = os.getenv("TWILIO_TTS_LANG",
+                      kconfig.leer_extra("TWILIO_TTS_LANG", "es-US"))  # debe corresponder a la voz
+# Reconocimiento del deudor en es-UY: entiende "vos", "plata", modismos
+# locales mejor que es-MX (Twilio soporta los locales es-* de Google STT).
+_LANG_ASR = os.getenv("TWILIO_ASR_LANG", "es-UY")
 
 # --- Voz premium opcional (ElevenLabs) ---------------------------------
 # Se activa con ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID configurados. Si
@@ -330,6 +344,10 @@ _TTS_PROVIDER = os.getenv("TTS_PROVIDER", "twilio")     # "twilio" | "elevenlabs
 _ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "")
 _AUDIO_CACHE_MAX = 200
 _AUDIO_CACHE: "OrderedDict[str, bytes]" = OrderedDict()   # token -> audio mp3
+# Frases repetidas (saludos, "no le entendí", despedidas) no se vuelven a
+# sintetizar: hash del texto -> token ya cacheado. Ahorra la latencia de
+# ElevenLabs Y el costo por carácter en cada frase repetida.
+_TTS_TEXT_CACHE: "OrderedDict[str, str]" = OrderedDict()  # md5(voz+texto) -> token
 
 
 def _cachear_audio(audio: bytes) -> str:
@@ -342,9 +360,19 @@ def _cachear_audio(audio: bytes) -> str:
 
 def _say(texto: str, request: "Request | None" = None) -> str:
     if _TTS_PROVIDER == "elevenlabs" and _ELEVENLABS_VOICE_ID and request is not None:
-        r = voz_tts.sintetizar(texto, _ELEVENLABS_VOICE_ID)
+        import hashlib
+        clave = hashlib.md5(f"{_ELEVENLABS_VOICE_ID}|{texto}".encode()).hexdigest()
+        token = _TTS_TEXT_CACHE.get(clave)
+        if token and token in _AUDIO_CACHE:
+            return f'<Play>{_public_base(request)}/voz/audio/{token}.mp3</Play>'
+        # Modelo flash (~75 ms) en vez de multilingual v2 (cientos de ms):
+        # es la diferencia entre una conversación fluida y una con "lag".
+        r = voz_tts.sintetizar(texto, _ELEVENLABS_VOICE_ID, modelo=voz_tts.MODELO_LLAMADAS)
         if r["ok"]:
             token = _cachear_audio(r["audio"])
+            _TTS_TEXT_CACHE[clave] = token
+            while len(_TTS_TEXT_CACHE) > _AUDIO_CACHE_MAX:
+                _TTS_TEXT_CACHE.popitem(last=False)
             kauditoria.registrar("tts_elevenlabs", {
                 "caracteres": r["caracteres"], "costo_est_usd": r["costo_est_usd"]})
             base = _public_base(request)

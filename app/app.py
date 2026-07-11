@@ -1336,11 +1336,41 @@ with tab7:
                         st.error(f"No se pudo configurar: {_r_webhook['detalle']}")
 
         st.markdown("---")
-        st.subheader("🎙️ Voz premium (ElevenLabs)")
-        st.caption("Opcional. Sin configurar, las llamadas siguen usando Twilio/Polly "
-                   "(incluido, sin costo extra). Con `ELEVENLABS_API_KEY` cargada acá arriba, "
-                   "podés elegir una voz clonada/premium — **tiene costo real por carácter** "
-                   "(ver `kobra/voz_tts.py`), así que queda desactivado hasta que elijas una voz.")
+        st.subheader("🗣️ Voz de las llamadas (Twilio/Polly)")
+        st.caption("Voz con la que habla el Gestor IA por teléfono cuando NO hay voz premium "
+                   "configurada. Ninguna voz de Polly es rioplatense de verdad — estas son las "
+                   "más naturales y latinas del catálogo incluido; para acento rioplatense real, "
+                   "configurá la voz premium de abajo. Las voces *neural* tienen un costo chico "
+                   "por carácter en Twilio (ver el pricing de `<Say>` de tu cuenta).")
+        _VOCES_TWILIO = {
+            "Lupe · neural, latina neutra (es-US) — recomendada": ("Polly.Lupe-Neural", "es-US"),
+            "Pedro · neural, masculino latino (es-US)": ("Polly.Pedro-Neural", "es-US"),
+            "Mia · neural, mexicana (es-MX)": ("Polly.Mia-Neural", "es-MX"),
+            "Andrés · neural, mexicano (es-MX)": ("Polly.Andres-Neural", "es-MX"),
+            "Voz estándar de Twilio (robótica, sin costo extra)": ("", "es-MX"),
+        }
+        _voz_actual = kconfig.leer_extra("TWILIO_TTS_VOICE", "Polly.Lupe-Neural")
+        _idx_voz = next((i for i, (v, _l) in enumerate(_VOCES_TWILIO.values())
+                        if v == _voz_actual), 0)
+        _voz_elegida = st.selectbox("Voz del Gestor IA en llamadas",
+                                    list(_VOCES_TWILIO.keys()), index=_idx_voz)
+        if st.button("💾 Guardar voz de Twilio"):
+            _v, _l = _VOCES_TWILIO[_voz_elegida]
+            kconfig.guardar_extra("TWILIO_TTS_VOICE", _v)
+            kconfig.guardar_extra("TWILIO_TTS_LANG", _l)
+            kauditoria.registrar("voz_twilio_configurada", {"voz": _v or "default"}, rol=ROL_ACTIVO)
+            st.success("✅ Guardado. Se aplica en el próximo arranque de `realtime/server.py`.")
+
+        st.markdown("---")
+        st.subheader("🎙️ Voz premium (ElevenLabs) — acento rioplatense real")
+        st.caption("Opcional. Sin configurar, las llamadas usan la voz de Twilio/Polly de arriba. "
+                   "Con `ELEVENLABS_API_KEY` cargada acá arriba, podés elegir una voz "
+                   "clonada/premium — **tiene costo real por carácter** (ver `kobra/voz_tts.py`), "
+                   "así que queda desactivado hasta que elijas una voz. Para que suene "
+                   "**rioplatense de verdad**: en elevenlabs.io → *Voice Library*, buscá "
+                   "«Argentine» o «Rioplatense», agregá la voz a tu cuenta y elegila acá. "
+                   "En llamadas se usa el modelo *flash* (baja latencia, mitad de costo) para "
+                   "que la conversación fluya sin pausas.")
         _eleven_key = kconfig.cargar().get("ELEVENLABS_API_KEY", "")
         if not _eleven_key:
             st.info("Cargá `ELEVENLABS_API_KEY` arriba y guardá para ver las voces disponibles.")

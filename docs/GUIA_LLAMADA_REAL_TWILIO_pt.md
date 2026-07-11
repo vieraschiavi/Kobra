@@ -88,11 +88,18 @@ ngrok http 8000                  # te dá https://XXXX.ngrok-free.app
 
 ---
 
-## Voz mais natural (opcional)
-Por padrão, usa a voz padrão da Twilio em `es-MX`. Para uma voz neural
-(Amazon Polly), defina a variável `TWILIO_TTS_VOICE`, por exemplo
-`Polly.Mia-Neural` (verifique se sua conta tem essa voz habilitada). Você
-também pode ajustar `TWILIO_TTS_LANG` / `TWILIO_ASR_LANG`.
+## Voz mais natural / sotaque regional
+Por padrão fala com **Polly Lupe (neural, es-US)** — a voz latina mais
+natural incluída via Twilio — e **escuta em `es-UY`**. A voz é configurável
+no dashboard → **⚙️ Configuração → 🗣️ Voz das ligações**, ou pelas variáveis
+`TWILIO_TTS_VOICE` / `TWILIO_TTS_LANG` / `TWILIO_ASR_LANG` (para o Brasil,
+defina `TWILIO_TTS_LANG`/`TWILIO_ASR_LANG` como `pt-BR` e uma voz como
+`Polly.Camila-Neural`). As vozes *neural* têm um pequeno custo por caractere
+na Twilio. Para um sotaque regional realmente natural, configure a **voz
+premium ElevenLabs** na mesma aba (na *Voice Library* do elevenlabs.io há
+vozes brasileiras e rioplatenses); nas ligações usa-se o modelo *flash* de
+baixa latência e as frases repetidas ficam em cache — a conversa flui sem
+pausas.
 
 ## Custos aproximados (verifique as tarifas vigentes)
 - **Trial**: crédito grátis para os primeiros testes.
