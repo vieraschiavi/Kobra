@@ -94,7 +94,8 @@ tbody tr.norow:hover { background: none; cursor: default; }
 
 /* ---- controls ---- */
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; align-items: center; }
-select, input[type="text"], input[type="password"], textarea {
+select, input[type="text"], input[type="password"], input[type="number"],
+input[type="email"], textarea {
   background: var(--navy-800); color: var(--ink); border: 1px solid var(--line);
   border-radius: 9px; padding: 9px 12px; font-size: 13.5px; font-family: inherit;
   outline: none;

@@ -16,6 +16,7 @@
       "agenda": "Agenda de hoy",
       "gestores": "Gestores",
       "asistente": "Asistente IA",
+      "roi": "Calculadora ROI",
       "configuracion": "Configuración"
     },
     "sidebar": {
@@ -225,5 +226,46 @@
     "error": {
       "sesion_vencida": "Sesión vencida — iniciá sesión de nuevo."
     }
+  },
+  "roi": {
+    "titulo": "Calculadora de ROI",
+    "subtitulo": "Estimá cuánto recupero adicional genera MV Kobra AI sobre tu cartera. La mejora es un supuesto editable — el número real se valida en un piloto con tu cartera, no acá.",
+    "in": {
+      "cartera": "Cartera total en mora ({{moneda}})",
+      "recupero_actual": "Recupero anual actual (% de la cartera)",
+      "costo": "Costo anual de MV Kobra AI ({{moneda}})",
+      "costo_placeholder": "ej.: plan Pro × 12 meses, en tu moneda",
+      "mejora": "Mejora estimada del recupero (supuesto editable)"
+    },
+    "supuesto": "⚠ La mejora es un supuesto para simular, no una promesa: el número honesto sale de un piloto midiendo con vs. sin la herramienta sobre tu cartera real.",
+    "res": {
+      "recupero_hoy": "Recupero actual estimado",
+      "por_anio": "por año",
+      "adicional": "Recupero adicional / año",
+      "roi": "ROI (adicional / costo)",
+      "repago": "Repago del costo",
+      "meses": "{{n}} meses"
+    },
+    "esc": {
+      "conservador": "Escenario conservador ({{pct}}%)",
+      "medio": "Escenario medio ({{pct}}%)"
+    }
+  },
+  "informe_email": {
+    "titulo": "📬 Informe semanal por email",
+    "subtitulo": "Todos los lunes a la mañana, el Informe Ejecutivo en PDF llega solo a la casilla que elijas (usa tu SMTP corporativo, ya configurado en claves). Requiere el servicio de tiempo real corriendo 24/7, igual que la campaña automática.",
+    "activo": "Envío semanal activo",
+    "destino_placeholder": "email de destino (ej.: gerencia@tuempresa.com)",
+    "guardar": "💾 Guardar",
+    "enviar_ahora": "✉️ Enviar ahora (prueba)",
+    "guardado": "✅ Guardado.",
+    "enviado": "✅ Informe enviado a ",
+    "smtp_falta": "⚠ Falta configurar el SMTP corporativo (claves SMTP_*) para que el envío funcione."
+  },
+  "alta_tenant": {
+    "titulo": "🏢 Crear empresa de demostración",
+    "subtitulo": "Crea una empresa nueva con una muestra de datos sintéticos, lista para entrar (misma contraseña + el nombre de empresa en el login). Ideal para darle una prueba aislada a un prospecto.",
+    "placeholder": "nombre de la empresa (ej.: acme)",
+    "boton": "➕ Crear empresa demo"
   }
 }
