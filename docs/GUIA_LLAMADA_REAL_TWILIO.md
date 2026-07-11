@@ -83,11 +83,21 @@ ngrok http 8000                  # te da https://XXXX.ngrok-free.app
 
 ---
 
-## Voz más natural (opcional)
-Por defecto usa la voz estándar de Twilio en `es-MX`. Para una voz neuronal
-(Amazon Polly), seteá la variable `TWILIO_TTS_VOICE`, por ejemplo
-`Polly.Mia-Neural` (revisá que tu cuenta la tenga habilitada). También podés
-ajustar `TWILIO_TTS_LANG` / `TWILIO_ASR_LANG`.
+## Voz más natural / rioplatense
+Por defecto habla con **Polly Lupe (neural, es-US)** — la voz latina más
+natural incluida vía Twilio — y **escucha en `es-UY`** (entiende mejor el
+habla rioplatense del deudor). La voz se cambia desde el dashboard →
+**⚙️ Configuración → 🗣️ Voz de las llamadas**, o con las variables
+`TWILIO_TTS_VOICE` / `TWILIO_TTS_LANG` / `TWILIO_ASR_LANG`. Las voces
+*neural* tienen un costo chico por carácter en Twilio (pricing de `<Say>`).
+
+**Importante**: ninguna voz del catálogo de Polly es rioplatense de verdad
+(no existen voces es-AR/es-UY en Polly). Para acento rioplatense natural,
+configurá la **voz premium ElevenLabs** en la misma pestaña: en
+elevenlabs.io → *Voice Library* buscá «Argentine» o «Rioplatense», agregá
+la voz a tu cuenta y elegila en el selector. En llamadas se usa el modelo
+*flash* de baja latencia (y las frases repetidas se cachean), así la
+conversación fluye sin pausas.
 
 ## Costos aproximados (verificá tarifas vigentes)
 - **Trial**: crédito gratis para las primeras pruebas.
