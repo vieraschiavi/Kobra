@@ -10,6 +10,7 @@ import Cartera from "./pages/Cartera.jsx";
 import Agenda from "./pages/Agenda.jsx";
 import Gestores from "./pages/Gestores.jsx";
 import Asistente from "./pages/Asistente.jsx";
+import Roi from "./pages/Roi.jsx";
 import Configuracion from "./pages/Configuracion.jsx";
 
 const NAV = [
@@ -19,6 +20,7 @@ const NAV = [
   { ruta: "/agenda", ico: "📅", clave: "app.nav.agenda" },
   { ruta: "/gestores", ico: "📇", clave: "app.nav.gestores" },
   { ruta: "/asistente", ico: "🤖", clave: "app.nav.asistente" },
+  { ruta: "/roi", ico: "📈", clave: "app.nav.roi" },
   { ruta: "/configuracion", ico: "⚙️", clave: "app.nav.configuracion", admin: true },
 ];
 
@@ -112,6 +114,7 @@ export default function App() {
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/gestores" element={<Gestores />} />
           <Route path="/asistente" element={<Asistente />} />
+          <Route path="/roi" element={<Roi />} />
           <Route path="/configuracion" element={<Configuracion />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

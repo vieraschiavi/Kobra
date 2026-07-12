@@ -81,3 +81,91 @@ def test_api_informe_ejecutivo_pdf(cliente):
     assert resp.content.startswith(b"%PDF")
     # sin token → 401
     assert cliente.get("/api/informe/ejecutivo.pdf").status_code == 401
+
+
+def test_informe_email_sin_smtp_falla_claro(monkeypatch):
+    for k in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"):
+        monkeypatch.delenv(k, raising=False)
+    r = kinforme.enviar_por_email("a@b.com", _scored_demo(), None,
+                                  empresa="principal")
+    assert not r["ok"] and "SMTP" in r["detalle"]
+
+
+def test_informe_email_envia_con_smtp_mockeado(monkeypatch):
+    import smtplib
+
+    monkeypatch.setenv("SMTP_HOST", "smtp.test")
+    monkeypatch.setenv("SMTP_USER", "user@test")
+    monkeypatch.setenv("SMTP_PASSWORD", "secreto")
+    monkeypatch.setenv("SMTP_FROM", "cobranzas@test")
+
+    enviados = {}
+
+    class FakeSMTP:
+        def __init__(self, host, port, timeout=None):
+            enviados["host"] = host
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def starttls(self):
+            pass
+        def login(self, u, p):
+            enviados["login"] = u
+        def sendmail(self, de, para, cuerpo):
+            enviados["para"] = para
+            enviados["tiene_pdf"] = "application/pdf" in cuerpo
+    monkeypatch.setattr(smtplib, "SMTP", FakeSMTP)
+
+    r = kinforme.enviar_por_email("gerente@empresa.com", _scored_demo(), None,
+                                  empresa="principal", codigo_pais="UY")
+    assert r["ok"], r["detalle"]
+    assert enviados["para"] == ["gerente@empresa.com"]
+    assert enviados["tiene_pdf"]
+
+
+def _h_admin(cliente):
+    r = cliente.post("/api/auth/login", json={"password": "AdminTest123!"})
+    return {"Authorization": f"Bearer {r.json()['token']}"}
+
+
+def test_api_informe_programacion(cliente):
+    h = _h_admin(cliente)
+    d = cliente.get("/api/informe/programacion", headers=h).json()
+    assert d["activo"] is False and d["destino"] == ""
+    # activar sin email válido → 400
+    r = cliente.post("/api/informe/programacion",
+                     json={"activo": True, "destino": "no-es-email"}, headers=h)
+    assert r.status_code == 400
+    # activar bien → persiste
+    r = cliente.post("/api/informe/programacion",
+                     json={"activo": True, "destino": "gerente@empresa.com"}, headers=h)
+    assert r.status_code == 200
+    d2 = cliente.get("/api/informe/programacion", headers=h).json()
+    assert d2["activo"] is True and d2["destino"] == "gerente@empresa.com"
+
+
+def test_api_tenant_alta_y_aislamiento(cliente):
+    import shutil
+    h = _h_admin(cliente)
+    try:
+        r = cliente.post("/api/tenant/alta", json={"empresa": "Demo Prospecto!"}, headers=h)
+        assert r.status_code == 200
+        d = r.json()
+        assert d["empresa"] == "demo-prospecto" and d["deudores"] == 2000
+        # la empresa nueva ya tiene cartera propia consultable
+        r2 = cliente.post("/api/auth/login",
+                          json={"password": "AdminTest123!", "empresa": "demo-prospecto"})
+        h2 = {"Authorization": f"Bearer {r2.json()['token']}"}
+        k = cliente.get("/api/kpis", headers=h2).json()
+        assert k["deudores"] == 2000
+        # nombre repetido → 409 · nombre reservado → 400 · corto → 400
+        assert cliente.post("/api/tenant/alta", json={"empresa": "demo-prospecto"},
+                            headers=h).status_code == 409
+        assert cliente.post("/api/tenant/alta", json={"empresa": "principal"},
+                            headers=h).status_code == 400
+        assert cliente.post("/api/tenant/alta", json={"empresa": "ab"},
+                            headers=h).status_code == 400
+    finally:
+        shutil.rmtree(os.path.join(ROOT, "data", "tenants", "demo-prospecto"),
+                      ignore_errors=True)

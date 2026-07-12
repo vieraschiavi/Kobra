@@ -19,6 +19,7 @@ Diseño:
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime
 
 import pandas as pd
@@ -277,3 +278,69 @@ def _fila_tabla(pdf, ancho: float, celdas: list[str], encabezado: bool = False,
     pdf.ln(7)
     pdf.set_draw_color(*_LINEA)
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.l_margin + ancho, pdf.get_y())
+
+
+# ---------------------------------------------------------------------------
+# Envío por email (SMTP corporativo del cliente — mismo criterio que campana)
+# ---------------------------------------------------------------------------
+_TXT_EMAIL = {
+    "es": {
+        "asunto": "Informe Ejecutivo de Cartera — {empresa} — {fecha}",
+        "cuerpo": ("Hola,\n\nAdjunto el Informe Ejecutivo de Cartera generado "
+                   "automáticamente por MV Kobra AI.\n\nSaludos,\nMV Kobra AI"),
+    },
+    "pt": {
+        "asunto": "Relatório Executivo de Carteira — {empresa} — {fecha}",
+        "cuerpo": ("Olá,\n\nSegue em anexo o Relatório Executivo de Carteira "
+                   "gerado automaticamente pela MV Kobra AI.\n\nAtenciosamente,\nMV Kobra AI"),
+    },
+}
+
+
+def enviar_por_email(destino: str, scored: pd.DataFrame,
+                     gestiones: pd.DataFrame | None, empresa: str,
+                     codigo_pais: str = "UY", datos_demo: bool = True,
+                     timeout: int = 30) -> dict:
+    """Genera el informe y lo manda como adjunto vía el SMTP corporativo del
+    cliente (SMTP_HOST/USER/PASSWORD/FROM, mismas claves que la campaña).
+    Devuelve {"ok": bool, "detalle": str|None} — nunca levanta excepción,
+    para que el scheduler no muera por un SMTP caído."""
+    import smtplib
+    from email.mime.application import MIMEApplication
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT") or 587)
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    from_email = os.getenv("SMTP_FROM") or smtp_user
+    if not (smtp_host and smtp_user and smtp_password and from_email and destino):
+        return {"ok": False,
+                "detalle": ("Falta configurar el SMTP corporativo (SMTP_HOST/"
+                            "SMTP_USER/SMTP_PASSWORD/SMTP_FROM) o el email de destino.")}
+
+    try:
+        pdf = generar_pdf(scored, gestiones, empresa=empresa,
+                          codigo_pais=codigo_pais, datos_demo=datos_demo)
+        idioma = kpaises.obtener(codigo_pais).idioma
+        te = _TXT_EMAIL.get(idioma, _TXT_EMAIL["es"])
+        fecha = datetime.now().strftime("%d/%m/%Y")
+
+        msg = MIMEMultipart()
+        msg["Subject"] = te["asunto"].format(empresa=empresa, fecha=fecha)
+        msg["From"] = from_email
+        msg["To"] = destino
+        msg.attach(MIMEText(te["cuerpo"], "plain", "utf-8"))
+        adj = MIMEApplication(pdf, _subtype="pdf")
+        adj.add_header("Content-Disposition", "attachment",
+                       filename="informe_ejecutivo.pdf")
+        msg.attach(adj)
+
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=timeout) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(from_email, [destino], msg.as_string())
+        return {"ok": True, "detalle": None}
+    except Exception as e:
+        return {"ok": False, "detalle": str(e)[:300]}

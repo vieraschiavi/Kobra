@@ -636,11 +636,49 @@ def _job_campana():
     campana.ejecutar_plan(plan, base_url, telefonos, emails)
 
 
+def _job_informe_semanal():
+    """Manda el Informe Ejecutivo en PDF por email (lunes de mañana). Se
+    activa desde ⚙️ Configuración de la webapp (INFORME_EMAIL_ACTIVO +
+    INFORME_EMAIL_DESTINO); usa el SMTP corporativo ya configurado."""
+    if not kconfig.leer_extra("INFORME_EMAIL_ACTIVO"):
+        return
+    destino = (kconfig.leer_extra("INFORME_EMAIL_DESTINO", "") or "").strip()
+    scored_csv = os.path.join(ROOT, "outputs", "kobra_scored.csv")
+    if not destino or not os.path.exists(scored_csv):
+        return
+    import pandas as pd
+    from kobra import informe_ejecutivo as kinforme
+    from kobra import paises as kpaises_mod
+    scored = pd.read_csv(scored_csv)
+    gestiones_csv = os.path.join(ROOT, "data", "kobra_gestiones.csv")
+    gestiones = pd.read_csv(gestiones_csv) if os.path.exists(gestiones_csv) else None
+    pais_json = os.path.join(ROOT, "data", "pais.json")
+    codigo = kpaises_mod.PAIS_DEFAULT
+    if os.path.exists(pais_json):
+        import json as _json
+        try:
+            with open(pais_json, encoding="utf-8") as f:
+                codigo = _json.load(f).get("codigo", codigo)
+        except (OSError, ValueError):
+            pass
+    r = kinforme.enviar_por_email(destino, scored, gestiones,
+                                  empresa="principal", codigo_pais=codigo)
+    kauditoria.registrar("informe_semanal_enviado" if r["ok"] else "informe_semanal_error",
+                        {"destino": destino, "detalle": r["detalle"]})
+
+
+# Día/hora del envío semanal (default: lunes 08:00 hora del servidor).
+INFORME_EMAIL_DIA = os.getenv("INFORME_EMAIL_DIA", "mon")
+INFORME_EMAIL_HORA = int(os.getenv("INFORME_EMAIL_HORA", "8"))
+
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
     _scheduler = BackgroundScheduler()
     _scheduler.add_job(_job_campana, "interval", minutes=CAMPANA_INTERVALO_MIN,
                        id="campana_automatica")
+    _scheduler.add_job(_job_informe_semanal, "cron",
+                       day_of_week=INFORME_EMAIL_DIA, hour=INFORME_EMAIL_HORA,
+                       id="informe_semanal")
     _scheduler.start()
     import atexit
     atexit.register(lambda: _scheduler.shutdown(wait=False))

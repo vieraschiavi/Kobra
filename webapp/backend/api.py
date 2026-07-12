@@ -282,6 +282,81 @@ def informe_ejecutivo(u: Usuario = Depends(usuario_actual)):
                              "attachment; filename=informe_ejecutivo.pdf"})
 
 
+# ---------------------------------------------------------------------------
+# Informe semanal por email (el scheduler vive en realtime/server.py —
+# requiere ese proceso corriendo 24/7, igual que la campaña automática)
+# ---------------------------------------------------------------------------
+@app.get("/api/informe/programacion")
+def informe_programacion(u: Usuario = Depends(solo_admin)):
+    return {"activo": bool(kconfig.leer_extra("INFORME_EMAIL_ACTIVO")),
+            "destino": kconfig.leer_extra("INFORME_EMAIL_DESTINO", "") or "",
+            "smtp_configurado": bool(os.getenv("SMTP_HOST") and os.getenv("SMTP_USER"))}
+
+
+class ProgramacionIn(BaseModel):
+    activo: bool
+    destino: str = ""
+
+
+@app.post("/api/informe/programacion")
+def informe_programacion_guardar(datos: ProgramacionIn, u: Usuario = Depends(solo_admin)):
+    destino = datos.destino.strip()
+    if datos.activo and ("@" not in destino or "." not in destino.split("@")[-1]):
+        raise HTTPException(400, "Ingresá un email de destino válido para activar el envío.")
+    kconfig.guardar_extra("INFORME_EMAIL_ACTIVO", datos.activo)
+    kconfig.guardar_extra("INFORME_EMAIL_DESTINO", destino)
+    return {"activo": datos.activo, "destino": destino}
+
+
+@app.post("/api/informe/enviar-ahora")
+def informe_enviar_ahora(u: Usuario = Depends(solo_admin)):
+    """Envío inmediato de prueba (valida el SMTP sin esperar al lunes)."""
+    destino = (kconfig.leer_extra("INFORME_EMAIL_DESTINO", "") or "").strip()
+    if not destino:
+        raise HTTPException(400, "Configurá primero el email de destino y guardá.")
+    r = kinforme.enviar_por_email(
+        destino, _scored(u.empresa), _gestiones(u.empresa), empresa=u.empresa,
+        codigo_pais=_pais_de(u.empresa),
+        datos_demo=(u.empresa == EMPRESA_DEFAULT))
+    if not r["ok"]:
+        raise HTTPException(502, r["detalle"])
+    return {"enviado": True, "destino": destino}
+
+
+# ---------------------------------------------------------------------------
+# Alta autoservicio de empresa (tenant) con datos de demostración
+# ---------------------------------------------------------------------------
+class AltaTenantIn(BaseModel):
+    empresa: str
+
+
+@app.post("/api/tenant/alta")
+def tenant_alta(datos: AltaTenantIn, u: Usuario = Depends(solo_admin)):
+    """Crea una empresa nueva con una muestra sintética de la demo, lista
+    para entrar (login con la misma contraseña + nombre de empresa). Cierra
+    el aprovisionamiento manual que quedaba documentado como pendiente."""
+    import re as _re
+    slug = _re.sub(r"[^a-z0-9-]", "-", datos.empresa.strip().lower())[:40].strip("-")
+    if len(slug) < 3:
+        raise HTTPException(400, "El nombre de empresa debe tener al menos 3 caracteres (letras/números).")
+    if slug == EMPRESA_DEFAULT:
+        raise HTTPException(400, "Ese nombre está reservado.")
+    destino = _dir_tenant(slug)
+    if os.path.exists(destino):
+        raise HTTPException(409, f"La empresa '{slug}' ya existe.")
+
+    scored = _scored(EMPRESA_DEFAULT).sample(n=2000, random_state=42)
+    os.makedirs(destino, exist_ok=True)
+    scored.to_csv(os.path.join(destino, "kobra_scored.csv"), index=False)
+    g = _gestiones(EMPRESA_DEFAULT)
+    if g is not None and "id_deudor" in g.columns:
+        g[g["id_deudor"].isin(set(scored["id_deudor"]))].to_csv(
+            os.path.join(destino, "kobra_gestiones.csv"), index=False)
+    return {"empresa": slug, "deudores": int(len(scored)),
+            "mensaje": (f"Empresa '{slug}' creada con datos de demostración. "
+                        "Cerrá sesión y entrá con ese nombre de empresa.")}
+
+
 @app.get("/api/deudor/{id_deudor}")
 def deudor(id_deudor: str, u: Usuario = Depends(usuario_actual)):
     f = _scored(u.empresa)
