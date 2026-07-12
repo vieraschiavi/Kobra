@@ -144,6 +144,15 @@ nav .wrap{display:flex;align-items:center;gap:16px;height:60px}
 .cform textarea{min-height:118px;resize:vertical;font-weight:400}.cform input{font-weight:400}
 .cform .actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .cform .hint{color:var(--muted-d);font-size:13px}
+.actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hint{color:var(--muted-d);font-size:13px}
+.resenas-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media(max-width:760px){.resenas-grid{grid-template-columns:1fr}}
+.resena{background:var(--tint);border:1px solid var(--line-d);border-radius:14px;padding:18px}
+.resena .estrellas{color:var(--amber2);font-size:14px;letter-spacing:2px;margin-bottom:8px}
+.resena p{color:var(--ink-d);font-size:14px;margin:0 0 10px}
+.resena .autor{color:var(--muted-d);font-size:12px;font-weight:700}
+.resena-vacio{background:var(--tint);border:1px dashed var(--line-d);border-radius:14px;padding:22px;color:var(--muted-d);font-size:14px;max-width:640px}
 
 /* registro / demo 3 días */
 .modal-bg{position:fixed;inset:0;background:rgba(4,10,20,.72);backdrop-filter:blur(4px);z-index:60;
@@ -184,6 +193,7 @@ footer .legal{max-width:74ch;line-height:1.6}
     <a href="#plataforma" data-i="nav2">Cómo funciona</a>
     <a href="#precios" data-i="nav3">Planes</a>
     <a href="#demo" data-i="navd">Demo</a>
+    <a href="#resenas" data-i="navr">Reseñas</a>
     <a href="#contacto" data-i="navc">Contacto</a>
   </div>
   <div class="right">
@@ -329,6 +339,35 @@ footer .legal{max-width:74ch;line-height:1.6}
   <a href="/demo/" class="btn btn-a js-demo" data-i="bandcta">▶ Abrir la demo</a>
 </div></div></section>
 
+<!-- RESEÑAS Y CONFIANZA (white) -->
+<section id="resenas" class="panel"><div class="wrap">
+  <div class="eyebrow" data-i="eyr">Confianza</div>
+  <h2 class="h2" data-i="str">Reseñas y compromisos verificables</h2>
+  <p class="lead-d" data-i="slr">Preferimos mostrarte poco y verdadero antes que mucho e inventado. Estos son los
+  compromisos que podés chequear vos mismo, y las reseñas reales de clientes (todavía no hay ninguna pública).</p>
+
+  <div class="fgrid" style="margin-bottom:34px">
+    <div class="feat"><div class="ic">⚖️</div><h3 data-i="tb1t">Ley 18.331 (Uruguay)</h3>
+      <p data-i="tb1p">El tratamiento de datos personales sigue la ley uruguaya de protección de datos.</p></div>
+    <div class="feat"><div class="ic">🇧🇷</div><h3 data-i="tb2t">Referencia LGPD (Brasil)</h3>
+      <p data-i="tb2p">Para clientes en Brasil, el manejo de datos toma como referencia la LGPD.</p></div>
+    <div class="feat"><div class="ic">🧪</div><h3 data-i="tb3t">Datos de demo 100% sintéticos</h3>
+      <p data-i="tb3p">Todo lo que ves en la demo es generado por el propio programa, no son clientes reales.</p></div>
+    <div class="feat"><div class="ic">🔒</div><h3 data-i="tb4t">Pago directo a tu cuenta</h3>
+      <p data-i="tb4p">Cada cobro (MercadoPago/tarjeta/PayPal) cae directo en la cuenta que vos configurás, nunca pasa
+      por un tercero.</p></div>
+  </div>
+
+  <h3 style="font-size:19px;color:var(--ink-d);margin-bottom:10px" data-i="rsubt">Reseñas de clientes</h3>
+  <div id="resenasList" class="resenas-grid" style="display:none"></div>
+  <div id="resenasVacio" class="resena-vacio"><p style="margin:0" data-i="rvacio">Todavía no tenemos clientes
+    públicos — sé el primero en dejar tu reseña después del piloto.</p></div>
+  <div class="actions" style="margin-top:18px">
+    <button type="button" class="btn btn-o" id="btnDejarResena" data-i="rcta">✍️ Dejar mi reseña</button>
+    <span class="hint" data-i="rhint">Se abre tu correo; la publicamos luego de verificarla.</span>
+  </div>
+</div></section>
+
 <!-- CONTACTO (white) -->
 <section id="contacto" class="panel"><div class="wrap">
   <div class="eyebrow" data-i="eyc">Contacto</div>
@@ -384,7 +423,7 @@ footer .legal{max-width:74ch;line-height:1.6}
 <script>
 var I18N={
   pt:{
-    nav1:"Funcionalidades",nav2:"Como funciona",nav3:"Planos",navd:"Demo",navc:"Contato",navbuy:"Comprar",
+    nav1:"Funcionalidades",nav2:"Como funciona",nav3:"Planos",navd:"Demo",navr:"Avaliações",navc:"Contato",navbuy:"Comprar",
     kick:"IA para cobranças · voz natural",
     h1:'Sua cobrança operando <span class="am">24/7</span>, sem contratar mais gente',
     lead:"A MV Kobra AI é o agente com Inteligência Artificial que liga, negocia por WhatsApp, respeita a lei e envia cada resultado ao seu ERP — enquanto sua equipe foca no que importa.",
@@ -407,13 +446,21 @@ var I18N={
     p3t:"Enterprise",p3w:"Bancos, grandes escritórios, white-label.",p3amt:"Sob medida",p3per:"a partir de US$1.500/mês",p3uyu:"≈ desde $U 60.000/mês · cobrado em pesos uruguaios",p3a:"Usuários ilimitados · SSO",p3b:"Marca própria (white-label)",p3c:"ERP sob medida · SLA",p3d:"Onboarding dedicado",p3cta:"Falar com vendas",
     paylead:"Meios de pagamento:",payb1:"Transferência",paysec:"🔒 Pagamento seguro · o dinheiro cai na sua conta configurada",
     dey:"Demo ao vivo",bandt:"Teste a MV Kobra AI agora mesmo",bandp:"Abra o painel interativo e veja como prioriza a carteira, negocia e registra cada gestão.",bandcta:"▶ Abrir a demo",
+    eyr:"Confiança",str:"Avaliações e compromissos verificáveis",
+    slr:"Preferimos mostrar pouco e verdadeiro a muito e inventado. Estes são os compromissos que você pode conferir você mesmo, e as avaliações reais de clientes (ainda não há nenhuma pública).",
+    tb1t:"Lei 18.331 (Uruguai)",tb1p:"O tratamento de dados pessoais segue a lei uruguaia de proteção de dados.",
+    tb2t:"Referência à LGPD (Brasil)",tb2p:"Para clientes no Brasil, o tratamento de dados toma como referência a LGPD.",
+    tb3t:"Dados de demo 100% sintéticos",tb3p:"Tudo o que você vê na demo é gerado pelo próprio programa, não são clientes reais.",
+    tb4t:"Pagamento direto na sua conta",tb4p:"Cada cobrança (MercadoPago/cartão/PayPal) cai direto na conta que você configura, nunca passa por terceiros.",
+    rsubt:"Avaliações de clientes",rvacio:"Ainda não temos clientes públicos — seja o primeiro a deixar sua avaliação depois do piloto.",
+    rcta:"✍️ Deixar minha avaliação",rhint:"Abre seu e-mail; publicamos depois de verificar.",
     eyc:"Contato",stc:"Caixa de contato",slc:"Tem uma dúvida ou quer uma demo? Preencha o formulário: seu e-mail abre com o assunto e a pergunta prontos para nos enviar a vieraschiavi@gmail.com.",
     cfn:"Nome",cfe:"Seu e-mail",cft:"Telefone",cfa:"Assunto",cfp:"Dúvida / pergunta",cfb:"Enviar consulta",cfh:"Abre seu app de e-mail com a mensagem pronta.",
     regey:"Demo grátis · 3 dias",regt:"Ative sua demo completa",regsub:"Cadastre-se e teste a MV Kobra AI completa por 3 dias. Sem cartão.",regemp:"Empresa",regcta:"Ativar demo de 3 dias",regnote:"Ao se cadastrar, você aceita receber informações da MV Kobra AI.",
     legal:"MV Kobra AI · Cobranças Inteligentes. Plataforma de gestão de cobranças assistida por inteligência artificial. Dados de demonstração 100% sintéticos; as métricas mostradas são ilustrativas."
   },
   en:{
-    nav1:"Features",nav2:"How it works",nav3:"Plans",navd:"Demo",navc:"Contact",navbuy:"Buy",
+    nav1:"Features",nav2:"How it works",nav3:"Plans",navd:"Demo",navr:"Reviews",navc:"Contact",navbuy:"Buy",
     kick:"AI for collections · natural voice",
     h1:'Your collections running <span class="am">24/7</span>, without hiring more people',
     lead:"MV Kobra AI is the AI agent that calls, negotiates over WhatsApp, respects the law, and pushes every result to your ERP — while your team focuses on what matters.",
@@ -436,6 +483,14 @@ var I18N={
     p3t:"Enterprise",p3w:"Banks, large firms, white-label.",p3amt:"Custom",p3per:"from US$1,500/mo",p3uyu:"≈ from $U 60,000/mo · charged in Uruguayan pesos",p3a:"Unlimited users · SSO",p3b:"Your own brand (white-label)",p3c:"Custom ERP · SLA",p3d:"Dedicated onboarding",p3cta:"Talk to sales",
     paylead:"Payment methods:",payb1:"Bank transfer",paysec:"🔒 Secure payment · money lands in your configured account",
     dey:"Live demo",bandt:"Try MV Kobra AI right now",bandp:"Open the interactive dashboard and see how it prioritizes the portfolio, negotiates and logs every case.",bandcta:"▶ Open the demo",
+    eyr:"Trust",str:"Reviews and verifiable commitments",
+    slr:"We'd rather show you little and true than a lot and invented. These are the commitments you can check yourself, and real customer reviews (none public yet).",
+    tb1t:"Law 18.331 (Uruguay)",tb1p:"Personal data handling follows Uruguay's data-protection law.",
+    tb2t:"LGPD reference (Brazil)",tb2p:"For customers in Brazil, data handling uses the LGPD as a reference.",
+    tb3t:"100% synthetic demo data",tb3p:"Everything you see in the demo is generated by the product itself — not real customers.",
+    tb4t:"Payment goes straight to your account",tb4p:"Every charge (MercadoPago/card/PayPal) lands directly in the account you configure, never through a third party.",
+    rsubt:"Customer reviews",rvacio:"We don't have public customers yet — be the first to leave a review after the pilot.",
+    rcta:"✍️ Leave my review",rhint:"Opens your email app; we publish it after verifying.",
     eyc:"Contact",stc:"Contact box",slc:"Have a question or want a demo? Fill out the form: your email opens with the subject and question ready to send to vieraschiavi@gmail.com.",
     cfn:"Name",cfe:"Your email",cft:"Phone",cfa:"Subject",cfp:"Question / inquiry",cfb:"Send inquiry",cfh:"Opens your email app with the message ready.",
     regey:"Free demo · 3 days",regt:"Activate your full demo",regsub:"Sign up and try the full MV Kobra AI for 3 days. No card.",regemp:"Company",regcta:"Activate 3-day demo",regnote:"By signing up you agree to receive information from MV Kobra AI.",
@@ -547,6 +602,37 @@ if(cform){cform.addEventListener('submit',function(e){
   var subject="[MV Kobra AI] "+(asunto||'Consulta');
   var body=(pregunta||'')+"\n\n----------------------------\nDatos de contacto\n"+
            "Nombre: "+(nombre||'-')+"\nEmail: "+(email||'-')+"\nTeléfono: "+(tel||'-')+"\nEnviado desde: landing MV Kobra AI";
+  window.location.href="mailto:"+CONTACT_TO+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+});}
+
+// Reseñas: lista real desde resenas.json (arranca vacía a propósito — cero contenido inventado;
+// el sitio no tiene backend, así que las reseñas nuevas se piden por mail y se suman acá a mano).
+(function(){
+  var lista=document.getElementById('resenasList');
+  var vacio=document.getElementById('resenasVacio');
+  fetch('resenas.json').then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}).then(function(datos){
+    if(!Array.isArray(datos)||!datos.length)return;
+    lista.innerHTML='';
+    datos.forEach(function(r){
+      var card=document.createElement('div');card.className='resena';
+      var est=document.createElement('div');est.className='estrellas';
+      var n=Math.max(1,Math.min(5,parseInt(r.puntaje,10)||5));
+      est.textContent='★★★★★☆☆☆☆☆'.slice(5-n,10-n);
+      var p=document.createElement('p');p.textContent=r.comentario||'';
+      var autor=document.createElement('div');autor.className='autor';
+      autor.textContent=(r.nombre||'')+(r.empresa?(' · '+r.empresa):'');
+      card.appendChild(est);card.appendChild(p);card.appendChild(autor);
+      lista.appendChild(card);
+    });
+    lista.style.display='grid';
+    if(vacio)vacio.style.display='none';
+  });
+})();
+var btnResena=document.getElementById('btnDejarResena');
+if(btnResena){btnResena.addEventListener('click',function(){
+  var subject="[MV Kobra AI] Mi reseña como cliente";
+  var body="Puntaje (1 a 5): \nComentario: \nNombre: \nEmpresa (opcional): \n\n"+
+           "Enviado desde: landing MV Kobra AI, sección Reseñas";
   window.location.href="mailto:"+CONTACT_TO+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
 });}
 
