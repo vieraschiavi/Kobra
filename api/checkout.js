@@ -14,7 +14,13 @@ const PLANS = {
   pro:     { title: "MV Kobra AI · Pro (todo incluido)", price: 149.0 },
   starter: { title: "MV Kobra AI · Starter (licencia)",  price: 490.0 },
 };
-const CURRENCY = process.env.MP_CURRENCY || "USD";  // coincide con los precios mostrados en la landing (US$)
+// La cuenta de cobro (collector) de Mercado Pago 1007782272006 es de Uruguay (site MLU),
+// que solo acepta preferencias en UYU: mandar "USD" hace que la API rechace la preferencia
+// (no llega init_point) y el checkout falla con "No se pudo iniciar el pago". Los precios en
+// la landing se muestran de referencia en USD pero "se cobran en pesos uruguayos al tipo de
+// cambio del día" — por eso acá se convierte antes de crear la preferencia.
+const CURRENCY = process.env.MP_CURRENCY || "UYU";
+const TASA_UYU = Number(process.env.MP_TASA_UYU) || 40; // mismo valor de referencia que la landing (US$1 ≈ $U 40)
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
@@ -39,8 +45,9 @@ module.exports = async (req, res) => {
   }
 
   try {
+    const unitPrice = CURRENCY === "UYU" ? Math.round(p.price * TASA_UYU) : p.price;
     const pref = {
-      items: [{ title: p.title, quantity: 1, unit_price: p.price, currency_id: CURRENCY }],
+      items: [{ title: p.title, quantity: 1, unit_price: unitPrice, currency_id: CURRENCY }],
       back_urls: {
         success: base + "/descarga?status=approved&plan=" + plan,
         pending: base + "/descarga?status=pending",
