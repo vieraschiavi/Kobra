@@ -75,6 +75,53 @@ tener **fecha cierta de autoría** si algún día tenés que reclamar.
 - Si contratás a alguien para ayudarte: **cláusula de cesión de derechos** a tu
   favor por escrito (si no, el aporte podría no ser tuyo).
 
+### 5. Empleados a futuro: cómo evitar que se lleven el código
+
+> Hoy no tenés empleados (sos autor único), pero esto queda documentado acá
+> para cuando llegue el momento de contratar.
+
+**La ley ya juega a tu favor con empleados — no así con contratistas.** La
+**Ley 17.616** (que modificó la 9.739) establece que cuando un programa se
+crea **dentro de una relación de dependencia** cuyo objeto se relaciona con
+ese tipo de creación, se **presume** que el autor (tu futuro empleado) te
+cedió a vos, como empleador, los derechos patrimoniales de forma exclusiva —
+**salvo pacto en contrario por escrito**. Con un **contratista/freelance**
+esa presunción no aplica igual: ahí sí hace falta la cláusula de cesión
+explícita del punto 4.
+
+**Aun con la ley a favor, escribilo en el contrato de todos modos.** La ley
+dice "salvo pacto en contrario" — sin nada por escrito, un empleado podría
+alegar que lo que creó no era parte de "el objeto de su relación laboral"
+(p. ej. algo hecho fuera de horario). Un contrato claro evita esa discusión.
+
+Capas de protección, en orden de esfuerzo/costo:
+
+| Capa | Qué hacer | Nota |
+|---|---|---|
+| **Contrato de trabajo** | Cláusula explícita de cesión de derechos de autor sobre todo lo creado en el marco laboral | Barato, alto valor probatorio, aunque la ley ya lo presuma |
+| **Confidencialidad** | Cláusula de confidencialidad (código fuente, modelos, prompts, datos de clientes) durante y después de la relación | Durante el empleo ya aplica el deber de buena fe/lealtad aunque no lo escribas — pero por escrito evita discusiones sobre qué es "secreto" |
+| **No competencia posterior** | Si querés impedir que se vaya a armar un competidor con lo aprendido | ⚠️ En Uruguay esto es legalmente discutido: para que valga necesita compensación económica al empleado y hay debate doctrinario sobre su alcance. Consultar a un abogado laboral antes de asumir que es exigible |
+| **Marca + derecho de autor registrado** | Puntos 2 y 3 de esta guía | Te da con qué reclamar si alguien (empleado o no) copia y sale a vender algo idéntico |
+| **Medidas técnicas** | Ver abajo | Lo que más reduce el riesgo día a día, más que cualquier papel |
+
+**Medidas técnicas (previenen, no solo dan derecho a reclamar después):**
+- **Acceso mínimo necesario:** cada persona ve solo lo que necesita para su
+  tarea, no el repo completo (permisos granulares por carpeta / repos
+  separados para módulos sensibles).
+- **Secretos nunca en el código:** ya resuelto — `kobra/config.py` guarda las
+  claves cifradas (keyring del sistema), no en texto plano en el repo.
+  Mantener esa disciplina también con las claves de producción de cada cliente.
+- **Historial de git como evidencia:** cada commit ya queda atribuido a su
+  autor con fecha — prueba objetiva de quién escribió qué y cuándo.
+- **Checklist de baja (offboarding):** el día que alguien se va, revocar
+  accesos ese mismo día — repo, servidor, claves de API, VPN, credenciales de
+  clientes. Esto previene fugas reales más que cualquier cláusula.
+- **No repartir el código fuente completo si no hace falta:** el "modo PC"
+  (instalador Windows) ya distribuye compilado, no el `.py` — mantener esa
+  lógica también para lo que vea un empleado que no necesite el motor completo.
+- **Monitoreo básico:** alertas si alguien clona todo el repo de golpe, sube a
+  un remoto personal, o descarga volúmenes grandes de datos de clientes.
+
 ---
 
 ## Resumen de plata (aprox., a confirmar)
@@ -92,6 +139,9 @@ tener **fecha cierta de autoría** si algún día tenés que reclamar.
 2. Registro de derecho de autor (barato, alta prueba).
 3. Marca "MV Kobra AI" cuando estés por salir a vender (protege el nombre, que es
    con lo que te van a identificar en el mercado).
+4. Contrato con cesión de IP + confidencialidad y acceso limitado al repo,
+   recién cuando contrates a la primera persona (sección 5) — no hay nada
+   urgente que hacer en esto hoy.
 
 > La **idea** no se protege; lo que te da ventaja defendible es tu **código**
 > (derecho de autor), tu **marca** (DNPI) y tus **contratos**. Con eso, si
