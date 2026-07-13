@@ -1,7 +1,7 @@
 <meta charset="utf-8">
 <title>MV Kobra AI · Cobranzas Inteligentes</title>
-<link rel="icon" type="image/png" href="mv_icon.png">
-<script src="botid-init.js" defer></script>
+<link rel="icon" type="image/png" href="/landing/mv_icon.png">
+<script src="/landing/botid-init.js" defer></script>
 <style>
 :root{
   --navy:#081527; --navy2:#0c2137; --hero-a:#0d2440; --hero-b:#081324;
@@ -187,7 +187,7 @@ footer .legal{max-width:74ch;line-height:1.6}
 </style>
 
 <nav><div class="wrap">
-  <div class="brand"><img src="mv_icon.png" alt="MV Kobra AI" class="mk"><b>MV KOBRA <span class="am">AI</span></b></div>
+  <div class="brand"><img src="/landing/mv_icon.png" alt="MV Kobra AI" class="mk"><b>MV KOBRA <span class="am">AI</span></b></div>
   <div class="nlinks">
     <a href="#plataforma" data-i="nav1">Funciones</a>
     <a href="#plataforma" data-i="nav2">Cómo funciona</a>
@@ -410,7 +410,7 @@ footer .legal{max-width:74ch;line-height:1.6}
 
 <footer><div class="wrap">
   <div class="foot-top">
-    <div class="brand"><img src="mv_icon.png" alt="MV Kobra AI" class="mk"><b>MV KOBRA <span class="am">AI</span></b></div>
+    <div class="brand"><img src="/landing/mv_icon.png" alt="MV Kobra AI" class="mk"><b>MV KOBRA <span class="am">AI</span></b></div>
     <div class="lang" role="group" aria-label="Idioma">
       <button data-lang="es" class="on">ES</button><button data-lang="pt">PT</button><button data-lang="en">EN</button>
     </div>
@@ -610,7 +610,7 @@ if(cform){cform.addEventListener('submit',function(e){
 (function(){
   var lista=document.getElementById('resenasList');
   var vacio=document.getElementById('resenasVacio');
-  fetch('resenas.json').then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}).then(function(datos){
+  fetch('/landing/resenas.json').then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}).then(function(datos){
     if(!Array.isArray(datos)||!datos.length)return;
     lista.innerHTML='';
     datos.forEach(function(r){
