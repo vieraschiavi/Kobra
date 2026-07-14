@@ -194,14 +194,18 @@ outputs y la **configuración de API keys** entre reinicios.
 
 Las keys se cargan de tres formas (prioridad de arriba hacia abajo):
 
-1. **Variables de entorno / `.env`** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) — ideal en producción.
+1. **Variables de entorno / `.env`** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+   `GEMINI_API_KEY`) — ideal en producción.
 2. **Dashboard → pestaña “Configuración”**: se ingresan una vez y quedan
    **guardadas** (`$KOBRA_CONFIG_DIR/config.json`, por defecto `~/.kobra`), así
    se cargan solas en cada arranque sin reingresarlas.
-3. **Sin keys**: MV Kobra AI funciona igual (sin transcripción Whisper ni evaluación Claude).
+3. **Sin keys**: MV Kobra AI funciona igual (sin transcripción Whisper ni razonamiento con IA).
 
-Con `OPENAI_API_KEY` se habilita la transcripción real (Whisper) y con
-`ANTHROPIC_API_KEY` la evaluación cualitativa con Claude.
+Con `OPENAI_API_KEY` se habilita la transcripción real (Whisper). Para el
+razonamiento con IA (Asistente, Copiloto, Gestor IA), el cliente elige en
+Configuración con qué proveedor propio quiere trabajar — **Claude (Anthropic),
+Gemini (Google) o ChatGPT (OpenAI)** — y carga la key correspondiente; ver
+`kobra/llm.py`. Por default es Claude, si no se eligió otro.
 
 ---
 
@@ -275,8 +279,9 @@ Asiste al gestor **durante** la negociación telefónica o por WhatsApp
   sugerida, ligadas a la ProbPago del deudor.
 
 Funciona **100% offline**. Si hay claves en el entorno se enriquece solo:
-`OPENAI_API_KEY` → transcripción de audio (Whisper); `ANTHROPIC_API_KEY` →
-evaluación cualitativa (Claude).
+`OPENAI_API_KEY` → transcripción de audio (Whisper); evaluación cualitativa
+profunda con el proveedor de IA elegido (Claude por default, o Gemini/ChatGPT
+si se configuró otro en Configuración — ver `kobra/llm.py`).
 
 Disponible en tres lugares:
 - **Dashboard Streamlit** → pestaña *Copiloto en Vivo* (pegar/subir conversación).
@@ -466,9 +471,10 @@ registra la gestión. Aparece en *Gestores & Evolución* como gestor `IA…`, as
 su desempeño se **mide contra los humanos**.
 
 - **Dependencias externas mínimas por diseño**: el cerebro (diálogo,
-  intención, sentimiento) corre **100% local**. **Claude (Anthropic) es la
-  única IA externa y es opcional**: si hay `ANTHROPIC_API_KEY` redacta más
-  natural; sin key usa plantillas (funciona igual).
+  intención, sentimiento) corre **100% local**. Redactar con IA es
+  **opcional y multi-proveedor** (`kobra/llm.py`: Claude/Gemini/ChatGPT, la
+  cuenta propia que el cliente elija en Configuración) — si hay key
+  configurada redacta más natural; sin key usa plantillas (funciona igual).
 - **Voz local, sin nube**: adaptadores para **Piper TTS** (voz neuronal
   es-AR/es-ES, baja latencia) y **faster-whisper STT**; si no están instalados,
   corre en modo texto (mismo diálogo).
@@ -767,8 +773,9 @@ llamar de verdad?"), en español y al instante:
 
 1. La búsqueda de secciones relevantes es **TF-IDF local** sobre el README y
    los `docs/*.md` del producto — la documentación no se sube a ningún lado.
-2. Con `ANTHROPIC_API_KEY`, Claude redacta la respuesta usando **solo** ese
-   contexto (mismo criterio "cero inventos" que el resto del producto: si la
+2. Con el proveedor de IA configurado (Claude por default, o Gemini/ChatGPT
+   si se eligió otro), redacta la respuesta usando **solo** ese contexto
+   (mismo criterio "cero inventos" que el resto del producto: si la
    respuesta no está en la documentación, lo dice).
 3. Sin API key **no se rompe**: muestra la sección exacta de la documentación
    que contesta la duda, con su fuente.

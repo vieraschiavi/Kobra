@@ -19,7 +19,8 @@ usuario tenga que elegir nada):
 Todo vive fuera del repo, en `$KOBRA_CONFIG_DIR` (por defecto ~/.kobra).
 Precedencia: una variable de entorno real (inyectada en producción) tiene
 prioridad sobre lo guardado. `aplicar()` carga las keys guardadas al entorno
-para que Whisper (OpenAI) y Claude (Anthropic) funcionen automáticamente.
+para que Whisper (OpenAI), y el proveedor de IA elegido (Claude/Gemini/
+ChatGPT, ver `kobra/llm.py`) funcionen automáticamente.
 """
 import json
 import os
@@ -32,8 +33,9 @@ KEYRING_SERVICE = "kobra-ia"
 KEYRING_USER = "kobra-config"
 
 CLAVES = {
-    "OPENAI_API_KEY": "OpenAI · transcripción Whisper (voz → texto)",
-    "ANTHROPIC_API_KEY": "Anthropic · evaluación con Claude",
+    "OPENAI_API_KEY": "OpenAI · transcripción Whisper (voz → texto) + ChatGPT si lo elegís como proveedor de IA",
+    "ANTHROPIC_API_KEY": "Anthropic · Claude, proveedor de IA por default",
+    "GEMINI_API_KEY": "Google Gemini · alternativa de proveedor de IA (opcional)",
     "TWILIO_ACCOUNT_SID": "Twilio · Account SID (llamadas reales)",
     "TWILIO_AUTH_TOKEN": "Twilio · Auth Token (llamadas reales)",
     "TWILIO_FROM": "Twilio · número emisor (ej. +1…) para llamar",

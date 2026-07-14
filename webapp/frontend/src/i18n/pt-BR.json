@@ -268,6 +268,17 @@
     "placeholder": "nome da empresa (ex.: acme)",
     "boton": "➕ Criar empresa demo"
   },
+  "proveedor_ia": {
+    "titulo": "🧠 Provedor de IA",
+    "subtitulo": "Com qual conta corporativa própria raciocinam o Assistente, o Copiloto e o Agente IA. Cadastre a chave correspondente acima, na tabela de chaves.",
+    "nombre": {
+      "anthropic": "Claude (Anthropic)",
+      "gemini": "Gemini (Google)",
+      "openai": "ChatGPT (OpenAI)"
+    },
+    "sin_clave": "⚠ falta a chave",
+    "guardado": "✅ Salvo."
+  },
   "activacion": {
     "subtitulo": "Cole a licença que você recebeu na compra (ou do trial de 3 dias) para ativar sua cópia da MV Kobra AI.",
     "subtitulo_vencida": "Sua licença venceu. Compre um plano ou peça um novo trial para continuar usando a MV Kobra AI.",

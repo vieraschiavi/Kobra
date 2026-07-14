@@ -22,12 +22,12 @@ Dependencias externas (por diseño, mínimas):
 """
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from kobra import copiloto, cumplimiento, registro
+from kobra import llm as kllm
 
 
 # ---------------------------------------------------------------------------
@@ -62,27 +62,13 @@ def interpretar(texto: str) -> dict:
 # Redacción: Claude si hay key (única IA externa), plantillas si no
 # ---------------------------------------------------------------------------
 def _redactar_con_claude(instruccion: str, contexto: str) -> str | None:
-    key = os.getenv("ANTHROPIC_API_KEY", "")
-    if len(key) < 10:
-        return None
-    try:
-        import requests
-        r = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": key, "anthropic-version": "2023-06-01",
-                     "content-type": "application/json"},
-            json={"model": "claude-sonnet-5", "max_tokens": 220,
-                  "system": ("Sos un gestor de cobranzas uruguayo, cordial, empático y "
-                             "profesional. Respondé en 1-3 frases naturales, sin emojis, "
-                             "listas ni markdown. Nunca prometas nada fuera de la oferta "
-                             "indicada ni superes el descuento máximo autorizado."),
-                  "messages": [{"role": "user",
-                                "content": f"{contexto}\n\nTAREA: {instruccion}"}]},
-            timeout=30)
-        r.raise_for_status()
-        return r.json()["content"][0]["text"].strip()
-    except Exception:
-        return None
+    return kllm.generar(
+        f"{contexto}\n\nTAREA: {instruccion}",
+        system=("Sos un gestor de cobranzas uruguayo, cordial, empático y "
+                "profesional. Respondé en 1-3 frases naturales, sin emojis, "
+                "listas ni markdown. Nunca prometas nada fuera de la oferta "
+                "indicada ni superes el descuento máximo autorizado."),
+        max_tokens=220, timeout=30)
 
 
 # ---------------------------------------------------------------------------

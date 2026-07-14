@@ -2,6 +2,45 @@ import React, { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { t } from "../i18n/index.js";
 
+function ProveedorIA() {
+  const [datos, setDatos] = useState(null);
+  const [nota, setNota] = useState("");
+  const cargar = () => api("/api/config/proveedor_ia").then(setDatos).catch(() => {});
+  useEffect(() => { cargar(); }, []);
+  if (!datos) return null;
+
+  const elegir = async (proveedor) => {
+    setNota("");
+    try {
+      await api("/api/config/proveedor_ia", { metodo: "POST", cuerpo: { proveedor } });
+      setNota(t("proveedor_ia.guardado"));
+      cargar();
+    } catch (e) { setNota(e.message); }
+  };
+
+  return (
+    <div className="card" style={{ maxWidth: 720, marginTop: 18 }}>
+      <h3 style={{ marginTop: 0 }}>{t("proveedor_ia.titulo")}</h3>
+      <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("proveedor_ia.subtitulo")}</p>
+      <div className="toolbar" style={{ flexWrap: "wrap", gap: 10 }}>
+        {datos.proveedores.map((p) => (
+          <label key={p} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13.5 }}>
+            <input type="radio" name="proveedor_ia" checked={datos.proveedor === p}
+                   onChange={() => elegir(p)} />
+            {t(`proveedor_ia.nombre.${p}`)}
+            {!datos.claves_configuradas[p] && (
+              <span style={{ color: "var(--amber)", fontSize: 11.5 }}>
+                {t("proveedor_ia.sin_clave")}
+              </span>
+            )}
+          </label>
+        ))}
+      </div>
+      {nota && <span style={{ color: "var(--muted)", fontSize: 13 }}>{nota}</span>}
+    </div>
+  );
+}
+
 function InformeSemanal() {
   const [prog, setProg] = useState(null);
   const [nota, setNota] = useState("");
@@ -139,6 +178,7 @@ export default function Configuracion() {
           </div>
         </form>
       )}
+      <ProveedorIA />
       <InformeSemanal />
       <AltaEmpresa />
     </>
