@@ -4,6 +4,7 @@ import { api, cargarPais, getPais, getSesion, setPaisCache, setSesion } from "./
 import { t } from "./i18n/index.js";
 import Tour from "./components/Tour.jsx";
 import Login from "./pages/Login.jsx";
+import Activacion from "./pages/Activacion.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Originacion from "./pages/Originacion.jsx";
 import Cartera from "./pages/Cartera.jsx";
@@ -97,9 +98,41 @@ function Sidebar({ sesion }) {
   );
 }
 
+function TrialBanner({ licEstado }) {
+  if (!licEstado || !licEstado.trial) return null;
+  return (
+    <div className="trial-banner">
+      {t("activacion.banner_trial", { dias: licEstado.dias_restantes })}
+      {" "}
+      <a href="https://mvkobranzaia.com/#precios" target="_blank" rel="noreferrer">
+        {t("activacion.link_comprar")}
+      </a>
+    </div>
+  );
+}
+
 export default function App() {
+  // undefined = todavía no se sabe (evita parpadear Login/Activación antes de
+  // tiempo); en modo hosted (Vercel) standalone=false y esto no cambia nada.
+  const [licEstado, setLicEstado] = useState(undefined);
+  useEffect(() => {
+    api("/api/licencia/estado").then(setLicEstado).catch(() => setLicEstado({ standalone: false }));
+  }, []);
+
   const sesion = getSesion();
   const loc = useLocation();
+
+  if (licEstado === undefined) return null;
+  if (licEstado.standalone && !licEstado.activa) {
+    return (
+      <Activacion
+        vencida={licEstado.error === "licencia_expirada"}
+        onActivada={(r) => setLicEstado({ standalone: true, activa: true,
+                                          plan: r.plan, trial: r.trial, dias_restantes: r.dias_restantes })}
+      />
+    );
+  }
+
   if (!sesion && loc.pathname !== "/login") return <Navigate to="/login" replace />;
   if (loc.pathname === "/login") return <Login />;
   return (
@@ -107,6 +140,7 @@ export default function App() {
       <Sidebar sesion={sesion} />
       <main className="main">
         <Tour />
+        <TrialBanner licEstado={licEstado} />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/originacion" element={<Originacion />} />

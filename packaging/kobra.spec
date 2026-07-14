@@ -43,10 +43,23 @@ def _dir(nombre):
     return (ruta, nombre) if os.path.isdir(ruta) else None
 
 for _n in ["app", "kobra", "realtime", "data", "assets",
-           "dashboard_estatico", "outputs", "presentation", "docs"]:
+           "dashboard_estatico", "outputs", "presentation", "docs",
+           "backend_venta"]:
     par = _dir(_n)
     if par:
         datas.append(par)
+
+# webapp/: solo el backend (código) y el build compilado del frontend —
+# NUNCA webapp/frontend/node_modules ni src/ (fuente sin compilar, cientos de
+# MB innecesarios). El build (`npm run build`) corre antes en el workflow de
+# CI; si no existe todavía (build local sin haber compilado el frontend),
+# el backend sigue funcionando como API pura, solo sin servir la UI.
+_webapp_backend = _dir(os.path.join("webapp", "backend"))
+if _webapp_backend:
+    datas.append(_webapp_backend)
+_webapp_dist = os.path.join(ROOT, "webapp", "frontend", "dist")
+if os.path.isdir(_webapp_dist):
+    datas.append((_webapp_dist, os.path.join("webapp", "frontend", "dist")))
 
 # README.md suelto: es la fuente principal del asistente de ayuda (kobra/ayuda.py)
 _readme = os.path.join(ROOT, "README.md")
@@ -60,8 +73,13 @@ hiddenimports += [
     "kobra.gestor_ia", "kobra.pipeline", "kobra.voz", "kobra.train",
     "kobra.consulta_bd", "kobra.seguimiento", "kobra.voz_tts", "kobra.campana",
     "kobra.twilio_setup", "kobra.ayuda", "kobra.originacion",
+    "kobra.autenticacion", "kobra.informe_ejecutivo", "kobra.paises",
     "realtime.mi_cartera", "realtime.voicebot", "sklearn.utils._typedefs",
     "sklearn.neighbors._partition_nodes", "sklearn.utils._heap",
+    # App completa (React + FastAPI) que sirve kobra_launcher.py — reemplaza
+    # a Streamlit como lo que abre el instalador por default.
+    "webapp", "webapp.backend", "webapp.backend.api",
+    "backend_venta", "backend_venta.licencias",
 ]
 
 _ICON = os.path.join(ROOT, "assets", "brand", "mv.ico")
