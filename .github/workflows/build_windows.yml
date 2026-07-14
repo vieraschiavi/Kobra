@@ -93,3 +93,39 @@ jobs:
             Descargar `MVKobraAI_Setup_v${{ steps.ver.outputs.KVER }}.exe`,
             ejecutarlo y seguir el asistente.
           files: dist/MVKobraAI_Setup_*.exe
+
+      - name: Copiar instalador con nombre estable (para el link público)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $src = Get-ChildItem "dist/MVKobraAI_Setup_*.exe" | Select-Object -First 1
+          Copy-Item $src.FullName "dist/MVKobraAI_Setup.exe"
+
+      - name: ¿Está configurado el repo público de releases?
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        id: pub
+        shell: pwsh
+        run: |
+          "TIENE_TOKEN=${{ secrets.RELEASES_TOKEN != '' }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Publicar en el repo público de releases (para clientes finales)
+        # Este repo (vieraschiavi/Kobra) es privado: el link de Releases de acá
+        # no lo puede descargar un cliente sin acceso. Este paso publica una
+        # copia en un segundo repo, público y sin código fuente, creado a mano
+        # una vez (ver docs/DISTRIBUCION_INSTALADOR.md) con un secret
+        # RELEASES_TOKEN (PAT con permiso "contents: write" solo sobre ese
+        # repo). Si el secret no está configurado, este paso se salta solo —
+        # no rompe el resto del build.
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.pub.outputs.TIENE_TOKEN == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: vieraschiavi/mv-kobra-ai-releases
+          token: ${{ secrets.RELEASES_TOKEN }}
+          tag_name: v${{ steps.ver.outputs.KVER }}
+          name: MV Kobra AI v${{ steps.ver.outputs.KVER }}
+          body: >
+            Instalador de Windows (standalone, no requiere Python).
+            Descargar `MVKobraAI_Setup.exe`, ejecutarlo y seguir el asistente.
+          files: |
+            dist/MVKobraAI_Setup_*.exe
+            dist/MVKobraAI_Setup.exe
