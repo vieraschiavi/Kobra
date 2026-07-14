@@ -46,6 +46,7 @@ from kobra import ayuda as kayuda                  # noqa: E402
 from kobra import cartera_manual as kcartera       # noqa: E402
 from kobra import config as kconfig                # noqa: E402
 from kobra import informe_ejecutivo as kinforme    # noqa: E402
+from kobra import llm as kllm                      # noqa: E402
 from kobra import paises as kpaises                # noqa: E402
 from kobra import registro as kregistro            # noqa: E402
 from kobra import seguimiento as kseg              # noqa: E402
@@ -503,6 +504,28 @@ def config_guardar(datos: ConfigIn, u: Usuario = Depends(solo_admin)):
         raise HTTPException(400, "No llegó ninguna clave válida para guardar.")
     kconfig.guardar(validas)
     return {"guardadas": sorted(validas)}
+
+
+@app.get("/api/config/proveedor_ia")
+def proveedor_ia_estado(u: Usuario = Depends(solo_admin)):
+    """Con qué proveedor de IA (traé tu propia cuenta corporativa) razona el
+    Asistente, el Copiloto y el Gestor IA — Claude, Gemini o ChatGPT/OpenAI."""
+    kconfig.aplicar()
+    return {"proveedor": kllm.proveedor_activo(), "proveedores": list(kllm.PROVEEDORES),
+            "claves_configuradas": {p: kllm.disponible(proveedor=p) for p in kllm.PROVEEDORES}}
+
+
+class ProveedorIAIn(BaseModel):
+    proveedor: str
+
+
+@app.post("/api/config/proveedor_ia")
+def proveedor_ia_guardar(datos: ProveedorIAIn, u: Usuario = Depends(solo_admin)):
+    if datos.proveedor not in kllm.PROVEEDORES:
+        raise HTTPException(400, f"Proveedor '{datos.proveedor}' no soportado "
+                                 f"(válidos: {', '.join(kllm.PROVEEDORES)}).")
+    kllm.establecer_proveedor(datos.proveedor)
+    return {"proveedor": datos.proveedor}
 
 
 # ---------------------------------------------------------------------------

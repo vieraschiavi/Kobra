@@ -33,6 +33,8 @@ from __future__ import annotations
 import os
 import re
 
+from kobra import llm as kllm
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IDIOMA_DEFAULT = "es"
 
@@ -215,23 +217,13 @@ def responder(pregunta: str, api_key: str | None = None, k: int = 4,
         return {"respuesta": textos["sin_resultados"], "fuentes": [], "modo": "vacio"}
 
     fuentes = sorted({f["fuente"] for f in relevantes})
-    key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
-    if len(key) < 10:
+    if not kllm.disponible(api_key=api_key):
         cuerpo = "\n\n---\n\n".join(
             f"**{f['titulo']}** · _{f['fuente']}_\n\n{f['texto']}" for f in relevantes[:2])
         prefijo = textos["docs_intro"] + (textos["fallback_es"] if fallback_es else "")
         return {"respuesta": prefijo + cuerpo, "fuentes": fuentes, "modo": "docs"}
 
-    import requests
     contexto = "\n\n---\n\n".join(f"[{f['fuente']} · {f['titulo']}]\n{f['texto']}" for f in relevantes)
-    r = requests.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={"x-api-key": key, "anthropic-version": "2023-06-01",
-                 "content-type": "application/json"},
-        json={"model": "claude-sonnet-5", "max_tokens": 600,
-              "system": SYSTEM_PROMPT_POR_IDIOMA[idioma].format(contexto=contexto),
-              "messages": [{"role": "user", "content": pregunta}]},
-        timeout=60)
-    r.raise_for_status()
-    texto = r.json()["content"][0]["text"].strip()
+    texto = kllm.generar(pregunta, system=SYSTEM_PROMPT_POR_IDIOMA[idioma].format(contexto=contexto),
+                        max_tokens=600, api_key=api_key, timeout=60, lanzar=True)
     return {"respuesta": texto, "fuentes": fuentes, "modo": "ia"}

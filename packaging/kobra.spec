@@ -73,7 +73,7 @@ hiddenimports += [
     "kobra.gestor_ia", "kobra.pipeline", "kobra.voz", "kobra.train",
     "kobra.consulta_bd", "kobra.seguimiento", "kobra.voz_tts", "kobra.campana",
     "kobra.twilio_setup", "kobra.ayuda", "kobra.originacion",
-    "kobra.autenticacion", "kobra.informe_ejecutivo", "kobra.paises",
+    "kobra.autenticacion", "kobra.informe_ejecutivo", "kobra.paises", "kobra.llm",
     "realtime.mi_cartera", "realtime.voicebot", "sklearn.utils._typedefs",
     "sklearn.neighbors._partition_nodes", "sklearn.utils._heap",
     # App completa (React + FastAPI) que sirve kobra_launcher.py — reemplaza

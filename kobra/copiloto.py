@@ -26,6 +26,8 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from kobra import llm as kllm
+
 # ---------------------------------------------------------------------------
 # Léxico de sentimiento y emociones, por idioma (contexto cobranzas)
 # ---------------------------------------------------------------------------
@@ -602,9 +604,10 @@ def transcribir_audio(audio_path: str, idioma: str = IDIOMA_DEFAULT) -> str | No
 
 
 def evaluar_con_claude(texto_conversacion: str) -> dict | None:
-    """Evaluación cualitativa profunda con Claude si ANTHROPIC_API_KEY existe."""
-    key = os.getenv("ANTHROPIC_API_KEY", "")
-    if len(key) < 10:
+    """Evaluación cualitativa profunda con el proveedor de IA configurado
+    (Claude por default; Gemini/OpenAI si el cliente eligió otro en
+    Configuración) — el nombre de la función queda por compatibilidad."""
+    if not kllm.disponible():
         return None
     prompt = (
         "Sos un supervisor experto en cobranzas. Evaluá esta conversación y "
@@ -613,17 +616,11 @@ def evaluar_con_claude(texto_conversacion: str) -> dict | None:
         "velocidad_negociacion (rapida/moderada/lenta), "
         "efectividad_cierre (alta/media/baja), sentimiento_cliente (texto).\n\n"
         f"CONVERSACIÓN:\n{texto_conversacion}")
+    txt = kllm.generar(prompt, max_tokens=1500, timeout=120)
+    if not txt:
+        return None
     try:
         import json
-        import requests
-        r = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": key, "anthropic-version": "2023-06-01",
-                     "content-type": "application/json"},
-            json={"model": "claude-sonnet-5", "max_tokens": 1500,
-                  "messages": [{"role": "user", "content": prompt}]}, timeout=120)
-        r.raise_for_status()
-        txt = r.json()["content"][0]["text"]
         txt = re.sub(r"```json|```", "", txt).strip()
         return json.loads(txt)
     except Exception:

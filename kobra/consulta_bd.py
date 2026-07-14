@@ -32,6 +32,8 @@ import re
 
 import pandas as pd
 
+from kobra import llm as kllm
+
 # ---------------------------------------------------------------------------
 # 1) Conexión y extracción del catálogo (SQLAlchemy — cualquier motor)
 # ---------------------------------------------------------------------------
@@ -235,26 +237,10 @@ ESQUEMA DISPONIBLE (usá solo esto):
 
 def generar_sql_claude(pregunta: str, fichas_relevantes: list[dict], dialecto: str,
                        api_key: str | None = None) -> str:
-    import json
-    import os
-    import requests
-
-    key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
-    if len(key) < 10:
-        raise RuntimeError("Falta ANTHROPIC_API_KEY (Configuración o variable de entorno).")
-
     esquema = "\n\n".join(f["texto"] for f in fichas_relevantes)
     system = SYSTEM_PROMPT.format(dialecto=dialecto, esquema=esquema)
-    r = requests.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={"x-api-key": key, "anthropic-version": "2023-06-01",
-                 "content-type": "application/json"},
-        json={"model": "claude-sonnet-5", "max_tokens": 500,
-              "system": system,
-              "messages": [{"role": "user", "content": pregunta}]},
-        timeout=60)
-    r.raise_for_status()
-    sql = r.json()["content"][0]["text"].strip()
+    sql = kllm.generar(pregunta, system=system, max_tokens=500,
+                       api_key=api_key, timeout=60, lanzar=True)
     sql = re.sub(r"^```sql\s*|\s*```$", "", sql, flags=re.IGNORECASE | re.MULTILINE).strip()
     sql = re.sub(r"^```\s*|\s*```$", "", sql).strip()
     return sql
