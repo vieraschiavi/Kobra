@@ -49,11 +49,19 @@ from kobra import informe_ejecutivo as kinforme    # noqa: E402
 from kobra import paises as kpaises                # noqa: E402
 from kobra import registro as kregistro            # noqa: E402
 from kobra import seguimiento as kseg              # noqa: E402
+from backend_venta import licencias as klicencias  # noqa: E402
 
 kconfig.aplicar()
 
 TOKEN_TTL_SEG = 12 * 3600
 EMPRESA_DEFAULT = "principal"
+
+# Modo standalone (instalador de Windows, kobra_launcher.py lo activa): en vez
+# de contraseña de admin, la puerta de entrada es la licencia emitida al
+# comprar (o el trial de 3 días). En modo hosted (Vercel, multi-tenant) esto
+# queda desactivado y el login sigue siendo por contraseña, sin cambios.
+MODO_STANDALONE = os.getenv("KOBRA_MODO_STANDALONE", "").lower() in ("1", "true", "si", "sí")
+_CLAVE_LICENCIA = "LICENCIA_TOKEN"
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +205,47 @@ def auth_login(datos: LoginIn):
         raise HTTPException(401, "Contraseña incorrecta.")
     return {"token": _emitir_token(rol, datos.empresa), "rol": rol,
             "empresa": datos.empresa}
+
+
+class LicenciaIn(BaseModel):
+    token: str
+
+
+def _estado_licencia(token: str | None) -> dict:
+    if not token:
+        return {"activa": False}
+    r = klicencias.licencia_activa(token)
+    if not r["ok"]:
+        return {"activa": False, "error": r["error"]}
+    claims = r["claims"]
+    dias_restantes = max(0, int((claims["exp"] - time.time()) // 86400))
+    return {"activa": True, "plan": claims["plan"],
+            "trial": claims["plan"] == "trial", "dias_restantes": dias_restantes}
+
+
+@app.get("/api/licencia/estado")
+def licencia_estado():
+    """Sin auth: es lo primero que consulta el frontend al arrancar, antes de
+    saber si hay sesión. En modo hosted no hace nada (standalone=False)."""
+    if not MODO_STANDALONE:
+        return {"standalone": False}
+    return {"standalone": True, **_estado_licencia(kconfig.leer_extra(_CLAVE_LICENCIA))}
+
+
+@app.post("/api/licencia/activar")
+def licencia_activar(datos: LicenciaIn):
+    if not MODO_STANDALONE:
+        raise HTTPException(404, "Este endpoint es solo para la versión standalone.")
+    r = klicencias.licencia_activa(datos.token)
+    if not r["ok"]:
+        mensaje = ("Tu licencia venció — comprá un plan en mvkobranzaia.com para seguir usando MV Kobra AI."
+                  if r["error"] == "licencia_expirada" else
+                  "Licencia inválida — revisá que la copiaste completa.")
+        raise HTTPException(400, mensaje)
+    kconfig.guardar_extra(_CLAVE_LICENCIA, datos.token)
+    estado = _estado_licencia(datos.token)
+    return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
+            "empresa": EMPRESA_DEFAULT, **estado}
 
 
 @app.get("/api/kpis")

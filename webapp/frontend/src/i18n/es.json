@@ -267,5 +267,14 @@
     "subtitulo": "Crea una empresa nueva con una muestra de datos sintéticos, lista para entrar (misma contraseña + el nombre de empresa en el login). Ideal para darle una prueba aislada a un prospecto.",
     "placeholder": "nombre de la empresa (ej.: acme)",
     "boton": "➕ Crear empresa demo"
+  },
+  "activacion": {
+    "subtitulo": "Pegá la licencia que recibiste al comprar (o del trial de 3 días) para activar tu copia de MV Kobra AI.",
+    "subtitulo_vencida": "Tu licencia venció. Comprá un plan o pedí un nuevo trial para seguir usando MV Kobra AI.",
+    "placeholder": "Pegá acá tu licencia",
+    "boton_activar": "Activar",
+    "boton_activando": "Activando…",
+    "link_comprar": "Ver planes en mvkobranzaia.com",
+    "banner_trial": "🕐 Versión de prueba — quedan {{dias}} días."
   }
 }

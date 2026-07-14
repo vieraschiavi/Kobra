@@ -147,17 +147,27 @@ python presentation/build_ppt.py                      # presentación gerencial 
 
 ### 🪟 Instalador standalone para Windows (programa, sin instalar Python)
 
-Un **`MVKobraAI_Setup.exe`** que instala MV Kobra AI como un programa (empaqueta Python y
-todas las librerías; doble clic → se abre el dashboard). Se construye en
-**Windows vía GitHub Actions** (no se puede compilar desde Linux/Mac):
+Un **`MVKobraAI_Setup.exe`** que instala MV Kobra AI como un programa (empaqueta Python,
+Node/React ya compilado y todas las librerías; doble clic → se abre la app completa
+—la misma interfaz React + FastAPI que corre en la nube, embebida en un solo
+proceso local). Se construye en **Windows vía GitHub Actions** (no se puede
+compilar desde Linux/Mac):
 
 - **Automático**: el workflow `build-windows-installer` corre en `windows-latest`
-  (PyInstaller → ejecutable, Inno Setup → instalador). El `.exe` queda como
+  (Node compila `webapp/frontend` → PyInstaller empaqueta todo, incluida esa
+  build, → Inno Setup arma el instalador). El `.exe` queda como
   **artefacto descargable** de cada corrida (pestaña *Actions* del repo) y, al
-  taguear `vX.Y.Z`, se publica en una **Release**.
-- **Componentes**: `packaging/kobra_launcher.py` (arranca el dashboard),
-  `packaging/kobra.spec` (empaquetado) y `packaging/instalador.iss` (instalador
-  con accesos directos e ícono).
+  taguear `vX.Y.Z`, se publica en una **Release** (además de en un repo público
+  aparte solo para binarios — ver `docs/DISTRIBUCION_INSTALADOR.md` — porque
+  este repo es privado).
+- **Acceso por licencia, no por contraseña**: el primer arranque pide la
+  licencia recibida al comprar (o el trial de 3 días de la demo) —
+  `backend_venta/licencias.py` — no una contraseña de administrador. El
+  dashboard clásico (Streamlit, `app/app.py`) sigue en el paquete y disponible
+  para correr a mano, pero ya no es lo que abre el instalador por default.
+- **Componentes**: `packaging/kobra_launcher.py` (arranca uvicorn sirviendo
+  `webapp/backend/api.py`, que a su vez sirve el build de React), `packaging/kobra.spec`
+  (empaquetado) y `packaging/instalador.iss` (instalador con accesos directos e ícono).
 
 ```
 Actions → build-windows-installer → (Run workflow) → artefacto "MVKobraAI_Setup_Windows"

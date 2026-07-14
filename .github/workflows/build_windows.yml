@@ -42,6 +42,20 @@ jobs:
       - name: Generar datos y modelo (para empaquetar la demo lista)
         run: python -m kobra.pipeline
 
+      - name: Setup Node (para compilar la app React del instalador)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Compilar la app React (webapp/frontend/dist)
+        # kobra_launcher.py ahora arranca la app completa (React + FastAPI),
+        # no Streamlit — el backend sirve este build compilado como estático.
+        # Node solo hace falta acá, en CI; nunca en la PC del cliente final.
+        run: |
+          cd webapp/frontend
+          npm ci
+          npm run build
+
       - name: Construir ejecutable (PyInstaller)
         run: pyinstaller packaging/kobra.spec --noconfirm --clean
 
