@@ -180,13 +180,17 @@ def importar_y_scorear(df_bruto: pd.DataFrame) -> pd.DataFrame:
     return full
 
 
-def desde_base_de_datos(conn_url: str, consulta: str, limite: int = 5000) -> list[dict]:
+def desde_base_de_datos(conn_url: str, consulta: str, limite: int | None = None) -> list[dict]:
     """
     Trae la cartera directamente desde la base de datos del cliente (Postgres,
     MySQL, SQL Server, SQLite… lo que soporte SQLAlchemy) y la normaliza al
     mismo esquema que el CSV/tabla: la consulta debe devolver al menos una
     columna de deuda (`monto_deuda`, `deuda` o `monto`) y opcionalmente
     `nombre`, `telefono`, `id_deudor`, `dias_mora`, etc.
+
+    `limite`: por defecto None = sin límite de tamaño (trae toda la cartera que
+    devuelva la consulta). Pasá un entero solo si querés recortar a las primeras
+    N filas.
 
     Solo lectura a nivel de aplicación: se rechaza cualquier consulta que no
     empiece en SELECT/WITH o que contenga palabras de escritura — mismo
@@ -211,6 +215,6 @@ def desde_base_de_datos(conn_url: str, consulta: str, limite: int = 5000) -> lis
             df = pd.read_sql(text(sql), conn)
     finally:
         eng.dispose()
-    if len(df) > limite:
+    if limite is not None and len(df) > limite:
         df = df.head(limite)
     return desde_dataframe(df)

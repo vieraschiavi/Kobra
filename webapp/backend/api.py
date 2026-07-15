@@ -726,14 +726,38 @@ def cartera_modo(datos: ModoCarteraIn, u: Usuario = Depends(solo_admin)):
     return {"tipo": modo, "modo": modo, "hay_real": os.path.exists(_archivo_real(u.empresa))}
 
 
+_COLS_EXPORT_CARTERA = ["id_deudor", "segmento", "producto", "departamento", "tramo_mora",
+                        "dias_mora", "monto_deuda", "score_buro", "contactabilidad",
+                        "probpago", "decil", "segmento_propension", "estrategia",
+                        "descuento_recomendado", "plan_cuotas", "canal_recomendado",
+                        "valor_esperado_recupero", "prioridad", "pago", "guion",
+                        "motivo_probpago"]
+
+
+def _guardar_cartera_real(empresa: str, full: pd.DataFrame, etiqueta: str) -> pd.DataFrame:
+    """Guarda la cartera real scoreada APARTE de la demo (no la pisa) y activa
+    el modo 'real'. Devuelve el DataFrame exportado. Camino común del CSV/Excel
+    y del import por SQL — así ambos se comportan igual."""
+    export = full[[c for c in _COLS_EXPORT_CARTERA if c in full.columns]]
+    destino = _archivo_real(empresa)
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+    export.round(4).to_csv(destino, index=False)
+    with open(_archivo_origen(empresa), "w", encoding="utf-8") as f:
+        json.dump({"modo": "real", "tipo": "real", "archivo": etiqueta,
+                   "cargado_en": datetime.now(timezone.utc).isoformat(),
+                   "deudores": int(len(export))}, f)
+    return export
+
+
 @app.post("/api/cartera/importar")
 async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends(solo_admin)):
     """Sube un CSV/Excel con la cartera real (nombre, telefono, deuda[,
     dias_mora, ...]) y REEMPLAZA los datos de demo: se scorea con ProbPago,
     se aplica la estrategia del Agente Negociador, y el dashboard entero
-    (KPIs, Cartera, Agenda) pasa a reflejar esta cartera. Las features que
-    no vienen en el archivo se completan con supuestos (ver
-    kobra/cartera_manual.py::DEFAULTS) — no se inventa historial de pagos."""
+    (KPIs, Cartera, Agenda) pasa a reflejar esta cartera. Sin límite de
+    tamaño. Las features que no vienen en el archivo se completan con
+    supuestos (ver kobra/cartera_manual.py::DEFAULTS) — no se inventa
+    historial de pagos."""
     nombre = (archivo.filename or "").lower()
     if not nombre.endswith((".csv", ".xlsx", ".xls")):
         raise HTTPException(400, "Subí un archivo .csv o .xlsx.")
@@ -749,30 +773,46 @@ async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends
     except ValueError as e:
         raise HTTPException(422, str(e))
 
-    cols_export = ["id_deudor", "segmento", "producto", "departamento", "tramo_mora",
-                   "dias_mora", "monto_deuda", "score_buro", "contactabilidad",
-                   "probpago", "decil", "segmento_propension", "estrategia",
-                   "descuento_recomendado", "plan_cuotas", "canal_recomendado",
-                   "valor_esperado_recupero", "prioridad", "pago", "guion",
-                   "motivo_probpago"]
-    export = full[[c for c in cols_export if c in full.columns]]
-    # Se guarda APARTE (no pisa la demo): así el botón demo ON/OFF puede
-    # volver a los datos sintéticos cuando se quiera. Al subir, se activa
-    # 'real' automáticamente para que el dashboard muestre esta cartera ya.
-    destino = _archivo_real(u.empresa)
-    os.makedirs(os.path.dirname(destino), exist_ok=True)
-    export.round(4).to_csv(destino, index=False)
-
-    with open(_archivo_origen(u.empresa), "w", encoding="utf-8") as f:
-        json.dump({"modo": "real", "tipo": "real", "archivo": archivo.filename,
-                   "cargado_en": datetime.now(timezone.utc).isoformat(),
-                   "deudores": int(len(export))}, f)
-
+    export = _guardar_cartera_real(u.empresa, full, archivo.filename)
     return {"deudores": int(len(export)),
             "cartera_total_uyu": float(export["monto_deuda"].sum()),
             "mensaje": f"Cartera real cargada y activada: {len(export)} deudor(es). "
                       "El dashboard ya refleja estos datos (podés volver a la demo "
                       "con el botón)."}
+
+
+class ImportarSQLIn(BaseModel):
+    conn_url: str
+    consulta: str
+
+
+@app.post("/api/cartera/importar-sql")
+def cartera_importar_sql(datos: ImportarSQLIn, u: Usuario = Depends(solo_admin)):
+    """Importa la cartera real directamente desde la base de datos del cliente
+    (Postgres, MySQL, SQL Server, SQLite, Oracle… cualquiera que soporte
+    SQLAlchemy), SIN límite de tamaño — trae toda la cartera que devuelva la
+    consulta. Solo lectura: se rechaza cualquier consulta que no sea
+    SELECT/WITH. Igual que el CSV, se scorea con ProbPago, se aplica la
+    estrategia y se activa el modo 'real'. La URL de conexión no se loguea."""
+    try:
+        contactos = kcartera.desde_base_de_datos(datos.conn_url, datos.consulta)  # limite=None
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        raise HTTPException(400, f"No pude conectar o consultar la base: {e}")
+    if not contactos:
+        raise HTTPException(422, "La consulta no devolvió ninguna fila con un monto de "
+                                 "deuda válido (columna 'deuda', 'monto' o 'monto_deuda').")
+    try:
+        full = kcartera.importar_y_scorear(pd.DataFrame(contactos))
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+    export = _guardar_cartera_real(u.empresa, full, "Base de datos (SQL)")
+    return {"deudores": int(len(export)),
+            "cartera_total_uyu": float(export["monto_deuda"].sum()),
+            "mensaje": f"Cartera real importada desde la base y activada: {len(export)} "
+                      "deudor(es). El dashboard ya refleja estos datos."}
 
 
 @app.post("/api/voz/analizar")

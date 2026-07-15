@@ -157,3 +157,59 @@ def test_importar_requiere_admin(cliente):
     r2 = c.post("/api/cartera/importar", headers=h,
                files={"archivo": ("x.csv", _csv_cartera_real(), "text/csv")})
     assert r2.status_code == 403
+
+
+def test_importar_sql_desde_base_reemplaza_dashboard(cliente, tmp_path):
+    api, c = cliente
+    h_principal = _h_admin(c)
+    try:
+        r = c.post("/api/tenant/alta", json={"empresa": "test-importar-sql"},
+                  headers=h_principal)
+        assert r.status_code == 200, r.text
+        h = _h_admin(c, empresa="test-importar-sql")
+
+        # Base SQLite del "cliente" con su cartera real.
+        import sqlalchemy as sa
+        db = tmp_path / "cartera_cliente.db"
+        eng = sa.create_engine(f"sqlite:///{db}")
+        pd.DataFrame({
+            "nombre": ["Ana", "Beto", "Caro", "Dani"],
+            "telefono": ["0991", "0992", "0993", "0994"],
+            "monto_deuda": [10000, 25000, 5000, 40000],
+            "dias_mora": [30, 90, 15, 200],
+        }).to_sql("cartera", eng, index=False)
+        eng.dispose()
+
+        r = c.post("/api/cartera/importar-sql", headers=h, json={
+            "conn_url": f"sqlite:///{db}",
+            "consulta": "SELECT nombre, telefono, monto_deuda, dias_mora FROM cartera"})
+        assert r.status_code == 200, r.text
+        assert r.json()["deudores"] == 4
+
+        kpis = c.get("/api/kpis", headers=h).json()
+        assert kpis["deudores"] == 4
+        origen = c.get("/api/cartera/origen", headers=h).json()
+        assert origen["modo"] == "real" and origen["archivo"] == "Base de datos (SQL)"
+    finally:
+        shutil.rmtree(os.path.join(ROOT, "data", "tenants", "test-importar-sql"),
+                      ignore_errors=True)
+
+
+def test_importar_sql_rechaza_consulta_de_escritura(cliente):
+    api, c = cliente
+    h = _h_admin(c)
+    r = c.post("/api/cartera/importar-sql", headers=h, json={
+        "conn_url": "sqlite:///x.db",
+        "consulta": "DELETE FROM cartera"})
+    assert r.status_code == 422  # solo lectura (SELECT/WITH)
+
+
+def test_importar_sql_requiere_admin(cliente):
+    api, c = cliente
+    from kobra import autenticacion as kauth
+    kauth.establecer_password("gestor", "GestorTest123!")
+    r = c.post("/api/auth/login", json={"password": "GestorTest123!"})
+    h = {"Authorization": f"Bearer {r.json()['token']}"}
+    r2 = c.post("/api/cartera/importar-sql", headers=h,
+               json={"conn_url": "sqlite:///x.db", "consulta": "SELECT 1"})
+    assert r2.status_code == 403

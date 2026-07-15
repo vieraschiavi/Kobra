@@ -4,11 +4,21 @@ import { t } from "../i18n/index.js";
 
 function ImportarCartera() {
   const [origen, setOrigen] = useState(null);
+  const [fuente, setFuente] = useState("archivo");   // "archivo" | "sql"
   const [archivo, setArchivo] = useState(null);
+  const [connUrl, setConnUrl] = useState("");
+  const [consulta, setConsulta] = useState("");
   const [nota, setNota] = useState("");
   const [cargando, setCargando] = useState(false);
   const cargarOrigen = () => api("/api/cartera/origen").then(setOrigen).catch(() => {});
   useEffect(() => { cargarOrigen(); }, []);
+
+  const trasImportar = (d) => {
+    setNota(d.mensaje);
+    // Recargar toda la app: KPIs/Cartera/Agenda cachean sus datos al montar,
+    // así el dashboard entero refleja la cartera recién importada.
+    setTimeout(() => window.location.reload(), 900);
+  };
 
   const subir = async () => {
     if (!archivo) return;
@@ -24,11 +34,22 @@ function ImportarCartera() {
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
-      setNota(d.mensaje);
       setArchivo(null);
-      // Recargar toda la app: KPIs/Cartera/Agenda cachean sus datos al montar,
-      // así el dashboard entero refleja la cartera recién subida.
-      setTimeout(() => window.location.reload(), 900);
+      trasImportar(d);
+    } catch (e) {
+      setNota(e.message);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const importarSQL = async () => {
+    if (!connUrl.trim() || !consulta.trim()) return;
+    setCargando(true); setNota("");
+    try {
+      const d = await api("/api/cartera/importar-sql",
+        { metodo: "POST", cuerpo: { conn_url: connUrl, consulta } });
+      trasImportar(d);
     } catch (e) {
       setNota(e.message);
     } finally {
@@ -83,14 +104,45 @@ function ImportarCartera() {
             : t("importar_cartera.origen_demo")}
         </p>
       )}
-      <div className="toolbar">
-        <input type="file" accept=".csv,.xlsx,.xls"
-               onChange={(e) => setArchivo(e.target.files[0] || null)} />
-        <button className="btn" disabled={!archivo || cargando} onClick={subir}>
-          {cargando ? t("importar_cartera.subiendo") : t("importar_cartera.boton")}
+      {/* Selector de fuente: archivo o base de datos (SQL) */}
+      <div className="toolbar" style={{ gap: 8, marginBottom: 10 }}>
+        <button className={"btn" + (fuente === "archivo" ? "" : " ghost")}
+                onClick={() => { setFuente("archivo"); setNota(""); }}>
+          {t("importar_cartera.fuente_archivo")}
+        </button>
+        <button className={"btn" + (fuente === "sql" ? "" : " ghost")}
+                onClick={() => { setFuente("sql"); setNota(""); }}>
+          {t("importar_cartera.fuente_sql")}
         </button>
       </div>
-      {nota && <span style={{ color: "var(--muted)", fontSize: 13 }}>{nota}</span>}
+
+      {fuente === "archivo" ? (
+        <div className="toolbar">
+          <input type="file" accept=".csv,.xlsx,.xls"
+                 onChange={(e) => setArchivo(e.target.files[0] || null)} />
+          <button className="btn" disabled={!archivo || cargando} onClick={subir}>
+            {cargando ? t("importar_cartera.subiendo") : t("importar_cartera.boton")}
+          </button>
+        </div>
+      ) : (
+        <div>
+          <p style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 0 }}>
+            {t("importar_cartera.sql_ayuda")}
+          </p>
+          <input type="text" value={connUrl} style={{ width: "100%", marginBottom: 8 }}
+                 placeholder={t("importar_cartera.sql_url_placeholder")}
+                 onChange={(e) => setConnUrl(e.target.value)} />
+          <textarea value={consulta} rows={4} style={{ width: "100%", marginBottom: 8,
+                        fontFamily: "var(--mono)", fontSize: 12.5 }}
+                    placeholder={t("importar_cartera.sql_consulta_placeholder")}
+                    onChange={(e) => setConsulta(e.target.value)} />
+          <button className="btn" disabled={!connUrl.trim() || !consulta.trim() || cargando}
+                  onClick={importarSQL}>
+            {cargando ? t("importar_cartera.subiendo") : t("importar_cartera.sql_boton")}
+          </button>
+        </div>
+      )}
+      {nota && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>{nota}</div>}
     </div>
   );
 }
