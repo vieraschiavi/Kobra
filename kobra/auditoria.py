@@ -27,8 +27,12 @@ from datetime import datetime, timezone
 
 import portalocker
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOG_FILE = os.environ.get("KOBRA_AUDIT_LOG", os.path.join(ROOT, "data", "auditoria.log"))
+from kobra import rutas as krutas
+
+# Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo, igual
+# que antes; instalado, es una carpeta propia del usuario, no Program Files.
+LOG_FILE = os.environ.get("KOBRA_AUDIT_LOG",
+                          os.path.join(krutas.DIR_DATOS, "data", "auditoria.log"))
 GENESIS_HASH = "0" * 64
 
 

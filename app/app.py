@@ -19,15 +19,19 @@ import plotly.graph_objects as go
 import streamlit as st
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRATCH = os.path.join(ROOT, ".uploads")
 sys.path.insert(0, ROOT)
 
+from kobra import rutas as krutas             # noqa: E402
 from kobra.probpago import ProbPagoModel      # noqa: E402
 from kobra import negociador                  # noqa: E402
 from kobra import copiloto                    # noqa: E402
 from kobra import analitica                   # noqa: E402
 from kobra import config as kconfig           # noqa: E402
 from kobra import roi as kroi                 # noqa: E402
+
+# Escribible siempre: instalado en Program Files, ROOT es de solo lectura
+# para un usuario sin admin (PermissionError). Ver kobra/rutas.py.
+SCRATCH = os.path.join(krutas.DIR_DATOS, ".uploads")
 from kobra import integracion as kerp         # noqa: E402
 from kobra import auditoria as kauditoria     # noqa: E402
 from kobra import consulta_bd as kconsulta    # noqa: E402

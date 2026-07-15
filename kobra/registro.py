@@ -21,9 +21,12 @@ from datetime import datetime
 import pandas as pd
 import portalocker
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCORED_CSV = os.path.join(ROOT, "outputs", "kobra_scored.csv")
-GESTIONES_CSV = os.path.join(ROOT, "data", "kobra_gestiones.csv")
+from kobra import rutas as krutas
+
+# Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo, igual
+# que antes; instalado, es una carpeta propia del usuario, no Program Files.
+SCORED_CSV = os.path.join(krutas.DIR_DATOS, "outputs", "kobra_scored.csv")
+GESTIONES_CSV = os.path.join(krutas.DIR_DATOS, "data", "kobra_gestiones.csv")
 
 GESTION_COLS = [
     "id_gestion", "gestor_id", "gestor", "tipo_gestor", "mes", "fecha_gestion",

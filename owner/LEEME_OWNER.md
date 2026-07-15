@@ -43,6 +43,12 @@ La primera vez tarda (baja Python + dependencias); las siguientes son
 instantáneas. Si Python se instaló recién, quizás tengas que cerrar y reabrir
 el .bat una vez (Windows necesita reabrir la consola para tomarlo).
 
+> **Necesitás ~3 GB libres en disco** para que las dependencias se descarguen
+> e instalen bien (pandas, scikit-learn, streamlit, etc. pesan bastante). El
+> .bat chequea el espacio antes de arrancar y avisa si falta; si el error es
+> "No space left on device" a mitad de instalar, liberá espacio y volvé a
+> correrlo — lo que ya se instaló no hace falta bajarlo de nuevo.
+
 > La interfaz es **React + FastAPI** (la webapp profesional), NO el dashboard
 > Streamlit viejo. Ese dashboard clásico sigue en el paquete pero no es lo
 > que abre esta vía.
