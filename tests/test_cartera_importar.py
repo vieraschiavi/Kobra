@@ -56,7 +56,9 @@ def _csv_cartera_real():
 def test_origen_default_es_demo(cliente):
     api, c = cliente
     h = _h_admin(c)
-    assert c.get("/api/cartera/origen", headers=h).json() == {"tipo": "demo"}
+    origen = c.get("/api/cartera/origen", headers=h).json()
+    assert origen["tipo"] == "demo" and origen["modo"] == "demo"
+    assert origen["hay_real"] is False  # sin cartera real subida, el botón está deshabilitado
 
 
 def test_importar_csv_reemplaza_dashboard_completo(cliente):
@@ -91,14 +93,41 @@ def test_importar_csv_reemplaza_dashboard_completo(cliente):
         # Origen ahora marca "real", con fecha y nombre de archivo — nunca se
         # disfraza de demo. Y el tenant "principal" no se tocó.
         origen = c.get("/api/cartera/origen", headers=h).json()
-        assert origen["tipo"] == "real"
+        assert origen["tipo"] == "real" and origen["modo"] == "real"
+        assert origen["hay_real"] is True
         assert origen["archivo"] == "mi_cartera.csv"
         assert origen["deudores"] == 3
         assert "cargado_en" in origen
-        assert c.get("/api/cartera/origen", headers=h_principal).json() == {"tipo": "demo"}
+        assert c.get("/api/cartera/origen", headers=h_principal).json()["tipo"] == "demo"
+
+        # Botón demo ON: volver a la demo NO pierde la cartera real (se puede
+        # re-activar), y el dashboard entero vuelve a los datos sintéticos.
+        c.post("/api/cartera/modo", json={"modo": "demo"}, headers=h)
+        assert c.get("/api/kpis", headers=h).json()["deudores"] == 2000
+        origen_demo = c.get("/api/cartera/origen", headers=h).json()
+        assert origen_demo["modo"] == "demo" and origen_demo["hay_real"] is True
+
+        # Botón demo OFF: re-activar la cartera real que ya estaba subida.
+        c.post("/api/cartera/modo", json={"modo": "real"}, headers=h)
+        assert c.get("/api/kpis", headers=h).json()["deudores"] == 3
     finally:
         shutil.rmtree(os.path.join(ROOT, "data", "tenants", "test-importar-cartera"),
                       ignore_errors=True)
+
+
+def test_activar_modo_real_sin_cartera_da_400(cliente):
+    api, c = cliente
+    h = _h_admin(c)
+    # No se puede activar 'real' si nunca se subió una cartera real.
+    r = c.post("/api/cartera/modo", json={"modo": "real"}, headers=h)
+    assert r.status_code == 400
+
+
+def test_modo_invalido_da_400(cliente):
+    api, c = cliente
+    h = _h_admin(c)
+    r = c.post("/api/cartera/modo", json={"modo": "otro"}, headers=h)
+    assert r.status_code == 400
 
 
 def test_importar_csv_vacio_de_deuda_da_422(cliente):

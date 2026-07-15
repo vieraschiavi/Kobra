@@ -286,11 +286,15 @@
   "importar_cartera": {
     "titulo": "📤 Carregar sua carteira real",
     "subtitulo": "Envie um CSV ou Excel com seus devedores (nome, telefone, dívida[, dias de atraso]) e substitua na hora os dados de demonstração em todo o painel: KPIs, carteira priorizada, estratégias.",
+    "modo_titulo": "Dados que o programa mostra:",
+    "demo_on": "🟡 DEMO (dados de exemplo)",
+    "demo_off": "🟢 MINHA CARTEIRA (dados reais)",
+    "sin_real_aun": "— envie um arquivo abaixo para ativar",
     "origen_real": "✅ Mostrando sua carteira real: {{archivo}} · {{deudores}} devedores.",
     "origen_demo": "ℹ️ Você ainda está vendo dados de demonstração (sintéticos).",
     "boton": "⬆️ Importar e analisar",
     "subiendo": "Analisando…",
-    "banner_demo": "ℹ️ Você está vendo dados de demonstração (sintéticos). Envie sua carteira real em Configurações → Carregar sua carteira real."
+    "banner_demo": "ℹ️ Você está vendo dados de DEMONSTRAÇÃO (sintéticos). Para ver sua carteira real: Configurações → Carregar sua carteira real → botão «MINHA CARTEIRA»."
   },
   "proveedor_ia": {
     "titulo": "🧠 Provedor de IA",

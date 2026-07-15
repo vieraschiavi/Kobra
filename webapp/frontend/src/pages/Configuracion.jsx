@@ -26,7 +26,9 @@ function ImportarCartera() {
       if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
       setNota(d.mensaje);
       setArchivo(null);
-      cargarOrigen();
+      // Recargar toda la app: KPIs/Cartera/Agenda cachean sus datos al montar,
+      // así el dashboard entero refleja la cartera recién subida.
+      setTimeout(() => window.location.reload(), 900);
     } catch (e) {
       setNota(e.message);
     } finally {
@@ -34,14 +36,49 @@ function ImportarCartera() {
     }
   };
 
+  // Botón demo ON/OFF: alterna qué cartera ve TODO el dashboard. ON = datos
+  // de demostración (sintéticos); OFF = la cartera real subida. Solo se puede
+  // apagar la demo si ya hay una cartera real cargada.
+  const cambiarModo = async (modo) => {
+    setNota("");
+    try {
+      await api("/api/cartera/modo", { metodo: "POST", cuerpo: { modo } });
+      window.location.reload();
+    } catch (e) { setNota(e.message); }
+  };
+
+  const demoOn = origen ? origen.modo !== "real" : true;
+
   return (
     <div className="card" style={{ maxWidth: 720, marginTop: 18 }}>
       <h3 style={{ marginTop: 0 }}>{t("importar_cartera.titulo")}</h3>
       <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("importar_cartera.subtitulo")}</p>
+
+      {/* Botón demo ON/OFF — bien visible */}
+      <div className="toolbar" style={{ alignItems: "center", gap: 12,
+             padding: "10px 12px", borderRadius: 10,
+             background: demoOn ? "rgba(242,180,65,.10)" : "rgba(124,194,66,.12)" }}>
+        <b style={{ fontSize: 13 }}>{t("importar_cartera.modo_titulo")}</b>
+        <button className={"btn" + (demoOn ? "" : " ghost")}
+                onClick={() => cambiarModo("demo")} disabled={demoOn}>
+          {t("importar_cartera.demo_on")}
+        </button>
+        <button className={"btn" + (demoOn ? " ghost" : "")}
+                onClick={() => cambiarModo("real")}
+                disabled={!demoOn || !(origen && origen.hay_real)}>
+          {t("importar_cartera.demo_off")}
+        </button>
+        {origen && !origen.hay_real && (
+          <span style={{ color: "var(--muted)", fontSize: 12 }}>
+            {t("importar_cartera.sin_real_aun")}
+          </span>
+        )}
+      </div>
+
       {origen && (
         <p style={{ fontSize: 12.5, fontWeight: 700,
-                    color: origen.tipo === "real" ? "var(--green)" : "var(--amber)" }}>
-          {origen.tipo === "real"
+                    color: origen.modo === "real" ? "var(--green)" : "var(--amber)" }}>
+          {origen.modo === "real"
             ? t("importar_cartera.origen_real", { archivo: origen.archivo, deudores: origen.deudores })
             : t("importar_cartera.origen_demo")}
         </p>
