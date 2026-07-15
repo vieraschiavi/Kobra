@@ -33,6 +33,8 @@ _CLAVE_SECRETO = "LICENSE_SECRET"
 PLANES = {
     "trial":      {"cupo_mensual": 50,   "precio": 0.0,   "dias": 3,
                    "features": ["voz", "whatsapp", "copiloto", "erp"]},
+    "basico":     {"cupo_mensual": 300,  "precio": 59.0,  "dias": 30,
+                   "features": ["voz", "whatsapp", "copiloto", "erp"]},
     "starter":    {"cupo_mensual": 200,  "precio": 490.0, "dias": 365,
                    "features": ["voz", "whatsapp", "copiloto", "erp"]},
     "pro":        {"cupo_mensual": 1000, "precio": 149.0, "dias": 30,

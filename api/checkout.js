@@ -11,6 +11,7 @@
 const { checkBotId } = require("botid/server");
 
 const PLANS = {
+  basico:  { title: "MV Kobra AI · Básico (mensual)",    price: 59.0 },
   pro:     { title: "MV Kobra AI · Pro (todo incluido)", price: 149.0 },
   starter: { title: "MV Kobra AI · Starter (licencia)",  price: 490.0 },
 };

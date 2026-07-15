@@ -40,6 +40,18 @@ def test_licencia_roundtrip(entorno):
     assert "copiloto" in claims["features"]
 
 
+def test_plan_basico_entrada_mensual(entorno):
+    # Plan de entrada competitivo: US$59/mes, 300 gestiones, mensual (30 días).
+    app_mod, licencias, uso, descargas = entorno
+    cfg = licencias.PLANES["basico"]
+    assert cfg["precio"] == 59.0 and cfg["cupo_mensual"] == 300 and cfg["dias"] == 30
+    tok = licencias.emitir_licencia("pyme@mail.com", "basico")
+    claims = licencias.validar_licencia(tok)
+    assert claims["plan"] == "basico" and claims["cupo_mensual"] == 300
+    # sin "excedente" (ese beneficio queda para Pro en adelante)
+    assert "excedente" not in claims["features"]
+
+
 def test_licencia_invalida_no_valida(entorno):
     app_mod, licencias, uso, descargas = entorno
     with pytest.raises(jwt.PyJWTError):

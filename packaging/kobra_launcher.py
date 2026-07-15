@@ -42,8 +42,34 @@ def _puerto_libre() -> int:
         return s.getsockname()[1]
 
 
+def _abrir_ventana_app(url: str) -> bool:
+    """Abre en modo 'app' (ventana limpia, sin barra de navegador — se ve como
+    una app de escritorio) usando Chrome o Edge, que están en casi todo Windows.
+    Devuelve True si lo logró; si no hay ninguno, el llamador cae al navegador
+    normal. No suma peso (no es Electron): reusa el navegador ya instalado."""
+    import shutil
+    import subprocess
+    candidatos = [
+        os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+        os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+        shutil.which("chrome"), shutil.which("msedge"),
+        shutil.which("google-chrome"), shutil.which("chromium"),
+    ]
+    for exe in candidatos:
+        if exe and os.path.exists(exe):
+            try:
+                subprocess.Popen([exe, f"--app={url}", "--new-window"])
+                return True
+            except Exception:
+                continue
+    return False
+
+
 def _abrir_navegador(url: str):
-    # Espera a que el server levante y abre el navegador una sola vez.
+    # Espera a que el server levante y abre la app una sola vez.
     for _ in range(60):
         time.sleep(0.5)
         try:
@@ -52,6 +78,13 @@ def _abrir_navegador(url: str):
             break
         except Exception:
             continue
+    # Modo ventana-app (más profesional: ventana limpia sin barra del navegador).
+    # Default en Windows (Edge está siempre) para que el cliente con el .exe
+    # también lo tenga; se puede forzar/desactivar con KOBRA_APP_WINDOW=1/0.
+    flag = os.environ.get("KOBRA_APP_WINDOW")
+    quiere_app = flag == "1" or (flag != "0" and sys.platform == "win32")
+    if quiere_app and _abrir_ventana_app(url):
+        return
     webbrowser.open(url)
 
 
