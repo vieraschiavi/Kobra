@@ -62,6 +62,12 @@ EMPRESA_DEFAULT = "principal"
 # comprar (o el trial de 3 días). En modo hosted (Vercel, multi-tenant) esto
 # queda desactivado y el login sigue siendo por contraseña, sin cambios.
 MODO_STANDALONE = os.getenv("KOBRA_MODO_STANDALONE", "").lower() in ("1", "true", "si", "sí")
+# Modo owner (carpeta owner/ del repo): la copia del dueño del producto —
+# sin licencia, sin trial, sin vencimiento, entra directo como admin. Solo
+# tiene efecto combinado con MODO_STANDALONE (el server local del launcher,
+# que escucha únicamente en 127.0.0.1); en el despliegue hosted esta variable
+# no se setea nunca y no cambia nada.
+MODO_OWNER = os.getenv("KOBRA_OWNER", "").lower() in ("1", "true", "si", "sí")
 _CLAVE_LICENCIA = "LICENCIA_TOKEN"
 
 
@@ -230,7 +236,22 @@ def licencia_estado():
     saber si hay sesión. En modo hosted no hace nada (standalone=False)."""
     if not MODO_STANDALONE:
         return {"standalone": False}
+    if MODO_OWNER:
+        return {"standalone": True, "activa": True, "owner": True,
+                "plan": "owner", "trial": False, "dias_restantes": None}
     return {"standalone": True, **_estado_licencia(kconfig.leer_extra(_CLAVE_LICENCIA))}
+
+
+@app.post("/api/licencia/owner-login")
+def licencia_owner_login():
+    """Entrada directa de la copia del owner: emite el token de admin sin
+    licencia ni contraseña. Solo existe cuando el launcher local corre con
+    KOBRA_OWNER=1 (server en 127.0.0.1); en hosted o en la copia de un
+    cliente devuelve 404 como si el endpoint no existiera."""
+    if not (MODO_STANDALONE and MODO_OWNER):
+        raise HTTPException(404, "No encontrado.")
+    return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
+            "empresa": EMPRESA_DEFAULT}
 
 
 @app.post("/api/licencia/activar")

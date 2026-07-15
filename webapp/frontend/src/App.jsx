@@ -116,7 +116,16 @@ export default function App() {
   // tiempo); en modo hosted (Vercel) standalone=false y esto no cambia nada.
   const [licEstado, setLicEstado] = useState(undefined);
   useEffect(() => {
-    api("/api/licencia/estado").then(setLicEstado).catch(() => setLicEstado({ standalone: false }));
+    api("/api/licencia/estado").then(async (e) => {
+      // Copia del owner (carpeta owner/): entra directo como admin, sin
+      // licencia ni contraseña — el backend solo habilita ese endpoint en
+      // el server local con KOBRA_OWNER=1.
+      if (e.standalone && e.owner && !getSesion()) {
+        try { setSesion(await api("/api/licencia/owner-login", { metodo: "POST", cuerpo: {} })); }
+        catch { /* si falla, sigue el flujo normal de login */ }
+      }
+      setLicEstado(e);
+    }).catch(() => setLicEstado({ standalone: false }));
   }, []);
 
   const sesion = getSesion();
