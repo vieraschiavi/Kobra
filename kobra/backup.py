@@ -28,7 +28,9 @@ import shutil
 import zipfile
 from datetime import datetime, timezone
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from kobra import rutas as krutas
+
+ROOT = krutas.DIR_DATOS  # escribible siempre (dev/tests: repo; instalado: carpeta propia)
 BACKUP_DIR_DEFAULT = os.environ.get("KOBRA_BACKUP_DIR", os.path.join(ROOT, "backups"))
 
 # Rutas relativas a ROOT (o absolutas, para las que viven en KOBRA_CONFIG_DIR)

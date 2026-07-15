@@ -49,8 +49,15 @@ from kobra import informe_ejecutivo as kinforme    # noqa: E402
 from kobra import llm as kllm                      # noqa: E402
 from kobra import paises as kpaises                # noqa: E402
 from kobra import registro as kregistro            # noqa: E402
+from kobra import rutas as krutas                  # noqa: E402
 from kobra import seguimiento as kseg              # noqa: E402
 from backend_venta import licencias as klicencias  # noqa: E402
+
+# Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo (ROOT),
+# igual que antes; instalado, es una carpeta propia del usuario, nunca
+# Program Files. ROOT sigue usándose para leer recursos bundleados (el
+# build de React, sys.path) — nunca para escribir datos de negocio.
+DIR_DATOS = krutas.DIR_DATOS
 
 kconfig.aplicar()
 
@@ -118,14 +125,14 @@ def solo_admin(u: Usuario = Depends(usuario_actual)) -> Usuario:
 # Datos por empresa (multi-tenant por directorio)
 # ---------------------------------------------------------------------------
 def _dir_tenant(empresa: str) -> str:
-    return os.path.join(ROOT, "data", "tenants", empresa)
+    return os.path.join(DIR_DATOS, "data", "tenants", empresa)
 
 
 def _datos_de(empresa: str) -> dict:
     """Rutas de datos del tenant. 'principal' = los datos del repo."""
     if empresa == EMPRESA_DEFAULT:
-        return {"scored": os.path.join(ROOT, "outputs", "kobra_scored.csv"),
-                "gestiones": os.path.join(ROOT, "data", "kobra_gestiones.csv")}
+        return {"scored": os.path.join(DIR_DATOS, "outputs", "kobra_scored.csv"),
+                "gestiones": os.path.join(DIR_DATOS, "data", "kobra_gestiones.csv")}
     d = _dir_tenant(empresa)
     return {"scored": os.path.join(d, "kobra_scored.csv"),
             "gestiones": os.path.join(d, "kobra_gestiones.csv")}
@@ -144,7 +151,7 @@ def _gestiones(empresa: str) -> pd.DataFrame | None:
 
 
 def _archivo_pais(empresa: str) -> str:
-    base = os.path.join(ROOT, "data") if empresa == EMPRESA_DEFAULT else _dir_tenant(empresa)
+    base = os.path.join(DIR_DATOS, "data") if empresa == EMPRESA_DEFAULT else _dir_tenant(empresa)
     return os.path.join(base, "pais.json")
 
 
@@ -636,13 +643,13 @@ def integracion_cartera(datos: CarteraEntranteIn, u: Usuario = Depends(solo_admi
     contactos = kcartera.desde_dataframe(pd.DataFrame(datos.contactos))
     if not contactos:
         raise HTTPException(422, "Ningún contacto tenía un monto de deuda válido.")
-    destino_dir = (os.path.join(ROOT, "data") if u.empresa == EMPRESA_DEFAULT
+    destino_dir = (os.path.join(DIR_DATOS, "data") if u.empresa == EMPRESA_DEFAULT
                    else _dir_tenant(u.empresa))
     os.makedirs(destino_dir, exist_ok=True)
     destino = os.path.join(destino_dir, "cartera_entrante.csv")
     pd.DataFrame(contactos).to_csv(destino, index=False)
     return {"recibidos": len(datos.contactos), "validos": len(contactos),
-            "archivo": os.path.relpath(destino, ROOT)}
+            "archivo": os.path.relpath(destino, DIR_DATOS)}
 
 
 # --- Frontend compilado, si existe ------------------------------------------

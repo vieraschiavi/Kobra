@@ -99,6 +99,12 @@ def main():
     if base not in sys.path:
         sys.path.insert(0, base)
 
+    # Primer arranque instalado: copia la demo sintética (data/, outputs/)
+    # bundleada a la carpeta de datos escribible del usuario (nunca Program
+    # Files). Ver kobra/rutas.py — sin esto, la demo no aparece la 1a vez.
+    from kobra import rutas as krutas
+    krutas.sembrar_si_hace_falta()
+
     # UI compilada: si no está el build normal de Vite (correr desde código sin
     # haber pasado por Node), caer al build versionado en owner/ui_dist para que
     # la interfaz igual se sirva sin necesidad de instalar Node.

@@ -23,10 +23,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from kobra.probpago import ProbPagoModel               # noqa: E402
 from kobra import negociador                            # noqa: E402
 from kobra import explicabilidad                        # noqa: E402
+from kobra import rutas as krutas                       # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_CSV = os.path.join(ROOT, "data", "kobra_cartera.csv")
-OUT_DIR = os.path.join(ROOT, "outputs")
+# Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo, igual
+# que antes; instalado, es una carpeta propia del usuario, no Program Files.
+DATA_CSV = os.path.join(krutas.DIR_DATOS, "data", "kobra_cartera.csv")
+OUT_DIR = os.path.join(krutas.DIR_DATOS, "outputs")
 
 
 def _load_or_generate():
