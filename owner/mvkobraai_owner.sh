@@ -25,4 +25,5 @@ echo "[2/2] Instalando/verificando dependencias (puede tardar la 1a vez)..."
 # 3) Arranque en modo owner, usando la UI ya compilada (sin necesitar Node)
 export KOBRA_OWNER=1
 export KOBRA_UI_DIST="$(pwd)/owner/ui_dist"
+export KOBRA_APP_WINDOW=1
 exec .kobra_venv/bin/python packaging/kobra_launcher.py

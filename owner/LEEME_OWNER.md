@@ -28,16 +28,24 @@ de la copia de un cliente.
 ### A) Sin instalar NADA a mano → doble clic en `MVKobraAI_Owner_desde_codigo.bat`
 **Esta es la vía recomendada si no tenés el instalador.** El .bat prepara
 todo solo, sin que instales nada previo:
-1. Si falta Python 3.11+, lo instala con `winget` (viene en Windows 10/11).
+1. Si falta Python 3.11+, lo **descarga del sitio oficial e instala en
+   silencio** usando PowerShell (incluido en todo Windows — **no depende de
+   winget**).
 2. Crea un entorno virtual propio (`.kobra_venv`, no toca tu Python).
 3. Instala las dependencias (`requirements.txt`).
 4. Usa la interfaz **ya compilada** que viene en `owner/ui_dist/` — **no
    necesita Node**.
-5. Arranca en modo owner y abre el navegador.
+5. Arranca en modo owner y abre en una **ventana de app** (limpia, sin barra
+   de navegador, se ve como app de escritorio — usa Chrome o Edge, sin sumar
+   el peso de Electron).
 
-La primera vez tarda (baja e instala dependencias); las siguientes son
-instantáneas. Si winget instaló Python recién, quizás tengas que cerrar y
-reabrir el .bat una vez (Windows necesita reabrir la consola para tomarlo).
+La primera vez tarda (baja Python + dependencias); las siguientes son
+instantáneas. Si Python se instaló recién, quizás tengas que cerrar y reabrir
+el .bat una vez (Windows necesita reabrir la consola para tomarlo).
+
+> La interfaz es **React + FastAPI** (la webapp profesional), NO el dashboard
+> Streamlit viejo. Ese dashboard clásico sigue en el paquete pero no es lo
+> que abre esta vía.
 
 ### B) Con el programa ya instalado (MVKobraAI_Setup.exe) → `MVKobraAI_Owner.bat`
 Busca el .exe instalado y lo arranca en modo owner. Si no lo encuentra, llama
