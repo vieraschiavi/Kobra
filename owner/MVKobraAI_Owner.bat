@@ -12,7 +12,10 @@ if exist "%EXE_PF%"   ( start "" "%EXE_PF%"   & exit /b )
 if exist "%EXE_PF86%" ( start "" "%EXE_PF86%" & exit /b )
 if exist "%EXE_USER%" ( start "" "%EXE_USER%" & exit /b )
 
-echo [MV Kobra AI] No encuentro el programa instalado.
-echo Instala MVKobraAI_Setup.exe primero, o usa MVKobraAI_Owner_desde_codigo.bat
-echo si queres correrlo directo desde el codigo fuente.
-pause
+echo [MV Kobra AI] No encuentro el programa instalado (MVKobraAI_Setup.exe).
+echo.
+echo   Abriendo la version que NO necesita el instalador
+echo   (MVKobraAI_Owner_desde_codigo.bat): prepara todo sola.
+echo.
+timeout /t 3 >nul
+call "%~dp0MVKobraAI_Owner_desde_codigo.bat"

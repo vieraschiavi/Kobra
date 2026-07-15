@@ -645,7 +645,15 @@ def integracion_cartera(datos: CarteraEntranteIn, u: Usuario = Depends(solo_admi
             "archivo": os.path.relpath(destino, ROOT)}
 
 
-# --- Frontend compilado (webapp/frontend/dist), si existe -------------------
-_DIST = os.path.join(ROOT, "webapp", "frontend", "dist")
-if os.path.isdir(_DIST):
-    app.mount("/", StaticFiles(directory=_DIST, html=True), name="frontend")
+# --- Frontend compilado, si existe ------------------------------------------
+# Orden de búsqueda: (1) KOBRA_UI_DIST explícito (lo setea el lanzador owner
+# apuntando a owner/ui_dist, un build ya compilado y versionado, para no
+# depender de Node al correr desde código); (2) el build normal de Vite.
+_DIST_CANDIDATOS = [
+    os.environ.get("KOBRA_UI_DIST", ""),
+    os.path.join(ROOT, "webapp", "frontend", "dist"),
+]
+for _d in _DIST_CANDIDATOS:
+    if _d and os.path.isdir(_d):
+        app.mount("/", StaticFiles(directory=_d, html=True), name="frontend")
+        break
