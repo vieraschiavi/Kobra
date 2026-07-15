@@ -103,9 +103,9 @@ _TEXTOS_POR_IDIOMA = {
         "sin_resultados": ("No encontré nada en la documentación sobre eso. "
                            "Probá reformular la pregunta, o escribinos por el "
                            "buzón de contacto de esta misma pestaña."),
-        "docs_intro": ("Sin `ANTHROPIC_API_KEY` configurada te muestro lo que dice la "
-                      "documentación (cargá la key en ⚙️ Configuración para respuestas "
-                      "redactadas):\n\n"),
+        "docs_intro": ("Sin un proveedor de IA configurado te muestro lo que dice la "
+                      "documentación (elegí Claude, Gemini o ChatGPT y cargá su clave en "
+                      "⚙️ Configuración para respuestas redactadas):\n\n"),
         "fallback_es": ("_Esta parte de la documentación todavía no está traducida al "
                         "portugués — te muestro el original en español:_\n\n"),
     },
@@ -114,9 +114,9 @@ _TEXTOS_POR_IDIOMA = {
         "sin_resultados": ("Não encontrei nada na documentação sobre isso. "
                            "Tente reformular a pergunta, ou escreva para nós pela "
                            "caixa de contato desta mesma aba."),
-        "docs_intro": ("Sem `ANTHROPIC_API_KEY` configurada, mostro o que diz a "
-                      "documentação (configure a chave em ⚙️ Configuração para "
-                      "respostas redigidas):\n\n"),
+        "docs_intro": ("Sem um provedor de IA configurado, mostro o que diz a "
+                      "documentação (escolha Claude, Gemini ou ChatGPT e configure a "
+                      "chave em ⚙️ Configuração para respostas redigidas):\n\n"),
         "fallback_es": ("_Esta parte da documentação ainda não foi traduzida para o "
                         "português — mostro o original em espanhol:_\n\n"),
     },
