@@ -42,7 +42,15 @@ def rutas_empaquetado(tmp_path, monkeypatch):
 
     from kobra import rutas
     importlib.reload(rutas)
-    return rutas, bundle, userdata
+    yield rutas, bundle, userdata
+    # kobra.rutas es un módulo compartido por todo el proceso de tests: si no
+    # se restaura a modo dev acá, el resto de la suite (que corra después de
+    # este archivo, en el mismo proceso) heredaría un DIR_DATOS de este
+    # tmp_path ya descartado — rompiendo tests de otros archivos sin relación
+    # aparente (bug real que apareció así: test_webapp.py fallaba con
+    # KeyError porque _scored() ya no encontraba outputs/kobra_scored.csv).
+    monkeypatch.undo()
+    importlib.reload(rutas)
 
 
 def test_dev_dir_datos_es_el_repo(rutas_dev):
@@ -85,6 +93,8 @@ def test_kobra_env_data_dir_fuerza_ubicacion(tmp_path, monkeypatch):
     from kobra import rutas
     importlib.reload(rutas)
     assert rutas.DIR_DATOS == str(forzado)
+    monkeypatch.undo()
+    importlib.reload(rutas)
 
 
 def test_modulos_dependientes_usan_dir_datos(rutas_empaquetado, monkeypatch):

@@ -134,6 +134,52 @@ def leer_csv(ruta: str) -> list[dict]:
     return desde_dataframe(pd.read_csv(ruta, dtype=str).fillna(""))
 
 
+_MODELO_PRIOR = None
+
+
+def modelo_prior():
+    """Modelo ProbPago entrenado sobre la cartera de referencia (la demo
+    sintética, o la que ya haya en `data/kobra_cartera.csv`) — se usa para
+    puntuar carteras chicas nuevas sin reentrenar en cada subida. Una real
+    recién subida no trae la columna de resultado histórico (`pago`), así
+    que no se puede entrenar sobre ella directamente; se aplica este modelo
+    ya entrenado, y `puntuar()` no depende de deciles (sirve para pocas filas)."""
+    global _MODELO_PRIOR
+    if _MODELO_PRIOR is None:
+        from kobra.pipeline import _load_or_generate
+        from kobra.probpago import ProbPagoModel
+        base = _load_or_generate()
+        _MODELO_PRIOR = ProbPagoModel().fit_seleccionado(base)
+    return _MODELO_PRIOR
+
+
+def importar_y_scorear(df_bruto: pd.DataFrame) -> pd.DataFrame:
+    """Toma un DataFrame crudo subido por el cliente (CSV/Excel con nombre,
+    telefono, deuda[, dias_mora, ...]) y devuelve la cartera completa
+    scoreada + con estrategia de negociación — lista para reemplazar los
+    datos de demo del dashboard. Lanza ValueError si no hay ninguna fila
+    con un monto de deuda válido."""
+    from kobra import explicabilidad, negociador
+
+    contactos = desde_dataframe(df_bruto)
+    if not contactos:
+        raise ValueError("El archivo no tiene ninguna fila con un monto de deuda válido "
+                         "(columna 'deuda', 'monto' o 'monto_deuda').")
+    df = cargar_manual(contactos)
+    model = modelo_prior()
+    scored = puntuar(model, df)
+    try:
+        scored["decil"] = pd.qcut(scored["probpago"].rank(method="first"), 10,
+                                  labels=False, duplicates="drop") + 1
+    except Exception:
+        # Muy pocas filas para deciles reales (qcut necesita variedad): decil
+        # aproximado por percentil, funciona incluso con una sola fila.
+        scored["decil"] = (scored["probpago"].rank(pct=True) * 9 + 1).round().astype(int)
+    full = negociador.recomendar(scored)
+    full["motivo_probpago"] = explicabilidad.explicar_cartera(model, full)
+    return full
+
+
 def desde_base_de_datos(conn_url: str, consulta: str, limite: int = 5000) -> list[dict]:
     """
     Trae la cartera directamente desde la base de datos del cliente (Postgres,

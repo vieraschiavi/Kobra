@@ -25,7 +25,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from kobra import rutas as _krutas
+
+# Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo, igual
+# que antes; instalado, es una carpeta propia del usuario, no Program Files.
+_ROOT = _krutas.DIR_DATOS
 _MODEL_PATH = os.path.join(_ROOT, "outputs", "probpago_model.joblib")
 _SELECTION_PATH = os.path.join(_ROOT, "outputs", "model_selection.json")
 _MODEL_DISPLAY = {

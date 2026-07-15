@@ -1,6 +1,62 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../api.js";
+import { api, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
+
+function ImportarCartera() {
+  const [origen, setOrigen] = useState(null);
+  const [archivo, setArchivo] = useState(null);
+  const [nota, setNota] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const cargarOrigen = () => api("/api/cartera/origen").then(setOrigen).catch(() => {});
+  useEffect(() => { cargarOrigen(); }, []);
+
+  const subir = async () => {
+    if (!archivo) return;
+    setCargando(true); setNota("");
+    try {
+      const fd = new FormData();
+      fd.append("archivo", archivo);
+      const ses = getSesion();
+      const r = await fetch("/api/cartera/importar", {
+        method: "POST",
+        headers: ses ? { Authorization: `Bearer ${ses.token}` } : {},
+        body: fd,
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
+      setNota(d.mensaje);
+      setArchivo(null);
+      cargarOrigen();
+    } catch (e) {
+      setNota(e.message);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ maxWidth: 720, marginTop: 18 }}>
+      <h3 style={{ marginTop: 0 }}>{t("importar_cartera.titulo")}</h3>
+      <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("importar_cartera.subtitulo")}</p>
+      {origen && (
+        <p style={{ fontSize: 12.5, fontWeight: 700,
+                    color: origen.tipo === "real" ? "var(--green)" : "var(--amber)" }}>
+          {origen.tipo === "real"
+            ? t("importar_cartera.origen_real", { archivo: origen.archivo, deudores: origen.deudores })
+            : t("importar_cartera.origen_demo")}
+        </p>
+      )}
+      <div className="toolbar">
+        <input type="file" accept=".csv,.xlsx,.xls"
+               onChange={(e) => setArchivo(e.target.files[0] || null)} />
+        <button className="btn" disabled={!archivo || cargando} onClick={subir}>
+          {cargando ? t("importar_cartera.subiendo") : t("importar_cartera.boton")}
+        </button>
+      </div>
+      {nota && <span style={{ color: "var(--muted)", fontSize: 13 }}>{nota}</span>}
+    </div>
+  );
+}
 
 function ProveedorIA() {
   const [datos, setDatos] = useState(null);
@@ -178,6 +234,7 @@ export default function Configuracion() {
           </div>
         </form>
       )}
+      <ImportarCartera />
       <ProveedorIA />
       <InformeSemanal />
       <AltaEmpresa />

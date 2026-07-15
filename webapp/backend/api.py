@@ -30,9 +30,10 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
 
 import pandas as pd
-from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -650,6 +651,117 @@ def integracion_cartera(datos: CarteraEntranteIn, u: Usuario = Depends(solo_admi
     pd.DataFrame(contactos).to_csv(destino, index=False)
     return {"recibidos": len(datos.contactos), "validos": len(contactos),
             "archivo": os.path.relpath(destino, DIR_DATOS)}
+
+
+def _archivo_origen(empresa: str) -> str:
+    return os.path.join(os.path.dirname(_datos_de(empresa)["scored"]), "origen_cartera.json")
+
+
+@app.get("/api/cartera/origen")
+def cartera_origen(u: Usuario = Depends(usuario_actual)):
+    """Honestidad de los números: de dónde salen los datos que se están
+    mostrando — demo sintética (default, sin marcar) o la cartera real que
+    el cliente subió. Nunca se disfraza una de la otra."""
+    ruta = _archivo_origen(u.empresa)
+    if not os.path.exists(ruta):
+        return {"tipo": "demo"}
+    with open(ruta, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.post("/api/cartera/importar")
+async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends(solo_admin)):
+    """Sube un CSV/Excel con la cartera real (nombre, telefono, deuda[,
+    dias_mora, ...]) y REEMPLAZA los datos de demo: se scorea con ProbPago,
+    se aplica la estrategia del Agente Negociador, y el dashboard entero
+    (KPIs, Cartera, Agenda) pasa a reflejar esta cartera. Las features que
+    no vienen en el archivo se completan con supuestos (ver
+    kobra/cartera_manual.py::DEFAULTS) — no se inventa historial de pagos."""
+    nombre = (archivo.filename or "").lower()
+    if not nombre.endswith((".csv", ".xlsx", ".xls")):
+        raise HTTPException(400, "Subí un archivo .csv o .xlsx.")
+    contenido = await archivo.read()
+    try:
+        df_bruto = (pd.read_csv(io.BytesIO(contenido), dtype=str) if nombre.endswith(".csv")
+                    else pd.read_excel(io.BytesIO(contenido), dtype=str))
+    except Exception as e:
+        raise HTTPException(400, f"No pude leer el archivo: {e}")
+
+    try:
+        full = kcartera.importar_y_scorear(df_bruto.fillna(""))
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+    cols_export = ["id_deudor", "segmento", "producto", "departamento", "tramo_mora",
+                   "dias_mora", "monto_deuda", "score_buro", "contactabilidad",
+                   "probpago", "decil", "segmento_propension", "estrategia",
+                   "descuento_recomendado", "plan_cuotas", "canal_recomendado",
+                   "valor_esperado_recupero", "prioridad", "pago", "guion",
+                   "motivo_probpago"]
+    export = full[[c for c in cols_export if c in full.columns]]
+    destino = _datos_de(u.empresa)["scored"]
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+    export.round(4).to_csv(destino, index=False)
+
+    with open(_archivo_origen(u.empresa), "w", encoding="utf-8") as f:
+        json.dump({"tipo": "real", "archivo": archivo.filename,
+                   "cargado_en": datetime.now(timezone.utc).isoformat(),
+                   "deudores": int(len(export))}, f)
+
+    return {"deudores": int(len(export)),
+            "cartera_total_uyu": float(export["monto_deuda"].sum()),
+            "mensaje": f"Cartera real cargada: {len(export)} deudor(es). "
+                      "El dashboard ya refleja estos datos."}
+
+
+@app.post("/api/voz/analizar")
+async def voz_analizar(archivo: UploadFile = File(...), id_deudor: str | None = None,
+                       u: Usuario = Depends(usuario_actual)):
+    """Analiza una grabación de llamada real (.wav/.mp3) subida desde el
+    dashboard: diarización (quién habla), emoción acústica (tono, energía,
+    ritmo) y — si hay OPENAI_API_KEY para transcribir (Whisper) — el
+    copiloto completo (calidad, técnicas, sugerencias en vivo). Si se pasa
+    `id_deudor` de la cartera priorizada, usa su probpago/estrategia reales
+    para contextualizar las sugerencias, igual que en Streamlit."""
+    nombre = (archivo.filename or "").lower()
+    if not nombre.endswith((".wav", ".mp3")):
+        raise HTTPException(400, "Subí un archivo .wav o .mp3.")
+    contenido = await archivo.read()
+    if not contenido:
+        raise HTTPException(400, "El archivo llegó vacío.")
+
+    scratch = os.path.join(DIR_DATOS, ".uploads")
+    os.makedirs(scratch, exist_ok=True)
+    import uuid
+    ext = ".wav" if nombre.endswith(".wav") else ".mp3"
+    destino = os.path.join(scratch, f"voz_{uuid.uuid4().hex}{ext}")
+    with open(destino, "wb") as f:
+        f.write(contenido)
+
+    probpago = estrategia = None
+    if id_deudor:
+        cartera = _scored(u.empresa)
+        fila = cartera[cartera["id_deudor"] == id_deudor] if cartera is not None else pd.DataFrame()
+        if not fila.empty:
+            probpago = float(fila.iloc[0]["probpago"])
+            estrategia = fila.iloc[0]["estrategia"]
+
+    try:
+        from kobra import voz as kvoz
+        idioma = kpaises.obtener(_pais_de(u.empresa)).idioma
+        res = kvoz.copiloto_desde_audio(destino, probpago=probpago,
+                                        estrategia=estrategia, idioma=idioma)
+    except Exception as e:
+        raise HTTPException(400, f"No se pudo analizar el audio: {e}")
+    finally:
+        try:
+            os.remove(destino)
+        except OSError:
+            pass
+
+    return {"archivo": archivo.filename, "voz": res["voz"],
+            "modo_transcripcion": res["modo_transcripcion"], "turnos": res["turnos"],
+            "copiloto": res["copiloto"], "calidad": res["calidad"], "tecnicas": res["tecnicas"]}
 
 
 # --- Frontend compilado, si existe ------------------------------------------
