@@ -268,6 +268,30 @@
     "placeholder": "nombre de la empresa (ej.: acme)",
     "boton": "➕ Crear empresa demo"
   },
+  "analizar_voz": {
+    "titulo": "🎙️ Analizar grabación de la llamada (voz)",
+    "subtitulo": "Subí un .wav o .mp3 real: diarización (quién habla), emoción acústica por prosodia (tono, energía, ritmo) — detecta la tensión del cliente en la voz, más allá de las palabras.",
+    "boton": "🔎 Analizar grabación",
+    "analizando": "Analizando…",
+    "canales": "canal(es)",
+    "segmentos": "segmentos",
+    "tabla": {
+      "hablante": "Hablante",
+      "tiempo": "Tiempo",
+      "emocion": "Emoción"
+    },
+    "copiloto_ok": "✅ Transcripción disponible (Whisper) — el Copiloto evaluó la calidad de la llamada y detectó técnicas de negociación.",
+    "sin_transcripcion": "ℹ️ Solo diarización + emoción acústica (sin texto): configurá OPENAI_API_KEY para transcribir con Whisper y sumar la evaluación del Copiloto."
+  },
+  "importar_cartera": {
+    "titulo": "📤 Cargar tu cartera real",
+    "subtitulo": "Subí un CSV o Excel con tus deudores (nombre, teléfono, deuda[, días de mora]) y reemplaza al instante los datos de demo en todo el dashboard: KPIs, cartera priorizada, estrategias.",
+    "origen_real": "✅ Mostrando tu cartera real: {{archivo}} · {{deudores}} deudores.",
+    "origen_demo": "ℹ️ Todavía estás viendo datos de demostración (sintéticos).",
+    "boton": "⬆️ Importar y analizar",
+    "subiendo": "Analizando…",
+    "banner_demo": "ℹ️ Estás viendo datos de demostración (sintéticos). Subí tu cartera real en Configuración → Cargar tu cartera real."
+  },
   "proveedor_ia": {
     "titulo": "🧠 Proveedor de IA",
     "subtitulo": "Con qué cuenta corporativa propia razona el Asistente, el Copiloto y el Gestor IA. Cargá la clave correspondiente arriba, en la tabla de claves.",

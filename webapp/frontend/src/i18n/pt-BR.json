@@ -268,6 +268,30 @@
     "placeholder": "nome da empresa (ex.: acme)",
     "boton": "➕ Criar empresa demo"
   },
+  "analizar_voz": {
+    "titulo": "🎙️ Analisar gravação da ligação (voz)",
+    "subtitulo": "Envie um .wav ou .mp3 real: diarização (quem fala), emoção acústica por prosódia (tom, energia, ritmo) — detecta a tensão do cliente na voz, além das palavras.",
+    "boton": "🔎 Analisar gravação",
+    "analizando": "Analisando…",
+    "canales": "canal(is)",
+    "segmentos": "segmentos",
+    "tabla": {
+      "hablante": "Falante",
+      "tiempo": "Tempo",
+      "emocion": "Emoção"
+    },
+    "copiloto_ok": "✅ Transcrição disponível (Whisper) — o Copiloto avaliou a qualidade da ligação e detectou técnicas de negociação.",
+    "sin_transcripcion": "ℹ️ Apenas diarização + emoção acústica (sem texto): configure OPENAI_API_KEY para transcrever com Whisper e somar a avaliação do Copiloto."
+  },
+  "importar_cartera": {
+    "titulo": "📤 Carregar sua carteira real",
+    "subtitulo": "Envie um CSV ou Excel com seus devedores (nome, telefone, dívida[, dias de atraso]) e substitua na hora os dados de demonstração em todo o painel: KPIs, carteira priorizada, estratégias.",
+    "origen_real": "✅ Mostrando sua carteira real: {{archivo}} · {{deudores}} devedores.",
+    "origen_demo": "ℹ️ Você ainda está vendo dados de demonstração (sintéticos).",
+    "boton": "⬆️ Importar e analisar",
+    "subiendo": "Analisando…",
+    "banner_demo": "ℹ️ Você está vendo dados de demonstração (sintéticos). Envie sua carteira real em Configurações → Carregar sua carteira real."
+  },
   "proveedor_ia": {
     "titulo": "🧠 Provedor de IA",
     "subtitulo": "Com qual conta corporativa própria raciocinam o Assistente, o Copiloto e o Agente IA. Cadastre a chave correspondente acima, na tabela de chaves.",

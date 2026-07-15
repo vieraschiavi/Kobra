@@ -98,6 +98,20 @@ function Sidebar({ sesion }) {
   );
 }
 
+function DatosOrigenBanner() {
+  const [origen, setOrigen] = useState(null);
+  useEffect(() => { api("/api/cartera/origen").then(setOrigen).catch(() => {}); }, []);
+  // Solo se avisa cuando son datos de demo — es la aclaración que importa
+  // (honestidad de los números); con datos reales no hace falta un banner.
+  if (!origen || origen.tipo !== "demo") return null;
+  return (
+    <div className="trial-banner" style={{ background: "rgba(47,116,192,.10)",
+                                            borderColor: "rgba(47,116,192,.3)" }}>
+      {t("importar_cartera.banner_demo")}
+    </div>
+  );
+}
+
 function TrialBanner({ licEstado }) {
   if (!licEstado || !licEstado.trial) return null;
   return (
@@ -150,6 +164,7 @@ export default function App() {
       <main className="main">
         <Tour />
         <TrialBanner licEstado={licEstado} />
+        <DatosOrigenBanner />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/originacion" element={<Originacion />} />
