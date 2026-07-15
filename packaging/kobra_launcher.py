@@ -66,6 +66,15 @@ def main():
     if base not in sys.path:
         sys.path.insert(0, base)
 
+    # UI compilada: si no está el build normal de Vite (correr desde código sin
+    # haber pasado por Node), caer al build versionado en owner/ui_dist para que
+    # la interfaz igual se sirva sin necesidad de instalar Node.
+    if not os.environ.get("KOBRA_UI_DIST"):
+        _dist_normal = os.path.join(base, "webapp", "frontend", "dist")
+        _dist_owner = os.path.join(base, "owner", "ui_dist")
+        if not os.path.isdir(_dist_normal) and os.path.isdir(_dist_owner):
+            os.environ["KOBRA_UI_DIST"] = _dist_owner
+
     threading.Thread(target=_abrir_navegador,
                      args=(f"http://localhost:{port}",), daemon=True).start()
 

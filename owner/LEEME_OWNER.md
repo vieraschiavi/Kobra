@@ -25,16 +25,33 @@ de la copia de un cliente.
 
 ## Cómo usarla
 
-### A) Con el programa instalado (MVKobraAI_Setup.exe) → doble clic en `MVKobraAI_Owner.bat`
-Busca el programa instalado (Program Files o instalación por usuario) y lo
-arranca en modo owner. El instalador es el MISMO que el de clientes — lo que
-cambia es cómo lo arrancás: con el acceso directo normal pide licencia
-(modo cliente); con este .bat entra directo (modo owner).
+### A) Sin instalar NADA a mano → doble clic en `MVKobraAI_Owner_desde_codigo.bat`
+**Esta es la vía recomendada si no tenés el instalador.** El .bat prepara
+todo solo, sin que instales nada previo:
+1. Si falta Python 3.11+, lo instala con `winget` (viene en Windows 10/11).
+2. Crea un entorno virtual propio (`.kobra_venv`, no toca tu Python).
+3. Instala las dependencias (`requirements.txt`).
+4. Usa la interfaz **ya compilada** que viene en `owner/ui_dist/` — **no
+   necesita Node**.
+5. Arranca en modo owner y abre el navegador.
 
-### B) Desde el código fuente (este repo) → doble clic en `MVKobraAI_Owner_desde_codigo.bat`
-Requiere Python 3.11+ con `pip install -r requirements.txt` y el frontend
-compilado una vez (`cd webapp/frontend && npm ci && npm run build`).
+La primera vez tarda (baja e instala dependencias); las siguientes son
+instantáneas. Si winget instaló Python recién, quizás tengas que cerrar y
+reabrir el .bat una vez (Windows necesita reabrir la consola para tomarlo).
 
-### C) Linux/Mac desde el código → `./mvkobraai_owner.sh`
+### B) Con el programa ya instalado (MVKobraAI_Setup.exe) → `MVKobraAI_Owner.bat`
+Busca el .exe instalado y lo arranca en modo owner. Si no lo encuentra, llama
+solo a la vía A. El instalador es el MISMO que el de clientes — lo que cambia
+es cómo lo arrancás: con el acceso directo normal pide licencia (modo
+cliente); con este .bat entra directo (modo owner).
+
+### C) Linux/Mac → `./mvkobraai_owner.sh`
+Mismo tratamiento que A (venv + dependencias + UI compilada), requiere que
+Python 3.11+ ya esté disponible.
 
 En los tres casos se abre el navegador solo en `http://localhost:<puerto>`.
+
+> **Mantenimiento de `owner/ui_dist/`**: es un build del frontend versionado
+> a propósito, para que la vía A no dependa de Node. Si tocás el frontend
+> (`webapp/frontend/src`), regeneralo con:
+> `cd webapp/frontend && npm run build && cp -r dist ../../owner/ui_dist`
