@@ -139,7 +139,42 @@ def _datos_de(empresa: str) -> dict:
             "gestiones": os.path.join(d, "kobra_gestiones.csv")}
 
 
+def _archivo_real(empresa: str) -> str:
+    """Cartera real subida por el cliente — se guarda APARTE de la demo
+    (nunca la pisa), así el botón demo ON/OFF puede volver a los datos de
+    demostración cuando se quiera."""
+    return os.path.join(os.path.dirname(_datos_de(empresa)["scored"]), "kobra_cartera_real.csv")
+
+
+def _archivo_origen(empresa: str) -> str:
+    return os.path.join(os.path.dirname(_datos_de(empresa)["scored"]), "origen_cartera.json")
+
+
+def _origen_meta(empresa: str) -> dict:
+    ruta = _archivo_origen(empresa)
+    if os.path.exists(ruta):
+        try:
+            with open(ruta, encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            pass
+    return {}
+
+
+def _modo_cartera(empresa: str) -> str:
+    """'demo' (default) o 'real' — qué cartera ve TODO el dashboard. Nunca
+    devuelve 'real' si el archivo real no está (defensa ante marcas viejas)."""
+    meta = _origen_meta(empresa)
+    modo = meta.get("modo") or meta.get("tipo") or "demo"
+    if modo == "real" and os.path.exists(_archivo_real(empresa)):
+        return "real"
+    return "demo"
+
+
 def _scored(empresa: str) -> pd.DataFrame:
+    # El botón demo decide la fuente: real (la subida) o demo (la sintética).
+    if _modo_cartera(empresa) == "real":
+        return pd.read_csv(_archivo_real(empresa))
     ruta = _datos_de(empresa)["scored"]
     if not os.path.exists(ruta):
         raise HTTPException(404, f"La empresa '{empresa}' no tiene cartera scoreada cargada.")
@@ -653,20 +688,42 @@ def integracion_cartera(datos: CarteraEntranteIn, u: Usuario = Depends(solo_admi
             "archivo": os.path.relpath(destino, DIR_DATOS)}
 
 
-def _archivo_origen(empresa: str) -> str:
-    return os.path.join(os.path.dirname(_datos_de(empresa)["scored"]), "origen_cartera.json")
-
-
 @app.get("/api/cartera/origen")
 def cartera_origen(u: Usuario = Depends(usuario_actual)):
     """Honestidad de los números: de dónde salen los datos que se están
-    mostrando — demo sintética (default, sin marcar) o la cartera real que
-    el cliente subió. Nunca se disfraza una de la otra."""
-    ruta = _archivo_origen(u.empresa)
-    if not os.path.exists(ruta):
-        return {"tipo": "demo"}
-    with open(ruta, encoding="utf-8") as f:
-        return json.load(f)
+    mostrando — demo sintética (default) o la cartera real que el cliente
+    subió. `hay_real` habilita el botón demo ON/OFF en el frontend."""
+    meta = _origen_meta(u.empresa)
+    modo = _modo_cartera(u.empresa)
+    return {"tipo": modo, "modo": modo,
+            "hay_real": os.path.exists(_archivo_real(u.empresa)),
+            "archivo": meta.get("archivo"), "deudores": meta.get("deudores"),
+            "cargado_en": meta.get("cargado_en")}
+
+
+class ModoCarteraIn(BaseModel):
+    modo: str
+
+
+@app.post("/api/cartera/modo")
+def cartera_modo(datos: ModoCarteraIn, u: Usuario = Depends(solo_admin)):
+    """Botón demo ON/OFF: alterna qué cartera ve TODO el dashboard —
+    'demo' (datos sintéticos) o 'real' (la que subió el cliente). Sin
+    pérdida: la demo y la cartera real conviven; esto solo cambia cuál se
+    sirve. 'real' solo se puede activar si ya hay una cartera subida."""
+    modo = (datos.modo or "").strip().lower()
+    if modo not in ("demo", "real"):
+        raise HTTPException(400, "El modo debe ser 'demo' o 'real'.")
+    if modo == "real" and not os.path.exists(_archivo_real(u.empresa)):
+        raise HTTPException(400, "Todavía no subiste una cartera real para activar. "
+                                 "Subí un CSV/Excel primero.")
+    meta = _origen_meta(u.empresa)
+    meta["modo"] = modo
+    meta["tipo"] = modo   # compat con marcas viejas
+    os.makedirs(os.path.dirname(_archivo_origen(u.empresa)), exist_ok=True)
+    with open(_archivo_origen(u.empresa), "w", encoding="utf-8") as f:
+        json.dump(meta, f)
+    return {"tipo": modo, "modo": modo, "hay_real": os.path.exists(_archivo_real(u.empresa))}
 
 
 @app.post("/api/cartera/importar")
@@ -699,19 +756,23 @@ async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends
                    "valor_esperado_recupero", "prioridad", "pago", "guion",
                    "motivo_probpago"]
     export = full[[c for c in cols_export if c in full.columns]]
-    destino = _datos_de(u.empresa)["scored"]
+    # Se guarda APARTE (no pisa la demo): así el botón demo ON/OFF puede
+    # volver a los datos sintéticos cuando se quiera. Al subir, se activa
+    # 'real' automáticamente para que el dashboard muestre esta cartera ya.
+    destino = _archivo_real(u.empresa)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     export.round(4).to_csv(destino, index=False)
 
     with open(_archivo_origen(u.empresa), "w", encoding="utf-8") as f:
-        json.dump({"tipo": "real", "archivo": archivo.filename,
+        json.dump({"modo": "real", "tipo": "real", "archivo": archivo.filename,
                    "cargado_en": datetime.now(timezone.utc).isoformat(),
                    "deudores": int(len(export))}, f)
 
     return {"deudores": int(len(export)),
             "cartera_total_uyu": float(export["monto_deuda"].sum()),
-            "mensaje": f"Cartera real cargada: {len(export)} deudor(es). "
-                      "El dashboard ya refleja estos datos."}
+            "mensaje": f"Cartera real cargada y activada: {len(export)} deudor(es). "
+                      "El dashboard ya refleja estos datos (podés volver a la demo "
+                      "con el botón)."}
 
 
 @app.post("/api/voz/analizar")
