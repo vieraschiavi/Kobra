@@ -114,8 +114,11 @@ def main():
         if not os.path.isdir(_dist_normal) and os.path.isdir(_dist_owner):
             os.environ["KOBRA_UI_DIST"] = _dist_owner
 
-    threading.Thread(target=_abrir_navegador,
-                     args=(f"http://localhost:{port}",), daemon=True).start()
+    # Dentro de la app Electron (electron/main.js) la ventana la maneja
+    # Electron: acá no hay que abrir además un navegador.
+    if os.environ.get("KOBRA_SIN_NAVEGADOR") != "1":
+        threading.Thread(target=_abrir_navegador,
+                         args=(f"http://localhost:{port}",), daemon=True).start()
 
     import uvicorn
     from webapp.backend.api import app

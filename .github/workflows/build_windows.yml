@@ -1,9 +1,11 @@
 name: build-windows-installer
 
-# Construye el PROGRAMA STANDALONE de Windows (MVKobraAI_Setup.exe): empaqueta
-# Python + todas las librerías con PyInstaller y lo envuelve con Inno Setup.
-# El .exe queda descargable como artefacto de la corrida y, al taguear vX.Y.Z,
-# se publica en una Release de GitHub.
+# Construye el PROGRAMA DE ESCRITORIO de Windows (MVKobraAI_Setup.exe):
+# la app Electron (electron/) con la UI React + el motor (FastAPI + ML)
+# empaquetado con PyInstaller, envuelto por electron-builder en un
+# instalador NSIS profesional CON desinstalador (aparece en "Agregar o
+# quitar programas"). El .exe queda descargable como artefacto y, al
+# taguear vX.Y.Z, se publica en una Release de GitHub.
 
 on:
   workflow_dispatch: {}
@@ -66,9 +68,6 @@ jobs:
           }
           Write-Host "Bundle OK"
 
-      - name: Instalar Inno Setup
-        run: choco install innosetup --no-progress -y
-
       - name: Leer versión del paquete
         id: ver
         shell: pwsh
@@ -76,10 +75,25 @@ jobs:
           $v = python -c "import kobra,sys;sys.stdout.write(kobra.__version__)"
           "KVER=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: Construir instalador (Inno Setup)
-        shell: cmd
+      - name: Construir instalador Electron (NSIS, con desinstalador)
+        # electron-builder empaqueta la app de escritorio (electron/main.js +
+        # el motor PyInstaller de dist/MVKobraAI como resources/backend) y
+        # genera el instalador NSIS: asistente en español/portugués, elección
+        # de carpeta, accesos directos y DESINSTALADOR registrado en
+        # "Agregar o quitar programas".
+        shell: pwsh
         run: |
-          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=${{ steps.ver.outputs.KVER }} packaging\instalador.iss
+          cd electron
+          npm pkg set version=${{ steps.ver.outputs.KVER }}
+          npm ci
+          npx electron-builder --win nsis --publish never
+          if (-Not (Test-Path "dist_installer/MVKobraAI_Setup_v${{ steps.ver.outputs.KVER }}.exe")) {
+            Write-Error "No se generó el instalador Electron"; exit 1
+          }
+          Copy-Item "dist_installer/MVKobraAI_Setup_v${{ steps.ver.outputs.KVER }}.exe" ../dist/
+        env:
+          # Sin firma de código por ahora: no fallar buscando certificado.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Publicar instalador como artefacto
         uses: actions/upload-artifact@v4
@@ -103,7 +117,7 @@ jobs:
           tag_name: v${{ steps.ver.outputs.KVER }}
           name: MV Kobra AI v${{ steps.ver.outputs.KVER }}
           body: >
-            Instalador de Windows (standalone, no requiere Python).
+            App de escritorio para Windows (Electron + React, no requiere Python). Incluye desinstalador en "Agregar o quitar programas".
             Descargar `MVKobraAI_Setup_v${{ steps.ver.outputs.KVER }}.exe`,
             ejecutarlo y seguir el asistente.
           files: dist/MVKobraAI_Setup_*.exe
@@ -138,7 +152,7 @@ jobs:
           tag_name: v${{ steps.ver.outputs.KVER }}
           name: MV Kobra AI v${{ steps.ver.outputs.KVER }}
           body: >
-            Instalador de Windows (standalone, no requiere Python).
+            App de escritorio para Windows (Electron + React, no requiere Python). Incluye desinstalador en "Agregar o quitar programas".
             Descargar `MVKobraAI_Setup.exe`, ejecutarlo y seguir el asistente.
           files: |
             dist/MVKobraAI_Setup_*.exe

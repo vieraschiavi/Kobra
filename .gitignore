@@ -20,3 +20,6 @@ data/*.lock
 
 # Temporary session build scripts (video, mocks) — not repo deliverables
 scratchpad/
+
+# App de escritorio Electron (build local)
+electron/dist_installer/
