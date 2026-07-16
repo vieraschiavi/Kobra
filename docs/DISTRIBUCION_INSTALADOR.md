@@ -1,5 +1,22 @@
 # 📦 Distribución del instalador de Windows a clientes finales
 
+## Construirlo GRATIS en tu propia PC (sin GitHub Actions)
+
+Si la cuota gratuita de minutos de GitHub Actions está agotada (se renueva el
+día 1 de cada mes) y no querés pagar, el instalador se construye igual, gratis,
+en cualquier PC con Windows:
+
+1. Bajá/actualizá el código del repo en tu PC (o usá la carpeta que ya tenés).
+2. Doble clic en **`packaging\construir_instalador.bat`**.
+3. El script prepara todo solo (Python, Node portátil, dependencias, interfaz,
+   motor) y al final deja **`MVKobraAI_Setup_vX.Y.Z.exe`** en
+   `electron\dist_installer\` **y una copia en tu Escritorio**.
+
+La primera vez tarda un buen rato (descarga ~2 GB de dependencias y compila
+todo); las siguientes son mucho más rápidas porque reusa lo ya instalado.
+Necesita ~6 GB de disco libres e internet. El `.exe` resultante es idéntico al
+que generaría GitHub Actions: la app Electron con desinstalador incluido.
+
 ## El problema que resuelve esto
 
 Este repo (`vieraschiavi/Kobra`) es **privado**. El instalador de Windows

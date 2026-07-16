@@ -23,3 +23,8 @@ scratchpad/
 
 # App de escritorio Electron (build local)
 electron/dist_installer/
+
+# Entornos que crean los .bat auto-instalantes (owner / construir_instalador)
+.kobra_venv/
+.kobra_node/
+.kobra_node_tmp/
