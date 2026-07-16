@@ -165,9 +165,12 @@ compilar desde Linux/Mac):
   `backend_venta/licencias.py` — no una contraseña de administrador. El
   dashboard clásico (Streamlit, `app/app.py`) sigue en el paquete y disponible
   para correr a mano, pero ya no es lo que abre el instalador por default.
-- **Componentes**: `packaging/kobra_launcher.py` (arranca uvicorn sirviendo
-  `webapp/backend/api.py`, que a su vez sirve el build de React), `packaging/kobra.spec`
-  (empaquetado) y `packaging/instalador.iss` (instalador con accesos directos e ícono).
+- **Componentes**: `electron/` (la app de escritorio: ventana Electron con la UI
+  React), `packaging/kobra_launcher.py` (arranca uvicorn sirviendo
+  `webapp/backend/api.py`, que a su vez sirve el build de React) y
+  `packaging/kobra.spec` (empaquetado PyInstaller del motor). electron-builder
+  genera el instalador NSIS con accesos directos, ícono y **desinstalador**
+  registrado en "Agregar o quitar programas".
 
 ```
 Actions → build-windows-installer → (Run workflow) → artefacto "MVKobraAI_Setup_Windows"

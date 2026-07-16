@@ -1,0 +1,59 @@
+{
+  "name": "mv-kobra-ai",
+  "productName": "MV Kobra AI",
+  "version": "1.3.0",
+  "description": "MV Kobra AI · Cobranzas con IA — app de escritorio (Electron + React)",
+  "main": "main.js",
+  "author": "MV Kobra AI",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.mvkobraai.desktop",
+    "productName": "MV Kobra AI",
+    "artifactName": "MVKobraAI_Setup_v${version}.${ext}",
+    "directories": {
+      "output": "dist_installer",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "splash.html"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist/MVKobraAI",
+        "to": "backend"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MV Kobra AI",
+      "uninstallDisplayName": "MV Kobra AI",
+      "deleteAppDataOnUninstall": false,
+      "installerLanguages": ["es_ES", "pt_BR"],
+      "multiLanguageInstaller": true
+    }
+  }
+}

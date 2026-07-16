@@ -157,9 +157,11 @@ o Python e todas as bibliotecas; duplo clique → o dashboard abre). É gerado n
   (PyInstaller → executável, Inno Setup → instalador). O `.exe` fica disponível
   como **artefato para download** em cada execução (aba *Actions* do
   repositório) e, ao criar uma tag `vX.Y.Z`, é publicado em uma **Release**.
-- **Componentes**: `packaging/kobra_launcher.py` (inicia o dashboard),
-  `packaging/kobra.spec` (empacotamento) e `packaging/instalador.iss` (instalador
-  com atalhos e ícone).
+- **Componentes**: `electron/` (o app de desktop: janela Electron com a UI
+  React), `packaging/kobra_launcher.py` (inicia o motor) e
+  `packaging/kobra.spec` (empacotamento PyInstaller). O electron-builder gera
+  o instalador NSIS com atalhos, ícone e **desinstalador** registrado em
+  "Adicionar ou remover programas".
 
 ```
 Actions → build-windows-installer → (Run workflow) → artefato "MVKobraAI_Setup_Windows"
