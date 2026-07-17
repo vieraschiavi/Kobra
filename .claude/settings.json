@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(python3 -m kobra.pipeline)",
+      "Bash(python3 -m kobra.train)",
+      "Bash(python3 data/generate_dataset.py:*)",
+      "Read(*)",
+      "Grep(*)",
+      "Glob(*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/id_rsa*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/session-start.sh" }
+        ]
+      }
+    ]
+  }
+}
