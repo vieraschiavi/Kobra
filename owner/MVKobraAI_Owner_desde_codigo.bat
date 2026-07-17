@@ -46,26 +46,30 @@ if "!PYEXE!"=="" (
 )
 
 rem --- 2) Espacio en disco: las dependencias pesan ~1.5-2 GB descargadas ----
-rem     Chequeo best-effort con comandos nativos (dir + findstr), sin
-rem     PowerShell anidado: si no puede leerlo (por idioma de Windows u
-rem     otro motivo), sigue de largo sin bloquear nada.
+rem     Chequeo best-effort con comandos nativos (dir + findstr). Lineal y
+rem     con expansion retardada (!var!): un %var% definido dentro del mismo
+rem     bloque entre parentesis se expande VACIO al parsear y el "if" roto
+rem     aborta el .bat entero (la ventana "se abre y se cierra").
+rem     findstr /c:"bytes" y no "bytes free": en Windows en espanol la linea
+rem     dice "bytes libres" - el numero es siempre el 3er token.
 set "FREEBYTES="
-for /f "tokens=3" %%a in ('dir /-c "%CD%" 2^>nul ^| findstr /c:"bytes free"') do set "FREEBYTES=%%a"
-if defined FREEBYTES (
-  set "FREEGB=%FREEBYTES:~0,-9%"
-  if not defined FREEGB set "FREEGB=0"
-  if "%FREEGB%"=="" set "FREEGB=0"
-  echo   Espacio libre en disco: ~%FREEGB% GB
-  if %FREEGB% LSS 3 (
-    echo.
-    echo   ^(!^) Muy poco espacio libre ^(~%FREEGB% GB^). Las dependencias
-    echo   necesitan unos 3 GB libres para descargarse e instalarse bien.
-    echo   Liberá espacio ^(o mové esta carpeta a un disco con mas lugar^)
-    echo   y volve a ejecutar este .bat.
-    echo.
-    pause & exit /b 1
-  )
+for /f "tokens=3" %%a in ('dir /-c "%CD%" 2^>nul ^| findstr /c:"bytes"') do set "FREEBYTES=%%a"
+set "FREEGB="
+if defined FREEBYTES set "FREEGB=!FREEBYTES:~0,-9!"
+if not defined FREEGB set "FREEGB=SIN_DATO"
+if "!FREEGB!"=="" set "FREEGB=0"
+if "!FREEGB!"=="SIN_DATO" goto :disco_listo
+echo   Espacio libre en disco: ~!FREEGB! GB
+if !FREEGB! LSS 3 (
+  echo.
+  echo   ^(!^) Muy poco espacio libre ^(~!FREEGB! GB^). Las dependencias
+  echo   necesitan unos 3 GB libres para descargarse e instalarse bien.
+  echo   Libera espacio ^(o move esta carpeta a un disco con mas lugar^)
+  echo   y volve a ejecutar este .bat.
+  echo.
+  pause & exit /b 1
 )
+:disco_listo
 
 rem --- 3) Entorno virtual propio (no toca el Python del sistema) ------------
 if not exist ".kobra_venv\Scripts\python.exe" (
@@ -76,14 +80,14 @@ set "VPY=.kobra_venv\Scripts\python.exe"
 
 rem --- 4) Dependencias (idempotente: la 2a vez es casi instantanea) ---------
 rem     --no-cache-dir: no guarda una copia extra de cada .whl descargado,
-rem     usa bastante menos disco durante la instalación.
+rem     usa bastante menos disco durante la instalacion.
 echo [4/5] Instalando dependencias ^(la 1a vez tarda unos minutos^)...
 "%VPY%" -m pip install --no-cache-dir --upgrade pip >nul 2>nul
 "%VPY%" -m pip install --no-cache-dir -r requirements.txt
 if not !errorlevel!==0 (
   echo.
   echo   Fallo la instalacion. Si el error dice "No space left on device" o
-  echo   similar, liberá espacio en disco y volve a intentar - lo que ya se
+  echo   similar, libera espacio en disco y volve a intentar - lo que ya se
   echo   instalo no hace falta bajarlo de nuevo.
   echo   Si es otro error, revisa tu conexion y reintenta.
   echo.

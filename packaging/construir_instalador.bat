@@ -47,56 +47,64 @@ if "!PYEXE!"=="" (
 )
 
 rem --- 2) Node.js 18+: usar el del sistema o bajar uno local (zip, sin admin)
+rem     Todo lineal y con expansion retardada (!var!): un %var% que se define
+rem     dentro del mismo bloque entre parentesis se expande VACIO al parsear
+rem     y rompe el script entero (la ventana "se abre y se cierra").
 set "NODEOK="
-where node >nul 2>nul && (
-  for /f "tokens=1 delims=." %%v in ('node -v 2^>nul') do (
-    set "NODEMAJOR=%%v"
-    set "NODEMAJOR=!NODEMAJOR:v=!"
-  )
-  if defined NODEMAJOR if !NODEMAJOR! GEQ 18 set "NODEOK=1"
+set "NODEMAJOR="
+where node >nul 2>nul
+if !errorlevel!==0 (
+  for /f "tokens=1 delims=." %%v in ('node -v 2^>nul') do set "NODEMAJOR=%%v"
 )
+if defined NODEMAJOR set "NODEMAJOR=!NODEMAJOR:v=!"
+if defined NODEMAJOR if !NODEMAJOR! GEQ 18 set "NODEOK=1"
 if exist ".kobra_node\node.exe" (
-  set "PATH=%CD%\.kobra_node;!PATH!"
+  set "PATH=!CD!\.kobra_node;!PATH!"
   set "NODEOK=1"
 )
-if "!NODEOK!"=="" (
-  echo [2/7] Node.js no encontrado. Descargando Node 20 ^(portatil, sin admin^)...
-  set "NODEZIP=%TEMP%\node20_kobra.zip"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "try { Invoke-WebRequest -Uri 'https://nodejs.org/dist/v20.18.1/node-v20.18.1-win-x64.zip' -OutFile '%TEMP%\node20_kobra.zip' -UseBasicParsing; exit 0 } catch { Write-Host $_; exit 1 }"
-  if not !errorlevel!==0 (
-    echo.
-    echo   No pude descargar Node automaticamente. Instalalo desde
-    echo   https://nodejs.org ^(version LTS^) y volve a ejecutar este .bat.
-    echo.
-    pause & exit /b 1
-  )
-  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "Expand-Archive -Path '%TEMP%\node20_kobra.zip' -DestinationPath '%CD%\.kobra_node_tmp' -Force"
-  move ".kobra_node_tmp\node-v20.18.1-win-x64" ".kobra_node" >nul
-  rmdir /s /q ".kobra_node_tmp" >nul 2>nul
-  del "!NODEZIP!" >nul 2>nul
-  set "PATH=%CD%\.kobra_node;!PATH!"
-) else (
+if not "!NODEOK!"=="" (
   echo [2/7] Node.js: OK
+  goto :node_listo
 )
+echo [2/7] Node.js no encontrado. Descargando Node 20 ^(portatil, sin admin^)...
+set "NODEZIP=%TEMP%\node20_kobra.zip"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "try { Invoke-WebRequest -Uri 'https://nodejs.org/dist/v20.18.1/node-v20.18.1-win-x64.zip' -OutFile '%TEMP%\node20_kobra.zip' -UseBasicParsing; exit 0 } catch { Write-Host $_; exit 1 }"
+if not !errorlevel!==0 (
+  echo.
+  echo   No pude descargar Node automaticamente. Instalalo desde
+  echo   https://nodejs.org ^(version LTS^) y volve a ejecutar este .bat.
+  echo.
+  pause & exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "Expand-Archive -Path '%TEMP%\node20_kobra.zip' -DestinationPath (Join-Path (Get-Location) '.kobra_node_tmp') -Force"
+move ".kobra_node_tmp\node-v20.18.1-win-x64" ".kobra_node" >nul
+rmdir /s /q ".kobra_node_tmp" >nul 2>nul
+del "!NODEZIP!" >nul 2>nul
+set "PATH=!CD!\.kobra_node;!PATH!"
+:node_listo
 
 rem --- 3) Espacio en disco: dependencias + compilados pesan unos 5 GB -------
+rem     findstr /c:"bytes" y no "bytes free": en Windows en espanol la linea
+rem     dice "bytes libres" (en portugues "bytes disponiveis") - el numero es
+rem     siempre el 3er token de la ultima linea que contiene "bytes".
 set "FREEBYTES="
-for /f "tokens=3" %%a in ('dir /-c "%CD%" 2^>nul ^| findstr /c:"bytes free"') do set "FREEBYTES=%%a"
-if defined FREEBYTES (
-  set "FREEGB=%FREEBYTES:~0,-9%"
-  if not defined FREEGB set "FREEGB=0"
-  if "%FREEGB%"=="" set "FREEGB=0"
-  echo   Espacio libre en disco: ~%FREEGB% GB
-  if %FREEGB% LSS 6 (
-    echo.
-    echo   ^(!^) Muy poco espacio libre ^(~%FREEGB% GB^). Construir el instalador
-    echo   necesita unos 6 GB libres. Libera espacio y volve a intentar.
-    echo.
-    pause & exit /b 1
-  )
+for /f "tokens=3" %%a in ('dir /-c "%CD%" 2^>nul ^| findstr /c:"bytes"') do set "FREEBYTES=%%a"
+set "FREEGB="
+if defined FREEBYTES set "FREEGB=!FREEBYTES:~0,-9!"
+if not defined FREEGB set "FREEGB=SIN_DATO"
+if "!FREEGB!"=="" set "FREEGB=0"
+if "!FREEGB!"=="SIN_DATO" goto :disco_listo
+echo   Espacio libre en disco: ~!FREEGB! GB
+if !FREEGB! LSS 6 (
+  echo.
+  echo   ^(!^) Muy poco espacio libre ^(~!FREEGB! GB^). Construir el instalador
+  echo   necesita unos 6 GB libres. Libera espacio y volve a intentar.
+  echo.
+  pause & exit /b 1
 )
+:disco_listo
 
 rem --- 4) Dependencias de Python (venv propio, idempotente) -----------------
 if not exist ".kobra_venv\Scripts\python.exe" (
@@ -137,7 +145,12 @@ if not exist "dist\MVKobraAI\MVKobraAI.exe" (
 
 rem --- 7) Instalador Electron (NSIS con desinstalador) -----------------------
 echo [7/7] Construyendo el instalador ^(electron-builder^)...
-for /f "delims=" %%v in ('"%VPY%" -c "import kobra;print(kobra.__version__)"') do set "KVER=%%v"
+rem VPY es ruta relativa sin espacios: va SIN comillas a proposito - con mas
+rem de dos comillas en el comando, el for /f las recorta y lo rompe.
+for /f "delims=" %%v in ('%VPY% -c "import kobra;print(kobra.__version__)"') do set "KVER=%%v"
+if not defined KVER (
+  echo   No pude leer la version del paquete. & pause & exit /b 1
+)
 pushd electron
 call npm pkg set version=!KVER!
 call npm ci --no-audit --no-fund
