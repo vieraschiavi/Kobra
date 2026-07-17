@@ -489,12 +489,23 @@ def deudor(id_deudor: str, u: Usuario = Depends(usuario_actual)):
 
 
 @app.get("/api/agenda")
-def agenda(u: Usuario = Depends(usuario_actual)):
+def agenda(limite: int = 200, u: Usuario = Depends(usuario_actual)):
+    """Promesas vencidas a retomar HOY. Se devuelven las `limite` mas urgentes
+    (mayor monto acordado primero, desempate por dias vencida): con carteras
+    grandes la demo trae miles y renderizarlas todas congela la pagina ~15 s —
+    el gestor igual trabaja de a una, empezando por las que mas importan."""
     g = _gestiones(u.empresa)
     if g is None or g.empty:
-        return {"vencidas": [], "total": 0}
+        return {"vencidas": [], "total": 0, "mostrando": 0}
     venc = kseg.promesas_incumplidas(g)
-    return {"total": int(len(venc)), "vencidas": venc.to_dict("records")}
+    total = int(len(venc))
+    if total and {"monto_acordado", "dias_vencida"} <= set(venc.columns):
+        venc = venc.sort_values(["monto_acordado", "dias_vencida"],
+                                ascending=[False, False])
+    limite = max(1, min(int(limite), 1000))
+    venc = venc.head(limite)
+    return {"total": total, "mostrando": int(len(venc)),
+            "vencidas": venc.to_dict("records")}
 
 
 @app.get("/api/gestores/resumen")

@@ -48,40 +48,49 @@ def promesas_incumplidas(gestiones: pd.DataFrame, hoy: date | None = None) -> pd
 
     g = gestiones.copy()
     g["_fecha_gestion"] = pd.to_datetime(g["fecha_gestion"], errors="coerce")
-    g["_fecha_compromiso"] = g["fecha_compromiso"].map(_a_fecha)
-    g["_fecha_pago"] = g["fecha_pago"].map(_a_fecha)
+    # Vectorizado a proposito: .map(_a_fecha) llamaba pd.to_datetime() por
+    # celda y tardaba ~14 s con la cartera de demo (la Agenda parecia colgada).
+    # .dt.date deja date en las filas validas y NaT en las invalidas — las
+    # de compromiso se filtran con .notna() y las de pago se chequean con
+    # pd.notna() abajo, misma semantica que _a_fecha.
+    g["_fecha_compromiso"] = pd.to_datetime(g["fecha_compromiso"], errors="coerce").dt.date
+    g["_fecha_pago"] = pd.to_datetime(g["fecha_pago"], errors="coerce").dt.date
 
-    pendientes = []
-    for id_deudor, grupo in g.groupby("id_deudor"):
-        pagos = grupo[grupo["resultado"] == "Pago"]
-        fecha_ultimo_pago = pagos["_fecha_gestion"].max() if not pagos.empty else None
+    # Vectorizado a proposito: el loop original por deudor (5.000+ grupos con
+    # filtros booleanos y sort por grupo) tardaba ~13 s con la cartera de demo
+    # y la Agenda parecia colgada. Misma semantica, en ~0.1 s.
 
-        compromisos = grupo[grupo["resultado"].isin(RESULTADOS_CON_COMPROMISO)
-                            & grupo["_fecha_compromiso"].notna()]
-        if compromisos.empty:
-            continue
-        ultimo = compromisos.sort_values("_fecha_gestion").iloc[-1]
+    # Ultimo compromiso (Promesa/Arreglo con fecha valida) por deudor — sort
+    # estable por _fecha_gestion + tail(1) == sort_values(...).iloc[-1] del loop.
+    comp = g[g["resultado"].isin(RESULTADOS_CON_COMPROMISO)
+             & g["_fecha_compromiso"].notna()]
+    comp = comp.sort_values("_fecha_gestion").groupby("id_deudor").tail(1)
 
-        vencida = ultimo["_fecha_compromiso"] < hoy
-        pago_directo = ultimo["_fecha_pago"] is not None
-        pago_posterior = (fecha_ultimo_pago is not None
-                         and pd.notna(fecha_ultimo_pago)
-                         and fecha_ultimo_pago >= ultimo["_fecha_gestion"])
-        if vencida and not pago_directo and not pago_posterior:
-            pendientes.append({
-                "id_deudor": id_deudor,
-                "fecha_gestion": ultimo["fecha_gestion"],
-                "fecha_compromiso": ultimo["_fecha_compromiso"],
-                "dias_vencida": (hoy - ultimo["_fecha_compromiso"]).days,
-                "monto_acordado": ultimo.get("monto_acordado"),
-                "cuotas": ultimo.get("cuotas"),
-                "canal": ultimo.get("canal"),
-                "gestor": ultimo.get("gestor"),
-                "resultado": ultimo.get("resultado"),
-                "notas": ultimo.get("notas"),
-            })
+    # Fecha del ultimo "Pago" registrado por deudor (cualquier gestion).
+    pagos = (g[g["resultado"] == "Pago"]
+             .groupby("id_deudor")["_fecha_gestion"].max().rename("_ultimo_pago"))
+    comp = comp.merge(pagos, left_on="id_deudor", right_index=True, how="left")
 
-    out = pd.DataFrame(pendientes, columns=cols_out)
+    vencida = comp["_fecha_compromiso"] < hoy
+    pago_directo = comp["_fecha_pago"].notna()
+    # NaT >= NaT / NaT >= fecha dan False, igual que el chequeo del loop.
+    pago_posterior = comp["_ultimo_pago"].notna() & \
+        (comp["_ultimo_pago"] >= comp["_fecha_gestion"])
+    pend = comp[vencida & ~pago_directo & ~pago_posterior]
+
+    out = pd.DataFrame({
+        "id_deudor": pend["id_deudor"],
+        "fecha_gestion": pend["fecha_gestion"],
+        "fecha_compromiso": pend["_fecha_compromiso"],
+        "dias_vencida": (pd.Timestamp(hoy) -
+                         pd.to_datetime(pend["_fecha_compromiso"])).dt.days,
+        "monto_acordado": pend.get("monto_acordado"),
+        "cuotas": pend.get("cuotas"),
+        "canal": pend.get("canal"),
+        "gestor": pend.get("gestor"),
+        "resultado": pend.get("resultado"),
+        "notas": pend.get("notas"),
+    }).reset_index(drop=True) if not pend.empty else pd.DataFrame(columns=cols_out)
     if not out.empty:
         out = out.sort_values("dias_vencida", ascending=False).reset_index(drop=True)
     return out

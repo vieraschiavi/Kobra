@@ -163,12 +163,25 @@
       "col_monto_acordado": "Monto acordado",
       "col_canal": "Canal",
       "col_gestor": "Gestor"
-    }
+    },
+    "cargando": "Cargando promesas vencidas…",
+    "mostrando_urgentes": "Mostrando las {{mostrando}} más urgentes (por monto) de {{total}} promesas vencidas."
   },
   "gestores": {
     "titulo": "Gestores & evolución",
     "subtitulo": "Ranking por calidad de gestión y conversión (datos del registro de gestiones — en la demo son sintéticos, con tu operación real pasan a ser evidencia).",
-    "vacio_sin_gestiones": "Todavía no hay gestiones registradas."
+    "vacio_sin_gestiones": "Todavía no hay gestiones registradas.",
+    "cargando": "Cargando ranking…",
+    "tabla": {
+      "gestor": "Gestor",
+      "gestiones": "Gestiones",
+      "calidad": "Calidad prom.",
+      "conversion": "Conversión",
+      "recupero_pct": "Tasa recupero",
+      "recuperado": "Recuperado",
+      "gestionado": "Gestionado",
+      "usa_kobra": "Usa Kobra"
+    }
   },
   "asistente": {
     "titulo": "Asistente IA",
