@@ -138,6 +138,13 @@ export default function App() {
         try { setSesion(await api("/api/licencia/owner-login", { metodo: "POST", cuerpo: {} })); }
         catch { /* si falla, sigue el flujo normal de login */ }
       }
+      // País/idioma ANTES del primer render real: si no, la barra lateral
+      // pinta con el idioma viejo cacheado y no se vuelve a renderizar —
+      // quedaba la app mezclada (contenido en portugués, menú en español)
+      // hasta la próxima recarga.
+      if (getSesion()) {
+        try { await cargarPais(); } catch { /* offline: queda el cacheado */ }
+      }
       setLicEstado(e);
     }).catch(() => setLicEstado({ standalone: false }));
   }, []);
