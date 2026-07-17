@@ -14,8 +14,14 @@ export default function Agenda() {
       <h1 className="page-title">{t("agenda.titulo")}</h1>
       <p className="page-sub" dangerouslySetInnerHTML={{ __html: t("agenda.subtitulo") }} />
       {error && <div className="empty">{error}</div>}
+      {!datos && !error && <div className="empty">{t("agenda.cargando")}</div>}
       {datos && datos.total === 0 && (
         <div className="empty">{t("agenda.vacio_sin_pendientes")}</div>
+      )}
+      {datos && datos.total > datos.vencidas.length && (
+        <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 10px" }}>
+          {t("agenda.mostrando_urgentes", { mostrando: datos.vencidas.length, total: datos.total })}
+        </p>
       )}
       {datos && datos.total > 0 && (
         <div className="tablewrap">

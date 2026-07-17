@@ -163,12 +163,25 @@
       "col_monto_acordado": "Valor acordado",
       "col_canal": "Canal",
       "col_gestor": "Operador"
-    }
+    },
+    "cargando": "Carregando promessas vencidas…",
+    "mostrando_urgentes": "Mostrando as {{mostrando}} mais urgentes (por valor) de {{total}} promessas vencidas."
   },
   "gestores": {
     "titulo": "Operadores & evolução",
     "subtitulo": "Ranking por qualidade de atendimento e conversão (dados do registro de atendimentos — na demo são sintéticos; com sua operação real, passam a ser evidência).",
-    "vacio_sin_gestiones": "Ainda não há atendimentos registrados."
+    "vacio_sin_gestiones": "Ainda não há atendimentos registrados.",
+    "cargando": "Carregando ranking…",
+    "tabla": {
+      "gestor": "Agente",
+      "gestiones": "Gestões",
+      "calidad": "Qualidade média",
+      "conversion": "Conversão",
+      "recupero_pct": "Taxa recuperação",
+      "recuperado": "Recuperado",
+      "gestionado": "Gerenciado",
+      "usa_kobra": "Usa Kobra"
+    }
   },
   "asistente": {
     "titulo": "Assistente de IA",

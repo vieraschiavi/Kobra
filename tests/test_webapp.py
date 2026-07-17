@@ -84,6 +84,15 @@ def test_api_agenda_y_gestores(cliente):
     h = _h(_token(cliente))
     a = cliente.get("/api/agenda", headers=h).json()
     assert "total" in a and isinstance(a["vencidas"], list)
+    # Limite de urgencia: nunca vuelven miles de filas (renderizarlas congela
+    # la pagina); el total real se informa aparte y se ordena por monto.
+    assert len(a["vencidas"]) <= 200
+    assert a["mostrando"] == len(a["vencidas"])
+    if a["mostrando"] >= 2:
+        montos = [v.get("monto_acordado") or 0 for v in a["vencidas"][:10]]
+        assert montos == sorted(montos, reverse=True)
+    a5 = cliente.get("/api/agenda?limite=5", headers=h).json()
+    assert len(a5["vencidas"]) <= 5 and a5["total"] == a["total"]
     g = cliente.get("/api/gestores/resumen", headers=h).json()
     assert "ranking" in g
 
