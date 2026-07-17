@@ -1,14 +1,31 @@
 name: CI
 
-# push a main + pull_request, sin "claude/**" en push: cada commit de un PR
-# corría el CI DOS veces (una por el push a la rama y otra por el PR) — puro
-# gasto duplicado de minutos. El evento pull_request ya cubre las ramas de
-# trabajo, y el push a main valida lo mergeado.
+# Objetivo: validar el código gastando el mínimo de minutos de GitHub Actions.
+# - paths-ignore: cambios de docs/config no disparan CI (no hay código que validar).
+# - concurrency: cancela corridas viejas de la misma rama cuando llega un push nuevo.
+# - pasos pesados (train + pipeline end-to-end) solo en push a main; los PR corren
+#   solo los tests. Así un PR gasta ~1/3 de lo que gastaba antes.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.claude/**'
+      - 'docs/**'
+      - 'presentation/**'
+      - '.mcp.json.example'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.claude/**'
+      - 'docs/**'
+      - 'presentation/**'
+      - '.mcp.json.example'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -34,8 +51,11 @@ jobs:
       - name: Tests
         run: python -m pytest -q tests/
 
+      # Pasos pesados solo al mergear a main (no en cada PR) para ahorrar minutos.
       - name: Selección de modelos (CV + calibración)
+        if: github.event_name == 'push'
         run: python -m kobra.train
 
       - name: Smoke test del pipeline end-to-end (usa el modelo seleccionado)
+        if: github.event_name == 'push'
         run: python -m kobra.pipeline
