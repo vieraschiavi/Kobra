@@ -16,6 +16,10 @@ contacto (columna en el CSV o clave en el dict).
 """
 from __future__ import annotations
 
+import difflib
+import re
+import unicodedata
+
 import pandas as pd
 
 from kobra.probpago import CAT_FEATURES, NUM_FEATURES
@@ -101,24 +105,177 @@ _NUMERICAS = ("monto_deuda", "dias_mora", "cuotas_atrasadas",
               "pagos_ultimos_12m", "promesas_cumplidas", "promesas_incumplidas",
               "contactabilidad", "gestiones_previas")
 
+# Sinonimos por campo canonico (ya NORMALIZADOS: minusculas, sin acentos,
+# separadores colapsados a "_"). El archivo del cliente casi nunca usa nuestros
+# nombres exactos: puede venir de un ERP, de un export de ProbPago, en otro
+# idioma o con mayusculas/espacios distintos. Mapeamos cualquiera de estos al
+# campo interno. Orden: el 1er sinonimo EXACTO que aparezca gana; si ninguno
+# matchea exacto, se prueba por "contiene" y luego por parecido (fuzzy).
+_SINONIMOS = {
+    "monto_deuda": [
+        "monto_deuda", "montodeuda", "monto_de_deuda", "deuda", "divida", "monto",
+        "importe", "importe_deuda", "saldo", "saldo_deuda", "saldo_capital",
+        "saldo_actual", "saldo_vencido", "saldo_total", "deuda_total", "deuda_capital",
+        "monto_total", "monto_adeudado", "monto_vencido", "capital", "capital_adeudado",
+        "total_deuda", "total_adeudado", "valor_deuda", "valor", "montante", "adeudado",
+        "monto_cuota_atrasada", "importe_total",
+        "debt", "total_debt", "debt_amount", "amount", "amount_due", "balance",
+        "outstanding", "outstanding_balance", "balance_due"],
+    "nombre": [
+        "nombre", "nombre_cliente", "nombre_completo", "nombre_y_apellido",
+        "nombre_apellido", "apellido_nombre", "cliente", "deudor", "titular",
+        "razon_social", "razonsocial", "nome", "nome_cliente", "name", "full_name",
+        "socio_nombre", "nombre_socio"],
+    "telefono": [
+        "telefono", "telefonos", "tel", "telefono_movil", "telefono_celular",
+        "celular", "cel", "movil", "phone", "telefone", "whatsapp", "wpp", "contacto",
+        "numero_telefono", "nro_telefono", "num_telefono", "telefono_contacto"],
+    "id_deudor": [
+        "id_deudor", "id", "id_cliente", "idcliente", "id_socio", "idsocio",
+        "codigo_cliente", "cod_cliente", "nro_cliente", "numero_cliente", "cliente_id",
+        "documento", "nro_documento", "cedula", "ci", "dni", "rut", "cuit", "cuil",
+        "cpf", "cnpj", "identificacion", "socio", "legajo", "expediente"],
+    "dias_mora": [
+        "dias_mora", "diasmora", "dias_de_mora", "dias_en_mora", "dias_atraso",
+        "diasatraso", "dias_de_atraso", "dias_atrasado", "dias_vencido", "dias_vencidos",
+        "atraso", "atraso_dias", "mora", "mora_dias", "antiguedad_mora", "atraso_maximo",
+        "dias_atraso_max", "max_dias_atraso",
+        "days_overdue", "days_past_due", "overdue_days", "dpd", "days_late", "days_in_arrears"],
+    "cuotas_atrasadas": [
+        "cuotas_atrasadas", "cuotas_atrasada", "cuotas_vencidas", "cuotas_impagas",
+        "cuotas_en_mora", "cant_cuotas_atrasadas", "cuotas_adeudadas", "cuotas_pendientes"],
+    "score_buro": [
+        "score_buro", "score", "score_crediticio", "puntaje_buro", "puntaje",
+        "score_bureau", "bureau_score", "score_externo", "calificacion_crediticia"],
+    "ingreso_estimado": [
+        "ingreso_estimado", "ingreso", "ingresos", "salario", "sueldo", "renta",
+        "ingreso_mensual", "ingreso_declarado", "ingreso_neto"],
+    "segmento": ["segmento", "segment", "categoria", "categoria_cliente", "tipo_cliente"],
+    "producto": ["producto", "tipo_producto", "linea", "linea_producto", "product"],
+    "departamento": [
+        "departamento", "depto", "provincia", "estado", "region", "ciudad",
+        "localidad", "zona"],
+}
+
+
+def _norm_col(c) -> str:
+    """Normaliza un nombre de columna: sin acentos, minusculas, cualquier cosa
+    que no sea letra/numero pasa a "_" (colapsado). "Monto Deuda" -> "monto_deuda",
+    "MontoDeuda" -> "montodeuda", "Días de Atraso" -> "dias_de_atraso"."""
+    s = unicodedata.normalize("NFKD", str(c)).encode("ascii", "ignore").decode()
+    s = re.sub(r"[^a-z0-9]+", "_", s.strip().lower())
+    return s.strip("_")
+
+
+def _a_numero(v):
+    """Convierte a numero tolerando formato de moneda es/en: '$ 1.234.567,89',
+    '1,234,567.89', 'UYU 5.000', '45%'. Devuelve float o NaN."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return float("nan")
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = str(v).strip()
+    if not s:
+        return float("nan")
+    es_pct = "%" in s
+    s = re.sub(r"[^0-9,.\-]", "", s)          # deja solo digitos, . , y signo
+    if not s or s in ("-", ".", ","):
+        return float("nan")
+    if "," in s and "." in s:
+        # El separador decimal es el ULTIMO que aparece; el otro es de miles.
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")   # 1.234.567,89 -> 1234567.89
+        else:
+            s = s.replace(",", "")                       # 1,234,567.89 -> 1234567.89
+    elif "," in s:
+        # Solo coma: decimal si hay 1-2 digitos despues; si no, miles.
+        ent, _, dec = s.rpartition(",")
+        s = f"{ent.replace(',', '')}.{dec}" if 0 < len(dec) <= 2 else s.replace(",", "")
+    else:
+        # Solo puntos: si hay varios, o grupos de 3, son miles (1.234.567).
+        if s.count(".") > 1 or re.search(r"\.\d{3}(\D|$)", s + " "):
+            s = s.replace(".", "")
+    try:
+        n = float(s)
+        return n / 100 if es_pct else n
+    except ValueError:
+        return float("nan")
+
+
+def mapear_columnas(columnas) -> dict:
+    """Devuelve {columna_original: campo_canonico} adivinando a que campo interno
+    corresponde cada columna del archivo del cliente. Match en 3 pasadas por
+    prioridad: exacto por sinonimo, "contiene" un sinonimo, y parecido (fuzzy).
+    Cada campo se asigna a lo sumo una vez (gana la mejor coincidencia)."""
+    norm = {c: _norm_col(c) for c in columnas}
+    mapeo, usados = {}, set()
+
+    def _asignar(campo, col):
+        mapeo[col] = campo
+        usados.add(campo)
+
+    # 1) match exacto contra la lista de sinonimos, respetando su prioridad.
+    for campo, syns in _SINONIMOS.items():
+        if campo in usados:
+            continue
+        for syn in syns:
+            hit = next((c for c, n in norm.items()
+                        if n == syn and c not in mapeo), None)
+            if hit is not None:
+                _asignar(campo, hit)
+                break
+    # 2) "contiene": la columna incluye un sinonimo como token (o al reves).
+    for campo, syns in _SINONIMOS.items():
+        if campo in usados:
+            continue
+        for c, n in norm.items():
+            if c in mapeo:
+                continue
+            if any(f"_{syn}_" in f"_{n}_" or n.startswith(syn) or n.endswith(syn)
+                   for syn in syns if len(syn) >= 4):
+                _asignar(campo, c)
+                break
+    # 3) fuzzy: parecido de cadena (>=0.86) contra cualquier sinonimo largo.
+    for campo, syns in _SINONIMOS.items():
+        if campo in usados:
+            continue
+        mejor, mejor_score = None, 0.86
+        for c, n in norm.items():
+            if c in mapeo or len(n) < 4:
+                continue
+            sc = max(difflib.SequenceMatcher(None, n, s).ratio()
+                     for s in syns if len(s) >= 4)
+            if sc > mejor_score:
+                mejor, mejor_score = c, sc
+        if mejor is not None:
+            _asignar(campo, mejor)
+    return mapeo
+
 
 def desde_dataframe(df: pd.DataFrame) -> list[dict]:
     """Normaliza un DataFrame de contactos (tabla editable o archivo subido en
-    el dashboard) a la lista de contactos. Teléfono como texto (conserva el 0
-    inicial); columnas numéricas coercionadas; nombres/vacíos tolerados."""
+    el dashboard) a la lista de contactos, ADAPTANDOSE a nombres de columna
+    parecidos (ver mapear_columnas): 'MontoDeuda', 'Saldo Vencido', 'Divida',
+    'Deuda Total', etc. se reconocen como el monto de deuda. Telefono como texto
+    (conserva el 0 inicial); columnas numericas y montos con formato de moneda
+    coercionados; nombres/vacios tolerados."""
     df = df.copy()
-    df.columns = [str(c).strip().lower() for c in df.columns]
-    if "monto_deuda" not in df.columns:
-        for alt in ("deuda", "monto"):
-            if alt in df.columns:
-                df = df.rename(columns={alt: "monto_deuda"})
-                break
+    mapeo = mapear_columnas(df.columns)
+    if mapeo:
+        df = df.rename(columns=mapeo)
+    # Columnas no mapeadas: normalizadas por si ya son un campo interno exacto
+    # (ej. 'contactabilidad', 'gestiones_previas') que no esta en los sinonimos.
+    df.columns = [c if c in _SINONIMOS or c in mapeo.values() else _norm_col(c)
+                  for c in df.columns]
+    # Duplicados tras el mapeo (dos columnas al mismo campo): queda la 1a.
+    df = df.loc[:, ~pd.Index(df.columns).duplicated()]
+
     if "telefono" in df.columns:
         df["telefono"] = df["telefono"].apply(
             lambda v: "" if pd.isna(v) else str(v).strip())
     for col in _NUMERICAS:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+            df[col] = df[col].map(_a_numero)
     contactos = []
     for row in df.to_dict("records"):
         # descartar filas sin deuda válida y columnas numéricas vacías
@@ -163,8 +320,17 @@ def importar_y_scorear(df_bruto: pd.DataFrame) -> pd.DataFrame:
 
     contactos = desde_dataframe(df_bruto)
     if not contactos:
-        raise ValueError("El archivo no tiene ninguna fila con un monto de deuda válido "
-                         "(columna 'deuda', 'monto' o 'monto_deuda').")
+        cols = ", ".join(str(c) for c in df_bruto.columns[:12])
+        mapeo = mapear_columnas(df_bruto.columns)
+        if "monto_deuda" not in mapeo.values():
+            raise ValueError(
+                "No reconocí ninguna columna con el monto de deuda. Renombrá la "
+                "columna del importe a 'deuda' (o 'monto', 'saldo', 'importe') y "
+                f"reintentá. Columnas que leí: {cols}.")
+        raise ValueError(
+            "Reconocí la columna de deuda pero ninguna fila tiene un monto válido "
+            "(¿están todas vacías o en cero?). Revisá el archivo y reintentá. "
+            f"Columnas que leí: {cols}.")
     df = cargar_manual(contactos)
     model = modelo_prior()
     scored = puntuar(model, df)
