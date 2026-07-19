@@ -16,6 +16,18 @@ const net = require("net");
 const path = require("path");
 const fs = require("fs");
 
+// La compositación por GPU de Chromium se pelea con OBS Virtual Camera, la
+// captura de pantalla de OBS, el escritorio remoto (RDP) y algunos drivers
+// viejos: la ventana queda TODA GRIS/negra. Desactivar la aceleración por
+// hardware lo evita en todas esas situaciones. Es un dashboard React (nada de
+// 3D/video pesado), asi que la compositación por CPU se ve igual de fluida —
+// mismo motivo por el que Slack/Discord ofrecen esta opción. Se puede volver a
+// activar la GPU con KOBRA_GPU=1 para quien la necesite.
+if (process.env.KOBRA_GPU !== "1") {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("disable-gpu-compositing");
+}
+
 let ventana = null;
 let backend = null;
 let cerrando = false;
