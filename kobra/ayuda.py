@@ -108,6 +108,8 @@ _TEXTOS_POR_IDIOMA = {
                       "⚙️ Configuración para respuestas redactadas):\n\n"),
         "fallback_es": ("_Esta parte de la documentación todavía no está traducida al "
                         "portugués — te muestro el original en español:_\n\n"),
+        "ia_fallo": ("⚠️ El proveedor de IA no respondió ({motivo}). Revisá la clave en "
+                     "⚙️ Configuración. Mientras tanto, esto dice la documentación:\n\n"),
     },
     "pt": {
         "vacia": "Escreva uma pergunta sobre o programa.",
@@ -119,6 +121,8 @@ _TEXTOS_POR_IDIOMA = {
                       "chave em ⚙️ Configuração para respostas redigidas):\n\n"),
         "fallback_es": ("_Esta parte da documentação ainda não foi traduzida para o "
                         "português — mostro o original em espanhol:_\n\n"),
+        "ia_fallo": ("⚠️ O provedor de IA não respondeu ({motivo}). Verifique a chave em "
+                     "⚙️ Configuração. Enquanto isso, isto diz a documentação:\n\n"),
     },
 }
 
@@ -224,6 +228,15 @@ def responder(pregunta: str, api_key: str | None = None, k: int = 4,
         return {"respuesta": prefijo + cuerpo, "fuentes": fuentes, "modo": "docs"}
 
     contexto = "\n\n---\n\n".join(f"[{f['fuente']} · {f['titulo']}]\n{f['texto']}" for f in relevantes)
-    texto = kllm.generar(pregunta, system=SYSTEM_PROMPT_POR_IDIOMA[idioma].format(contexto=contexto),
-                        max_tokens=600, api_key=api_key, timeout=60, lanzar=True)
+    try:
+        texto = kllm.generar(pregunta, system=SYSTEM_PROMPT_POR_IDIOMA[idioma].format(contexto=contexto),
+                            max_tokens=600, api_key=api_key, timeout=60, lanzar=True)
+    except Exception as e:
+        # El proveedor de IA falló (key inválida/vencida, sin saldo, red/proxy,
+        # timeout, error de la API…). NUNCA romper con 500: caemos a mostrar la
+        # documentación, avisando que la IA no respondió (mismo modo "docs").
+        cuerpo = "\n\n---\n\n".join(
+            f"**{f['titulo']}** · _{f['fuente']}_\n\n{f['texto']}" for f in relevantes[:2])
+        aviso = textos["ia_fallo"].format(motivo=str(e)[:120])
+        return {"respuesta": aviso + cuerpo, "fuentes": fuentes, "modo": "docs_fallback"}
     return {"respuesta": texto, "fuentes": fuentes, "modo": "ia"}

@@ -17,7 +17,8 @@
       "gestores": "Operadores",
       "asistente": "Assistente de IA",
       "roi": "Calculadora de ROI",
-      "configuracion": "Configurações"
+      "configuracion": "Configurações",
+      "calidad": "Qualidade de atendimento"
     },
     "sidebar": {
       "rol_admin": "🛡️ Administrador",
@@ -357,5 +358,33 @@
     "tecnicas": "Técnicas usadas",
     "turnos": "Turnos",
     "nota_twilio": "ℹ️ Esta é a mesma lógica de negociação que roda em produção. O Twilio apenas transporta a voz ou o WhatsApp real (precisa de credenciais e número); a oferta, o tratamento de objeções e o fechamento são estes."
+  },
+  "calidad": {
+    "titulo": "Qualidade de atendimento",
+    "subtitulo": "Avaliação da qualidade dos atendimentos de cobrança (rubrica de 14 critérios calibrada com supervisores reais) e comparação de performance entre o Agente de IA e os operadores humanos.",
+    "cargando": "Carregando…",
+    "gestor_ia": "Agente IA",
+    "gestor_humano": "Operador Humano",
+    "filtro_canal": "Canal",
+    "todos_canales": "Todos os canais",
+    "gestiones": "atendimentos",
+    "conversion": "Conversão",
+    "recupero": "Recuperação",
+    "titulo_grafico": "Qualidade e conversão: IA vs Humano",
+    "ranking": "Ranking de operadores",
+    "gestor": "Operador",
+    "tipo": "Tipo",
+    "calidad": "Qualidade",
+    "evaluar_titulo": "🎧 Avaliar um atendimento",
+    "evaluar_sub": "Cole a transcrição de uma ligação ou o chat do WhatsApp e obtenha a nota de qualidade com o detalhe por critério. O núcleo funciona sem chaves; com um provedor de IA configurado, recalibra como um supervisor real.",
+    "canal_llamada": "Ligação",
+    "evaluar_placeholder": "Operador: Olá, bom dia, falo da cobrança…\nCliente: Sim, sou eu…",
+    "evaluar_boton": "✅ Avaliar qualidade",
+    "evaluando": "Avaliando…",
+    "ref_humano": "Ref. supervisor",
+    "modo_local": "offline",
+    "criterio": "Critério",
+    "puntaje": "Nota",
+    "oportunidades": "Oportunidades de melhoria"
   }
 }

@@ -10,6 +10,7 @@ import Originacion from "./pages/Originacion.jsx";
 import Cartera from "./pages/Cartera.jsx";
 import Agenda from "./pages/Agenda.jsx";
 import Gestores from "./pages/Gestores.jsx";
+import Calidad from "./pages/Calidad.jsx";
 import Asistente from "./pages/Asistente.jsx";
 import Roi from "./pages/Roi.jsx";
 import Configuracion from "./pages/Configuracion.jsx";
@@ -20,6 +21,7 @@ const NAV = [
   { ruta: "/cartera", ico: "📋", clave: "app.nav.cartera" },
   { ruta: "/agenda", ico: "📅", clave: "app.nav.agenda" },
   { ruta: "/gestores", ico: "📇", clave: "app.nav.gestores" },
+  { ruta: "/calidad", ico: "✅", clave: "app.nav.calidad" },
   { ruta: "/asistente", ico: "🤖", clave: "app.nav.asistente" },
   { ruta: "/roi", ico: "📈", clave: "app.nav.roi" },
   { ruta: "/configuracion", ico: "⚙️", clave: "app.nav.configuracion", admin: true },
@@ -178,6 +180,7 @@ export default function App() {
           <Route path="/cartera" element={<Cartera />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/gestores" element={<Gestores />} />
+          <Route path="/calidad" element={<Calidad />} />
           <Route path="/asistente" element={<Asistente />} />
           <Route path="/roi" element={<Roi />} />
           <Route path="/configuracion" element={<Configuracion />} />
