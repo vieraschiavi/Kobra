@@ -298,7 +298,7 @@
   },
   "importar_cartera": {
     "titulo": "📤 Carregar sua carteira real",
-    "subtitulo": "Envie um CSV ou Excel com seus devedores e substitua na hora os dados de demonstração em todo o painel. Adapta-se sozinho aos nomes das suas colunas (MontoDeuda, Saldo Vencido, Nome Cliente, Celular…) e a valores formatados (R$ 1.234.567): basta ter uma coluna de dívida.",
+    "subtitulo": "Envie um CSV ou Excel com seus devedores e substitua na hora os dados de demonstração em todo o painel. Adapta-se sozinho aos nomes das colunas: havendo várias de valor, escolhe a de dívida (Dívida, Saldo Vencido, Capital) em vez de um pagamento ou cobrança; entende MontoDeuda, Nome Cliente, Celular… e valores formatados (R$ 1.234.567).",
     "modo_titulo": "Dados que o programa mostra:",
     "demo_on": "🟡 DEMO (dados de exemplo)",
     "demo_off": "🟢 MINHA CARTEIRA (dados reais)",

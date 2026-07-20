@@ -298,7 +298,7 @@
   },
   "importar_cartera": {
     "titulo": "📤 Cargar tu cartera real",
-    "subtitulo": "Subí un CSV o Excel con tus deudores y reemplaza al instante los datos de demo en todo el dashboard. Se adapta solo a los nombres de tus columnas (MontoDeuda, Saldo Vencido, Nombre Cliente, Celular…) y a montos con formato ($ 1.234.567): con que haya una columna de deuda alcanza.",
+    "subtitulo": "Subí un CSV o Excel con tus deudores y reemplaza al instante los datos de demo en todo el dashboard. Se adapta solo a los nombres de tus columnas: si hay varias de plata elige la de deuda (Deuda, Adeudo, Saldo Vencido, Capital) por sobre un pago o cobro; entiende MontoDeuda, Nombre Cliente, Celular… y montos con formato ($ 1.234.567).",
     "modo_titulo": "Datos que muestra el programa:",
     "demo_on": "🟡 DEMO (datos de ejemplo)",
     "demo_off": "🟢 MI CARTERA (datos reales)",
