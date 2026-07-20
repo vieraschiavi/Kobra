@@ -882,6 +882,87 @@ async def voz_analizar(archivo: UploadFile = File(...), id_deudor: str | None = 
             "copiloto": res["copiloto"], "calidad": res["calidad"], "tecnicas": res["tecnicas"]}
 
 
+# Deudor sintético por default de la demo del Gestor IA — el caso "Martín Viera"
+# que se le muestra a un prospecto: 3 cuotas adeudadas, sueldo declarado, etc.
+_DEUDOR_DEMO_GESTOR = {
+    "id_deudor": "DEMO-001", "nombre": "Martín Viera", "telefono": "098576279",
+    "monto_deuda": 120000, "dias_mora": 90, "cuotas_atrasadas": 3,
+    "ingreso_estimado": 120000, "antiguedad_cliente_meses": 36, "score_buro": 640,
+    "segmento": "Retail", "producto": "Préstamo personal", "departamento": "Montevideo",
+}
+# Guiones del "cliente" para la demo (voz y WhatsApp toman caminos distintos:
+# objeción por cuotas vs. pedido de descuento) — muestran cómo el Gestor IA
+# escala la oferta y cierra. El admin puede editar/mandar sus propios mensajes.
+_GUION_DEMO = {
+    "Llamada": ["Sí, con él. Pero estoy muy complicado este mes, no me alcanza.",
+                "¿No hay forma de pagarlo en cuotas? De una sola vez no puedo.",
+                "Bueno, esa sí la puedo. Dale, coordinemos."],
+    "WhatsApp": ["Hola sí soy yo",
+                 "Uh, es un montón ahora. ¿Me hacen algún descuento si pago junto?",
+                 "Perfecto, con ese descuento lo pago hoy. Acepto."],
+}
+
+
+class GestorDemoIn(BaseModel):
+    canal: str = "Llamada"                 # "Llamada" (voz) | "WhatsApp" (chatbot)
+    mensajes: list[str] | None = None      # guion del cliente; None = el de demo
+    deudor: dict | None = None             # deudor a scorear; None = Martín Viera demo
+
+
+@app.post("/api/gestor-ia/demo")
+def gestor_ia_demo(datos: GestorDemoIn, u: Usuario = Depends(usuario_actual)):
+    """Corre una negociación COMPLETA del Gestor IA (mismo motor que producción)
+    y devuelve todos los turnos + las conclusiones que van al ERP. Para
+    mostrarle a un prospecto, en vivo, cómo el agente negocia por voz o
+    WhatsApp — sin necesidad de Twilio ni un teléfono real (Twilio solo
+    transporta la voz/mensaje; la lógica de negociación es esta)."""
+    from kobra.gestor_ia import SesionGestorIA, interpretar
+    canal = "WhatsApp" if str(datos.canal).lower().startswith("w") else "Llamada"
+    bruto = pd.DataFrame([datos.deudor or _DEUDOR_DEMO_GESTOR])
+    try:
+        full = kcartera.importar_y_scorear(bruto.astype(str))
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    brief = kcartera.brief_desde_fila(full.iloc[0])
+
+    ses = SesionGestorIA(id_deudor=brief["id_deudor"], canal=canal,
+                         gestor_id="IA01" if canal == "Llamada" else "IA02",
+                         usar_claude=False, brief=dict(brief))
+    guion = datos.mensajes if datos.mensajes is not None else _GUION_DEMO[canal]
+    turnos = [{"quien": "gestor", "texto": ses.responder(None)["texto"]}]
+    for msg in guion:
+        i = interpretar(msg)
+        turnos.append({"quien": "cliente", "texto": msg,
+                       "senales": [k for k in ("acepta", "pide_cuotas", "pide_menos",
+                                   "dificultad", "enojo", "negativa_dura", "pide_humano")
+                                   if i.get(k)],
+                       "sentimiento": round(i["sentimiento"], 2),
+                       "emociones": i["emociones"]})
+        r = ses.responder(msg)
+        turnos.append({"quien": "gestor", "texto": r["texto"]})
+        if r["fin"]:
+            break
+    e = ses.campos_erp
+    return {
+        "canal": canal,
+        "brief": {k: brief[k] for k in ("nombre", "telefono", "monto_deuda", "probpago",
+                  "estrategia", "descuento_recomendado", "plan_cuotas", "segmento_propension")},
+        "motivo_probpago": full.iloc[0].get("motivo_probpago", ""),
+        "turnos": turnos,
+        "conclusion": {
+            "resultado": e.get("resultado"),
+            "monto_acordado": e.get("monto_acordado"),
+            "oferta": e.get("oferta_aceptada"),
+            "fecha_promesa": e.get("fecha_promesa"),
+            "calidad_gestion": e.get("calidad_gestion"),
+            "clima_cliente": e.get("clima_cliente"),
+            "emociones": e.get("emociones"),
+            "tecnicas": e.get("tecnicas"),
+            "turnos": e.get("turnos"),
+        },
+    }
+
+
 # --- Frontend compilado, si existe ------------------------------------------
 # Orden de búsqueda: (1) KOBRA_UI_DIST explícito (lo setea el lanzador owner
 # apuntando a owner/ui_dist, un build ya compilado y versionado, para no
