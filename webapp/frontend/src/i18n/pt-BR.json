@@ -334,5 +334,28 @@
     "boton_activando": "Ativando…",
     "link_comprar": "Ver planos em mvkobranzaia.com",
     "banner_trial": "🕐 Versão de teste — faltam {{dias}} dias."
+  },
+  "gestor_demo": {
+    "titulo": "🤖 Testar o Agente de IA (demo ao vivo)",
+    "subtitulo": "Mostre a um cliente como o agente negocia sozinho uma cobrança. Usa um devedor de exemplo (Martín Viera: 3 parcelas em atraso, salário R$ 120.000). Escolha o canal e veja a negociação completa com as conclusões.",
+    "por_voz": "📞 Negociar por VOZ",
+    "por_whatsapp": "💬 Negociar por WHATSAPP",
+    "negociando": "O Agente de IA está negociando…",
+    "deuda": "Dívida",
+    "desc_max": "Desc. máx",
+    "gestor_ia": "AGENTE IA",
+    "cliente": "CLIENTE",
+    "ia_interpreta": "IA interpreta",
+    "resultado": "Resultado",
+    "acuerdo": "Acordo",
+    "cuotas_de": "parcelas de",
+    "al_contado": "à vista",
+    "beneficio": "benefício",
+    "fecha_promesa": "Data da promessa",
+    "calidad": "Qualidade do atendimento",
+    "emociones": "Emoções detectadas",
+    "tecnicas": "Técnicas usadas",
+    "turnos": "Turnos",
+    "nota_twilio": "ℹ️ Esta é a mesma lógica de negociação que roda em produção. O Twilio apenas transporta a voz ou o WhatsApp real (precisa de credenciais e número); a oferta, o tratamento de objeções e o fechamento são estes."
   }
 }
