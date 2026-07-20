@@ -90,6 +90,24 @@ def test_mapea_columnas_parecidas():
         assert kc.mapear_columnas([col]).get(col) == "monto_deuda", col
 
 
+def test_elige_columna_de_deuda_entre_varias_de_plata():
+    """Desambiguación por dataset: con varias columnas de plata, elegir la de
+    DEUDA — 'deuda/adeudo/vencido/saldo' le ganan a 'monto/importe' genérico, y
+    'pago/cobro' (lo ya cobrado) es la última opción."""
+    from kobra import cartera_manual as kc
+
+    def deuda(cols):
+        m = kc.mapear_columnas(cols)
+        return next((c for c, f in m.items() if f == "monto_deuda"), None)
+
+    assert deuda(["Cliente", "Último Pago", "Deuda Total", "Capital"]) == "Deuda Total"
+    assert deuda(["Cliente", "Importe", "Cobro Mensual"]) == "Importe"
+    assert deuda(["Nombre", "Saldo Vencido", "Monto Pagado"]) == "Saldo Vencido"
+    assert deuda(["nombre", "Capital"]) == "Capital"           # capital como deuda
+    assert deuda(["cliente", "Monto Cobrado"]) == "Monto Cobrado"  # única plata → se usa
+    assert deuda(["nombre", "telefono", "dias_mora"]) is None  # sin plata → None
+
+
 def test_parseo_moneda_formateada():
     from kobra import cartera_manual as kc
     assert kc._a_numero("$ 1.234.567,89") == 1234567.89   # es: miles '.', dec ','

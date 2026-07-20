@@ -158,6 +158,42 @@ _SINONIMOS = {
 }
 
 
+# Puntaje de "que tan de DEUDA es" el nombre de una columna. Un archivo real
+# suele traer VARIAS columnas de plata (Ultimo Pago, Cobro, Importe, Saldo,
+# Capital, Deuda Vencida...); no alcanza con "la primera que matchea": hay que
+# ELEGIR la de deuda. Cuanto mas peso, mas seguro que es la deuda a cobrar.
+#  - deuda/adeudo/vencido/saldo/divida  -> senal fuerte de deuda
+#  - capital, a_vencer                  -> deuda-ish (parte del adeudo / por vencer)
+#  - monto/importe/valor/balance        -> monto generico (2da opcion)
+#  - pago/cobro/abonado/recaudado       -> lo YA cobrado, NO la deuda: peso minimo,
+#                                          solo se usa si no hay nada mejor.
+_PESO_DEUDA = [
+    ("deuda", 10), ("adeudo", 10), ("adeudado", 10), ("adeud", 9), ("divida", 10),
+    ("saldo_deuda", 10), ("saldo_vencido", 10), ("monto_vencido", 10),
+    ("deuda_vencida", 10), ("deuda_total", 10), ("deuda_parcial", 10),
+    ("debt", 10), ("outstanding", 9),
+    ("capital_adeudado", 9), ("saldo_capital", 9),
+    ("vencido", 7), ("vencida", 7), ("a_vencer", 7), ("por_vencer", 7),
+    ("saldo", 6), ("capital", 6), ("balance", 5),
+    ("monto", 4), ("importe", 4), ("montante", 4), ("amount", 4), ("valor", 3),
+    ("pago", 1), ("pagado", 1), ("cobro", 1), ("cobrado", 1),
+    ("abonado", 1), ("recaudado", 1),
+]
+_TOK_DEUDA = ("deuda", "adeud", "vencid", "divida", "saldo", "capital", "debt", "outstanding")
+_TOK_MONTO = ("monto", "importe", "valor", "amount", "balance", "montante")
+
+
+def _score_deuda(nombre_norm: str) -> int:
+    """Puntaje de deuda de una columna ya normalizada. 0 = no parece plata."""
+    score = max((peso for tok, peso in _PESO_DEUDA if tok in nombre_norm), default=0)
+    # Combina un generico con una palabra de deuda ("monto_deuda", "saldo_vencido"):
+    # es la mas segura de todas, la empujamos arriba de un "deuda" o "monto" sueltos.
+    if (any(t in nombre_norm for t in _TOK_DEUDA)
+            and any(t in nombre_norm for t in _TOK_MONTO)):
+        score += 2
+    return score
+
+
 def _norm_col(c) -> str:
     """Normaliza un nombre de columna: sin acentos, minusculas, cualquier cosa
     que no sea letra/numero pasa a "_" (colapsado). "Monto Deuda" -> "monto_deuda",
@@ -213,6 +249,14 @@ def mapear_columnas(columnas) -> dict:
     def _asignar(campo, col):
         mapeo[col] = campo
         usados.add(campo)
+
+    # 0) DEUDA por puntaje (mirando TODO el dataset): entre varias columnas de
+    #    plata elige la MAS de-deuda. Asi "Deuda Total" le gana a "Ultimo Pago",
+    #    e "Importe" le gana a "Cobro Mensual" — no es la primera que aparece.
+    puntajes = {c: _score_deuda(n) for c, n in norm.items()}
+    mejor_col = max(puntajes, key=puntajes.get) if puntajes else None
+    if mejor_col is not None and puntajes[mejor_col] >= 1:
+        _asignar("monto_deuda", mejor_col)
 
     # 1) match exacto contra la lista de sinonimos, respetando su prioridad.
     for campo, syns in _SINONIMOS.items():
