@@ -53,12 +53,73 @@ def _csv_cartera_real():
     return buf.getvalue().encode("utf-8")
 
 
+def _xlsx_columnas_raras():
+    """Excel estilo export de ProbPago/ERP: nombres de columna que NO son los
+    nuestros (camelCase, otro idioma, moneda formateada). Debe adaptarse solo."""
+    df = pd.DataFrame({
+        "IdCliente": ["C1", "C2", "C3"],
+        "Nombre Cliente": ["Ana", "Beto", "Caro"],
+        "Celular": ["099111", "098222", "097333"],
+        "MontoDeuda": ["$ 1.234.567", "50.000", "8.900,50"],
+        "DiasAtraso": [45, 10, 200],
+    })
+    buf = io.BytesIO()
+    df.to_excel(buf, index=False)
+    return buf.getvalue()
+
+
 def test_origen_default_es_demo(cliente):
     api, c = cliente
     h = _h_admin(c)
     origen = c.get("/api/cartera/origen", headers=h).json()
     assert origen["tipo"] == "demo" and origen["modo"] == "demo"
     assert origen["hay_real"] is False  # sin cartera real subida, el botón está deshabilitado
+
+
+def test_mapea_columnas_parecidas():
+    """El corazón del pedido: adaptarse a nombres de columna similares."""
+    from kobra import cartera_manual as kc
+    m = kc.mapear_columnas(["IdCliente", "Nombre Cliente", "Celular",
+                            "MontoDeuda", "DiasAtraso"])
+    assert m["MontoDeuda"] == "monto_deuda"
+    assert m["Nombre Cliente"] == "nombre"
+    assert m["Celular"] == "telefono"
+    assert m["DiasAtraso"] == "dias_mora"
+    # Otros idiomas + sinónimos de deuda
+    for col in ["Saldo Vencido", "Dívida Total", "Total Debt", "Importe", "saldo"]:
+        assert kc.mapear_columnas([col]).get(col) == "monto_deuda", col
+
+
+def test_parseo_moneda_formateada():
+    from kobra import cartera_manual as kc
+    assert kc._a_numero("$ 1.234.567,89") == 1234567.89   # es: miles '.', dec ','
+    assert kc._a_numero("1,234,567.89") == 1234567.89     # en: miles ',', dec '.'
+    assert kc._a_numero("R$ 5.000") == 5000.0
+    assert kc._a_numero("45%") == 0.45
+    assert pd.isna(kc._a_numero(""))
+
+
+def test_importar_xlsx_con_columnas_raras(cliente):
+    api, c = cliente
+    h_principal = _h_admin(c)
+    try:
+        r = c.post("/api/tenant/alta", json={"empresa": "test-cols-raras"}, headers=h_principal)
+        assert r.status_code == 200, r.text
+        h = _h_admin(c, empresa="test-cols-raras")
+        r = c.post("/api/cartera/importar", headers=h, files={"archivo": (
+            "ProbPago_export.xlsx", _xlsx_columnas_raras(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["deudores"] == 3
+        # El monto formateado '$ 1.234.567' se parseó bien.
+        assert abs(d["cartera_total_uyu"] - (1234567 + 50000 + 8900.5)) < 1
+        assert d["columnas_detectadas"]["MontoDeuda"] == "monto_deuda"
+        kpis = c.get("/api/kpis", headers=h).json()
+        assert kpis["deudores"] == 3
+    finally:
+        shutil.rmtree(os.path.join(ROOT, "data", "tenants", "test-cols-raras"),
+                      ignore_errors=True)
 
 
 def test_importar_csv_reemplaza_dashboard_completo(cliente):

@@ -779,16 +779,22 @@ async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends
     except Exception as e:
         raise HTTPException(400, f"No pude leer el archivo: {e}")
 
+    # Se adapta solo a nombres de columna parecidos (MontoDeuda, Saldo Vencido,
+    # Dívida, Total Debt…); mostramos que reconoció para que el cliente confíe.
+    mapeo = kcartera.mapear_columnas(df_bruto.columns)
     try:
         full = kcartera.importar_y_scorear(df_bruto.fillna(""))
     except ValueError as e:
         raise HTTPException(422, str(e))
 
     export = _guardar_cartera_real(u.empresa, full, archivo.filename)
+    detectadas = "; ".join(f"«{orig}» → {campo}" for orig, campo in mapeo.items())
     return {"deudores": int(len(export)),
             "cartera_total_uyu": float(export["monto_deuda"].sum()),
+            "columnas_detectadas": mapeo,
             "mensaje": f"Cartera real cargada y activada: {len(export)} deudor(es). "
-                      "El dashboard ya refleja estos datos (podés volver a la demo "
+                      + (f"Reconocí tus columnas ({detectadas}). " if detectadas else "")
+                      + "El dashboard ya refleja estos datos (podés volver a la demo "
                       "con el botón)."}
 
 
