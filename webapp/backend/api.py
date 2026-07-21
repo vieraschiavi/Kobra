@@ -522,6 +522,36 @@ def gestores_resumen(u: Usuario = Depends(usuario_actual)):
                         if not isinstance(v, pd.DataFrame)} if impacto else None}
 
 
+@app.get("/api/calidad/comparativa")
+def calidad_comparativa(canal: str | None = None, tipo: str | None = None,
+                        u: Usuario = Depends(usuario_actual)):
+    """Performance Gestor IA vs Gestor Humano (calidad, conversión, recupero)
+    a partir del registro de gestiones. Filtros opcionales canal/tipo."""
+    from kobra import calidad_gestion as kcalidad
+    g = _gestiones(u.empresa)
+    canales = sorted(g["canal"].dropna().unique().tolist()) if (g is not None and "canal" in g.columns) else []
+    comp = kcalidad.comparativa(g, canal=canal, tipo=tipo)
+    comp["canales"] = canales
+    return comp
+
+
+class EvaluarGestionIn(BaseModel):
+    transcripcion: str
+    canal: str = "Llamada"
+
+
+@app.post("/api/calidad/evaluar")
+def calidad_evaluar(datos: EvaluarGestionIn, u: Usuario = Depends(usuario_actual)):
+    """Evalúa la calidad de una gestión (transcripción de llamada o chat de
+    WhatsApp) contra la rúbrica de 14 criterios (100 pts). Núcleo offline; si
+    hay proveedor de IA configurado, recalibra como un supervisor real."""
+    from kobra import calidad_gestion as kcalidad
+    texto = (datos.transcripcion or "").strip()
+    if len(texto) < 15:
+        raise HTTPException(422, "Pegá una transcripción más larga para evaluar.")
+    return kcalidad.evaluar(texto, canal=datos.canal)
+
+
 class PreguntaIn(BaseModel):
     pregunta: str
 
