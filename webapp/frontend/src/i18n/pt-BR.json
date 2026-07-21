@@ -35,7 +35,15 @@
     "boton": {
       "entrando": "Entrando…",
       "entrar": "Entrar"
-    }
+    },
+    "setup_titulo": "Primeira execução — crie sua senha de administrador",
+    "setup_sub": "É a primeira vez que o painel abre. Escolha a senha de administrador para protegê-lo.",
+    "setup_placeholder": "Nova senha (mín. 6 caracteres)",
+    "setup_placeholder2": "Repita a senha",
+    "setup_boton": "Criar e entrar",
+    "setup_creando": "Criando…",
+    "setup_no_coincide": "As senhas não coincidem.",
+    "setup_corta": "A senha deve ter pelo menos 6 caracteres."
   },
   "dashboard": {
     "titulo": "Visão geral",

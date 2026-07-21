@@ -35,7 +35,15 @@
     "boton": {
       "entrando": "Entrando…",
       "entrar": "Entrar"
-    }
+    },
+    "setup_titulo": "Primer arranque — creá tu contraseña de administrador",
+    "setup_sub": "Es la primera vez que se abre. Elegí la contraseña de administrador para proteger el dashboard.",
+    "setup_placeholder": "Nueva contraseña (mín. 6 caracteres)",
+    "setup_placeholder2": "Repetí la contraseña",
+    "setup_boton": "Crear y entrar",
+    "setup_creando": "Creando…",
+    "setup_no_coincide": "Las contraseñas no coinciden.",
+    "setup_corta": "La contraseña debe tener al menos 6 caracteres."
   },
   "dashboard": {
     "titulo": "Visión general",

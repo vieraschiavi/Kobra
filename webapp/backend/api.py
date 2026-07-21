@@ -286,11 +286,41 @@ class LoginIn(BaseModel):
     empresa: str = EMPRESA_DEFAULT
 
 
+@app.get("/api/auth/estado")
+def auth_estado():
+    """Sin auth: el login lo consulta al arrancar para saber si mostrar el
+    formulario de primer arranque (crear la contraseña de admin) o el de
+    ingreso normal."""
+    return {"configurado": kauth.configurado(),
+            "gestor_configurado": kauth.tiene_password("gestor")}
+
+
+class SetupIn(BaseModel):
+    password: str
+    empresa: str = EMPRESA_DEFAULT
+
+
+@app.post("/api/auth/setup")
+def auth_setup(datos: SetupIn):
+    """Primer arranque: crea la contraseña de administrador desde la propia
+    webapp (antes había que abrir el dashboard Streamlit, imposible en hosting).
+    Solo funciona si TODAVÍA no hay admin — si ya existe, devuelve 409 para no
+    permitir reset sin autenticación. Deja la sesión iniciada."""
+    if kauth.configurado():
+        raise HTTPException(409, "El administrador ya está configurado. Iniciá sesión.")
+    pw = (datos.password or "").strip()
+    if len(pw) < 6:
+        raise HTTPException(422, "La contraseña debe tener al menos 6 caracteres.")
+    kauth.establecer_password("admin", pw)
+    return {"token": _emitir_token("admin", datos.empresa), "rol": "admin",
+            "empresa": datos.empresa}
+
+
 @app.post("/api/auth/login")
 def auth_login(datos: LoginIn):
     if not kauth.configurado():
         raise HTTPException(409, "Todavía no hay contraseña de administrador creada — "
-                                 "abrí el dashboard una vez para el primer arranque.")
+                                 "creála en esta pantalla para el primer arranque.")
     rol = None
     for candidato in ("admin", "gestor"):
         if kauth.tiene_password(candidato) and kauth.verificar_password(candidato, datos.password):
