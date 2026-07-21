@@ -731,6 +731,7 @@ _AVISO_SIN_WHISPER = (
 
 @app.post("/api/calidad/evaluar-audio")
 async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "Llamada",
+                                gestor: str | None = None, fecha: str | None = None,
                                 u: Usuario = Depends(usuario_actual)):
     """Sube una grabación (.wav/.mp3), la transcribe por hablante (Whisper) y la
     evalúa contra la rúbrica de 14 criterios. Si no hay Whisper configurado,
@@ -786,8 +787,13 @@ async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "L
             except OSError:
                 pass
 
+    guardado = None
+    if gestor and evaluacion:
+        guardado = _guardar_calidad(u.empresa, gestor, fecha, canal,
+                                    archivo.filename, evaluacion)
     return {"archivo": archivo.filename, "modo_transcripcion": modo,
-            "turnos": turnos, "transcripcion": transcripcion, "evaluacion": evaluacion}
+            "turnos": turnos, "transcripcion": transcripcion, "evaluacion": evaluacion,
+            "guardado": guardado}
 
 
 @app.get("/api/calidad/fuentes")
@@ -814,6 +820,81 @@ def calidad_fuentes(u: Usuario = Depends(usuario_actual)):
                         "grabaciones manualmente (.wav/.mp3)."),
         },
     }
+
+
+def _archivo_calidad(empresa: str) -> str:
+    base = os.path.join(DIR_DATOS, "data") if empresa == EMPRESA_DEFAULT else _dir_tenant(empresa)
+    return os.path.join(base, "calidad_evaluaciones.csv")
+
+
+def _leer_calidad(empresa: str):
+    ruta = _archivo_calidad(empresa)
+    if not os.path.exists(ruta):
+        return None
+    try:
+        return pd.read_csv(ruta)
+    except Exception:
+        return None
+
+
+def _guardar_calidad(empresa: str, gestor: str, fecha: str | None, canal: str,
+                     archivo: str, evaluacion: dict) -> dict:
+    """Acumula una evaluación de audio en el registro de calidad del tenant, para
+    armar fichas de gestor por mes y su evolución."""
+    from kobra import calidad_gestion as kcalidad
+    import uuid
+    if not fecha:
+        fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    fila = kcalidad.fila_evaluacion(gestor, fecha, canal, archivo, evaluacion,
+                                    uuid.uuid4().hex[:12])
+    ruta = _archivo_calidad(empresa)
+    os.makedirs(os.path.dirname(ruta), exist_ok=True)
+    df = _leer_calidad(empresa)
+    nueva = pd.DataFrame([fila])
+    df = nueva if df is None else pd.concat([df, nueva], ignore_index=True)
+    df.to_csv(ruta, index=False)
+    return {"id": fila["id"], "gestor": gestor, "fecha": fecha,
+            "puntaje_total": fila["puntaje_total"], "acumuladas": int(len(df))}
+
+
+class GuardarCalidadIn(BaseModel):
+    gestor: str
+    fecha: str | None = None
+    canal: str = "Llamada"
+    transcripcion: str
+    archivo: str = "Transcripción pegada"
+
+
+@app.post("/api/calidad/guardar")
+def calidad_guardar(datos: GuardarCalidadIn, u: Usuario = Depends(usuario_actual)):
+    """Evalúa una transcripción y la ACUMULA en la ficha del gestor (para los
+    tableros de calidad por gestor/mes y su evolución)."""
+    from kobra import calidad_gestion as kcalidad
+    texto = (datos.transcripcion or "").strip()
+    if len(texto) < 15:
+        raise HTTPException(422, "Pegá una transcripción más larga para evaluar.")
+    if not (datos.gestor or "").strip():
+        raise HTTPException(422, "Indicá el gestor para acumular la evaluación.")
+    evaluacion = kcalidad.evaluar(texto, canal=datos.canal)
+    guardado = _guardar_calidad(u.empresa, datos.gestor.strip(), datos.fecha,
+                                datos.canal, datos.archivo, evaluacion)
+    return {"evaluacion": evaluacion, "guardado": guardado}
+
+
+@app.get("/api/calidad/evaluaciones")
+def calidad_evaluaciones(gestor: str | None = None, mes: str | None = None,
+                         u: Usuario = Depends(usuario_actual)):
+    """Tableros de las evaluaciones de audio acumuladas: ranking por gestor,
+    evolución mensual de la nota, promedio por criterio y el detalle. Filtros
+    opcionales por gestor y mes."""
+    from kobra import calidad_gestion as kcalidad
+    df = _leer_calidad(u.empresa)
+    resumen = kcalidad.resumen_evaluaciones(df, gestor=gestor, mes=mes)
+    resumen["gestores"] = (sorted(df["gestor"].dropna().astype(str).unique().tolist())
+                           if df is not None and "gestor" in df.columns else [])
+    resumen["meses"] = (sorted(df["mes"].dropna().astype(str).unique().tolist())
+                        if df is not None and "mes" in df.columns else [])
+    return resumen
 
 
 class PreguntaIn(BaseModel):

@@ -43,7 +43,9 @@ RUBRICA = [
                  "actualizo", "confirmo sus datos", "vou registrar", "anotar", "no sistema"]},
     {"id": 3, "nombre": "Negociación deuda total", "max": 5, "critico": False, "piso": 0.5,
      "señales": ["deuda total", "cancelar", "totalidad", "saldo completo", "todo el saldo",
-                 "cancelacion", "divida total", "quitar todo", "cerrar la cuenta"]},
+                 "cancelacion", "divida total", "quitar todo", "cerrar la cuenta",
+                 "para cancelar", "cancela con", "con una quita", "quedar al dia",
+                 "al dia", "monto vencido", "lo vencido"]},
     {"id": 4, "nombre": "Cierre del estado / formulario", "max": 15, "critico": True, "piso": 0.6,
      "no_aplica_max": True,
      "señales": ["queda como", "tipifico", "estado", "resultado de la gestion", "marco",
@@ -56,16 +58,24 @@ RUBRICA = [
                  "cedula", "verificar identidad", "com quem falo", "titular"]},
     {"id": 7, "nombre": "Explicación de la deuda", "max": 5, "critico": False, "piso": 0.5,
      "señales": ["saldo", "monto", "debe", "vencimiento", "vence", "capital", "intereses",
-                 "cuota", "concepto", "valor", "divida", "montante"]},
+                 "cuota", "concepto", "valor", "divida", "montante", "atraso", "por su atraso",
+                 "lo vencido", "monto vencido", "genera por mora", "por mora", "billetera",
+                 "descuento a su recibo", "recibo de sueldo", "pago minimo"]},
     {"id": 8, "nombre": "Ofrecimiento de soluciones", "max": 10, "critico": False, "piso": 0.45,
      "señales": ["podemos", "opciones", "alternativas", "facilidades", "descuento", "plan",
-                 "cuotas", "arreglo", "refinanciar", "beneficio", "parcelar", "desconto"]},
+                 "cuotas", "arreglo", "refinanciar", "beneficio", "parcelar", "desconto",
+                 "le podemos ofrecer", "pago minimo", "entrega de", "con una quita",
+                 "le sugerimos", "le propongo", "pase por sucursal", "pase con"]},
     {"id": 9, "nombre": "Manejo de objeciones", "max": 10, "critico": False, "piso": 0.45,
      "señales": ["entiendo su situacion", "busquemos", "comprendo que", "sin problema",
-                 "veamos como", "le propongo", "que le parece", "podemos ajustar", "comprendo"]},
+                 "veamos como", "le propongo", "que le parece", "podemos ajustar", "comprendo",
+                 "dejeme ver", "como puedo hacer", "entiendo que", "de igual manera",
+                 "igualmente", "le comento", "le informo", "lamentablemente"]},
     {"id": 10, "nombre": "Cierre efectivo", "max": 5, "critico": False, "piso": 0.5,
      "señales": ["quedamos en", "entonces vas a", "fecha", "el dia", "para el", "confirmo el",
-                 "coordinamos", "link de pago", "comprobante", "fica combinado"]},
+                 "coordinamos", "link de pago", "comprobante", "fica combinado",
+                 "plazo limite", "plazo de", "dia 19", "vuelva a comunicarse",
+                 "volver a comunicarse", "le agendo", "fecha de pago", "a la brevedad"]},
     {"id": 11, "nombre": "Lenguaje y tono", "max": 5, "critico": False, "piso": 0.7,
      "no_aplica_max": True,
      "señales": ["por favor", "gracias", "senor", "senora", "con gusto", "disculpe",
@@ -379,3 +389,75 @@ def _filtrar(gestiones, canal, mes):
     if mes and "mes" in g.columns:
         g = g[g["mes"] == mes]
     return g
+
+
+# ---------------------------------------------------------------------------
+# Fichas de gestores a partir de audios evaluados y acumulados
+# ---------------------------------------------------------------------------
+_COLS_CRITERIO = [f"c{c['id']}" for c in RUBRICA]
+
+
+def fila_evaluacion(gestor: str, fecha: str, canal: str, archivo: str,
+                    evaluacion: dict, id_ev: str) -> dict:
+    """Aplana una evaluación (score + criterios) a una fila para acumular en el
+    registro de calidad por audio."""
+    mes = (fecha or "")[:7]
+    fila = {"id": id_ev, "fecha": fecha, "mes": mes, "gestor": gestor or "—",
+            "canal": canal, "archivo": archivo or "",
+            "puntaje_total": evaluacion.get("puntaje_total"),
+            "categoria": evaluacion.get("categoria"),
+            "modo": evaluacion.get("modo", "local")}
+    por_id = {c["id"]: c["puntaje"] for c in evaluacion.get("criterios", [])}
+    for c in RUBRICA:
+        fila[f"c{c['id']}"] = por_id.get(c["id"])
+    return fila
+
+
+def resumen_evaluaciones(df, gestor: str | None = None, mes: str | None = None) -> dict:
+    """Tableros de calidad a partir de los audios evaluados y acumulados:
+    ranking por gestor, evolución mensual de la nota, promedio por criterio
+    (ítem de negociación) y ficha del gestor filtrado si se pide uno."""
+    import pandas as pd
+    if df is None or len(df) == 0:
+        return {"total": 0, "por_gestor": [], "evolucion": {"meses": [], "series": []},
+                "criterios_promedio": [], "evaluaciones": []}
+    d = df.copy()
+    if gestor:
+        d = d[d["gestor"].astype(str) == gestor]
+    if mes:
+        d = d[d["mes"].astype(str) == mes]
+    if len(d) == 0:
+        return {"total": 0, "por_gestor": [], "evolucion": {"meses": [], "series": []},
+                "criterios_promedio": [], "evaluaciones": []}
+
+    por_gestor = []
+    for gid, sub in d.groupby("gestor"):
+        por_gestor.append({"gestor": str(gid), "audios": int(len(sub)),
+                           "calidad_prom": round(float(sub["puntaje_total"].mean()), 1),
+                           "ultima": str(sub["fecha"].max())})
+    por_gestor.sort(key=lambda x: x["calidad_prom"], reverse=True)
+
+    # Evolución mensual de la nota por gestor.
+    meses = sorted(d["mes"].dropna().astype(str).unique().tolist())
+    series = []
+    for gid, sub in d.groupby("gestor"):
+        prom = sub.groupby("mes")["puntaje_total"].mean().round(1)
+        series.append({"gestor": str(gid), "valores": [
+            (round(float(prom[m]), 1) if m in prom.index else None) for m in meses]})
+
+    # Promedio por criterio (ítem de negociación).
+    criterios_promedio = []
+    for c in RUBRICA:
+        col = f"c{c['id']}"
+        if col in d.columns and d[col].notna().any():
+            criterios_promedio.append({
+                "criterio": c["nombre"], "max": c["max"], "critico": c["critico"],
+                "promedio": round(float(pd.to_numeric(d[col], errors="coerce").mean()), 1),
+                "pct": round(100 * float(pd.to_numeric(d[col], errors="coerce").mean()) / c["max"], 0)})
+
+    evs = d.sort_values("fecha", ascending=False)[
+        ["id", "fecha", "mes", "gestor", "canal", "puntaje_total", "categoria", "archivo"]]
+    return {"total": int(len(d)), "por_gestor": por_gestor,
+            "evolucion": {"meses": meses, "series": series},
+            "criterios_promedio": criterios_promedio,
+            "evaluaciones": evs.to_dict("records")}

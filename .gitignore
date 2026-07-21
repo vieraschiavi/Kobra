@@ -18,6 +18,14 @@ data/auditoria.log
 data/uso_licencias.db
 data/*.lock
 
+# Datos reales cargados por el cliente en runtime (cartera real, solicitudes,
+# evaluaciones de calidad acumuladas, estado de origen) — nunca al repo.
+data/calidad_evaluaciones.csv
+data/solicitudes_real.csv
+data/tenants/
+outputs/kobra_cartera_real.csv
+outputs/origen_cartera.json
+
 # Temporary session build scripts (video, mocks) — not repo deliverables
 scratchpad/
 
