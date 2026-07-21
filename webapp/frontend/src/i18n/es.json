@@ -113,11 +113,8 @@
     },
     "modo_real": "Datos reales",
     "modo_demo": "Demo sintética",
-    "importar_titulo": "📥 Cargar dataset de solicitudes reales",
-    "importar_sub": "Subí tu flujo de solicitudes de crédito (CSV/Excel): ingreso, monto pedido, plazo, tipo, etc. Las columnas se reconocen solas por nombre parecido. La cola pasa a decidir sobre tus datos reales.",
-    "importar_boton": "Cargar y evaluar",
-    "importar_procesando": "Procesando…",
-    "importar_ok": "solicitud(es) cargada(s). La cola ya usa tus datos reales."
+    "fuente_real": "Analizando el dataset real cargado en Configuración (el mismo de todas las pestañas).",
+    "fuente_demo": "Datos de demostración. Cargá tu dataset en Configuración y desactivá la demo para analizar tus datos reales acá y en todo el dashboard."
   },
   "cartera": {
     "titulo": "Cartera priorizada",

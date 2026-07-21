@@ -146,7 +146,9 @@ _SIN_ORIG = {
     "departamento": ["departamento", "depto", "provincia", "region", "ciudad"],
     "id_solicitud": ["idsolicitud", "solicitud", "id", "iddeudor", "documento", "cedula"],
     "fecha_solicitud": ["fechasolicitud", "fecha", "fechaalta", "fechaingreso"],
-    TARGET: ["mora90", "mora", "default", "incumplio", "target"],
+    # Solo etiquetas explícitas de default — NO "mora" a secas (chocaría con
+    # tramo_mora / días de mora de una cartera de cobranzas).
+    TARGET: ["mora90", "default", "incumplio", "target", "malo"],
 }
 _DEFAULTS_ORIG = {
     "edad": 40, "ingreso_declarado": 45000.0, "antiguedad_laboral_meses": 36,

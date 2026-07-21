@@ -285,6 +285,84 @@ def _emisor(hablante: str) -> str:
     return "gestor" if str(hablante).lower().startswith("gestor") else "cliente"
 
 
+def whisper_disponible() -> bool:
+    """¿Hay una OPENAI_API_KEY para transcribir con Whisper? Chequeo barato,
+    sin red — para decidir si vale la pena procesar el audio (diarizar es caro
+    y sin transcripción no sirve para evaluar la calidad)."""
+    import os
+    return len(os.getenv("OPENAI_API_KEY", "")) >= 10
+
+
+def preparar_liviano(path_in: str, path_out: str, sr_objetivo: int = 16000) -> str:
+    """Convierte la grabación a mono ~16 kHz (suficiente para voz humana) antes
+    de diarizar/transcribir. Acelera muchísimo la diarización (el costo va con
+    la tasa de muestreo) y achica la subida a Whisper, sin perder inteligibilidad.
+    Sin dependencias extra: downmix + remuestreo por interpolación lineal."""
+    if sf is None:
+        return path_in
+    y, sr = sf.read(path_in, always_2d=True)
+    mono = y.mean(axis=1)
+    if sr > sr_objetivo and len(mono) > 1:
+        n_new = max(1, int(round(len(mono) * sr_objetivo / sr)))
+        mono = np.interp(np.linspace(0.0, 1.0, n_new),
+                         np.linspace(0.0, 1.0, len(mono)), mono)
+        sr = sr_objetivo
+    sf.write(path_out, mono.astype(np.float32), sr)
+    return path_out
+
+
+# Frases típicas del gestor de cobranza (identificación + directivas + oferta).
+# Insensibles a acentos. Sirven para asignar el rol por CONTENIDO, no por tono
+# (el tono es una adivinanza y suele invertir Gestor/Cliente).
+_SENALES_GESTOR = [
+    "le hablo de", "departamento de cobranza", "le comento", "le informo",
+    "le informamos", "le sugerimos", "le pedimos", "le podemos ofrecer",
+    "le recuerdo", "pago minimo", "plazo limite", "plazo de", "sucursal",
+    "evite el descuento", "evitar el descuento", "su deuda", "su credito",
+    "por mora", "monto vencido", "le agendo", "fecha de pago", "pase por",
+    "pase con", "cancela con", "cancelar con", "con una quita", "entrega de",
+    "no se renuevan", "renovacion", "a la brevedad", "sigue teniendo pendiente",
+    "esta llamada", "esta comunicacion", "abonar", "que pueda pasar",
+]
+_SENALES_CLIENTE = [
+    "no puedo", "no tengo", "hasta fin de mes", "no dispongo", "no me alcanza",
+    "cuanto seria", "cuanto es", "me genera", "cobran", "descuentan",
+]
+
+
+def asignar_roles_por_contenido(turnos: list) -> list:
+    """Corrige la etiqueta Gestor/Cliente de cada turno usando el CONTENIDO de
+    lo que dijo cada hablante (la diarización etiqueta por tono y a menudo lo
+    invierte). Agrupa por hablante crudo, puntúa señales de gestor de cobranza,
+    y renombra al hablante con más señales como 'Gestor'. Devuelve los turnos
+    con 'hablante' corregido — si no hay señales claras, respeta el original."""
+    import unicodedata
+    from collections import defaultdict
+
+    def _n(s):
+        s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode()
+        return " ".join(s.lower().split())
+
+    por_hab = defaultdict(list)
+    for t in turnos or []:
+        por_hab[t.get("hablante", "")].append(_n(t.get("texto", "")))
+    if len(por_hab) < 2:
+        return list(turnos or [])
+
+    puntajes = {}
+    for hab, textos in por_hab.items():
+        blob = " ".join(textos)
+        g = sum(blob.count(s) for s in _SENALES_GESTOR)
+        cl = sum(blob.count(s) for s in _SENALES_CLIENTE)
+        puntajes[hab] = g - cl
+    gestor_hab = max(puntajes, key=puntajes.get)
+    # Si nadie tiene señal de gestor, no tocamos nada (no empeorar por las dudas).
+    if puntajes[gestor_hab] <= 0:
+        return list(turnos or [])
+    return [{**t, "hablante": "Gestor" if t.get("hablante") == gestor_hab else "Cliente"}
+            for t in (turnos or [])]
+
+
 def _whisper_segmentos(path: str, idioma: str = "es"):
     """Whisper con timestamps por segmento (si hay OPENAI_API_KEY).
     `idioma`: código ISO 639-1 de 2 letras ("es" o "pt")."""

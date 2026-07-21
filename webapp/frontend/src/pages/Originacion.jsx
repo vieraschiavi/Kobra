@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, fmtMonto, getSesion } from "../api.js";
+import { api, fmtMonto } from "../api.js";
 import { t } from "../i18n/index.js";
 
 // La API de originación (kobra/originacion.py) siempre devuelve estas 3
@@ -79,57 +79,16 @@ function DrawerSolicitud({ solicitud, onClose }) {
   );
 }
 
-// Panel para cargar el dataset real de solicitudes de originación.
-function ImportarOrig({ onListo }) {
-  const [archivo, setArchivo] = useState(null);
-  const [msg, setMsg] = useState("");
-  const [error, setError] = useState("");
-  const [cargando, setCargando] = useState(false);
-
-  const subir = async () => {
-    if (!archivo) return;
-    setCargando(true); setError(""); setMsg("");
-    try {
-      const fd = new FormData();
-      fd.append("archivo", archivo);
-      const ses = getSesion();
-      const r = await fetch("/api/originacion/importar", {
-        method: "POST", headers: ses ? { Authorization: `Bearer ${ses.token}` } : {}, body: fd });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
-      setMsg(`${d.solicitudes} ${t("originacion.importar_ok")}`);
-      onListo && onListo();
-    } catch (e) { setError(e.message.replace(/^\d+:\s*/, "")); }
-    finally { setCargando(false); }
-  };
-
-  return (
-    <div className="card" style={{ marginBottom: 16, maxWidth: 760 }}>
-      <h3 style={{ marginTop: 0 }}>{t("originacion.importar_titulo")}</h3>
-      <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("originacion.importar_sub")}</p>
-      <div className="toolbar" style={{ gap: 8, flexWrap: "wrap" }}>
-        <input type="file" accept=".csv,.xlsx,.xls"
-               onChange={(e) => setArchivo(e.target.files[0] || null)} />
-        <button className="btn" disabled={!archivo || cargando} onClick={subir}>
-          {cargando ? t("originacion.importar_procesando") : t("originacion.importar_boton")}
-        </button>
-        {msg && <span style={{ color: "var(--green-deep)", fontSize: 13 }}>{msg}</span>}
-        {error && <span style={{ color: "var(--red)", fontSize: 13 }}>{error}</span>}
-      </div>
-    </div>
-  );
-}
-
 export default function Originacion() {
   const [datos, setDatos] = useState(null);
   const [sel, setSel] = useState(null);
   const [error, setError] = useState("");
 
-  const cargar = () => api("/api/originacion/cola?n=20").then(setDatos).catch((e) => setError(e.message));
-  useEffect(() => { cargar(); }, []);
+  useEffect(() => {
+    api("/api/originacion/cola?n=20").then(setDatos).catch((e) => setError(e.message));
+  }, []);
 
   const esReal = datos && datos.es_real;
-  const sinDatos = datos && datos.sin_datos_reales;
 
   return (
     <>
@@ -139,17 +98,12 @@ export default function Originacion() {
           {esReal ? "● " + t("originacion.modo_real") : "○ " + t("originacion.modo_demo")}</span>}
       </h1>
       <p className="page-sub">{t("originacion.subtitulo")}</p>
+      {/* Una sola carga de datos para todo el dashboard (Configuración). Esta
+          pestaña analiza ESE mismo dataset — no tiene una carga aparte. */}
+      <p style={{ color: "var(--muted)", fontSize: 12.5, marginTop: -6 }}>
+        {esReal ? t("originacion.fuente_real") : t("originacion.fuente_demo")}</p>
 
-      {/* En modo real sin dataset propio: se informa y se ofrece cargarlo (no
-          se inventa una cola sintética). En demo, el import queda disponible igual. */}
-      {(sinDatos || esReal) && <ImportarOrig onListo={cargar} />}
-      {sinDatos && (
-        <div className="card" style={{ marginBottom: 16, borderLeft: "3px solid #f2b441" }}>
-          <p style={{ margin: 0, fontSize: 13.5 }}>{datos.aviso}</p>
-        </div>
-      )}
-
-      {datos && !sinDatos && (
+      {datos && (
         <div className="card" style={{ marginBottom: 16, fontSize: 13 }}>
           <b>{t("originacion.modelo.prefijo")}</b>{" "}
           {t("originacion.modelo.auc_label")} <span className="tnum">{datos.metricas_modelo.auc_walk_forward}</span>
@@ -164,7 +118,7 @@ export default function Originacion() {
 
       {error && <div className="empty">{error}</div>}
       {!datos && !error && <div className="empty">{t("common.cargando")}</div>}
-      {datos && !sinDatos && (
+      {datos && (
         <div className="tablewrap">
           <table>
             <thead><tr>
