@@ -101,3 +101,32 @@ def test_endpoint_evaluar_y_comparativa(cliente):
     # Fuentes de grabaciones (manual + Avaya honesto).
     f = c.get("/api/calidad/fuentes", headers=h).json()
     assert f["manual"]["activo"] is True and "avaya" in f
+
+
+def test_fichas_acumulan_evaluaciones_por_gestor_y_mes(cliente):
+    api, c = cliente
+    h = _h(c)
+    ruta = api._archivo_calidad("principal")
+    if os.path.exists(ruta):
+        os.remove(ruta)   # arranque limpio (el store del tenant default vive en data/)
+    try:
+        # Acumular 3 evaluaciones (2 gestores, 2 meses).
+        for g, fe in [("Ana", "2026-05-10"), ("Ana", "2026-06-12"), ("Luis", "2026-06-15")]:
+            r = c.post("/api/calidad/guardar", headers=h,
+                       json={"gestor": g, "fecha": fe, "transcripcion": _BUENA})
+            assert r.status_code == 200, r.text
+        res = c.get("/api/calidad/evaluaciones", headers=h).json()
+        assert res["total"] == 3
+        assert set(res["gestores"]) == {"Ana", "Luis"}
+        assert res["meses"] == ["2026-05", "2026-06"]
+        assert len(res["evolucion"]["series"]) == 2
+        assert res["criterios_promedio"] and res["criterios_promedio"][0]["max"] > 0
+        # Ficha de un gestor.
+        ana = c.get("/api/calidad/evaluaciones?gestor=Ana", headers=h).json()
+        assert ana["total"] == 2
+        # Guardar sin gestor → 422.
+        assert c.post("/api/calidad/guardar", headers=h,
+                      json={"gestor": "", "transcripcion": _BUENA}).status_code == 422
+    finally:
+        if os.path.exists(ruta):
+            os.remove(ruta)

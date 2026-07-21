@@ -326,35 +326,30 @@ def test_cartera_no_rompe_con_esquema_sin_prioridad(cliente):
     assert not apimod._ordenar_cartera(df).empty  # no lanza KeyError
 
 
-def test_originacion_real_desde_dataset_propio(cliente):
-    """Originación en modo real usa el dataset de solicitudes del cliente; si no
-    lo cargó, informa y NO inventa una cola sintética."""
+def test_originacion_usa_el_mismo_dataset_del_dashboard(cliente):
+    """Una sola carga: la originación se deriva del MISMO dataset activo (el que
+    se sube en Configuración), no de una carga aparte. Demo → sintético; real →
+    derivado de la cartera real cargada."""
     api, c = cliente
     h_principal = _h_admin(c)
     try:
         c.post("/api/tenant/alta", json={"empresa": "test-orig"}, headers=h_principal)
         h = _h_admin(c, empresa="test-orig")
 
-        # Demo por default.
+        # Demo por default → cola sintética.
         cola = c.get("/api/originacion/cola", headers=h).json()
         assert cola["es_real"] is False and cola["solicitudes"]
+        assert "sin_datos_reales" not in cola  # ya no existe ese estado
 
-        # Activar modo real (subiendo una cartera) → originación sin dataset propio.
+        # Al cargar la cartera real (única carga), la originación pasa a real
+        # SIN una importación adicional para esta pestaña.
         c.post("/api/cartera/importar", headers=h,
                files={"archivo": ("c.csv", _csv_cartera_real(), "text/csv")})
         cola = c.get("/api/originacion/cola", headers=h).json()
-        assert cola.get("sin_datos_reales") is True and cola["solicitudes"] == []
-
-        # Cargar el dataset REAL de solicitudes → la cola decide sobre esos datos.
-        import io
-        sol = ("Edad,Sueldo,MontoPedido,Plazo,TipoCredito\n"
-               + "\n".join(f"{25+i},{30000+i*800},{60000+i*2000},12,Consumo" for i in range(12)))
-        r = c.post("/api/originacion/importar", headers=h,
-                   files={"archivo": ("sol.csv", sol.encode(), "text/csv")})
-        assert r.status_code == 200, r.text
-        assert r.json()["solicitudes"] == 12
-        cola = c.get("/api/originacion/cola", headers=h).json()
-        assert cola["es_real"] is True and len(cola["solicitudes"]) == 12
+        assert cola["es_real"] is True and cola["solicitudes"]
+        # Ya no hay endpoint de importación propio de originación (404/405).
+        assert c.post("/api/originacion/importar", headers=h,
+                      files={"archivo": ("x.csv", b"a,b\n1,2", "text/csv")}).status_code in (404, 405)
     finally:
         shutil.rmtree(os.path.join(ROOT, "data", "tenants", "test-orig"),
                       ignore_errors=True)

@@ -286,11 +286,41 @@ class LoginIn(BaseModel):
     empresa: str = EMPRESA_DEFAULT
 
 
+@app.get("/api/auth/estado")
+def auth_estado():
+    """Sin auth: el login lo consulta al arrancar para saber si mostrar el
+    formulario de primer arranque (crear la contraseña de admin) o el de
+    ingreso normal."""
+    return {"configurado": kauth.configurado(),
+            "gestor_configurado": kauth.tiene_password("gestor")}
+
+
+class SetupIn(BaseModel):
+    password: str
+    empresa: str = EMPRESA_DEFAULT
+
+
+@app.post("/api/auth/setup")
+def auth_setup(datos: SetupIn):
+    """Primer arranque: crea la contraseña de administrador desde la propia
+    webapp (antes había que abrir el dashboard Streamlit, imposible en hosting).
+    Solo funciona si TODAVÍA no hay admin — si ya existe, devuelve 409 para no
+    permitir reset sin autenticación. Deja la sesión iniciada."""
+    if kauth.configurado():
+        raise HTTPException(409, "El administrador ya está configurado. Iniciá sesión.")
+    pw = (datos.password or "").strip()
+    if len(pw) < 6:
+        raise HTTPException(422, "La contraseña debe tener al menos 6 caracteres.")
+    kauth.establecer_password("admin", pw)
+    return {"token": _emitir_token("admin", datos.empresa), "rol": "admin",
+            "empresa": datos.empresa}
+
+
 @app.post("/api/auth/login")
 def auth_login(datos: LoginIn):
     if not kauth.configurado():
         raise HTTPException(409, "Todavía no hay contraseña de administrador creada — "
-                                 "abrí el dashboard una vez para el primer arranque.")
+                                 "creála en esta pantalla para el primer arranque.")
     rol = None
     for candidato in ("admin", "gestor"):
         if kauth.tiene_password(candidato) and kauth.verificar_password(candidato, datos.password):
@@ -679,8 +709,8 @@ def calidad_evaluar(datos: EvaluarGestionIn, u: Usuario = Depends(usuario_actual
 
 
 def _transcript_desde_turnos(turnos) -> str:
-    """Arma una transcripción 'Gestor:/Cliente:' a partir de los turnos
-    diarizados+transcritos de kobra.voz, para pasarla al evaluador de calidad."""
+    """Arma una transcripción 'Gestor:/Cliente:' a partir de los turnos ya
+    transcritos + con rol corregido por contenido (ver voz.asignar_roles_por_contenido)."""
     lineas = []
     for t in turnos or []:
         texto = (t.get("texto") or "").strip()
@@ -692,15 +722,31 @@ def _transcript_desde_turnos(turnos) -> str:
     return "\n".join(lineas)
 
 
+_AVISO_SIN_WHISPER = (
+    "Para transcribir y evaluar la llamada automáticamente hace falta una "
+    "OPENAI_API_KEY (Whisper), que todavía no está configurada. Podés cargarla "
+    "en Configuración, o pegar la transcripción en la pestaña «Evaluar texto». "
+    "Igual podés escuchar la grabación acá arriba.")
+
+
 @app.post("/api/calidad/evaluar-audio")
 async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "Llamada",
+                                gestor: str | None = None, fecha: str | None = None,
                                 u: Usuario = Depends(usuario_actual)):
-    """Sube una grabación (.wav/.mp3), la transcribe por hablante (Whisper si
-    hay OPENAI_API_KEY) y la evalúa contra la rúbrica de 14 criterios. Devuelve
-    el puntaje de calidad + la transcripción para escuchar/leer la llamada."""
+    """Sube una grabación (.wav/.mp3), la transcribe por hablante (Whisper) y la
+    evalúa contra la rúbrica de 14 criterios. Si no hay Whisper configurado,
+    responde al toque (no procesa el audio en vano). El rol Gestor/Cliente se
+    corrige por contenido, no por tono (que suele invertirlo)."""
     nombre = (archivo.filename or "").lower()
     if not nombre.endswith((".wav", ".mp3")):
         raise HTTPException(400, "Subí un archivo .wav o .mp3.")
+
+    from kobra import voz as kvoz
+    # Sin Whisper la transcripción sería vacía y diarizar es caro: cortamos ya.
+    if not kvoz.whisper_disponible():
+        return {"archivo": archivo.filename, "modo_transcripcion": "sin_whisper",
+                "turnos": [], "evaluacion": None, "aviso": _AVISO_SIN_WHISPER}
+
     contenido = await archivo.read()
     if not contenido:
         raise HTTPException(400, "El archivo llegó vacío.")
@@ -709,37 +755,45 @@ async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "L
     os.makedirs(scratch, exist_ok=True)
     import uuid
     ext = ".wav" if nombre.endswith(".wav") else ".mp3"
-    destino = os.path.join(scratch, f"cal_{uuid.uuid4().hex}{ext}")
+    base = os.path.join(scratch, f"cal_{uuid.uuid4().hex}")
+    destino, liviano = base + ext, base + "_16k.wav"
     with open(destino, "wb") as f:
         f.write(contenido)
 
+    procesar = destino
     try:
-        from kobra import voz as kvoz
         from kobra import calidad_gestion as kcalidad
+        # Downmix a mono 16 kHz: diariza/transcribe mucho más rápido.
+        try:
+            procesar = kvoz.preparar_liviano(destino, liviano)
+        except Exception:
+            procesar = destino
         idioma = kpaises.obtener(_pais_de(u.empresa)).idioma
-        turnos, modo = kvoz.transcribir_llamada(destino, idioma=idioma)
+        turnos, modo = kvoz.transcribir_llamada(procesar, idioma=idioma)
+        turnos = kvoz.asignar_roles_por_contenido(turnos)
         transcripcion = _transcript_desde_turnos(turnos)
         if len(transcripcion.strip()) < 15:
-            # Sin texto (falta OPENAI_API_KEY para Whisper): honesto, no inventa.
             return {"archivo": archivo.filename, "modo_transcripcion": modo,
-                    "turnos": turnos, "evaluacion": None,
-                    "aviso": "Se procesó el audio pero no hay transcripción de texto. "
-                             "Configurá OPENAI_API_KEY (Whisper) para transcribir y "
-                             "evaluar automáticamente, o pegá la transcripción en el "
-                             "evaluador de texto."}
+                    "turnos": turnos, "evaluacion": None, "aviso": _AVISO_SIN_WHISPER}
         evaluacion = kcalidad.evaluar(transcripcion, canal=canal)
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(400, f"No se pudo procesar el audio: {e}")
     finally:
-        try:
-            os.remove(destino)
-        except OSError:
-            pass
+        for p in (destino, liviano):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
 
+    guardado = None
+    if gestor and evaluacion:
+        guardado = _guardar_calidad(u.empresa, gestor, fecha, canal,
+                                    archivo.filename, evaluacion)
     return {"archivo": archivo.filename, "modo_transcripcion": modo,
-            "turnos": turnos, "transcripcion": transcripcion, "evaluacion": evaluacion}
+            "turnos": turnos, "transcripcion": transcripcion, "evaluacion": evaluacion,
+            "guardado": guardado}
 
 
 @app.get("/api/calidad/fuentes")
@@ -766,6 +820,81 @@ def calidad_fuentes(u: Usuario = Depends(usuario_actual)):
                         "grabaciones manualmente (.wav/.mp3)."),
         },
     }
+
+
+def _archivo_calidad(empresa: str) -> str:
+    base = os.path.join(DIR_DATOS, "data") if empresa == EMPRESA_DEFAULT else _dir_tenant(empresa)
+    return os.path.join(base, "calidad_evaluaciones.csv")
+
+
+def _leer_calidad(empresa: str):
+    ruta = _archivo_calidad(empresa)
+    if not os.path.exists(ruta):
+        return None
+    try:
+        return pd.read_csv(ruta)
+    except Exception:
+        return None
+
+
+def _guardar_calidad(empresa: str, gestor: str, fecha: str | None, canal: str,
+                     archivo: str, evaluacion: dict) -> dict:
+    """Acumula una evaluación de audio en el registro de calidad del tenant, para
+    armar fichas de gestor por mes y su evolución."""
+    from kobra import calidad_gestion as kcalidad
+    import uuid
+    if not fecha:
+        fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    fila = kcalidad.fila_evaluacion(gestor, fecha, canal, archivo, evaluacion,
+                                    uuid.uuid4().hex[:12])
+    ruta = _archivo_calidad(empresa)
+    os.makedirs(os.path.dirname(ruta), exist_ok=True)
+    df = _leer_calidad(empresa)
+    nueva = pd.DataFrame([fila])
+    df = nueva if df is None else pd.concat([df, nueva], ignore_index=True)
+    df.to_csv(ruta, index=False)
+    return {"id": fila["id"], "gestor": gestor, "fecha": fecha,
+            "puntaje_total": fila["puntaje_total"], "acumuladas": int(len(df))}
+
+
+class GuardarCalidadIn(BaseModel):
+    gestor: str
+    fecha: str | None = None
+    canal: str = "Llamada"
+    transcripcion: str
+    archivo: str = "Transcripción pegada"
+
+
+@app.post("/api/calidad/guardar")
+def calidad_guardar(datos: GuardarCalidadIn, u: Usuario = Depends(usuario_actual)):
+    """Evalúa una transcripción y la ACUMULA en la ficha del gestor (para los
+    tableros de calidad por gestor/mes y su evolución)."""
+    from kobra import calidad_gestion as kcalidad
+    texto = (datos.transcripcion or "").strip()
+    if len(texto) < 15:
+        raise HTTPException(422, "Pegá una transcripción más larga para evaluar.")
+    if not (datos.gestor or "").strip():
+        raise HTTPException(422, "Indicá el gestor para acumular la evaluación.")
+    evaluacion = kcalidad.evaluar(texto, canal=datos.canal)
+    guardado = _guardar_calidad(u.empresa, datos.gestor.strip(), datos.fecha,
+                                datos.canal, datos.archivo, evaluacion)
+    return {"evaluacion": evaluacion, "guardado": guardado}
+
+
+@app.get("/api/calidad/evaluaciones")
+def calidad_evaluaciones(gestor: str | None = None, mes: str | None = None,
+                         u: Usuario = Depends(usuario_actual)):
+    """Tableros de las evaluaciones de audio acumuladas: ranking por gestor,
+    evolución mensual de la nota, promedio por criterio y el detalle. Filtros
+    opcionales por gestor y mes."""
+    from kobra import calidad_gestion as kcalidad
+    df = _leer_calidad(u.empresa)
+    resumen = kcalidad.resumen_evaluaciones(df, gestor=gestor, mes=mes)
+    resumen["gestores"] = (sorted(df["gestor"].dropna().astype(str).unique().tolist())
+                           if df is not None and "gestor" in df.columns else [])
+    resumen["meses"] = (sorted(df["mes"].dropna().astype(str).unique().tolist())
+                        if df is not None and "mes" in df.columns else [])
+    return resumen
 
 
 class PreguntaIn(BaseModel):
@@ -879,59 +1008,34 @@ def originacion_score(datos: SolicitudIn, u: Usuario = Depends(usuario_actual)):
             "metricas_modelo": modelo.metrics}
 
 
-def _archivo_solicitudes(empresa: str) -> str:
-    base = os.path.join(DIR_DATOS, "data") if empresa == EMPRESA_DEFAULT else _dir_tenant(empresa)
-    return os.path.join(base, "solicitudes_real.csv")
-
-
-def _hay_solicitudes_reales(empresa: str) -> bool:
-    return os.path.exists(_archivo_solicitudes(empresa))
-
-
-def _originacion_datos(empresa: str):
-    """Devuelve (df_solicitudes, es_real). Si el tenant subió su propio dataset
-    de solicitudes de crédito, usa ese (datos reales); si no, el sintético de
-    demo. El dataset de originación es distinto de la cartera de cobranzas: son
-    solicitudes de crédito (ingreso, monto pedido, plazo…), no deudores."""
-    from kobra import originacion as korig
-    if _modo_cartera(empresa) == "real" and _hay_solicitudes_reales(empresa):
-        return pd.read_csv(_archivo_solicitudes(empresa)), True
-    return korig.generar_solicitudes_sinteticas(), False
-
-
 @app.get("/api/originacion/metricas")
 def originacion_metricas(u: Usuario = Depends(usuario_actual)):
     return {**_originacion().metrics, "modelo_demo": True,
-            "es_real": _hay_solicitudes_reales(u.empresa)}
+            "es_real": _modo_cartera(u.empresa) == "real"}
 
 
 @app.get("/api/originacion/cola")
 def originacion_cola(n: int = 15, u: Usuario = Depends(usuario_actual)):
-    """Cola de solicitudes pendientes de decisión. En modo REAL con dataset de
-    originación cargado, evalúa las solicitudes reales del cliente; en demo,
-    solicitudes sintéticas. Nunca presenta sintético como real: si el tenant
-    está en modo real pero todavía no cargó su flujo de originación, lo informa
-    y NO inventa una cola."""
+    """Cola de solicitudes pendientes de decisión. UNA sola fuente de datos: el
+    MISMO dataset que ve todo el dashboard (el que se carga en Configuración,
+    real o demo). En modo real, la originación se deriva de ese dataset
+    (mapeando sus columnas a las features del modelo, con supuestos honestos
+    para lo que no venga); en demo, solicitudes sintéticas. No hay una carga
+    aparte para esta pestaña."""
     import json as _json
     from kobra import originacion as korig
     modelo = _originacion()
+    tope = max(5, min(n, 50))
     real = _modo_cartera(u.empresa) == "real"
-    if real and not _hay_solicitudes_reales(u.empresa):
-        return {"solicitudes": [], "modelo_demo": True, "es_real": False,
-                "sin_datos_reales": True, "metricas_modelo": modelo.metrics,
-                "aviso": "Estás en modo real. La originación usa un dataset propio "
-                         "de solicitudes de crédito (distinto de la cartera de "
-                         "cobranzas). Cargá tu flujo de solicitudes para ver "
-                         "decisiones sobre tus datos reales."}
-    if real and _hay_solicitudes_reales(u.empresa):
-        sols = pd.read_csv(_archivo_solicitudes(u.empresa))
+    if real:
+        # Mismo dataset del cliente que las demás pestañas, visto como solicitudes.
+        sols, _mapeo = korig.preparar_solicitudes(_scored(u.empresa).head(tope))
         if korig.TARGET in sols.columns:
             sols = sols.drop(columns=[korig.TARGET])
-        sols = sols.head(max(5, min(n, 50)))
         es_real = True
     else:
         sols = korig.generar_solicitudes_sinteticas(
-            n=max(5, min(n, 50)), semilla=1234).drop(columns=[korig.TARGET])
+            n=tope, semilla=1234).drop(columns=[korig.TARGET])
         es_real = False
     out = modelo.evaluar_lote(sols)
     if "fecha_solicitud" in out.columns:
@@ -940,68 +1044,6 @@ def originacion_cola(n: int = 15, u: Usuario = Depends(usuario_actual)):
     return {"solicitudes": _json.loads(out.to_json(orient="records")),
             "modelo_demo": not es_real, "es_real": es_real,
             "metricas_modelo": modelo.metrics}
-
-
-def _guardar_solicitudes_reales(empresa: str, df_bruto: pd.DataFrame) -> dict:
-    """Prepara y guarda el dataset de originación real del cliente. Activa el
-    modo real (mismo interruptor que la cartera) para que la cola use estos
-    datos. Devuelve un resumen (n, columnas reconocidas)."""
-    from kobra import originacion as korig
-    listo, mapeo = korig.preparar_solicitudes(df_bruto)
-    if listo.empty:
-        raise HTTPException(422, "El dataset de solicitudes llegó vacío.")
-    destino = _archivo_solicitudes(empresa)
-    os.makedirs(os.path.dirname(destino), exist_ok=True)
-    listo.to_csv(destino, index=False)
-    # Asegura que el dashboard esté en modo real (si aún no lo estaba por cartera).
-    meta = _origen_meta(empresa)
-    if meta.get("modo") != "real":
-        with open(_archivo_origen(empresa), "w", encoding="utf-8") as f:
-            json.dump({"modo": "real", "tipo": "real",
-                       "archivo": meta.get("archivo") or "Originación (solicitudes)",
-                       "cargado_en": datetime.now(timezone.utc).isoformat()}, f)
-    return {"solicitudes": int(len(listo)), "columnas_detectadas": mapeo,
-            "con_etiqueta": bool(korig.TARGET in listo.columns)}
-
-
-@app.post("/api/originacion/importar")
-async def originacion_importar(archivo: UploadFile = File(...), u: Usuario = Depends(solo_admin)):
-    """Sube el dataset REAL de solicitudes de crédito (CSV/Excel) — ingreso,
-    monto pedido, plazo, tipo de crédito, etc. Se mapean solas las columnas por
-    nombre parecido; las que falten se completan con supuestos (baja la
-    confianza, no inventa). La cola de originación pasa a decidir sobre estos
-    datos reales."""
-    nombre = (archivo.filename or "").lower()
-    if not nombre.endswith((".csv", ".xlsx", ".xls")):
-        raise HTTPException(400, "Subí un archivo .csv o .xlsx.")
-    contenido = await archivo.read()
-    try:
-        df = (pd.read_csv(io.BytesIO(contenido), dtype=str) if nombre.endswith(".csv")
-              else pd.read_excel(io.BytesIO(contenido), dtype=str))
-    except Exception as e:
-        raise HTTPException(400, f"No pude leer el archivo: {e}")
-    res = _guardar_solicitudes_reales(u.empresa, df)
-    det = "; ".join(f"«{o}» → {c}" for o, c in res["columnas_detectadas"].items())
-    return {**res, "mensaje": f"Dataset de originación cargado: {res['solicitudes']} "
-            f"solicitud(es). " + (f"Reconocí ({det}). " if det else "")
-            + "La cola de originación ya decide sobre tus datos reales."}
-
-
-@app.post("/api/originacion/importar-sql")
-def originacion_importar_sql(datos: ImportarSQLIn, u: Usuario = Depends(solo_admin)):
-    """Importa el dataset de solicitudes real directamente desde la base del
-    cliente (cualquiera que soporte SQLAlchemy). Solo lectura (SELECT/WITH)."""
-    try:
-        df = kcartera.leer_sql(datos.conn_url, datos.consulta, limite=None)
-    except ValueError as e:
-        raise HTTPException(422, str(e))
-    except Exception as e:
-        raise HTTPException(400, f"No pude conectar o consultar la base: {e}")
-    if df is None or df.empty:
-        raise HTTPException(422, "La consulta no devolvió filas.")
-    res = _guardar_solicitudes_reales(u.empresa, df.astype(str))
-    return {**res, "mensaje": f"Dataset de originación importado desde la base: "
-            f"{res['solicitudes']} solicitud(es). La cola ya usa tus datos reales."}
 
 
 @app.get("/api/nba/{id_deudor}")

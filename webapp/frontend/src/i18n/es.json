@@ -35,7 +35,15 @@
     "boton": {
       "entrando": "Entrando…",
       "entrar": "Entrar"
-    }
+    },
+    "setup_titulo": "Primer arranque — creá tu contraseña de administrador",
+    "setup_sub": "Es la primera vez que se abre. Elegí la contraseña de administrador para proteger el dashboard.",
+    "setup_placeholder": "Nueva contraseña (mín. 6 caracteres)",
+    "setup_placeholder2": "Repetí la contraseña",
+    "setup_boton": "Crear y entrar",
+    "setup_creando": "Creando…",
+    "setup_no_coincide": "Las contraseñas no coinciden.",
+    "setup_corta": "La contraseña debe tener al menos 6 caracteres."
   },
   "dashboard": {
     "titulo": "Visión general",
@@ -105,11 +113,8 @@
     },
     "modo_real": "Datos reales",
     "modo_demo": "Demo sintética",
-    "importar_titulo": "📥 Cargar dataset de solicitudes reales",
-    "importar_sub": "Subí tu flujo de solicitudes de crédito (CSV/Excel): ingreso, monto pedido, plazo, tipo, etc. Las columnas se reconocen solas por nombre parecido. La cola pasa a decidir sobre tus datos reales.",
-    "importar_boton": "Cargar y evaluar",
-    "importar_procesando": "Procesando…",
-    "importar_ok": "solicitud(es) cargada(s). La cola ya usa tus datos reales."
+    "fuente_real": "Analizando el dataset real cargado en Configuración (el mismo de todas las pestañas).",
+    "fuente_demo": "Datos de demostración. Cargá tu dataset en Configuración y desactivá la demo para analizar tus datos reales acá y en todo el dashboard."
   },
   "cartera": {
     "titulo": "Cartera priorizada",
@@ -438,6 +443,28 @@
     "estado_activo": "Activo",
     "estado_sin_config": "Requiere configuración",
     "avaya_sin_config": "Para conectar la central Avaya (o cualquier grabador por API) configurá las credenciales del cliente (KOBRA_AVAYA_HOST, KOBRA_AVAYA_USER, KOBRA_AVAYA_PASS). Mientras tanto, subí las grabaciones manualmente.",
-    "avaya_conectado": "Conector activo: las grabaciones del PBX se importan y evalúan automáticamente."
+    "avaya_conectado": "Conector activo: las grabaciones del PBX se importan y evalúan automáticamente.",
+    "tab_fichas": "📁 Fichas de gestores",
+    "audio_gestor": "Gestor",
+    "audio_gestor_ph": "Nombre del gestor (para acumular)",
+    "audio_fecha": "Fecha",
+    "audio_guardado": "✔ Guardado en la ficha de",
+    "audio_guardar_hint": "Poné el nombre del gestor y la fecha para acumular esta evaluación en su ficha.",
+    "fichas_titulo": "Fichas de gestores · calidad por audio",
+    "fichas_sub": "Evaluaciones de llamadas acumuladas. Identificá la calidad de cada gestor por fecha y su evolución en el tiempo.",
+    "fichas_vacio": "Todavía no hay audios evaluados y guardados. Subí llamadas en «Audio / llamadas» indicando el gestor.",
+    "fichas_audios": "audios",
+    "fichas_ultima": "Última",
+    "fichas_evolucion": "Evolución de la nota por gestor",
+    "fichas_criterios": "Promedio por ítem de negociación",
+    "fichas_detalle": "Detalle de evaluaciones",
+    "fichas_col_fecha": "Fecha",
+    "fichas_col_gestor": "Gestor",
+    "fichas_col_canal": "Canal",
+    "fichas_col_nota": "Nota",
+    "fichas_col_cat": "Categoría",
+    "fichas_col_archivo": "Archivo",
+    "fichas_todos_gestores": "Todos los gestores",
+    "fichas_todos_meses": "Todos los meses"
   }
 }

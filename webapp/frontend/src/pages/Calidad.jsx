@@ -338,10 +338,12 @@ function Fuentes() {
 }
 
 // ── Cargar y evaluar audio (MP3/WAV) ─────────────────────────────────────────
-function EvaluadorAudio() {
+function EvaluadorAudio({ onGuardado }) {
   const [archivo, setArchivo] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [canal, setCanal] = useState("Llamada");
+  const [gestor, setGestor] = useState("");
+  const [fecha, setFecha] = useState("");
   const [res, setRes] = useState(null);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -358,7 +360,10 @@ function EvaluadorAudio() {
       const fd = new FormData();
       fd.append("archivo", archivo);
       const ses = getSesion();
-      const r = await fetch("/api/calidad/evaluar-audio?canal=" + encodeURIComponent(canal), {
+      const q = new URLSearchParams({ canal });
+      if (gestor.trim()) q.set("gestor", gestor.trim());
+      if (fecha) q.set("fecha", fecha);
+      const r = await fetch("/api/calidad/evaluar-audio?" + q.toString(), {
         method: "POST",
         headers: ses ? { Authorization: `Bearer ${ses.token}` } : {},
         body: fd,
@@ -366,6 +371,7 @@ function EvaluadorAudio() {
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
       setRes(d);
+      if (d.guardado && onGuardado) onGuardado();
     } catch (e) { setError(e.message.replace(/^\d+:\s*/, "")); }
     finally { setCargando(false); }
   };
@@ -381,12 +387,16 @@ function EvaluadorAudio() {
             <option value="Llamada">📞 {t("calidad.canal_llamada")}</option>
             <option value="WhatsApp">💬 WhatsApp</option>
           </select>
+          <input type="text" placeholder={t("calidad.audio_gestor_ph")} value={gestor}
+                 onChange={(e) => setGestor(e.target.value)} style={{ width: 200 }} />
+          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
           <input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg"
                  onChange={(e) => elegir(e.target.files[0] || null)} />
           <button className="btn" disabled={!archivo || cargando} onClick={procesar}>
             {cargando ? t("calidad.audio_procesando") : t("calidad.audio_boton")}
           </button>
         </div>
+        <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>{t("calidad.audio_guardar_hint")}</p>
         {previewUrl && (
           <div style={{ marginTop: 10 }}>
             <div style={{ color: "var(--muted)", fontSize: 12, marginBottom: 4 }}>{t("calidad.audio_escuchar")}:</div>
@@ -395,6 +405,10 @@ function EvaluadorAudio() {
         )}
         {error && <p style={{ color: "var(--red)", fontSize: 13, marginTop: 8 }}>{error}</p>}
 
+        {res && res.guardado && (
+          <p style={{ color: COL_IA, fontSize: 13, marginTop: 10 }}>
+            {t("calidad.audio_guardado")} <b>{res.guardado.gestor}</b> ({res.guardado.fecha})</p>
+        )}
         {res && res.evaluacion && <DetalleEvaluacion res={res.evaluacion} />}
         {res && !res.evaluacion && (
           <p style={{ color: "var(--amber)", fontSize: 13, marginTop: 12 }}>{res.aviso || t("calidad.audio_sin_texto")}</p>
@@ -412,12 +426,131 @@ function EvaluadorAudio() {
   );
 }
 
+// ── Fichas de gestores (audios evaluados y acumulados) ───────────────────────
+function Fichas({ recargar }) {
+  const [data, setData] = useState(null);
+  const [gestor, setGestor] = useState("");
+  const [mes, setMes] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const q = new URLSearchParams();
+    if (gestor) q.set("gestor", gestor);
+    if (mes) q.set("mes", mes);
+    api("/api/calidad/evaluaciones" + (q.toString() ? `?${q}` : ""))
+      .then(setData).catch((e) => setError(e.message));
+  }, [gestor, mes, recargar]);
+
+  if (error) return <div className="empty">{error}</div>;
+  if (!data) return <div className="empty">{t("calidad.cargando")}</div>;
+  if (data.total === 0 && !gestor && !mes)
+    return <div className="empty">{t("calidad.fichas_vacio")}</div>;
+
+  const evoData = data.evolucion.meses.map((m, i) => {
+    const fila = { mes: m };
+    data.evolucion.series.forEach((s) => { fila[s.gestor] = s.valores[i]; });
+    return fila;
+  });
+  const palette = ["#00c896", "#2f74c0", "#f2b441", "#e0567a", "#9b6cf0", "#3cc7c0"];
+
+  return (
+    <>
+      <div className="toolbar" style={{ gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        <select value={gestor} onChange={(e) => setGestor(e.target.value)}>
+          <option value="">{t("calidad.fichas_todos_gestores")}</option>
+          {(data.gestores || []).map((g) => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <select value={mes} onChange={(e) => setMes(e.target.value)}>
+          <option value="">{t("calidad.fichas_todos_meses")}</option>
+          {(data.meses || []).map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <span style={{ color: "var(--muted)", fontSize: 12.5 }}>
+          {data.total} {t("calidad.fichas_audios")}</span>
+      </div>
+
+      {/* KPIs por gestor */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>
+        {data.por_gestor.map((g, i) => (
+          <div key={g.gestor} className="card kpi" style={{ margin: 0, borderTop: `3px solid ${palette[i % palette.length]}` }}>
+            <div className="label">{g.gestor} · {g.audios} {t("calidad.fichas_audios")}</div>
+            <div className="value" style={{ color: palette[i % palette.length] }}>
+              {g.calidad_prom}<span style={{ fontSize: 13 }}>/100</span></div>
+            <div className="delta">{t("calidad.fichas_ultima")}: {g.ultima}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Evolución de la nota por gestor */}
+      {evoData.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3 style={{ marginTop: 0 }}>{t("calidad.fichas_evolucion")}</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={evoData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" />
+              <XAxis dataKey="mes" tick={{ fill: "#93a5c0", fontSize: 11 }} />
+              <YAxis domain={[0, 100]} tick={{ fill: "#93a5c0", fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: "#0b1220", border: "1px solid #2f74c0" }} />
+              <Legend />
+              {data.evolucion.series.map((s, i) => (
+                <Line key={s.gestor} type="monotone" dataKey={s.gestor} stroke={palette[i % palette.length]}
+                      strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Promedio por criterio */}
+      {data.criterios_promedio.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3 style={{ marginTop: 0 }}>{t("calidad.fichas_criterios")}</h3>
+          <ResponsiveContainer width="100%" height={Math.max(300, data.criterios_promedio.length * 24)}>
+            <BarChart data={data.criterios_promedio.map((c) => ({ criterio: c.criterio, "%": c.pct }))}
+                      layout="vertical" margin={{ left: 40, right: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" />
+              <XAxis type="number" domain={[0, 100]} tick={{ fill: "#93a5c0", fontSize: 11 }} />
+              <YAxis type="category" dataKey="criterio" width={150} tick={{ fill: "#93a5c0", fontSize: 10.5 }} />
+              <Tooltip contentStyle={{ background: "#0b1220", border: "1px solid #2f74c0" }} formatter={(v) => `${v}%`} />
+              <Bar dataKey="%" fill={COL_IA} radius={[0, 3, 3, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Detalle */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>{t("calidad.fichas_detalle")}</h3>
+        <div className="tablewrap">
+          <table>
+            <thead><tr>
+              <th>{t("calidad.fichas_col_fecha")}</th><th>{t("calidad.fichas_col_gestor")}</th>
+              <th>{t("calidad.fichas_col_canal")}</th><th>{t("calidad.fichas_col_nota")}</th>
+              <th>{t("calidad.fichas_col_cat")}</th><th>{t("calidad.fichas_col_archivo")}</th>
+            </tr></thead>
+            <tbody>
+              {data.evaluaciones.map((e) => (
+                <tr key={e.id} className="norow">
+                  <td>{e.fecha}</td><td>{e.gestor}</td><td>{e.canal}</td>
+                  <td className="tnum"><b>{e.puntaje_total}</b></td>
+                  <td>{e.categoria}</td><td style={{ color: "var(--muted)", fontSize: 12 }}>{e.archivo}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Página con pestañas ──────────────────────────────────────────────────────
 export default function Calidad() {
   const [tab, setTab] = useState("dashboard");
+  const [recargarFichas, setRecargarFichas] = useState(0);
   const tabs = [
     { id: "dashboard", label: t("calidad.tab_dashboard") },
     { id: "audio", label: t("calidad.tab_audio") },
+    { id: "fichas", label: t("calidad.tab_fichas") },
     { id: "evaluar", label: t("calidad.tab_evaluar") },
   ];
   return (
@@ -431,7 +564,14 @@ export default function Calidad() {
         ))}
       </div>
       {tab === "dashboard" && <Comparativa />}
-      {tab === "audio" && <EvaluadorAudio />}
+      {tab === "audio" && <EvaluadorAudio onGuardado={() => setRecargarFichas((n) => n + 1)} />}
+      {tab === "fichas" && (
+        <>
+          <h2 style={{ margin: "6px 0 2px", fontSize: 18 }}>{t("calidad.fichas_titulo")}</h2>
+          <p className="page-sub" style={{ marginTop: 0 }}>{t("calidad.fichas_sub")}</p>
+          <Fichas recargar={recargarFichas} />
+        </>
+      )}
       {tab === "evaluar" && <Evaluador />}
     </>
   );

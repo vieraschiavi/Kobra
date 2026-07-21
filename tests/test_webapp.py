@@ -45,6 +45,35 @@ def test_api_login_roles_y_rechazo(cliente):
     assert cliente.get("/api/kpis").status_code == 401   # sin token
 
 
+def test_primer_arranque_crea_admin_desde_la_webapp(tmp_path, monkeypatch):
+    """Sin dashboard Streamlit (hosting): el primer arranque debe poder crear la
+    contraseña de admin desde la propia webapp. Bug real: el login quedaba
+    bloqueado con 409 y sin forma de crearla."""
+    monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config-fresca"))
+    from kobra import config as kconfig
+    importlib.reload(kconfig)
+    from kobra import autenticacion as kauth
+    importlib.reload(kauth)
+    from fastapi.testclient import TestClient
+    from webapp.backend import api
+    importlib.reload(api)
+    c = TestClient(api.app)
+
+    assert c.get("/api/auth/estado").json()["configurado"] is False
+    # Login imposible antes del setup.
+    assert c.post("/api/auth/login", json={"password": "loquesea"}).status_code == 409
+    # Contraseña muy corta → 422.
+    assert c.post("/api/auth/setup", json={"password": "123"}).status_code == 422
+    # Alta OK: deja sesión iniciada.
+    r = c.post("/api/auth/setup", json={"password": "MiClaveSegura1"})
+    assert r.status_code == 200 and r.json()["rol"] == "admin" and "token" in r.json()
+    assert c.get("/api/auth/estado").json()["configurado"] is True
+    # No se puede re-configurar sin auth (evita reset del admin).
+    assert c.post("/api/auth/setup", json={"password": "Otra123"}).status_code == 409
+    # Y ahora el login normal funciona.
+    assert c.post("/api/auth/login", json={"password": "MiClaveSegura1"}).status_code == 200
+
+
 def test_api_kpis_y_graficos(cliente):
     h = _h(_token(cliente))
     k = cliente.get("/api/kpis", headers=h).json()

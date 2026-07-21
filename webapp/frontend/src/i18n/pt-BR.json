@@ -35,7 +35,15 @@
     "boton": {
       "entrando": "Entrando…",
       "entrar": "Entrar"
-    }
+    },
+    "setup_titulo": "Primeira execução — crie sua senha de administrador",
+    "setup_sub": "É a primeira vez que o painel abre. Escolha a senha de administrador para protegê-lo.",
+    "setup_placeholder": "Nova senha (mín. 6 caracteres)",
+    "setup_placeholder2": "Repita a senha",
+    "setup_boton": "Criar e entrar",
+    "setup_creando": "Criando…",
+    "setup_no_coincide": "As senhas não coincidem.",
+    "setup_corta": "A senha deve ter pelo menos 6 caracteres."
   },
   "dashboard": {
     "titulo": "Visão geral",
@@ -105,11 +113,8 @@
     },
     "modo_real": "Dados reais",
     "modo_demo": "Demo sintética",
-    "importar_titulo": "📥 Carregar dataset de solicitações reais",
-    "importar_sub": "Envie seu fluxo de solicitações de crédito (CSV/Excel): renda, valor pedido, prazo, tipo, etc. As colunas são reconhecidas sozinhas por nome parecido. A fila passa a decidir sobre seus dados reais.",
-    "importar_boton": "Carregar e avaliar",
-    "importar_procesando": "Processando…",
-    "importar_ok": "solicitação(ões) carregada(s). A fila já usa seus dados reais."
+    "fuente_real": "Analisando o dataset real carregado em Configuração (o mesmo de todas as abas).",
+    "fuente_demo": "Dados de demonstração. Carregue seu dataset em Configuração e desative a demo para analisar seus dados reais aqui e em todo o painel."
   },
   "cartera": {
     "titulo": "Carteira priorizada",
@@ -438,6 +443,28 @@
     "estado_activo": "Ativo",
     "estado_sin_config": "Requer configuração",
     "avaya_sin_config": "Para conectar a central Avaya (ou qualquer gravador por API) configure as credenciais do cliente (KOBRA_AVAYA_HOST, KOBRA_AVAYA_USER, KOBRA_AVAYA_PASS). Enquanto isso, envie as gravações manualmente.",
-    "avaya_conectado": "Conector ativo: as gravações do PBX são importadas e avaliadas automaticamente."
+    "avaya_conectado": "Conector ativo: as gravações do PBX são importadas e avaliadas automaticamente.",
+    "tab_fichas": "📁 Fichas de operadores",
+    "audio_gestor": "Operador",
+    "audio_gestor_ph": "Nome do operador (para acumular)",
+    "audio_fecha": "Data",
+    "audio_guardado": "✔ Salvo na ficha de",
+    "audio_guardar_hint": "Informe o nome do operador e a data para acumular esta avaliação na ficha dele.",
+    "fichas_titulo": "Fichas de operadores · qualidade por áudio",
+    "fichas_sub": "Avaliações de ligações acumuladas. Identifique a qualidade de cada operador por data e sua evolução ao longo do tempo.",
+    "fichas_vacio": "Ainda não há áudios avaliados e salvos. Envie ligações em «Áudio / ligações» indicando o operador.",
+    "fichas_audios": "áudios",
+    "fichas_ultima": "Última",
+    "fichas_evolucion": "Evolução da nota por operador",
+    "fichas_criterios": "Média por item de negociação",
+    "fichas_detalle": "Detalhe das avaliações",
+    "fichas_col_fecha": "Data",
+    "fichas_col_gestor": "Operador",
+    "fichas_col_canal": "Canal",
+    "fichas_col_nota": "Nota",
+    "fichas_col_cat": "Categoria",
+    "fichas_col_archivo": "Arquivo",
+    "fichas_todos_gestores": "Todos os operadores",
+    "fichas_todos_meses": "Todos os meses"
   }
 }
