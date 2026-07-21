@@ -210,16 +210,61 @@ def _guardar_pais_de(empresa: str, codigo: str) -> None:
         json.dump({"codigo": codigo}, f)
 
 
-def _aplicar_filtros(df: pd.DataFrame, segmento: str | None, tramo: str | None,
-                     propension: str | None, busqueda: str | None) -> pd.DataFrame:
-    if segmento:
-        df = df[df["segmento"] == segmento]
-    if tramo:
-        df = df[df["tramo_mora"] == tramo]
-    if propension:
-        df = df[df["segmento_propension"] == propension]
-    if busqueda:
-        df = df[df["id_deudor"].str.contains(busqueda, case=False, na=False)]
+_COL_FECHA_CANDIDATAS = ["fecha", "fecha_alta", "fecha_originacion", "fecha_ingreso",
+                         "fecha_solicitud", "fecha_mora", "fecha_vencimiento", "mes"]
+
+
+def _col_fecha(df: pd.DataFrame):
+    """Devuelve (nombre, serie_datetime) de la primera columna de fecha
+    reconocible del dataset — o (None, None) si la cartera no trae fechas
+    (caso típico: es una foto de deudores, sin dimensión temporal)."""
+    if df is None:
+        return None, None
+    for c in _COL_FECHA_CANDIDATAS:
+        if c in df.columns:
+            s = pd.to_datetime(df[c], errors="coerce")
+            if s.notna().any():
+                return c, s
+    return None, None
+
+
+def _aplicar_filtros(df: pd.DataFrame, segmento=None, tramo=None, propension=None,
+                     busqueda=None, producto=None, departamento=None,
+                     monto_min=None, monto_max=None, dias_min=None, dias_max=None,
+                     anio=None, mes=None) -> pd.DataFrame:
+    """Aplica filtros del dashboard de forma DEFENSIVA: cada filtro se ignora si
+    la columna no está en el dataset activo (real o demo), así una cartera con
+    otro esquema nunca rompe la vista."""
+    def _cat(col, val):
+        nonlocal df
+        if val and col in df.columns:
+            df = df[df[col].astype(str) == str(val)]
+
+    _cat("segmento", segmento)
+    _cat("tramo_mora", tramo)
+    _cat("segmento_propension", propension)
+    _cat("producto", producto)
+    _cat("departamento", departamento)
+    if busqueda and "id_deudor" in df.columns:
+        df = df[df["id_deudor"].astype(str).str.contains(busqueda, case=False, na=False)]
+    for col, lo, hi in [("monto_deuda", monto_min, monto_max),
+                        ("dias_mora", dias_min, dias_max)]:
+        if col in df.columns and (lo is not None or hi is not None):
+            serie = pd.to_numeric(df[col], errors="coerce")
+            if lo is not None:
+                df = df[serie >= float(lo)]
+                serie = pd.to_numeric(df[col], errors="coerce")
+            if hi is not None:
+                df = df[serie <= float(hi)]
+    if anio or mes:
+        _, serie_fecha = _col_fecha(df)
+        if serie_fecha is not None:
+            serie_fecha = serie_fecha.reindex(df.index)
+            if anio:
+                df = df[serie_fecha.dt.year == int(anio)]
+                serie_fecha = serie_fecha.reindex(df.index)
+            if mes:
+                df = df[serie_fecha.dt.month == int(mes)]
     return df
 
 
@@ -354,13 +399,61 @@ _COLS_CARTERA = ["prioridad", "id_deudor", "segmento", "producto", "departamento
                  "valor_esperado_recupero"]
 
 
+def _ordenar_cartera(f: pd.DataFrame) -> pd.DataFrame:
+    """Ordena por prioridad si existe; si no (esquema real distinto), por valor
+    esperado de recupero descendente; y si tampoco, deja el orden natural. Nunca
+    rompe la vista."""
+    if "prioridad" in f.columns:
+        return f.sort_values("prioridad")
+    if "valor_esperado_recupero" in f.columns:
+        return f.sort_values("valor_esperado_recupero", ascending=False)
+    if "monto_deuda" in f.columns:
+        return f.sort_values("monto_deuda", ascending=False)
+    return f
+
+
+@app.get("/api/cartera/filtros")
+def cartera_filtros(u: Usuario = Depends(usuario_actual)):
+    """Opciones de filtrado REALES del dataset activo (real o demo): valores de
+    cada dimensión categórica presente + rangos de monto y días de mora + años/
+    meses si la cartera trae fecha. El front arma los filtros con esto, así se
+    adapta a cualquier esquema — no hay valores hardcodeados."""
+    g = _scored(u.empresa)
+    def _u(col):
+        return sorted(g[col].dropna().astype(str).unique().tolist()) if col in g.columns else []
+    def _rango(col):
+        if col not in g.columns:
+            return None
+        s = pd.to_numeric(g[col], errors="coerce").dropna()
+        if s.empty:
+            return None
+        return {"min": int(s.min()), "max": int(s.max())}
+    col_fecha, serie = _col_fecha(g)
+    anios = sorted(serie.dt.year.dropna().astype(int).unique().tolist()) if serie is not None else []
+    meses = sorted(serie.dt.month.dropna().astype(int).unique().tolist()) if serie is not None else []
+    return {
+        "modo": _modo_cartera(u.empresa),
+        "segmentos": _u("segmento"), "productos": _u("producto"),
+        "departamentos": _u("departamento"), "tramos": _u("tramo_mora"),
+        "propensiones": _u("segmento_propension"),
+        "monto": _rango("monto_deuda"), "dias_mora": _rango("dias_mora"),
+        "tiene_fecha": col_fecha is not None, "anios": anios, "meses": meses,
+    }
+
+
 @app.get("/api/cartera")
 def cartera(u: Usuario = Depends(usuario_actual), pagina: int = 1, tamano: int = 25,
             segmento: str | None = None, tramo: str | None = None,
-            propension: str | None = None, busqueda: str | None = None):
+            propension: str | None = None, busqueda: str | None = None,
+            producto: str | None = None, departamento: str | None = None,
+            monto_min: float | None = None, monto_max: float | None = None,
+            dias_min: int | None = None, dias_max: int | None = None,
+            anio: int | None = None, mes: int | None = None):
     tamano = max(1, min(tamano, 200))
-    f = _aplicar_filtros(_scored(u.empresa), segmento, tramo, propension, busqueda)
-    f = f.sort_values("prioridad")
+    f = _aplicar_filtros(_scored(u.empresa), segmento, tramo, propension, busqueda,
+                         producto, departamento, monto_min, monto_max,
+                         dias_min, dias_max, anio, mes)
+    f = _ordenar_cartera(f)
     total = len(f)
     ini = (max(1, pagina) - 1) * tamano
     filas = f.iloc[ini:ini + tamano][[c for c in _COLS_CARTERA if c in f.columns]]
@@ -371,9 +464,15 @@ def cartera(u: Usuario = Depends(usuario_actual), pagina: int = 1, tamano: int =
 @app.get("/api/cartera/export.csv")
 def cartera_export(u: Usuario = Depends(usuario_actual), segmento: str | None = None,
                    tramo: str | None = None, propension: str | None = None,
-                   busqueda: str | None = None):
-    f = _aplicar_filtros(_scored(u.empresa), segmento, tramo, propension, busqueda)
-    f = f.sort_values("prioridad")
+                   busqueda: str | None = None, producto: str | None = None,
+                   departamento: str | None = None, monto_min: float | None = None,
+                   monto_max: float | None = None, dias_min: int | None = None,
+                   dias_max: int | None = None, anio: int | None = None,
+                   mes: int | None = None):
+    f = _aplicar_filtros(_scored(u.empresa), segmento, tramo, propension, busqueda,
+                         producto, departamento, monto_min, monto_max,
+                         dias_min, dias_max, anio, mes)
+    f = _ordenar_cartera(f)
     buf = io.StringIO()
     f.to_csv(buf, index=False)
     return Response(buf.getvalue(), media_type="text/csv",
@@ -522,16 +621,43 @@ def gestores_resumen(u: Usuario = Depends(usuario_actual)):
                         if not isinstance(v, pd.DataFrame)} if impacto else None}
 
 
+def _cols_unicas(g, col):
+    if g is None or col not in getattr(g, "columns", []):
+        return []
+    return sorted(g[col].dropna().astype(str).unique().tolist())
+
+
 @app.get("/api/calidad/comparativa")
 def calidad_comparativa(canal: str | None = None, tipo: str | None = None,
+                        gestor: str | None = None, mes: str | None = None,
                         u: Usuario = Depends(usuario_actual)):
     """Performance Gestor IA vs Gestor Humano (calidad, conversión, recupero)
-    a partir del registro de gestiones. Filtros opcionales canal/tipo."""
+    a partir del registro de gestiones, con tableros extra: perfil por criterio
+    (ítem de negociación), evolución mensual y potencial de mejora de la
+    cobranza. Filtros opcionales canal/tipo/gestor/mes."""
     from kobra import calidad_gestion as kcalidad
     g = _gestiones(u.empresa)
-    canales = sorted(g["canal"].dropna().unique().tolist()) if (g is not None and "canal" in g.columns) else []
-    comp = kcalidad.comparativa(g, canal=canal, tipo=tipo)
+    canales = _cols_unicas(g, "canal")
+    meses = _cols_unicas(g, "mes")
+    gestores = _cols_unicas(g, "gestor")
+
+    # Filtros mes/gestor se aplican a la base; canal/tipo los maneja comparativa.
+    base = g
+    if base is not None:
+        if mes and "mes" in base.columns:
+            base = base[base["mes"].astype(str) == mes]
+        if gestor and "gestor" in base.columns:
+            base = base[base["gestor"].astype(str) == gestor]
+
+    comp = kcalidad.comparativa(base, canal=canal, tipo=tipo)
     comp["canales"] = canales
+    comp["meses"] = meses
+    comp["gestores"] = gestores
+    # Tableros nuevos (el perfil/mejora usan la base filtrada por mes/gestor;
+    # la evolución ignora el mes porque es justamente la serie en el tiempo).
+    comp["perfil"] = kcalidad.perfil_criterios(base, canal=canal, mes=None)
+    comp["evolucion"] = kcalidad.evolucion(g, canal=canal)
+    comp["mejora"] = kcalidad.mejora_potencial(base, canal=canal)
     return comp
 
 
@@ -550,6 +676,96 @@ def calidad_evaluar(datos: EvaluarGestionIn, u: Usuario = Depends(usuario_actual
     if len(texto) < 15:
         raise HTTPException(422, "Pegá una transcripción más larga para evaluar.")
     return kcalidad.evaluar(texto, canal=datos.canal)
+
+
+def _transcript_desde_turnos(turnos) -> str:
+    """Arma una transcripción 'Gestor:/Cliente:' a partir de los turnos
+    diarizados+transcritos de kobra.voz, para pasarla al evaluador de calidad."""
+    lineas = []
+    for t in turnos or []:
+        texto = (t.get("texto") or "").strip()
+        if not texto:
+            continue
+        hablante = t.get("hablante") or ""
+        etiqueta = "Gestor" if str(hablante).lower().startswith(("gestor", "agente", "asesor", "operador")) else "Cliente"
+        lineas.append(f"{etiqueta}: {texto}")
+    return "\n".join(lineas)
+
+
+@app.post("/api/calidad/evaluar-audio")
+async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "Llamada",
+                                u: Usuario = Depends(usuario_actual)):
+    """Sube una grabación (.wav/.mp3), la transcribe por hablante (Whisper si
+    hay OPENAI_API_KEY) y la evalúa contra la rúbrica de 14 criterios. Devuelve
+    el puntaje de calidad + la transcripción para escuchar/leer la llamada."""
+    nombre = (archivo.filename or "").lower()
+    if not nombre.endswith((".wav", ".mp3")):
+        raise HTTPException(400, "Subí un archivo .wav o .mp3.")
+    contenido = await archivo.read()
+    if not contenido:
+        raise HTTPException(400, "El archivo llegó vacío.")
+
+    scratch = os.path.join(DIR_DATOS, ".uploads")
+    os.makedirs(scratch, exist_ok=True)
+    import uuid
+    ext = ".wav" if nombre.endswith(".wav") else ".mp3"
+    destino = os.path.join(scratch, f"cal_{uuid.uuid4().hex}{ext}")
+    with open(destino, "wb") as f:
+        f.write(contenido)
+
+    try:
+        from kobra import voz as kvoz
+        from kobra import calidad_gestion as kcalidad
+        idioma = kpaises.obtener(_pais_de(u.empresa)).idioma
+        turnos, modo = kvoz.transcribir_llamada(destino, idioma=idioma)
+        transcripcion = _transcript_desde_turnos(turnos)
+        if len(transcripcion.strip()) < 15:
+            # Sin texto (falta OPENAI_API_KEY para Whisper): honesto, no inventa.
+            return {"archivo": archivo.filename, "modo_transcripcion": modo,
+                    "turnos": turnos, "evaluacion": None,
+                    "aviso": "Se procesó el audio pero no hay transcripción de texto. "
+                             "Configurá OPENAI_API_KEY (Whisper) para transcribir y "
+                             "evaluar automáticamente, o pegá la transcripción en el "
+                             "evaluador de texto."}
+        evaluacion = kcalidad.evaluar(transcripcion, canal=canal)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(400, f"No se pudo procesar el audio: {e}")
+    finally:
+        try:
+            os.remove(destino)
+        except OSError:
+            pass
+
+    return {"archivo": archivo.filename, "modo_transcripcion": modo,
+            "turnos": turnos, "transcripcion": transcripcion, "evaluacion": evaluacion}
+
+
+@app.get("/api/calidad/fuentes")
+def calidad_fuentes(u: Usuario = Depends(usuario_actual)):
+    """Estado de las fuentes de grabaciones para calidad: subida manual (siempre
+    activa) y conexión a un PBX/grabador tipo Avaya (requiere credenciales del
+    cliente). Honesto: informa qué falta configurar, no simula una conexión."""
+    avaya_host = os.environ.get("KOBRA_AVAYA_HOST", "")
+    avaya_user = os.environ.get("KOBRA_AVAYA_USER", "")
+    avaya_ok = bool(avaya_host and avaya_user)
+    whisper_ok = bool(os.environ.get("OPENAI_API_KEY"))
+    return {
+        "manual": {"activo": True, "formatos": ["wav", "mp3"],
+                   "transcripcion": "whisper" if whisper_ok else "no_config"},
+        "avaya": {
+            "activo": avaya_ok,
+            "host": avaya_host if avaya_ok else "",
+            "estado": "conectado" if avaya_ok else "sin_configurar",
+            "detalle": ("Conector a central Avaya listo: las grabaciones del PBX "
+                        "se importan y evalúan automáticamente.") if avaya_ok else
+                       ("Para conectar la central Avaya (o cualquier grabador por API) "
+                        "configurá KOBRA_AVAYA_HOST, KOBRA_AVAYA_USER y KOBRA_AVAYA_PASS "
+                        "con las credenciales del cliente. Mientras tanto, subí las "
+                        "grabaciones manualmente (.wav/.mp3)."),
+        },
+    }
 
 
 class PreguntaIn(BaseModel):
@@ -663,25 +879,129 @@ def originacion_score(datos: SolicitudIn, u: Usuario = Depends(usuario_actual)):
             "metricas_modelo": modelo.metrics}
 
 
+def _archivo_solicitudes(empresa: str) -> str:
+    base = os.path.join(DIR_DATOS, "data") if empresa == EMPRESA_DEFAULT else _dir_tenant(empresa)
+    return os.path.join(base, "solicitudes_real.csv")
+
+
+def _hay_solicitudes_reales(empresa: str) -> bool:
+    return os.path.exists(_archivo_solicitudes(empresa))
+
+
+def _originacion_datos(empresa: str):
+    """Devuelve (df_solicitudes, es_real). Si el tenant subió su propio dataset
+    de solicitudes de crédito, usa ese (datos reales); si no, el sintético de
+    demo. El dataset de originación es distinto de la cartera de cobranzas: son
+    solicitudes de crédito (ingreso, monto pedido, plazo…), no deudores."""
+    from kobra import originacion as korig
+    if _modo_cartera(empresa) == "real" and _hay_solicitudes_reales(empresa):
+        return pd.read_csv(_archivo_solicitudes(empresa)), True
+    return korig.generar_solicitudes_sinteticas(), False
+
+
 @app.get("/api/originacion/metricas")
 def originacion_metricas(u: Usuario = Depends(usuario_actual)):
-    return {**_originacion().metrics, "modelo_demo": True}
+    return {**_originacion().metrics, "modelo_demo": True,
+            "es_real": _hay_solicitudes_reales(u.empresa)}
 
 
 @app.get("/api/originacion/cola")
 def originacion_cola(n: int = 15, u: Usuario = Depends(usuario_actual)):
-    """Cola de solicitudes pendientes de decisión (demo: solicitudes
-    sintéticas evaluadas por el modelo — con el cliente real, esta cola se
-    alimenta de su sistema vía POST /api/integracion/cartera o su core)."""
+    """Cola de solicitudes pendientes de decisión. En modo REAL con dataset de
+    originación cargado, evalúa las solicitudes reales del cliente; en demo,
+    solicitudes sintéticas. Nunca presenta sintético como real: si el tenant
+    está en modo real pero todavía no cargó su flujo de originación, lo informa
+    y NO inventa una cola."""
     import json as _json
     from kobra import originacion as korig
     modelo = _originacion()
-    sols = korig.generar_solicitudes_sinteticas(
-        n=max(5, min(n, 50)), semilla=1234).drop(columns=[korig.TARGET])
+    real = _modo_cartera(u.empresa) == "real"
+    if real and not _hay_solicitudes_reales(u.empresa):
+        return {"solicitudes": [], "modelo_demo": True, "es_real": False,
+                "sin_datos_reales": True, "metricas_modelo": modelo.metrics,
+                "aviso": "Estás en modo real. La originación usa un dataset propio "
+                         "de solicitudes de crédito (distinto de la cartera de "
+                         "cobranzas). Cargá tu flujo de solicitudes para ver "
+                         "decisiones sobre tus datos reales."}
+    if real and _hay_solicitudes_reales(u.empresa):
+        sols = pd.read_csv(_archivo_solicitudes(u.empresa))
+        if korig.TARGET in sols.columns:
+            sols = sols.drop(columns=[korig.TARGET])
+        sols = sols.head(max(5, min(n, 50)))
+        es_real = True
+    else:
+        sols = korig.generar_solicitudes_sinteticas(
+            n=max(5, min(n, 50)), semilla=1234).drop(columns=[korig.TARGET])
+        es_real = False
     out = modelo.evaluar_lote(sols)
-    out["fecha_solicitud"] = out["fecha_solicitud"].dt.strftime("%Y-%m-%d")
+    if "fecha_solicitud" in out.columns:
+        out["fecha_solicitud"] = pd.to_datetime(
+            out["fecha_solicitud"], errors="coerce").dt.strftime("%Y-%m-%d")
     return {"solicitudes": _json.loads(out.to_json(orient="records")),
-            "modelo_demo": True, "metricas_modelo": modelo.metrics}
+            "modelo_demo": not es_real, "es_real": es_real,
+            "metricas_modelo": modelo.metrics}
+
+
+def _guardar_solicitudes_reales(empresa: str, df_bruto: pd.DataFrame) -> dict:
+    """Prepara y guarda el dataset de originación real del cliente. Activa el
+    modo real (mismo interruptor que la cartera) para que la cola use estos
+    datos. Devuelve un resumen (n, columnas reconocidas)."""
+    from kobra import originacion as korig
+    listo, mapeo = korig.preparar_solicitudes(df_bruto)
+    if listo.empty:
+        raise HTTPException(422, "El dataset de solicitudes llegó vacío.")
+    destino = _archivo_solicitudes(empresa)
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+    listo.to_csv(destino, index=False)
+    # Asegura que el dashboard esté en modo real (si aún no lo estaba por cartera).
+    meta = _origen_meta(empresa)
+    if meta.get("modo") != "real":
+        with open(_archivo_origen(empresa), "w", encoding="utf-8") as f:
+            json.dump({"modo": "real", "tipo": "real",
+                       "archivo": meta.get("archivo") or "Originación (solicitudes)",
+                       "cargado_en": datetime.now(timezone.utc).isoformat()}, f)
+    return {"solicitudes": int(len(listo)), "columnas_detectadas": mapeo,
+            "con_etiqueta": bool(korig.TARGET in listo.columns)}
+
+
+@app.post("/api/originacion/importar")
+async def originacion_importar(archivo: UploadFile = File(...), u: Usuario = Depends(solo_admin)):
+    """Sube el dataset REAL de solicitudes de crédito (CSV/Excel) — ingreso,
+    monto pedido, plazo, tipo de crédito, etc. Se mapean solas las columnas por
+    nombre parecido; las que falten se completan con supuestos (baja la
+    confianza, no inventa). La cola de originación pasa a decidir sobre estos
+    datos reales."""
+    nombre = (archivo.filename or "").lower()
+    if not nombre.endswith((".csv", ".xlsx", ".xls")):
+        raise HTTPException(400, "Subí un archivo .csv o .xlsx.")
+    contenido = await archivo.read()
+    try:
+        df = (pd.read_csv(io.BytesIO(contenido), dtype=str) if nombre.endswith(".csv")
+              else pd.read_excel(io.BytesIO(contenido), dtype=str))
+    except Exception as e:
+        raise HTTPException(400, f"No pude leer el archivo: {e}")
+    res = _guardar_solicitudes_reales(u.empresa, df)
+    det = "; ".join(f"«{o}» → {c}" for o, c in res["columnas_detectadas"].items())
+    return {**res, "mensaje": f"Dataset de originación cargado: {res['solicitudes']} "
+            f"solicitud(es). " + (f"Reconocí ({det}). " if det else "")
+            + "La cola de originación ya decide sobre tus datos reales."}
+
+
+@app.post("/api/originacion/importar-sql")
+def originacion_importar_sql(datos: ImportarSQLIn, u: Usuario = Depends(solo_admin)):
+    """Importa el dataset de solicitudes real directamente desde la base del
+    cliente (cualquiera que soporte SQLAlchemy). Solo lectura (SELECT/WITH)."""
+    try:
+        df = kcartera.leer_sql(datos.conn_url, datos.consulta, limite=None)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        raise HTTPException(400, f"No pude conectar o consultar la base: {e}")
+    if df is None or df.empty:
+        raise HTTPException(422, "La consulta no devolvió filas.")
+    res = _guardar_solicitudes_reales(u.empresa, df.astype(str))
+    return {**res, "mensaje": f"Dataset de originación importado desde la base: "
+            f"{res['solicitudes']} solicitud(es). La cola ya usa tus datos reales."}
 
 
 @app.get("/api/nba/{id_deudor}")

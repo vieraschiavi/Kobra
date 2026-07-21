@@ -407,9 +407,17 @@ def desde_base_de_datos(conn_url: str, consulta: str, limite: int | None = None)
     criterio que el validador de kobra/consulta_bd.py. La URL de conexión
     nunca se loguea completa.
     """
+    return desde_dataframe(leer_sql(conn_url, consulta, limite))
+
+
+def leer_sql(conn_url: str, consulta: str, limite: int | None = None) -> pd.DataFrame:
+    """Ejecuta una consulta de SOLO LECTURA (SELECT/WITH) contra la base del
+    cliente y devuelve el DataFrame CRUDO, sin normalizar a ningún esquema.
+    Reutilizable para cartera de cobranzas y para el dataset de originación.
+    Rechaza cualquier consulta de escritura; la URL nunca se loguea."""
     sql = (consulta or "").strip().rstrip(";")
     if not sql:
-        raise ValueError("Escribí la consulta SQL que devuelve tu cartera.")
+        raise ValueError("Escribí la consulta SQL que devuelve tus datos.")
     plano = " " + " ".join(sql.lower().split()) + " "
     if not (plano.lstrip().startswith("select") or plano.lstrip().startswith("with")):
         raise ValueError("Solo se permiten consultas de lectura (SELECT/WITH).")
@@ -427,4 +435,4 @@ def desde_base_de_datos(conn_url: str, consulta: str, limite: int | None = None)
         eng.dispose()
     if limite is not None and len(df) > limite:
         df = df.head(limite)
-    return desde_dataframe(df)
+    return df
