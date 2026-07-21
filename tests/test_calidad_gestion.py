@@ -94,3 +94,10 @@ def test_endpoint_evaluar_y_comparativa(cliente):
                   json={"transcripcion": "hola"}).status_code == 422
     comp = c.get("/api/calidad/comparativa", headers=h).json()
     assert "por_tipo" in comp and "ranking" in comp and "canales" in comp
+    # Tableros nuevos: perfil por criterio, evolución, mejora potencial y filtros.
+    assert "perfil" in comp and "items" in comp["perfil"]
+    assert "evolucion" in comp and "mejora" in comp
+    assert "gestores" in comp and "meses" in comp
+    # Fuentes de grabaciones (manual + Avaya honesto).
+    f = c.get("/api/calidad/fuentes", headers=h).json()
+    assert f["manual"]["activo"] is True and "avaya" in f

@@ -292,3 +292,69 @@ def test_importar_sql_requiere_admin(cliente):
     r2 = c.post("/api/cartera/importar-sql", headers=h,
                json={"conn_url": "sqlite:///x.db", "consulta": "SELECT 1"})
     assert r2.status_code == 403
+
+
+def test_filtros_dinamicos_del_dataset(cliente):
+    """Los filtros del dashboard salen del DATASET activo (no hardcodeados):
+    valores categóricos presentes + rangos de monto/días de mora + modo."""
+    api, c = cliente
+    h = _h_admin(c)
+    f = c.get("/api/cartera/filtros", headers=h).json()
+    assert f["modo"] == "demo"
+    assert f["segmentos"] and isinstance(f["segmentos"], list)
+    assert f["monto"]["min"] <= f["monto"]["max"]
+    assert f["dias_mora"]["min"] <= f["dias_mora"]["max"]
+    # Filtro por rango de monto y de días de mora achica el total, sin romper.
+    total = c.get("/api/cartera", headers=h).json()["total"]
+    lo, hi = f["monto"]["min"], f["monto"]["max"]
+    medio = (lo + hi) // 2
+    parcial = c.get(f"/api/cartera?monto_min={medio}", headers=h).json()["total"]
+    assert 0 <= parcial <= total
+    d = f["dias_mora"]
+    r = c.get(f"/api/cartera?dias_min={d['min']}&dias_max={d['max']}", headers=h)
+    assert r.status_code == 200
+
+
+def test_cartera_no_rompe_con_esquema_sin_prioridad(cliente):
+    """Regresión del 'Error 500': una cartera real cuyo scoring no trae
+    'prioridad' NO debe tirar 500 — ordena por otro criterio."""
+    api, c = cliente
+    h = _h_admin(c)
+    from webapp.backend import api as apimod
+    import pandas as pd
+    df = apimod._scored("principal").drop(columns=["prioridad"])
+    assert not apimod._ordenar_cartera(df).empty  # no lanza KeyError
+
+
+def test_originacion_real_desde_dataset_propio(cliente):
+    """Originación en modo real usa el dataset de solicitudes del cliente; si no
+    lo cargó, informa y NO inventa una cola sintética."""
+    api, c = cliente
+    h_principal = _h_admin(c)
+    try:
+        c.post("/api/tenant/alta", json={"empresa": "test-orig"}, headers=h_principal)
+        h = _h_admin(c, empresa="test-orig")
+
+        # Demo por default.
+        cola = c.get("/api/originacion/cola", headers=h).json()
+        assert cola["es_real"] is False and cola["solicitudes"]
+
+        # Activar modo real (subiendo una cartera) → originación sin dataset propio.
+        c.post("/api/cartera/importar", headers=h,
+               files={"archivo": ("c.csv", _csv_cartera_real(), "text/csv")})
+        cola = c.get("/api/originacion/cola", headers=h).json()
+        assert cola.get("sin_datos_reales") is True and cola["solicitudes"] == []
+
+        # Cargar el dataset REAL de solicitudes → la cola decide sobre esos datos.
+        import io
+        sol = ("Edad,Sueldo,MontoPedido,Plazo,TipoCredito\n"
+               + "\n".join(f"{25+i},{30000+i*800},{60000+i*2000},12,Consumo" for i in range(12)))
+        r = c.post("/api/originacion/importar", headers=h,
+                   files={"archivo": ("sol.csv", sol.encode(), "text/csv")})
+        assert r.status_code == 200, r.text
+        assert r.json()["solicitudes"] == 12
+        cola = c.get("/api/originacion/cola", headers=h).json()
+        assert cola["es_real"] is True and len(cola["solicitudes"]) == 12
+    finally:
+        shutil.rmtree(os.path.join(ROOT, "data", "tenants", "test-orig"),
+                      ignore_errors=True)

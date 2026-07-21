@@ -2,21 +2,11 @@ import React, { useEffect, useState } from "react";
 import { api, fmtPct, fmtUYU, getPais, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
 
-const TRAMOS = ["1-30", "31-60", "61-90", "91-180", "180+"];
-// La API (kobra/analitica.py) siempre devuelve estos valores en español —
-// son datos, no texto de UI — así que las claves quedan en español; solo
-// la etiqueta mostrada se traduce (ver tProp / CLAVE_SEGMENTO abajo).
-const SEGMENTOS = ["Corporativo", "Pyme", "Retail"];
-const CLAVE_SEGMENTO = {
-  "Corporativo": "cartera.filtro.segmento_corporativo",
-  "Pyme": "cartera.filtro.segmento_pyme",
-  "Retail": "cartera.filtro.segmento_retail",
-};
-const PROPENSIONES = ["Alta", "Media", "Baja"];
 const CLAVE_PROPENSION = {
   "Alta": "common.propension.alta", "Media": "common.propension.media", "Baja": "common.propension.baja",
 };
 const tProp = (p) => t(CLAVE_PROPENSION[p] || p);
+const MESES = ["", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
 
 function Drawer({ id, onClose }) {
   const [d, setD] = useState(null);
@@ -57,16 +47,26 @@ function Drawer({ id, onClose }) {
   );
 }
 
+const VACIO = {
+  segmento: "", tramo: "", propension: "", busqueda: "", producto: "",
+  departamento: "", monto_min: "", monto_max: "", dias_min: "", dias_max: "",
+  anio: "", mes: "",
+};
+
 export default function Cartera() {
   const [datos, setDatos] = useState(null);
+  const [opciones, setOpciones] = useState(null);   // /api/cartera/filtros (del dataset)
   const [pagina, setPagina] = useState(1);
-  const [filtros, setFiltros] = useState({ segmento: "", tramo: "", propension: "", busqueda: "" });
+  const [filtros, setFiltros] = useState(VACIO);
   const [sel, setSel] = useState(null);
   const [error, setError] = useState("");
 
+  // Opciones de filtro REALES del dataset activo (real o demo).
+  useEffect(() => { api("/api/cartera/filtros").then(setOpciones).catch(() => {}); }, []);
+
   const qs = () => {
     const p = new URLSearchParams();
-    Object.entries(filtros).forEach(([k, v]) => v && p.set(k, v));
+    Object.entries(filtros).forEach(([k, v]) => (v !== "" && v != null) && p.set(k, v));
     return p;
   };
 
@@ -89,31 +89,83 @@ export default function Cartera() {
 
   const totalPaginas = datos ? Math.max(1, Math.ceil(datos.total / datos.tamano)) : 1;
   const setF = (k) => (e) => { setPagina(1); setFiltros({ ...filtros, [k]: e.target.value }); };
+  const o = opciones || {};
+  const hayFiltro = Object.values(filtros).some((v) => v !== "");
+  const dm = o.dias_mora || null;
 
   return (
     <>
-      <h1 className="page-title">{t("cartera.titulo")}</h1>
+      <h1 className="page-title">{t("cartera.titulo")}
+        {o.modo && <span className="pill" style={{ marginLeft: 10, fontSize: 12,
+          background: (o.modo === "real" ? "#00c89622" : "#f2b44122"),
+          color: o.modo === "real" ? "#00c896" : "#f2b441" }}>
+          {o.modo === "real" ? "● " + t("cartera.toolbar.modo_real") : "○ " + t("cartera.toolbar.modo_demo")}</span>}
+      </h1>
       <p className="page-sub">{t("cartera.subtitulo")}</p>
 
-      <div className="toolbar">
+      <div className="toolbar" style={{ flexWrap: "wrap", gap: 8 }}>
         <input type="text" placeholder={t("cartera.toolbar.buscar_placeholder")} value={filtros.busqueda}
-               onChange={setF("busqueda")} style={{ width: 150 }} />
+               onChange={setF("busqueda")} style={{ width: 130 }} />
         <select value={filtros.segmento} onChange={setF("segmento")}>
           <option value="">{t("cartera.toolbar.segmento_todos")}</option>
-          {SEGMENTOS.map((s) => <option key={s} value={s}>{t(CLAVE_SEGMENTO[s])}</option>)}
+          {(o.segmentos || []).map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        {(o.productos || []).length > 0 && (
+          <select value={filtros.producto} onChange={setF("producto")}>
+            <option value="">{t("cartera.toolbar.producto_todos")}</option>
+            {o.productos.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>)}
+        {(o.departamentos || []).length > 0 && (
+          <select value={filtros.departamento} onChange={setF("departamento")}>
+            <option value="">{t("cartera.toolbar.depto_todos")}</option>
+            {o.departamentos.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>)}
         <select value={filtros.tramo} onChange={setF("tramo")}>
           <option value="">{t("cartera.toolbar.tramo_todos")}</option>
-          {TRAMOS.map((tr) => <option key={tr}>{tr}</option>)}
+          {(o.tramos || []).map((tr) => <option key={tr}>{tr}</option>)}
         </select>
         <select value={filtros.propension} onChange={setF("propension")}>
           <option value="">{t("cartera.toolbar.propension_todas")}</option>
-          {PROPENSIONES.map((p) => <option key={p} value={p}>{tProp(p)}</option>)}
+          {(o.propensiones || []).map((p) => <option key={p} value={p}>{tProp(p)}</option>)}
         </select>
+        {o.tiene_fecha && (o.anios || []).length > 0 && (
+          <select value={filtros.anio} onChange={setF("anio")}>
+            <option value="">{t("cartera.toolbar.anio_todos")}</option>
+            {o.anios.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>)}
+        {o.tiene_fecha && (
+          <select value={filtros.mes} onChange={setF("mes")}>
+            <option value="">{t("cartera.toolbar.mes_todos")}</option>
+            {MESES.slice(1).map((m) => <option key={m} value={parseInt(m, 10)}>{m}</option>)}
+          </select>)}
         <button className="btn ghost" onClick={exportar}>{t("cartera.toolbar.exportar_csv")}</button>
+        {hayFiltro && <button className="btn ghost" onClick={() => { setPagina(1); setFiltros(VACIO); }}>
+          {t("cartera.toolbar.limpiar")}</button>}
       </div>
 
+      {/* Rangos: monto y slider de días de mora — límites tomados del dataset */}
+      {o.monto && (
+        <div className="toolbar" style={{ flexWrap: "wrap", gap: 14, marginTop: 4 }}>
+          <span style={{ color: "var(--muted)", fontSize: 13 }}>{t("cartera.toolbar.monto")}:</span>
+          <input type="number" placeholder={String(o.monto.min)} value={filtros.monto_min}
+                 onChange={setF("monto_min")} style={{ width: 110 }} />
+          <span style={{ color: "var(--muted)", fontSize: 12 }}>{t("cartera.toolbar.hasta")}</span>
+          <input type="number" placeholder={String(o.monto.max)} value={filtros.monto_max}
+                 onChange={setF("monto_max")} style={{ width: 110 }} />
+          {dm && (
+            <>
+              <span style={{ color: "var(--muted)", fontSize: 13, marginLeft: 10 }}>
+                {t("cartera.toolbar.dias_mora")}: <b>{filtros.dias_min || dm.min}</b>–<b>{filtros.dias_max || dm.max}</b></span>
+              <input type="range" min={dm.min} max={dm.max} value={filtros.dias_min || dm.min}
+                     onChange={setF("dias_min")} style={{ width: 120 }} />
+              <input type="range" min={dm.min} max={dm.max} value={filtros.dias_max || dm.max}
+                     onChange={setF("dias_max")} style={{ width: 120 }} />
+            </>)}
+        </div>
+      )}
+
       {error && <div className="empty">{error}</div>}
+      {datos && datos.total === 0 && <div className="empty">{t("cartera.toolbar.sin_resultados")}</div>}
       {datos && (
         <>
           <div className="tablewrap">

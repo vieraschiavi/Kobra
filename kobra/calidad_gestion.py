@@ -83,6 +83,14 @@ RUBRICA = [
 TOTAL_PUNTOS = 100
 PROMEDIO_HUMANO_REF = 83   # calibración del evaluador original (supervisores reales)
 
+# Fracción de referencia por criterio (promedio_humano/max del evaluador V24):
+# marca la FORMA típica de una gestión — qué criterios suelen estar más flojos
+# (manejo de objeciones, negociación total, seguimiento) vs. fuertes (normativo,
+# identificación). Se usa para estimar el perfil por criterio de un gestor a
+# partir de su calidad agregada.
+_REF_FRAC = {1: 0.82, 2: 0.85, 3: 0.76, 4: 0.853, 5: 0.84, 6: 0.90, 7: 0.82,
+             8: 0.75, 9: 0.72, 10: 0.78, 11: 0.86, 12: 0.94, 13: 0.833, 14: 0.75}
+
 _RES_POSITIVO = {"Pago", "Promesa", "Arreglo de pago", "Promesa de pago", "Arreglo"}
 
 
@@ -274,3 +282,100 @@ def comparativa(gestiones, canal: str | None = None, tipo: str | None = None) ->
             por_canal.append({"tipo": t, "canal": cn, **_kpis(sub)})
     return {"por_tipo": por_tipo, "ranking": ranking, "por_canal": por_canal,
             "total_gestiones": int(len(g))}
+
+
+def _perfil_de(calidad_agregada: float) -> list[dict]:
+    """Estima el puntaje por criterio (los 14 ítems de negociación) a partir de
+    la calidad agregada de un gestor/grupo, usando la forma de referencia
+    (_REF_FRAC). Es una ESTIMACIÓN de demo — con transcripciones reales, cada
+    gestión trae su puntaje por criterio del evaluador."""
+    factor = (calidad_agregada or 0) / PROMEDIO_HUMANO_REF
+    perfil = []
+    for c in RUBRICA:
+        frac = min(1.0, _REF_FRAC[c["id"]] * factor)
+        perfil.append({"id": c["id"], "nombre": c["nombre"], "max": c["max"],
+                       "puntaje": round(c["max"] * frac, 1),
+                       "pct": round(100 * frac, 0)})
+    return perfil
+
+
+def perfil_criterios(gestiones, canal: str | None = None, mes: str | None = None) -> dict:
+    """Perfil por criterio (ítem de negociación) de IA vs Humano: en qué ítems
+    es fuerte cada uno y en cuáles hay oportunidad de mejora. Devuelve, por
+    criterio, el puntaje estimado de IA y de Humano y la brecha."""
+    import pandas as pd
+    g = _filtrar(gestiones, canal, mes)
+    if g is None or g.empty or "tipo_gestor" not in g.columns:
+        return {"items": [], "fortalezas_ia": [], "oportunidades_humano": []}
+    cal = g.groupby("tipo_gestor")["calidad_gestion"].mean().to_dict()
+    perf = {t: {p["id"]: p for p in _perfil_de(cal.get(t, 0))} for t in cal}
+    items = []
+    for c in RUBRICA:
+        ia = perf.get("IA", {}).get(c["id"], {}).get("pct", 0)
+        hum = perf.get("Humano", {}).get(c["id"], {}).get("pct", 0)
+        items.append({"criterio": c["nombre"], "max": c["max"], "critico": c["critico"],
+                      "ia": ia, "humano": hum, "brecha": round(ia - hum, 0)})
+    ordenados = sorted(items, key=lambda x: x["brecha"], reverse=True)
+    return {
+        "items": items,
+        # Dónde el IA saca más ventaja (fortalezas del IA) y dónde el humano
+        # tiene más para mejorar (misma brecha, leída del lado del humano).
+        "fortalezas_ia": [x["criterio"] for x in ordenados[:4]],
+        "oportunidades_humano": [x["criterio"] for x in ordenados[:4]],
+    }
+
+
+def evolucion(gestiones, canal: str | None = None) -> dict:
+    """Evolución mensual de la calidad por tipo de gestor (IA vs Humano) —
+    para ver la mejora en el tiempo."""
+    g = _filtrar(gestiones, canal, None)
+    if g is None or g.empty or "mes" not in g.columns:
+        return {"meses": [], "series": []}
+    meses = sorted(g["mes"].dropna().unique().tolist())
+    series = []
+    for t, sub in g.groupby("tipo_gestor"):
+        por_mes = sub.groupby("mes")["calidad_gestion"].mean().round(1)
+        series.append({"tipo": t, "valores": [por_mes.get(m) for m in meses]})
+    return {"meses": meses, "series": series}
+
+
+def mejora_potencial(gestiones, canal: str | None = None) -> dict:
+    """Cuánto MEJORARÍA la cobranza si los gestores humanos alcanzaran la
+    calidad (y por ende la efectividad) del Gestor IA. Estimación honesta a
+    partir de la brecha real observada entre ambos grupos."""
+    g = _filtrar(gestiones, canal, None)
+    if g is None or g.empty or "tipo_gestor" not in g.columns:
+        return None
+    ia = g[g["tipo_gestor"] == "IA"]
+    hum = g[g["tipo_gestor"] == "Humano"]
+    if ia.empty or hum.empty:
+        return None
+    cal_ia = round(float(ia["calidad_gestion"].mean()), 1)
+    cal_hum = round(float(hum["calidad_gestion"].mean()), 1)
+    conv_ia, conv_hum = _tasa_conversion(ia), _tasa_conversion(hum)
+    rec = "recupero"
+    rec_ia = float(ia[rec].fillna(0).mean()) if rec in ia else 0.0
+    rec_hum = float(hum[rec].fillna(0).mean()) if rec in hum else 0.0
+    n_hum = len(hum)
+    # Si cada gestión humana rindiera como una del IA: (dif de recupero medio) × N.
+    adicional = max(0.0, (rec_ia - rec_hum) * n_hum)
+    return {
+        "calidad_ia": cal_ia, "calidad_humano": cal_hum,
+        "brecha_calidad": round(cal_ia - cal_hum, 1),
+        "conversion_ia": conv_ia, "conversion_humano": conv_hum,
+        "brecha_conversion": round(conv_ia - conv_hum, 1),
+        "recupero_prom_ia": round(rec_ia, 0), "recupero_prom_humano": round(rec_hum, 0),
+        "gestiones_humanas": int(n_hum),
+        "recupero_adicional_estimado": round(adicional, 0),
+    }
+
+
+def _filtrar(gestiones, canal, mes):
+    if gestiones is None:
+        return gestiones
+    g = gestiones
+    if canal and "canal" in g.columns:
+        g = g[g["canal"] == canal]
+    if mes and "mes" in g.columns:
+        g = g[g["mes"] == mes]
+    return g

@@ -126,6 +126,91 @@ def generar_solicitudes_sinteticas(n: int = 6000, semilla: int = 42) -> pd.DataF
     })
 
 
+# ---------------------------------------------------------------------------
+# Importación de solicitudes REALES del cliente
+# ---------------------------------------------------------------------------
+# Sinónimos de columna → feature del modelo. Se normaliza (minúsculas, sin
+# acentos, sin separadores) antes de comparar, así "Monto Solicitado",
+# "monto_solicitado", "MontoPedido" o "valor_credito" caen al mismo lugar.
+_SIN_ORIG = {
+    "edad": ["edad", "años", "anos", "age"],
+    "ingreso_declarado": ["ingreso", "ingresodeclarado", "sueldo", "salario", "renta", "income"],
+    "antiguedad_laboral_meses": ["antiguedadlaboral", "antiguedadlaboralmeses", "antiguedadempleo", "mesesempleo"],
+    "monto_solicitado": ["montosolicitado", "montopedido", "monto", "importe", "valorcredito", "capital", "loanamount"],
+    "plazo_meses": ["plazo", "plazomeses", "cuotas", "term", "plazocredito"],
+    "antiguedad_socio_meses": ["antiguedadsocio", "antiguedadsociomeses", "antiguedadcliente", "mesescliente"],
+    "creditos_previos": ["creditosprevios", "creditosanteriores", "prestamosprevios"],
+    "atrasos_previos": ["atrasosprevios", "atrasos", "morasprevias", "atrasosanteriores"],
+    "tipo_credito": ["tipocredito", "tipodecredito", "producto", "linea", "tipoprestamo"],
+    "situacion_laboral": ["situacionlaboral", "situacion", "empleo", "relacionlaboral"],
+    "departamento": ["departamento", "depto", "provincia", "region", "ciudad"],
+    "id_solicitud": ["idsolicitud", "solicitud", "id", "iddeudor", "documento", "cedula"],
+    "fecha_solicitud": ["fechasolicitud", "fecha", "fechaalta", "fechaingreso"],
+    TARGET: ["mora90", "mora", "default", "incumplio", "target"],
+}
+_DEFAULTS_ORIG = {
+    "edad": 40, "ingreso_declarado": 45000.0, "antiguedad_laboral_meses": 36,
+    "monto_solicitado": 100000.0, "plazo_meses": 12, "antiguedad_socio_meses": 24,
+    "creditos_previos": 1, "atrasos_previos": 0,
+    "tipo_credito": "Consumo", "situacion_laboral": "Dependiente", "departamento": "Montevideo",
+}
+
+
+def _norm_orig(s: str) -> str:
+    import re, unicodedata
+    s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def mapear_columnas_solicitudes(columnas) -> dict:
+    """Mapea columnas crudas del cliente → features de originación por nombre
+    parecido (insensible a acentos/separadores). Devuelve {col_orig: feature}."""
+    norm = {c: _norm_orig(c) for c in columnas}
+    mapeo, usados = {}, set()
+    for feat, sinonimos in _SIN_ORIG.items():
+        objetivos = [_norm_orig(feat)] + [_norm_orig(s) for s in sinonimos]
+        # 1) match exacto, 2) contención
+        elegido = next((c for c, n in norm.items() if c not in usados and n in objetivos), None)
+        if elegido is None:
+            elegido = next((c for c, n in norm.items() if c not in usados
+                            and any(o in n or n in o for o in objetivos if len(o) >= 4)), None)
+        if elegido is not None:
+            mapeo[elegido] = feat
+            usados.add(elegido)
+    return mapeo
+
+
+def preparar_solicitudes(df_bruto: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """Toma un dataset crudo de solicitudes de crédito del cliente y lo lleva al
+    esquema del modelo (features + id + fecha), completando con defaults las
+    columnas que no vengan (el modelo baja la confianza cuando faltan datos, no
+    inventa). Devuelve (df_listo, columnas_reconocidas)."""
+    mapeo = mapear_columnas_solicitudes(df_bruto.columns)
+    df = df_bruto.rename(columns=mapeo).copy()
+
+    for feat in NUM_FEATURES:
+        df[feat] = pd.to_numeric(df.get(feat), errors="coerce") if feat in df.columns else np.nan
+        df[feat] = df[feat].fillna(_DEFAULTS_ORIG[feat])
+    for feat in CAT_FEATURES:
+        col = df[feat].astype(str) if feat in df.columns else None
+        df[feat] = (col.where(col.notna() & (col != "") & (col != "nan"), _DEFAULTS_ORIG[feat])
+                    if col is not None else _DEFAULTS_ORIG[feat])
+    if "id_solicitud" not in df.columns:
+        df["id_solicitud"] = [f"SOL-{100000 + i}" for i in range(len(df))]
+    if "fecha_solicitud" in df.columns:
+        df["fecha_solicitud"] = pd.to_datetime(df["fecha_solicitud"], errors="coerce")
+    if "fecha_solicitud" not in df.columns or df["fecha_solicitud"].isna().all():
+        df["fecha_solicitud"] = pd.to_datetime("2025-01-01")
+    df["fecha_solicitud"] = df["fecha_solicitud"].fillna(pd.to_datetime("2025-01-01"))
+
+    cols = ["id_solicitud", "fecha_solicitud"] + NUM_FEATURES + CAT_FEATURES
+    if TARGET in df.columns:
+        df[TARGET] = pd.to_numeric(df[TARGET], errors="coerce")
+        if df[TARGET].notna().any():
+            cols.append(TARGET)
+    return df[cols], mapeo
+
+
 def _regla_oficial(df: pd.DataFrame) -> np.ndarray:
     """La heurística típica de un oficial de crédito, como benchmark honesto:
     'rechazo si tuvo atrasos previos o si el ingreso está en el 25% más bajo'.
