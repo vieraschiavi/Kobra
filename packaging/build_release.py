@@ -317,14 +317,122 @@ Licencia de uso: ver LICENCIA.txt
     return _zipdir(stage, os.path.join(DIST, f"MVKobraAI_Produccion_v{VERSION}.zip"))
 
 
+# ---------------------------------------------------------------------------
+# Ediciones runnables: Demo (con límite de días) · Owner · una por plan
+# ---------------------------------------------------------------------------
+# Runtime standalone mínimo para correr la webapp con doble clic (sin Node):
+# núcleo + backend + gateway de licencias + datos demo + UI compilada + launcher.
+_RUNTIME_ITEMS = [
+    "kobra", "webapp/backend", "backend_venta", "realtime",
+    "data/generate_dataset.py", "data/generate_gestiones.py",
+    "data/generate_audio_demo.py", "data/ejemplo_whatsapp.txt",
+    "outputs/kobra_scored.csv", "data/kobra_gestiones.csv",
+    "owner/ui_dist", "assets/brand", "requirements.txt",
+]
+
+DEMO_DIAS = 14   # límite de la versión de evaluación
+
+# edition_key → (título, dias|None, plan|None, owner)
+EDICIONES = {
+    "Demo":       ("Demo (evaluación con límite de días)", DEMO_DIAS, "trial", False),
+    "Owner":      ("Owner (dueño del producto · sin límites)", None, None, True),
+    "Basico":     ("Plan Básico", 365, "basico", False),
+    "Starter":    ("Plan Starter", 365, "starter", False),
+    "Pro":        ("Plan Pro", 365, "pro", False),
+    "Enterprise": ("Plan Enterprise", 365, "enterprise", False),
+}
+
+
+def build_edicion(tmp, key):
+    """Arma un paquete runnable por edición. Cada uno trae `edicion.json` que el
+    launcher lee al arrancar: owner → sin límites; demo/plan → licencia embebida
+    (día límite / cupo / features del plan). Sin precios en la documentación."""
+    import json as _json
+    import secrets as _secrets
+    import sys as _sys
+    if ROOT not in _sys.path:
+        _sys.path.insert(0, ROOT)
+    from backend_venta import licencias as klic
+
+    titulo, dias, plan, owner = EDICIONES[key]
+    stage = os.path.join(tmp, f"MVKobraAI_{key}_v{VERSION}")
+    shutil.rmtree(stage, ignore_errors=True)
+    soft = os.path.join(stage, "kobra_software")
+    for item in _RUNTIME_ITEMS:
+        _copy(item, os.path.join(soft, item))
+    # El launcher va en la RAÍZ de kobra_software (el .bat corre `python
+    # kobra_launcher.py` desde ahí), no bajo packaging/.
+    _copy("packaging/kobra_launcher.py", os.path.join(soft, "kobra_launcher.py"))
+
+    # edicion.json (lo consume packaging/kobra_launcher.py::_activar_edicion)
+    ed = {"edition": key, "plan": plan, "dias": dias, "owner": owner}
+    if not owner:
+        secreto = _secrets.token_hex(32)
+        cfg = klic.PLANES[plan]
+        token = klic.emitir_licencia(
+            cliente_id=f"edicion-{key.lower()}", plan=plan, edicion=key.lower(),
+            features=cfg["features"], dias=dias, secreto=secreto)
+        ed.update(secreto=secreto, token=token, features=cfg["features"],
+                  cupo_mensual=cfg["cupo_mensual"])
+    _write(os.path.join(soft, "edicion.json"), _json.dumps(ed, ensure_ascii=False, indent=2))
+
+    # Lanzadores (Windows + Unix): corren el launcher standalone.
+    _write(os.path.join(stage, f"INICIAR_{key.upper()}.bat"), crlf=True, content=(
+        "@echo off\r\n"
+        f"title MV Kobra AI - {titulo}\r\n"
+        "cd /d \"%~dp0kobra_software\"\r\n"
+        "where python >nul 2>nul && (python kobra_launcher.py & goto :eof)\r\n"
+        "where py >nul 2>nul && (py kobra_launcher.py & goto :eof)\r\n"
+        "echo Instala Python 3.11+ desde https://www.python.org y volve a ejecutar.\r\n"
+        "pause\r\n"))
+    _write(os.path.join(stage, f"iniciar_{key.lower()}.sh"),
+           "#!/usr/bin/env bash\ncd \"$(dirname \"$0\")/kobra_software\"\n"
+           "python3 kobra_launcher.py\n")
+    os.chmod(os.path.join(stage, f"iniciar_{key.lower()}.sh"), 0o755)
+
+    limite = ("Sin límite de tiempo (edición del dueño)." if owner
+              else f"Evaluación por {dias} días." if plan == "trial"
+              else f"Licencia por {dias} días · plan {plan} completo.")
+    feats = "todas las funciones (owner)" if owner else ", ".join(ed.get("features", []))
+    _write(os.path.join(stage, "LEEME.txt"), crlf=True, content=f"""MV KOBRA AI · {titulo} · v{VERSION}
+Plataforma de Cobranzas Inteligentes
+=====================================
+
+CÓMO INICIAR (no requiere Node; solo Python 3.11+):
+  Windows : doble clic en  INICIAR_{key.upper()}.bat
+  Mac/Linux: ejecutar      ./iniciar_{key.lower()}.sh
+
+La app abre en el navegador (http://localhost). Corre 100% local en tu equipo.
+
+EDICIÓN
+  {titulo}
+  Alcance: {limite}
+  Funciones habilitadas: {feats}
+
+QUÉ INCLUYE
+  Dashboard completo (KPIs, cartera priorizada, agenda, gestores), Originación,
+  Calidad de gestión (audio + fichas de gestores), Asistente IA y el Gestor IA
+  Negociador (voz/WhatsApp). Datos de demostración 100% sintéticos incluidos;
+  podés cargar tu propia cartera desde Configuración.
+
+HONESTIDAD DE LOS DATOS
+  Datos sintéticos (sin personas reales). Las métricas de impacto son
+  ILUSTRATIVAS de la metodología; el desempeño real se mide con tu cartera.
+""")
+    _write(os.path.join(stage, "VERSION.txt"), crlf=True,
+           content=f"MV Kobra AI · {titulo} · v{VERSION}\n")
+    return _zipdir(stage, os.path.join(DIST, f"MVKobraAI_{key}_v{VERSION}.zip"))
+
+
 def main():
     tmp = os.path.join(DIST, "_staging")
-    demo = build_demo(tmp)
-    prod = build_prod(tmp)
+    paquetes = [build_demo(tmp), build_prod(tmp)]
+    for key in EDICIONES:
+        paquetes.append(build_edicion(tmp, key))
     shutil.rmtree(tmp, ignore_errors=True)
 
     lines = []
-    for z in (demo, prod):
+    for z in paquetes:
         mb = os.path.getsize(z) / 1e6
         digest = _sha256(z)
         lines.append(f"{digest}  {os.path.basename(z)}")

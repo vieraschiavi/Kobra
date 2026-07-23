@@ -88,11 +88,47 @@ def _abrir_navegador(url: str):
     webbrowser.open(url)
 
 
+def _activar_edicion(base: str):
+    """Si el paquete trae una `edicion.json` (demo con límite de días, owner o
+    un plan puntual), activa esa edición antes de levantar la app:
+      - owner  → KOBRA_OWNER=1 (sin licencia, sin vencimiento).
+      - demo/plan → siembra el secreto de firma y el token de licencia embebidos
+        en la config del usuario, así la app valida y aplica el límite de días /
+        cupo / features del plan sin que el prospecto tenga que activar nada.
+    Es idempotente: solo siembra el token la primera vez (no pisa uno activado
+    después por el usuario)."""
+    ruta = os.path.join(base, "edicion.json")
+    if not os.path.exists(ruta):
+        return
+    try:
+        import json
+        with open(ruta, encoding="utf-8") as f:
+            ed = json.load(f)
+    except (OSError, ValueError):
+        return
+    if ed.get("owner"):
+        os.environ["KOBRA_OWNER"] = "1"
+        return
+    secreto, token = ed.get("secreto"), ed.get("token")
+    if secreto:
+        os.environ.setdefault("KOBRA_LICENSE_SECRET", secreto)
+    if token:
+        try:
+            if base not in sys.path:
+                sys.path.insert(0, base)
+            from kobra import config as kconfig
+            if not kconfig.leer_extra("LICENCIA_TOKEN"):
+                kconfig.guardar_extra("LICENCIA_TOKEN", token)
+        except Exception:
+            pass
+
+
 def main():
     base = _base_dir()
 
     # Modo standalone: la app pide licencia (compra o trial), no contraseña.
     os.environ["KOBRA_MODO_STANDALONE"] = "1"
+    _activar_edicion(base)
     port = os.environ.get("KOBRA_APP_PORT") or str(_puerto_libre())
     os.environ["KOBRA_APP_PORT"] = port
     # Que los import del proyecto (kobra, webapp, backend_venta, data) resuelvan.
