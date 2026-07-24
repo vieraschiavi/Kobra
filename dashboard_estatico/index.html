@@ -10,6 +10,13 @@
 <script src="xlsx.full.min.js"></script>
 <script src="kobra_data.js"></script>
 <script src="copiloto.js"></script>
+<!-- Voz premium pre-renderizada (opcional): si el paquete se armó con
+     ELEVENLABS_API_KEY configurada, data/generar_audio_demo_voz.py generó
+     estos MP3 con la MISMA voz del producto real (la del video de marketing),
+     y la etiqueta de abajo los carga. Si el archivo no existe (build sin esa
+     key), simplemente no carga nada y el demo sigue con la voz del
+     navegador — nunca rompe. -->
+<script src="audio_demo/manifest.js"></script>
 <script>
 /* Gate de demo: full por 3 días para cada usuario registrado (registro en la landing).
    Cliente-side (localStorage). La versión de producción emite un token de prueba real (ver docs/BACKEND_VENTA.md). */
@@ -456,7 +463,34 @@ function speak(text, pitch, rate, cb){
     var done=false; function fin(){ if(done)return; done=true; cb && cb(); }
     u.onend = fin; u.onerror = fin;
     window.speechSynthesis.speak(u);
-    setTimeout(fin, Math.max(3500, text.length*95)); // red de seguridad si el navegador no dispara onend
+    // Red de seguridad genuina (algunos navegadores no disparan onend): un
+    // techo generoso basado en el largo del texto, no un PISO que demore
+    // turnos cortos — antes forzaba un mínimo de 3.5s por turno incluso para
+    // una respuesta de dos palabras, lo que se sentía como latencia.
+    setTimeout(fin, Math.max(1800, text.length*140));
+  }catch(e){ cb && cb(); }
+}
+
+// ---- Audio premium pre-renderizado (misma voz del producto real / video) ----
+// window.AUDIO_DEMO_MANIFEST lo carga audio_demo/manifest.js si el paquete se
+// armó con ElevenLabs configurado (ver data/generar_audio_demo_voz.py). Si no
+// existe, AUDIO_MANIFEST_POR_INDICE queda vacío y se usa el navegador (igual
+// que antes) — el chatvoice nunca se rompe por falta de esa key.
+var AUDIO_MANIFEST_POR_INDICE = {};
+(function(){
+  var m = (typeof window!=='undefined' && window.AUDIO_DEMO_MANIFEST) || [];
+  for(var k=0;k<m.length;k++){ if(m[k] && m[k].archivo) AUDIO_MANIFEST_POR_INDICE[m[k].i]=m[k].archivo; }
+})();
+var _audioActual = null;
+function playPremium(archivo, cb){
+  try{
+    var a = new Audio('audio_demo/'+archivo);
+    _audioActual = a;
+    var done=false; function fin(){ if(done)return; done=true; cb && cb(); }
+    a.addEventListener('ended', fin);
+    a.addEventListener('error', function(){ fin(); });   // MP3 faltante/corrupto → seguimos igual
+    var p = a.play();
+    if(p && p.catch) p.catch(function(){ fin(); });       // autoplay bloqueado → no trabar la demo
   }catch(e){ cb && cb(); }
 }
 
@@ -464,11 +498,14 @@ var _llamadaGen = 0;
 function detenerLlamada(){
   _llamadaGen++;
   if(TTS_OK) window.speechSynthesis.cancel();
+  if(_audioActual){ try{ _audioActual.pause(); }catch(e){} _audioActual=null; }
   var info=document.getElementById('callInfo'); if(info) info.textContent='⏹ Detenida';
 }
 function reproducirLlamada(){
   var box=document.getElementById('callBox'); box.innerHTML='';
-  var info=document.getElementById('callInfo'); info.textContent=TTS_OK?'🔊 Llamada en curso (con voz)…':'🔊 Llamada en curso…';
+  var hayPremium = Object.keys(AUDIO_MANIFEST_POR_INDICE).length>0;
+  var info=document.getElementById('callInfo');
+  info.textContent = hayPremium ? '🔊 Llamada en curso (voz real)…' : (TTS_OK?'🔊 Llamada en curso (con voz)…':'🔊 Llamada en curso…');
   if(TTS_OK) window.speechSynthesis.cancel();
   var gen = ++_llamadaGen;
   var i=0;
@@ -485,9 +522,11 @@ function reproducirLlamada(){
     var turn=CALL_SCRIPT[i];
     box.appendChild(chatBubble(turn.who,turn.text,'background:#16324a;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 MV Kobra AI (voz)','👤 Cliente'));
     box.scrollTop=box.scrollHeight;
+    var idx=i, archivo=AUDIO_MANIFEST_POR_INDICE[idx];
     i++;
-    var isIA = turn.who==='ia';
-    speak(turn.text, isIA?0.88:1.12, 1.0, function(){ if(gen===_llamadaGen) setTimeout(next, 120); });
+    function avanzar(){ if(gen===_llamadaGen) setTimeout(next, 120); }
+    if(archivo){ playPremium(archivo, avanzar); }
+    else { var isIA=turn.who==='ia'; speak(turn.text, isIA?0.88:1.12, 1.0, avanzar); }
   }
   next();
 }
