@@ -29,6 +29,10 @@ outputs/origen_cartera.json
 # Temporary session build scripts (video, mocks) — not repo deliverables
 scratchpad/
 
+# Voz premium del chatvoice de demo, pre-renderizada en build time con la key
+# de ElevenLabs de quien empaqueta (packaging/build_release.py) — nunca al repo.
+dashboard_estatico/audio_demo/
+
 # App de escritorio Electron (build local)
 electron/dist_installer/
 

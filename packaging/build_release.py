@@ -113,10 +113,33 @@ def _sha256(path):
 # ---------------------------------------------------------------------------
 # Paquete DEMO
 # ---------------------------------------------------------------------------
+def _prerenderizar_voz_demo():
+    """Si hay ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID_GESTOR en el entorno de
+    build, sintetiza el chatvoice de la demo con la MISMA voz premium del
+    producto real (la que se ve en el video de marketing) y la deja lista en
+    `dashboard_estatico/audio_demo/` para que _copy() la incluya en el ZIP.
+    Se limpia primero para no arrastrar audio de un guion viejo. Sin esa key,
+    no hace nada — el demo sigue con la voz del navegador (comportamiento
+    previo, nunca rompe el build)."""
+    audio_dir = os.path.join(ROOT, "dashboard_estatico", "audio_demo")
+    shutil.rmtree(audio_dir, ignore_errors=True)
+    import sys as _sys
+    if ROOT not in _sys.path:
+        _sys.path.insert(0, ROOT)
+    from data import generar_audio_demo_voz as gav
+    r = gav.generar()
+    if r["generados"]:
+        print(f"[OK] Voz premium del demo: {r['generados']} audio(s) "
+              f"(costo est. USD {r['costo_est_usd']}).")
+    else:
+        print(f"[SKIP] Voz premium del demo: {r.get('motivo', 'sin generar')}")
+
+
 def build_demo(tmp):
     stage = os.path.join(tmp, f"MVKobraAI_Demo_v{VERSION}")
     shutil.rmtree(stage, ignore_errors=True)
 
+    _prerenderizar_voz_demo()
     # Dashboard offline completo (corre con doble clic, sin instalar nada)
     _copy("dashboard_estatico", os.path.join(stage, "dashboard"))
     # Reportes Excel de ejemplo
