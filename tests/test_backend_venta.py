@@ -41,10 +41,12 @@ def test_licencia_roundtrip(entorno):
 
 
 def test_plan_basico_entrada_mensual(entorno):
-    # Plan de entrada competitivo: US$59/mes, 300 gestiones, mensual (30 días).
+    # Plan de entrada: US$99/mes, 300 gestiones, mensual (30 días). El precio se
+    # realineó al ancla del mercado LATAM (Moonflow: US$79 el plan de entrada,
+    # US$399/499 los superiores, con tokens de IA facturados aparte).
     app_mod, licencias, uso, descargas = entorno
     cfg = licencias.PLANES["basico"]
-    assert cfg["precio"] == 59.0 and cfg["cupo_mensual"] == 300 and cfg["dias"] == 30
+    assert cfg["precio"] == 99.0 and cfg["cupo_mensual"] == 300 and cfg["dias"] == 30
     tok = licencias.emitir_licencia("pyme@mail.com", "basico")
     claims = licencias.validar_licencia(tok)
     assert claims["plan"] == "basico" and claims["cupo_mensual"] == 300

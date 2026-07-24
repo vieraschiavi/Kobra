@@ -11,9 +11,9 @@
 const { checkBotId } = require("botid/server");
 
 const PLANS = {
-  basico:  { title: "MV Kobra AI · Básico (mensual)",    price: 59.0 },
-  pro:     { title: "MV Kobra AI · Pro (todo incluido)", price: 149.0 },
-  starter: { title: "MV Kobra AI · Starter (licencia)",  price: 490.0 },
+  basico:  { title: "MV Kobra AI · Básico (mensual)",    price: 99.0 },
+  pro:     { title: "MV Kobra AI · Pro (todo incluido)", price: 349.0 },
+  starter: { title: "MV Kobra AI · Starter (licencia)",  price: 690.0 },
 };
 // La cuenta de cobro (collector) de Mercado Pago 1007782272006 es de Uruguay (site MLU),
 // que solo acepta preferencias en UYU: mandar "USD" hace que la API rechace la preferencia
