@@ -74,6 +74,56 @@ def test_primer_arranque_crea_admin_desde_la_webapp(tmp_path, monkeypatch):
     assert c.post("/api/auth/login", json={"password": "MiClaveSegura1"}).status_code == 200
 
 
+def test_standalone_no_permite_saltear_la_licencia_con_password(tmp_path, monkeypatch):
+    """Regresión de un agujero que rompía el modelo de venta: en la copia
+    instalada de un CLIENTE, cuando la demo vencía se podía crear una
+    contraseña de admin desde el primer arranque y entrar igual, para siempre
+    — el límite de días quedaba en nada. En standalone la única puerta debe
+    ser la LICENCIA."""
+    monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "cfg-cliente"))
+    monkeypatch.setenv("KOBRA_MODO_STANDALONE", "1")
+    monkeypatch.delenv("KOBRA_OWNER", raising=False)
+    from kobra import config as kconfig
+    importlib.reload(kconfig)
+    from kobra import autenticacion as kauth
+    importlib.reload(kauth)
+    from backend_venta import licencias as klic
+    from fastapi.testclient import TestClient
+    from webapp.backend import api
+    importlib.reload(api)
+    c = TestClient(api.app)
+
+    # Demo cuya licencia ya venció.
+    secreto = klic.secreto_firma()
+    kconfig.guardar_extra("LICENCIA_TOKEN",
+                          klic.emitir_licencia("demo", "trial", dias=-1, secreto=secreto))
+    assert c.get("/api/licencia/estado").json()["activa"] is False
+    # La puerta por contraseña no existe en la copia del cliente.
+    assert c.post("/api/auth/setup", json={"password": "CualquieraSirve1"}).status_code == 404
+    assert c.post("/api/auth/login", json={"password": "CualquieraSirve1"}).status_code == 404
+    # Y el front sabe que acá se entra por licencia.
+    assert c.get("/api/auth/estado").json()["por_licencia"] is True
+
+
+def test_owner_conserva_su_entrada_directa(tmp_path, monkeypatch):
+    """La copia del dueño (owner) no se ve afectada por el cierre de arriba."""
+    monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "cfg-owner"))
+    monkeypatch.setenv("KOBRA_MODO_STANDALONE", "1")
+    monkeypatch.setenv("KOBRA_OWNER", "1")
+    from kobra import config as kconfig
+    importlib.reload(kconfig)
+    from kobra import autenticacion as kauth
+    importlib.reload(kauth)
+    from fastapi.testclient import TestClient
+    from webapp.backend import api
+    importlib.reload(api)
+    c = TestClient(api.app)
+
+    assert c.post("/api/licencia/owner-login").status_code == 200
+    # Y sigue pudiendo usar contraseña si quiere.
+    assert c.post("/api/auth/setup", json={"password": "OwnerClave1"}).status_code == 200
+
+
 def test_api_kpis_y_graficos(cliente):
     h = _h(_token(cliente))
     k = cliente.get("/api/kpis", headers=h).json()

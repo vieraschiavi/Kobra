@@ -286,13 +286,29 @@ class LoginIn(BaseModel):
     empresa: str = EMPRESA_DEFAULT
 
 
+def _sin_puerta_por_password():
+    """En la copia instalada de un CLIENTE (standalone sin owner) la única
+    puerta de entrada es la LICENCIA. Si además se pudiera crear/usar una
+    contraseña de admin, cualquiera saltearía el vencimiento de la demo
+    creando una clave y entrando para siempre — el límite de días dejaría de
+    existir. En modo hosted (multi-tenant) y en la copia del owner, la
+    contraseña sigue siendo la puerta normal."""
+    if MODO_STANDALONE and not MODO_OWNER:
+        raise HTTPException(404, "No encontrado.")
+
+
 @app.get("/api/auth/estado")
 def auth_estado():
     """Sin auth: el login lo consulta al arrancar para saber si mostrar el
     formulario de primer arranque (crear la contraseña de admin) o el de
-    ingreso normal."""
+    ingreso normal. En la copia de un cliente (standalone) no aplica: ahí se
+    entra con licencia, así que informa que la puerta es esa."""
+    if MODO_STANDALONE and not MODO_OWNER:
+        return {"configurado": True, "gestor_configurado": False,
+                "por_licencia": True}
     return {"configurado": kauth.configurado(),
-            "gestor_configurado": kauth.tiene_password("gestor")}
+            "gestor_configurado": kauth.tiene_password("gestor"),
+            "por_licencia": False}
 
 
 class SetupIn(BaseModel):
@@ -305,7 +321,10 @@ def auth_setup(datos: SetupIn):
     """Primer arranque: crea la contraseña de administrador desde la propia
     webapp (antes había que abrir el dashboard Streamlit, imposible en hosting).
     Solo funciona si TODAVÍA no hay admin — si ya existe, devuelve 409 para no
-    permitir reset sin autenticación. Deja la sesión iniciada."""
+    permitir reset sin autenticación. Deja la sesión iniciada.
+
+    No existe en la copia instalada de un cliente: ahí se entra por licencia."""
+    _sin_puerta_por_password()
     if kauth.configurado():
         raise HTTPException(409, "El administrador ya está configurado. Iniciá sesión.")
     pw = (datos.password or "").strip()
@@ -318,6 +337,7 @@ def auth_setup(datos: SetupIn):
 
 @app.post("/api/auth/login")
 def auth_login(datos: LoginIn):
+    _sin_puerta_por_password()
     if not kauth.configurado():
         raise HTTPException(409, "Todavía no hay contraseña de administrador creada — "
                                  "creála en esta pantalla para el primer arranque.")
