@@ -104,6 +104,30 @@ def test_el_generador_pasa_el_idioma_al_motor_local(monkeypatch):
     assert vistos and set(vistos) == {"pt"}
 
 
+def test_parte_el_texto_en_frases_manejables():
+    """Regresión: una frase de 112 caracteres tumbaba el proceso entero
+    (crash duro, no excepción) al sintetizarla de una. Se parte por fin de
+    oración, y por coma si una oración sola sigue siendo muy larga."""
+    from kobra import voz_clon_local as klocal
+    tope = 90
+
+    culpable = ("Excelente. Quedó registrado el acuerdo de pago en 3 cuotas. "
+                "Muchas gracias por su tiempo, que tenga un buen día.")
+    partes = klocal._partir_en_frases(culpable, tope)
+    assert len(partes) > 1
+    assert all(len(p) <= tope for p in partes)
+
+    # Una sola oración larguísima se corta por comas, no queda entera.
+    larga = ("Puedo ofrecerle cancelar hoy con un 5% de descuento, quedando en "
+             "5.700 pesos, o dividirlo en 3 cuotas de 1.900 pesos sin recargo.")
+    assert all(len(p) <= tope for p in klocal._partir_en_frases(larga, tope))
+
+    # No se pierde ni se duplica texto: las partes reconstruyen el original.
+    assert " ".join(klocal._partir_en_frases(culpable, tope)) == culpable
+    # Texto corto queda tal cual, en una sola parte.
+    assert klocal._partir_en_frases("Sí, soy yo.", tope) == ["Sí, soy yo."]
+
+
 def test_motor_local_sin_dependencias_no_rompe(monkeypatch):
     """Si no hay motor instalado, sintetizar devuelve ok=False con el motivo,
     nunca una excepción que corte el build."""

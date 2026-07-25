@@ -93,6 +93,41 @@ def _cargar(nombre: str):
     return _MOTOR
 
 
+def _partir_en_frases(texto: str, max_chars: int = 90) -> list[str]:
+    """Parte el texto en frases de a lo sumo `max_chars`.
+
+    Dos motivos: (1) el modelo se degrada con entradas largas — pierde prosodia
+    y a veces se traba repitiendo; (2) el pico de memoria crece con el largo, y
+    una frase larga puede tumbar el proceso entero en una máquina sin GPU.
+    Se corta por fin de oración, y si una oración sigue siendo enorme, por coma.
+    """
+    import re
+    frases, actual = [], ""
+    for parte in re.split(r"(?<=[.!?…])\s+", (texto or "").strip()):
+        if not parte:
+            continue
+        if len(actual) + len(parte) + 1 <= max_chars:
+            actual = f"{actual} {parte}".strip()
+            continue
+        if actual:
+            frases.append(actual)
+        if len(parte) <= max_chars:
+            actual = parte
+            continue
+        # Oración sola más larga que el tope: cortar por comas.
+        actual = ""
+        for trozo in re.split(r"(?<=,)\s+", parte):
+            if len(actual) + len(trozo) + 1 <= max_chars:
+                actual = f"{actual} {trozo}".strip()
+            else:
+                if actual:
+                    frases.append(actual)
+                actual = trozo
+    if actual:
+        frases.append(actual)
+    return frases or [texto]
+
+
 def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = None,
                modelo: str | None = None, referencia: str | None = None,
                idioma: str = "es") -> dict:
@@ -122,18 +157,26 @@ def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = No
         ref = _referencia_wav(referencia)
         motor = _cargar(nombre)
 
-        if nombre == "chatterbox":
-            # exaggeration bajo y cfg_weight algo alto = lectura sobria, sin
-            # sobreactuar: es una llamada de cobranza, no un audiolibro.
-            wav = motor.generate(texto, language_id=idioma,
-                                 **({"audio_prompt_path": ref} if ref else {}),
-                                 exaggeration=0.4, cfg_weight=0.6, temperature=0.7)
-            audio = wav.squeeze(0).cpu().numpy() if hasattr(wav, "cpu") else np.asarray(wav)
-            sr = motor.sr
-        else:
-            audio = np.asarray(motor.tts(text=texto, speaker_wav=ref, language=idioma)
-                               if ref else motor.tts(text=texto, language=idioma))
-            sr = 24000
+        # Se sintetiza frase por frase y se concatena: entradas cortas dan
+        # mejor prosodia y evitan el pico de memoria que puede tumbar el
+        # proceso en una máquina sin GPU.
+        trozos, sr = [], 24000
+        for frase in _partir_en_frases(texto):
+            if nombre == "chatterbox":
+                # exaggeration bajo y cfg_weight algo alto = lectura sobria,
+                # sin sobreactuar: es una llamada de cobranza, no un audiolibro.
+                wav = motor.generate(frase, language_id=idioma,
+                                     **({"audio_prompt_path": ref} if ref else {}),
+                                     exaggeration=0.4, cfg_weight=0.6, temperature=0.7)
+                trozo = wav.squeeze(0).cpu().numpy() if hasattr(wav, "cpu") else np.asarray(wav)
+                sr = motor.sr
+            else:
+                trozo = np.asarray(motor.tts(text=frase, speaker_wav=ref, language=idioma)
+                                   if ref else motor.tts(text=frase, language=idioma))
+            trozos.append(np.asarray(trozo, dtype=np.float32))
+            # Respiro corto entre frases: sin esto se atropellan al unirlas.
+            trozos.append(np.zeros(int(sr * 0.18), dtype=np.float32))
+        audio = np.concatenate(trozos[:-1]) if len(trozos) > 1 else trozos[0]
 
         # A MP3 (lo que consume el dashboard estático), vía ffmpeg por stdin.
         buf = io.BytesIO()
