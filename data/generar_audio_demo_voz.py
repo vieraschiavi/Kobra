@@ -92,7 +92,8 @@ def elegir_motor(api_key: str | None = None, voice_id_gestor: str | None = None,
 
 def generar(voice_id_gestor: str | None = None, voice_id_cliente: str | None = None,
            api_key: str | None = None, out_dir: str | None = None,
-           referencia: str | None = None, motor: str | None = None) -> dict:
+           referencia: str | None = None, motor: str | None = None,
+           idioma: str = "es") -> dict:
     """Sintetiza cada turno del guion con la voz del video y guarda los MP3 +
     manifest.js en `out_dir` (default: dashboard_estatico/audio_demo).
 
@@ -118,7 +119,10 @@ def generar(voice_id_gestor: str | None = None, voice_id_cliente: str | None = N
     for i, turno in enumerate(turnos):
         voice_id = voice_id_gestor if turno["who"] == "ia" else voice_id_cliente
         if nombre_motor == "local":
-            res = mod.sintetizar(turno["text"], referencia=referencia)
+            # El idioma va explícito: con el modelo multilingüe define la
+            # pronunciación. Pasarle español a un modelo cargado en inglés
+            # produce fonética inglesa sobre texto castellano.
+            res = mod.sintetizar(turno["text"], referencia=referencia, idioma=idioma)
         else:
             res = mod.sintetizar(turno["text"], voice_id, api_key=api_key,
                                  modelo=ktts.MODELO_LLAMADAS)

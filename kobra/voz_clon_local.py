@@ -64,12 +64,18 @@ def _referencia_wav(referencia: str | None) -> str:
 
 
 def _cargar(nombre: str):
+    """Carga el modelo (caro: segundos) y lo cachea.
+
+    Para Chatterbox se usa SIEMPRE el modelo MULTILINGÜE, no el base: el base
+    es de inglés y, al darle texto en español, lo pronuncia con fonética
+    inglesa — suena raro y pierde el acento. El multilingüe recibe el
+    `language_id` y respeta la pronunciación del idioma."""
     global _MOTOR, _MOTOR_NOMBRE
     if _MOTOR is not None and _MOTOR_NOMBRE == nombre:
         return _MOTOR
     if nombre == "chatterbox":
-        from chatterbox.tts import ChatterboxTTS
-        _MOTOR = ChatterboxTTS.from_pretrained(device="cpu")
+        from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+        _MOTOR = ChatterboxMultilingualTTS.from_pretrained(device="cpu")
     else:
         from TTS.api import TTS as CoquiTTS
         _MOTOR = CoquiTTS("tts_models/multilingual/multi-dataset/xtts_v2")
@@ -107,7 +113,10 @@ def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = No
         motor = _cargar(nombre)
 
         if nombre == "chatterbox":
-            wav = motor.generate(texto, audio_prompt_path=ref)
+            # exaggeration bajo y cfg_weight algo alto = lectura sobria, sin
+            # sobreactuar: es una llamada de cobranza, no un audiolibro.
+            wav = motor.generate(texto, language_id=idioma, audio_prompt_path=ref,
+                                 exaggeration=0.4, cfg_weight=0.6, temperature=0.7)
             audio = wav.squeeze(0).cpu().numpy() if hasattr(wav, "cpu") else np.asarray(wav)
             sr = motor.sr
         else:

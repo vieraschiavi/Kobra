@@ -72,6 +72,38 @@ def test_forzar_elevenlabs_lo_respeta(monkeypatch):
     assert _elegir(monkeypatch, "chatterbox", _K, "vid", forzar="elevenlabs") == "elevenlabs"
 
 
+def test_usa_el_modelo_multilingue_no_el_ingles():
+    """Regresión: se cargaba ChatterboxTTS (modelo de inglés) y se le pasaba
+    texto en castellano, así que lo pronunciaba con fonética inglesa — sonaba
+    raro y perdía el acento. Tiene que cargar el modelo MULTILINGÜE y pasarle
+    el idioma."""
+    import inspect
+    from kobra import voz_clon_local as klocal
+    fuente = inspect.getsource(klocal._cargar)
+    assert "ChatterboxMultilingualTTS" in fuente
+    assert "from chatterbox.tts import ChatterboxTTS" not in fuente
+    # Y el idioma tiene que viajar hasta generate() como language_id.
+    assert "language_id=idioma" in inspect.getsource(klocal.sintetizar)
+
+
+def test_el_generador_pasa_el_idioma_al_motor_local(monkeypatch):
+    """El idioma no puede quedar librado al default: el producto también
+    vende en portugués."""
+    from kobra import voz_clon_local as klocal
+    vistos = []
+
+    def fake_sint(texto, referencia=None, idioma="es", **kw):
+        vistos.append(idioma)
+        return {"ok": True, "audio": b"X", "caracteres": len(texto),
+                "costo_est_usd": 0.0, "error": None}
+
+    monkeypatch.setattr(klocal, "motor_disponible", lambda: "chatterbox")
+    monkeypatch.setattr(klocal, "sintetizar", fake_sint)
+    with tempfile.TemporaryDirectory() as tmp:
+        gav.generar(out_dir=tmp, idioma="pt")
+    assert vistos and set(vistos) == {"pt"}
+
+
 def test_motor_local_sin_dependencias_no_rompe(monkeypatch):
     """Si no hay motor instalado, sintetizar devuelve ok=False con el motivo,
     nunca una excepción que corte el build."""
@@ -88,7 +120,7 @@ def test_con_key_genera_mp3_y_manifest_para_cada_turno(monkeypatch):
                                       "error": None})
     with tempfile.TemporaryDirectory() as tmp:
         r = gav.generar(voice_id_gestor="voz_gestor", voice_id_cliente="voz_cliente",
-                        api_key="fakekey1234567890", out_dir=tmp)
+                        api_key="fakekey1234567890", out_dir=tmp, motor="elevenlabs")
         assert r["generados"] == 9 and r["omitidos"] == 0
         assert os.path.exists(os.path.join(tmp, "turno_00.mp3"))
         assert os.path.exists(os.path.join(tmp, "turno_08.mp3"))
@@ -109,7 +141,8 @@ def test_turno_que_falla_sintetizar_no_frena_a_los_demas(monkeypatch):
                 "costo_est_usd": 0.001 if ok else 0.0, "error": None if ok else "boom"}
     monkeypatch.setattr(ktts, "sintetizar", fake)
     with tempfile.TemporaryDirectory() as tmp:
-        r = gav.generar(voice_id_gestor="v1", api_key="fakekey1234567890", out_dir=tmp)
+        r = gav.generar(voice_id_gestor="v1", api_key="fakekey1234567890", out_dir=tmp,
+                        motor="elevenlabs")
         assert r["generados"] == 8 and r["omitidos"] == 1
 
 
@@ -138,6 +171,9 @@ def test_build_demo_bundlea_audio_premium_cuando_hay_key(monkeypatch):
                                       "error": None})
     monkeypatch.setenv("ELEVENLABS_API_KEY", "fakekey1234567890")
     monkeypatch.setenv("ELEVENLABS_VOICE_ID_GESTOR", "voz_gestor_demo")
+    # Sin esto ganaría el clonador local (si está instalado) y el test se
+    # pondría a sintetizar de verdad: minutos por frase.
+    monkeypatch.setenv("KOBRA_TTS_MOTOR", "elevenlabs")
 
     audio_dir = os.path.join(ROOT, "dashboard_estatico", "audio_demo")
     with tempfile.TemporaryDirectory() as tmp:
