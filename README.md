@@ -860,6 +860,7 @@ Kobra/
 ├── app/app.py                      # dashboard Streamlit (7 pestañas)
 ├── dashboard_estatico/             # dashboard + copiloto zero-install (offline)
 ├── presentation/build_ppt.py       # generador de presentación gerencial
+├── marketing/                      # kit de contenido para redes (banners + copy + reels)
 ├── tests/test_kobra.py             # pruebas del pipeline y el copiloto
 ├── referencia_R/                   # motor R original adaptado (referencia)
 ├── .github/workflows/              # CI (tests) + entrenamiento ML programado
