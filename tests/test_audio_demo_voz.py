@@ -142,6 +142,11 @@ def test_referencia_grave_baja_el_tono_de_la_muestra():
     from kobra import voz_clon_local as klocal
     fuente = inspect.getsource(klocal.referencia_grave)
     assert "asetrate" in fuente and "atempo" in fuente
+    # Regresión: asetrate es relativo al sample rate de ENTRADA. El material
+    # de origen está a 44,1 kHz, así que sin remuestrear ANTES el factor
+    # efectivo era (24000·f)/44100 — la voz salía muchísimo más grave de lo
+    # pedido. El aresample tiene que ir antes del asetrate.
+    assert "aresample=24000,asetrate=24000*{factor}" in fuente
     # El centinela no es una ruta: no se puede usar como origen del ffmpeg.
     assert "is not SIN_CLONAR" in fuente
 
@@ -168,6 +173,21 @@ def test_parte_el_texto_en_frases_manejables():
     assert " ".join(klocal._partir_en_frases(culpable, tope)) == culpable
     # Texto corto queda tal cual, en una sola parte.
     assert klocal._partir_en_frases("Sí, soy yo.", tope) == ["Sí, soy yo."]
+
+
+def test_descarta_la_toma_donde_el_modelo_se_traba_repitiendo():
+    """Regresión: 'Sí, confirmo.' (13 caracteres) salió como 4,4 s de audio —
+    el modelo se trabó repitiendo y ese turno quedó inservible en la demo. El
+    largo del audio tiene que ser coherente con el del texto."""
+    from kobra import voz_clon_local as klocal
+    sr = 24000
+    assert klocal._toma_creible(int(sr * 1.2), sr, "Sí, confirmo.") is True
+    assert klocal._toma_creible(int(sr * 4.4), sr, "Sí, confirmo.") is False
+    # Una frase larga sí puede durar varios segundos: el tope es proporcional.
+    larga = "Lo contacto por un saldo pendiente de 6.000 pesos con más de 60 días."
+    assert klocal._toma_creible(int(sr * 7.0), sr, larga) is True
+    # Y no divide por cero si el motor devuelve un sample rate raro.
+    assert klocal._toma_creible(0, 0, "hola") is True
 
 
 def test_motor_local_sin_dependencias_no_rompe(monkeypatch):

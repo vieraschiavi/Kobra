@@ -73,7 +73,7 @@ def _referencia_wav(referencia: str | None) -> str | None:
     return destino
 
 
-def referencia_grave(origen: str | None = None, factor: float = 0.74) -> str:
+def referencia_grave(origen: str | None = None, factor: float = 0.72) -> str:
     """Deriva una muestra de voz MASCULINA a partir de otra, bajándole el tono.
 
     La locución del video oficial es de mujer, y en el guion de la demo el
@@ -83,9 +83,14 @@ def referencia_grave(origen: str | None = None, factor: float = 0.74) -> str:
 
     `asetrate` baja tono *y* formantes a la vez (equivale a un tracto vocal más
     largo, que es lo que distingue una voz masculina de una femenina) y
-    `atempo` devuelve la duración original. Con factor 0.74 la referencia pasa
-    de ~180 Hz a ~130 Hz, y la voz clonada a partir de ella queda en ~92 Hz:
-    rango masculino sin ambigüedad (hombre 85-165 Hz, mujer 165-255 Hz).
+    `atempo` devuelve la duración original. Con factor 0.72 la referencia pasa
+    de ~186 Hz a ~134 Hz: rango masculino (hombre 85-165 Hz, mujer 165-255 Hz).
+
+    OJO: `asetrate` es relativo al sample rate de ENTRADA, no a un valor fijo.
+    El material de origen está a 44,1 kHz, así que hay que remuestrear a 24 kHz
+    ANTES de aplicarlo — si no, el factor efectivo es (24000·f)/44100 y la voz
+    se va muchísimo más grave de lo pedido (con f=0.74 daba 0.40: 77 Hz, una
+    voz de bajo antinatural que además desestabilizaba al clonador).
 
     Devuelve la ruta del WAV derivado (cacheado por factor: convertir cuesta).
     """
@@ -101,7 +106,8 @@ def referencia_grave(origen: str | None = None, factor: float = 0.74) -> str:
         return destino
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", src, "-af",
-         f"asetrate=24000*{factor},aresample=24000,atempo={1 / factor:.6f}",
+         f"aresample=24000,asetrate=24000*{factor},"
+         f"aresample=24000,atempo={1 / factor:.6f}",
          "-vn", "-ac", "1", "-ar", "24000", destino], check=True)
     return destino
 
@@ -161,6 +167,18 @@ def _partir_en_frases(texto: str, max_chars: int = 90) -> list[str]:
     return frases or [texto]
 
 
+def _toma_creible(muestras: int, sr: int, texto: str) -> bool:
+    """¿La duración del audio se corresponde con el texto que se pidió?
+
+    El modelo a veces se traba repitiendo: 'Sí, confirmo.' (13 caracteres)
+    salió una vez como 4,4 segundos de audio. El síntoma es siempre el mismo —
+    dura mucho más de lo que el texto justifica. El castellano hablado va a
+    ~14 caracteres por segundo; se deja el doble de margen más 1,5 s de colchón
+    para frases muy cortas, así que solo se descartan tomas claramente rotas.
+    """
+    return muestras / float(sr or 1) <= len(texto) / 14.0 * 2.0 + 1.5
+
+
 def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = None,
                modelo: str | None = None, referencia: str | None = None,
                idioma: str = "es") -> dict:
@@ -195,17 +213,24 @@ def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = No
         # proceso en una máquina sin GPU.
         trozos, sr = [], 24000
         for frase in _partir_en_frases(texto):
-            if nombre == "chatterbox":
-                # exaggeration bajo y cfg_weight algo alto = lectura sobria,
-                # sin sobreactuar: es una llamada de cobranza, no un audiolibro.
-                wav = motor.generate(frase, language_id=idioma,
-                                     **({"audio_prompt_path": ref} if ref else {}),
-                                     exaggeration=0.4, cfg_weight=0.6, temperature=0.7)
-                trozo = wav.squeeze(0).cpu().numpy() if hasattr(wav, "cpu") else np.asarray(wav)
-                sr = motor.sr
-            else:
-                trozo = np.asarray(motor.tts(text=frase, speaker_wav=ref, language=idioma)
-                                   if ref else motor.tts(text=frase, language=idioma))
+            # Si la toma sale trabada (el modelo repitiendo), se reintenta:
+            # es no determinístico, así que otra pasada suele salir limpia.
+            # Se queda con la última si ninguna convence — audio imperfecto es
+            # mejor que ningún audio, y el turno igual queda utilizable.
+            for intento in range(3):
+                if nombre == "chatterbox":
+                    # exaggeration bajo y cfg_weight algo alto = lectura sobria,
+                    # sin sobreactuar: es una llamada de cobranza, no un audiolibro.
+                    wav = motor.generate(frase, language_id=idioma,
+                                         **({"audio_prompt_path": ref} if ref else {}),
+                                         exaggeration=0.4, cfg_weight=0.6, temperature=0.7)
+                    trozo = wav.squeeze(0).cpu().numpy() if hasattr(wav, "cpu") else np.asarray(wav)
+                    sr = motor.sr
+                else:
+                    trozo = np.asarray(motor.tts(text=frase, speaker_wav=ref, language=idioma)
+                                       if ref else motor.tts(text=frase, language=idioma))
+                if _toma_creible(len(np.ravel(trozo)), sr, frase):
+                    break
             trozos.append(np.asarray(trozo, dtype=np.float32))
             # Respiro corto entre frases: sin esto se atropellan al unirlas.
             trozos.append(np.zeros(int(sr * 0.18), dtype=np.float32))
