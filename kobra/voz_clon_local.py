@@ -29,6 +29,9 @@ import io
 import os
 
 # Muestra de voz de referencia por defecto: la locución del video oficial.
+# Centinela: pedir explícitamente la voz propia del modelo, sin clonar.
+SIN_CLONAR = "__sin_clonar__"
+
 REFERENCIA_DEFAULT = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "assets", "video", "MVKobraAI_Copiloto_Demo.mp4")
@@ -49,11 +52,18 @@ def motor_disponible() -> str:
     return ""
 
 
-def _referencia_wav(referencia: str | None) -> str:
+def _referencia_wav(referencia: str | None) -> str | None:
     """Normaliza la muestra de referencia a un WAV mono 24 kHz en un temporal.
-    Acepta un MP4/MP3/WAV — si viene un video, extrae el audio."""
+    Acepta un MP4/MP3/WAV — si viene un video, extrae el audio.
+
+    `referencia=SIN_CLONAR` devuelve None: el modelo usa su propia voz. Sirve
+    para que el CLIENTE de la demo no suene igual que el gestor — si los dos
+    salen de la misma muestra clonada, la llamada parece una persona hablando
+    sola y se pierde la ilusión de conversación."""
     import subprocess
     import tempfile
+    if referencia is SIN_CLONAR:
+        return None
     ref = referencia or REFERENCIA_DEFAULT
     if not os.path.exists(ref):
         raise FileNotFoundError(f"No encuentro la muestra de voz: {ref}")
@@ -115,12 +125,14 @@ def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = No
         if nombre == "chatterbox":
             # exaggeration bajo y cfg_weight algo alto = lectura sobria, sin
             # sobreactuar: es una llamada de cobranza, no un audiolibro.
-            wav = motor.generate(texto, language_id=idioma, audio_prompt_path=ref,
+            wav = motor.generate(texto, language_id=idioma,
+                                 **({"audio_prompt_path": ref} if ref else {}),
                                  exaggeration=0.4, cfg_weight=0.6, temperature=0.7)
             audio = wav.squeeze(0).cpu().numpy() if hasattr(wav, "cpu") else np.asarray(wav)
             sr = motor.sr
         else:
-            audio = np.asarray(motor.tts(text=texto, speaker_wav=ref, language=idioma))
+            audio = np.asarray(motor.tts(text=texto, speaker_wav=ref, language=idioma)
+                               if ref else motor.tts(text=texto, language=idioma))
             sr = 24000
 
         # A MP3 (lo que consume el dashboard estático), vía ffmpeg por stdin.

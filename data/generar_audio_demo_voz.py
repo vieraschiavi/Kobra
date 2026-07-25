@@ -119,10 +119,16 @@ def generar(voice_id_gestor: str | None = None, voice_id_cliente: str | None = N
     for i, turno in enumerate(turnos):
         voice_id = voice_id_gestor if turno["who"] == "ia" else voice_id_cliente
         if nombre_motor == "local":
+            # El GESTOR habla con la voz clonada del video (es la voz de la
+            # marca); el CLIENTE con la voz propia del modelo, para que se
+            # distingan. Con la misma voz en ambos roles, la llamada suena a
+            # una persona hablando sola.
             # El idioma va explícito: con el modelo multilingüe define la
             # pronunciación. Pasarle español a un modelo cargado en inglés
             # produce fonética inglesa sobre texto castellano.
-            res = mod.sintetizar(turno["text"], referencia=referencia, idioma=idioma)
+            from kobra import voz_clon_local as _kl
+            ref_turno = referencia if turno["who"] == "ia" else _kl.SIN_CLONAR
+            res = mod.sintetizar(turno["text"], referencia=ref_turno, idioma=idioma)
         else:
             res = mod.sintetizar(turno["text"], voice_id, api_key=api_key,
                                  modelo=ktts.MODELO_LLAMADAS)
