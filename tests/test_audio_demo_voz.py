@@ -104,6 +104,48 @@ def test_el_generador_pasa_el_idioma_al_motor_local(monkeypatch):
     assert vistos and set(vistos) == {"pt"}
 
 
+def test_gestor_y_cliente_no_usan_la_misma_voz(monkeypatch):
+    """Regresión: los dos roles se sintetizaban con la misma muestra clonada,
+    así que la 'llamada' era una sola persona hablando sola — y el cliente,
+    que en el guion es Juan Pérez (varón), sonaba con la voz femenina de la
+    locución oficial. Cada rol tiene que recibir una referencia distinta."""
+    from kobra import voz_clon_local as klocal
+    refs = {}
+
+    def fake_sint(texto, referencia=None, idioma="es", **kw):
+        refs[texto] = referencia
+        return {"ok": True, "audio": b"X", "caracteres": len(texto),
+                "costo_est_usd": 0.0, "error": None}
+
+    monkeypatch.setattr(klocal, "motor_disponible", lambda: "chatterbox")
+    monkeypatch.setattr(klocal, "sintetizar", fake_sint)
+    monkeypatch.setattr(klocal, "referencia_grave",
+                        lambda origen=None, factor=0.74: "/ref/grave.wav")
+    with tempfile.TemporaryDirectory() as tmp:
+        gav.generar(out_dir=tmp, referencia="/ref/oficial.wav")
+
+    turnos = gav.leer_guion()
+    por_rol = {t["who"]: refs[t["text"]] for t in turnos}
+    assert por_rol["ia"] == "/ref/oficial.wav"
+    assert por_rol["cliente"] == "/ref/grave.wav"
+    assert por_rol["ia"] != por_rol["cliente"]
+    # Y todos los turnos del cliente comparten esa voz (no una por turno).
+    del_cliente = {refs[t["text"]] for t in turnos if t["who"] == "cliente"}
+    assert del_cliente == {"/ref/grave.wav"}
+
+
+def test_referencia_grave_baja_el_tono_de_la_muestra():
+    """La voz del cliente sale de la misma locución bajada de tono: `asetrate`
+    baja tono y formantes juntos (eso es lo que la vuelve masculina) y
+    `atempo` devuelve la duración original — sin él quedaría en cámara lenta."""
+    import inspect
+    from kobra import voz_clon_local as klocal
+    fuente = inspect.getsource(klocal.referencia_grave)
+    assert "asetrate" in fuente and "atempo" in fuente
+    # El centinela no es una ruta: no se puede usar como origen del ffmpeg.
+    assert "is not SIN_CLONAR" in fuente
+
+
 def test_parte_el_texto_en_frases_manejables():
     """Regresión: una frase de 112 caracteres tumbaba el proceso entero
     (crash duro, no excepción) al sintetizarla de una. Se parte por fin de

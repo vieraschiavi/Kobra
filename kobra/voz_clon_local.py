@@ -73,6 +73,39 @@ def _referencia_wav(referencia: str | None) -> str | None:
     return destino
 
 
+def referencia_grave(origen: str | None = None, factor: float = 0.74) -> str:
+    """Deriva una muestra de voz MASCULINA a partir de otra, bajándole el tono.
+
+    La locución del video oficial es de mujer, y en el guion de la demo el
+    cliente es "Juan Pérez". Clonar la misma muestra para los dos roles deja
+    una llamada donde gestor y cliente son la misma persona y encima el varón
+    suena a mujer — que es exactamente lo que se reportó.
+
+    `asetrate` baja tono *y* formantes a la vez (equivale a un tracto vocal más
+    largo, que es lo que distingue una voz masculina de una femenina) y
+    `atempo` devuelve la duración original. Con factor 0.74 la referencia pasa
+    de ~180 Hz a ~130 Hz, y la voz clonada a partir de ella queda en ~92 Hz:
+    rango masculino sin ambigüedad (hombre 85-165 Hz, mujer 165-255 Hz).
+
+    Devuelve la ruta del WAV derivado (cacheado por factor: convertir cuesta).
+    """
+    import subprocess
+    import tempfile
+    src = origen if (origen and origen is not SIN_CLONAR) else REFERENCIA_DEFAULT
+    if not os.path.exists(src):
+        raise FileNotFoundError(f"No encuentro la muestra de voz: {src}")
+    marca = os.path.splitext(os.path.basename(src))[0][:40]
+    destino = os.path.join(tempfile.gettempdir(),
+                           f"kobra_ref_grave_{marca}_{int(factor * 100)}.wav")
+    if os.path.exists(destino):
+        return destino
+    subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", src, "-af",
+         f"asetrate=24000*{factor},aresample=24000,atempo={1 / factor:.6f}",
+         "-vn", "-ac", "1", "-ar", "24000", destino], check=True)
+    return destino
+
+
 def _cargar(nombre: str):
     """Carga el modelo (caro: segundos) y lo cachea.
 
