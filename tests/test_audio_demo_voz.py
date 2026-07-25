@@ -175,7 +175,15 @@ def test_build_demo_bundlea_audio_premium_cuando_hay_key(monkeypatch):
     # pondría a sintetizar de verdad: minutos por frase.
     monkeypatch.setenv("KOBRA_TTS_MOTOR", "elevenlabs")
 
+    import shutil
     audio_dir = os.path.join(ROOT, "dashboard_estatico", "audio_demo")
+    # build_demo() regenera el audio en el árbol de trabajo (es lo que hace un
+    # build de verdad). Si ya había audio generado a mano — que cuesta minutos
+    # de CPU — el test lo borraría. Se guarda aparte y se restaura al final.
+    respaldo = None
+    if os.path.isdir(audio_dir):
+        respaldo = tempfile.mkdtemp()
+        shutil.copytree(audio_dir, os.path.join(respaldo, "audio_demo"))
     with tempfile.TemporaryDirectory() as tmp:
         try:
             z = br.build_demo(tmp)
@@ -185,6 +193,8 @@ def test_build_demo_bundlea_audio_premium_cuando_hay_key(monkeypatch):
                 assert "dashboard/audio_demo/manifest.js" in nombres
                 assert "dashboard/audio_demo/turno_00.mp3" in nombres
         finally:
-            import shutil
             shutil.rmtree(audio_dir, ignore_errors=True)
             shutil.rmtree(os.path.join(ROOT, "dist"), ignore_errors=True)
+            if respaldo:
+                shutil.copytree(os.path.join(respaldo, "audio_demo"), audio_dir)
+                shutil.rmtree(respaldo, ignore_errors=True)
