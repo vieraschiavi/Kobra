@@ -73,6 +73,45 @@ def _referencia_wav(referencia: str | None) -> str | None:
     return destino
 
 
+def referencia_grave(origen: str | None = None, factor: float = 0.72) -> str:
+    """Deriva una muestra de voz MASCULINA a partir de otra, bajándole el tono.
+
+    La locución del video oficial es de mujer, y en el guion de la demo el
+    cliente es "Juan Pérez". Clonar la misma muestra para los dos roles deja
+    una llamada donde gestor y cliente son la misma persona y encima el varón
+    suena a mujer — que es exactamente lo que se reportó.
+
+    `asetrate` baja tono *y* formantes a la vez (equivale a un tracto vocal más
+    largo, que es lo que distingue una voz masculina de una femenina) y
+    `atempo` devuelve la duración original. Con factor 0.72 la referencia pasa
+    de ~186 Hz a ~134 Hz: rango masculino (hombre 85-165 Hz, mujer 165-255 Hz).
+
+    OJO: `asetrate` es relativo al sample rate de ENTRADA, no a un valor fijo.
+    El material de origen está a 44,1 kHz, así que hay que remuestrear a 24 kHz
+    ANTES de aplicarlo — si no, el factor efectivo es (24000·f)/44100 y la voz
+    se va muchísimo más grave de lo pedido (con f=0.74 daba 0.40: 77 Hz, una
+    voz de bajo antinatural que además desestabilizaba al clonador).
+
+    Devuelve la ruta del WAV derivado (cacheado por factor: convertir cuesta).
+    """
+    import subprocess
+    import tempfile
+    src = origen if (origen and origen is not SIN_CLONAR) else REFERENCIA_DEFAULT
+    if not os.path.exists(src):
+        raise FileNotFoundError(f"No encuentro la muestra de voz: {src}")
+    marca = os.path.splitext(os.path.basename(src))[0][:40]
+    destino = os.path.join(tempfile.gettempdir(),
+                           f"kobra_ref_grave_{marca}_{int(factor * 100)}.wav")
+    if os.path.exists(destino):
+        return destino
+    subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", src, "-af",
+         f"aresample=24000,asetrate=24000*{factor},"
+         f"aresample=24000,atempo={1 / factor:.6f}",
+         "-vn", "-ac", "1", "-ar", "24000", destino], check=True)
+    return destino
+
+
 def _cargar(nombre: str):
     """Carga el modelo (caro: segundos) y lo cachea.
 
@@ -91,6 +130,53 @@ def _cargar(nombre: str):
         _MOTOR = CoquiTTS("tts_models/multilingual/multi-dataset/xtts_v2")
     _MOTOR_NOMBRE = nombre
     return _MOTOR
+
+
+def _partir_en_frases(texto: str, max_chars: int = 90) -> list[str]:
+    """Parte el texto en frases de a lo sumo `max_chars`.
+
+    Dos motivos: (1) el modelo se degrada con entradas largas — pierde prosodia
+    y a veces se traba repitiendo; (2) el pico de memoria crece con el largo, y
+    una frase larga puede tumbar el proceso entero en una máquina sin GPU.
+    Se corta por fin de oración, y si una oración sigue siendo enorme, por coma.
+    """
+    import re
+    frases, actual = [], ""
+    for parte in re.split(r"(?<=[.!?…])\s+", (texto or "").strip()):
+        if not parte:
+            continue
+        if len(actual) + len(parte) + 1 <= max_chars:
+            actual = f"{actual} {parte}".strip()
+            continue
+        if actual:
+            frases.append(actual)
+        if len(parte) <= max_chars:
+            actual = parte
+            continue
+        # Oración sola más larga que el tope: cortar por comas.
+        actual = ""
+        for trozo in re.split(r"(?<=,)\s+", parte):
+            if len(actual) + len(trozo) + 1 <= max_chars:
+                actual = f"{actual} {trozo}".strip()
+            else:
+                if actual:
+                    frases.append(actual)
+                actual = trozo
+    if actual:
+        frases.append(actual)
+    return frases or [texto]
+
+
+def _toma_creible(muestras: int, sr: int, texto: str) -> bool:
+    """¿La duración del audio se corresponde con el texto que se pidió?
+
+    El modelo a veces se traba repitiendo: 'Sí, confirmo.' (13 caracteres)
+    salió una vez como 4,4 segundos de audio. El síntoma es siempre el mismo —
+    dura mucho más de lo que el texto justifica. El castellano hablado va a
+    ~14 caracteres por segundo; se deja el doble de margen más 1,5 s de colchón
+    para frases muy cortas, así que solo se descartan tomas claramente rotas.
+    """
+    return muestras / float(sr or 1) <= len(texto) / 14.0 * 2.0 + 1.5
 
 
 def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = None,
@@ -122,18 +208,33 @@ def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = No
         ref = _referencia_wav(referencia)
         motor = _cargar(nombre)
 
-        if nombre == "chatterbox":
-            # exaggeration bajo y cfg_weight algo alto = lectura sobria, sin
-            # sobreactuar: es una llamada de cobranza, no un audiolibro.
-            wav = motor.generate(texto, language_id=idioma,
-                                 **({"audio_prompt_path": ref} if ref else {}),
-                                 exaggeration=0.4, cfg_weight=0.6, temperature=0.7)
-            audio = wav.squeeze(0).cpu().numpy() if hasattr(wav, "cpu") else np.asarray(wav)
-            sr = motor.sr
-        else:
-            audio = np.asarray(motor.tts(text=texto, speaker_wav=ref, language=idioma)
-                               if ref else motor.tts(text=texto, language=idioma))
-            sr = 24000
+        # Se sintetiza frase por frase y se concatena: entradas cortas dan
+        # mejor prosodia y evitan el pico de memoria que puede tumbar el
+        # proceso en una máquina sin GPU.
+        trozos, sr = [], 24000
+        for frase in _partir_en_frases(texto):
+            # Si la toma sale trabada (el modelo repitiendo), se reintenta:
+            # es no determinístico, así que otra pasada suele salir limpia.
+            # Se queda con la última si ninguna convence — audio imperfecto es
+            # mejor que ningún audio, y el turno igual queda utilizable.
+            for intento in range(3):
+                if nombre == "chatterbox":
+                    # exaggeration bajo y cfg_weight algo alto = lectura sobria,
+                    # sin sobreactuar: es una llamada de cobranza, no un audiolibro.
+                    wav = motor.generate(frase, language_id=idioma,
+                                         **({"audio_prompt_path": ref} if ref else {}),
+                                         exaggeration=0.4, cfg_weight=0.6, temperature=0.7)
+                    trozo = wav.squeeze(0).cpu().numpy() if hasattr(wav, "cpu") else np.asarray(wav)
+                    sr = motor.sr
+                else:
+                    trozo = np.asarray(motor.tts(text=frase, speaker_wav=ref, language=idioma)
+                                       if ref else motor.tts(text=frase, language=idioma))
+                if _toma_creible(len(np.ravel(trozo)), sr, frase):
+                    break
+            trozos.append(np.asarray(trozo, dtype=np.float32))
+            # Respiro corto entre frases: sin esto se atropellan al unirlas.
+            trozos.append(np.zeros(int(sr * 0.18), dtype=np.float32))
+        audio = np.concatenate(trozos[:-1]) if len(trozos) > 1 else trozos[0]
 
         # A MP3 (lo que consume el dashboard estático), vía ffmpeg por stdin.
         buf = io.BytesIO()

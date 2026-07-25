@@ -104,6 +104,92 @@ def test_el_generador_pasa_el_idioma_al_motor_local(monkeypatch):
     assert vistos and set(vistos) == {"pt"}
 
 
+def test_gestor_y_cliente_no_usan_la_misma_voz(monkeypatch):
+    """Regresión: los dos roles se sintetizaban con la misma muestra clonada,
+    así que la 'llamada' era una sola persona hablando sola — y el cliente,
+    que en el guion es Juan Pérez (varón), sonaba con la voz femenina de la
+    locución oficial. Cada rol tiene que recibir una referencia distinta."""
+    from kobra import voz_clon_local as klocal
+    refs = {}
+
+    def fake_sint(texto, referencia=None, idioma="es", **kw):
+        refs[texto] = referencia
+        return {"ok": True, "audio": b"X", "caracteres": len(texto),
+                "costo_est_usd": 0.0, "error": None}
+
+    monkeypatch.setattr(klocal, "motor_disponible", lambda: "chatterbox")
+    monkeypatch.setattr(klocal, "sintetizar", fake_sint)
+    monkeypatch.setattr(klocal, "referencia_grave",
+                        lambda origen=None, factor=0.74: "/ref/grave.wav")
+    with tempfile.TemporaryDirectory() as tmp:
+        gav.generar(out_dir=tmp, referencia="/ref/oficial.wav")
+
+    turnos = gav.leer_guion()
+    por_rol = {t["who"]: refs[t["text"]] for t in turnos}
+    assert por_rol["ia"] == "/ref/oficial.wav"
+    assert por_rol["cliente"] == "/ref/grave.wav"
+    assert por_rol["ia"] != por_rol["cliente"]
+    # Y todos los turnos del cliente comparten esa voz (no una por turno).
+    del_cliente = {refs[t["text"]] for t in turnos if t["who"] == "cliente"}
+    assert del_cliente == {"/ref/grave.wav"}
+
+
+def test_referencia_grave_baja_el_tono_de_la_muestra():
+    """La voz del cliente sale de la misma locución bajada de tono: `asetrate`
+    baja tono y formantes juntos (eso es lo que la vuelve masculina) y
+    `atempo` devuelve la duración original — sin él quedaría en cámara lenta."""
+    import inspect
+    from kobra import voz_clon_local as klocal
+    fuente = inspect.getsource(klocal.referencia_grave)
+    assert "asetrate" in fuente and "atempo" in fuente
+    # Regresión: asetrate es relativo al sample rate de ENTRADA. El material
+    # de origen está a 44,1 kHz, así que sin remuestrear ANTES el factor
+    # efectivo era (24000·f)/44100 — la voz salía muchísimo más grave de lo
+    # pedido. El aresample tiene que ir antes del asetrate.
+    assert "aresample=24000,asetrate=24000*{factor}" in fuente
+    # El centinela no es una ruta: no se puede usar como origen del ffmpeg.
+    assert "is not SIN_CLONAR" in fuente
+
+
+def test_parte_el_texto_en_frases_manejables():
+    """Regresión: una frase de 112 caracteres tumbaba el proceso entero
+    (crash duro, no excepción) al sintetizarla de una. Se parte por fin de
+    oración, y por coma si una oración sola sigue siendo muy larga."""
+    from kobra import voz_clon_local as klocal
+    tope = 90
+
+    culpable = ("Excelente. Quedó registrado el acuerdo de pago en 3 cuotas. "
+                "Muchas gracias por su tiempo, que tenga un buen día.")
+    partes = klocal._partir_en_frases(culpable, tope)
+    assert len(partes) > 1
+    assert all(len(p) <= tope for p in partes)
+
+    # Una sola oración larguísima se corta por comas, no queda entera.
+    larga = ("Puedo ofrecerle cancelar hoy con un 5% de descuento, quedando en "
+             "5.700 pesos, o dividirlo en 3 cuotas de 1.900 pesos sin recargo.")
+    assert all(len(p) <= tope for p in klocal._partir_en_frases(larga, tope))
+
+    # No se pierde ni se duplica texto: las partes reconstruyen el original.
+    assert " ".join(klocal._partir_en_frases(culpable, tope)) == culpable
+    # Texto corto queda tal cual, en una sola parte.
+    assert klocal._partir_en_frases("Sí, soy yo.", tope) == ["Sí, soy yo."]
+
+
+def test_descarta_la_toma_donde_el_modelo_se_traba_repitiendo():
+    """Regresión: 'Sí, confirmo.' (13 caracteres) salió como 4,4 s de audio —
+    el modelo se trabó repitiendo y ese turno quedó inservible en la demo. El
+    largo del audio tiene que ser coherente con el del texto."""
+    from kobra import voz_clon_local as klocal
+    sr = 24000
+    assert klocal._toma_creible(int(sr * 1.2), sr, "Sí, confirmo.") is True
+    assert klocal._toma_creible(int(sr * 4.4), sr, "Sí, confirmo.") is False
+    # Una frase larga sí puede durar varios segundos: el tope es proporcional.
+    larga = "Lo contacto por un saldo pendiente de 6.000 pesos con más de 60 días."
+    assert klocal._toma_creible(int(sr * 7.0), sr, larga) is True
+    # Y no divide por cero si el motor devuelve un sample rate raro.
+    assert klocal._toma_creible(0, 0, "hola") is True
+
+
 def test_motor_local_sin_dependencias_no_rompe(monkeypatch):
     """Si no hay motor instalado, sintetizar devuelve ok=False con el motivo,
     nunca una excepción que corte el build."""

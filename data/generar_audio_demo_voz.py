@@ -93,15 +93,18 @@ def elegir_motor(api_key: str | None = None, voice_id_gestor: str | None = None,
 def generar(voice_id_gestor: str | None = None, voice_id_cliente: str | None = None,
            api_key: str | None = None, out_dir: str | None = None,
            referencia: str | None = None, motor: str | None = None,
-           idioma: str = "es") -> dict:
+           idioma: str = "es", referencia_cliente: str | None = None) -> dict:
     """Sintetiza cada turno del guion con la voz del video y guarda los MP3 +
     manifest.js en `out_dir` (default: dashboard_estatico/audio_demo).
 
     Usa el clonador LOCAL si está instalado (gratis, sin mandar datos afuera) y
-    cae a ElevenLabs si no. `referencia` es el clip de voz a imitar; por defecto
-    la locución del video oficial. Devuelve {generados, omitidos, costo_est_usd,
-    motor}. Si no hay ningún motor, no genera nada y el demo sigue con la voz
-    del navegador — nunca rompe el build."""
+    cae a ElevenLabs si no. `referencia` es el clip de voz a imitar por el
+    GESTOR; por defecto la locución del video oficial. `referencia_cliente` es
+    la del CLIENTE; por defecto una versión grave de la misma muestra, porque
+    el cliente del guion es varón ("Juan Pérez") y la locución oficial es de
+    mujer. Devuelve {generados, omitidos, costo_est_usd, motor}. Si no hay
+    ningún motor, no genera nada y el demo sigue con la voz del navegador —
+    nunca rompe el build."""
     mod, nombre_motor, detalle = elegir_motor(api_key, voice_id_gestor, motor)
     if mod is None:
         return {"generados": 0, "omitidos": 0, "costo_est_usd": 0.0,
@@ -120,14 +123,17 @@ def generar(voice_id_gestor: str | None = None, voice_id_cliente: str | None = N
         voice_id = voice_id_gestor if turno["who"] == "ia" else voice_id_cliente
         if nombre_motor == "local":
             # El GESTOR habla con la voz clonada del video (es la voz de la
-            # marca); el CLIENTE con la voz propia del modelo, para que se
-            # distingan. Con la misma voz en ambos roles, la llamada suena a
-            # una persona hablando sola.
+            # marca); el CLIENTE con una voz masculina distinta. Con la misma
+            # voz en ambos roles la llamada suena a una persona hablando sola,
+            # y encima "Juan Pérez" quedaba con voz de mujer.
             # El idioma va explícito: con el modelo multilingüe define la
             # pronunciación. Pasarle español a un modelo cargado en inglés
             # produce fonética inglesa sobre texto castellano.
             from kobra import voz_clon_local as _kl
-            ref_turno = referencia if turno["who"] == "ia" else _kl.SIN_CLONAR
+            if turno["who"] == "ia":
+                ref_turno = referencia
+            else:
+                ref_turno = referencia_cliente or _kl.referencia_grave(referencia)
             res = mod.sintetizar(turno["text"], referencia=ref_turno, idioma=idioma)
         else:
             res = mod.sintetizar(turno["text"], voice_id, api_key=api_key,
