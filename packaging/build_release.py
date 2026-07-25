@@ -114,13 +114,14 @@ def _sha256(path):
 # Paquete DEMO
 # ---------------------------------------------------------------------------
 def _prerenderizar_voz_demo():
-    """Si hay ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID_GESTOR en el entorno de
-    build, sintetiza el chatvoice de la demo con la MISMA voz premium del
-    producto real (la que se ve en el video de marketing) y la deja lista en
-    `dashboard_estatico/audio_demo/` para que _copy() la incluya en el ZIP.
-    Se limpia primero para no arrastrar audio de un guion viejo. Sin esa key,
-    no hace nada — el demo sigue con la voz del navegador (comportamiento
-    previo, nunca rompe el build)."""
+    """Sintetiza el chatvoice de la demo con la voz del video oficial y lo deja
+    en `dashboard_estatico/audio_demo/` para que _copy() lo incluya en el ZIP.
+
+    Usa el clonador LOCAL si está instalado (gratis, sin mandar la voz a un
+    tercero) y cae a ElevenLabs solo si no hay local y hay API key. Si no hay
+    ningún motor, no hace nada: el demo sigue con la voz del navegador y el
+    build no se corta. Se limpia primero para no arrastrar audio de un guion
+    viejo."""
     audio_dir = os.path.join(ROOT, "dashboard_estatico", "audio_demo")
     shutil.rmtree(audio_dir, ignore_errors=True)
     import sys as _sys
@@ -129,10 +130,12 @@ def _prerenderizar_voz_demo():
     from data import generar_audio_demo_voz as gav
     r = gav.generar()
     if r["generados"]:
-        print(f"[OK] Voz premium del demo: {r['generados']} audio(s) "
-              f"(costo est. USD {r['costo_est_usd']}).")
+        costo = (f"costo est. USD {r['costo_est_usd']}" if r.get("motor") == "elevenlabs"
+                 else "sin costo")
+        print(f"[OK] Voz del demo ({r.get('detalle_motor', '')}): "
+              f"{r['generados']} audio(s), {costo}.")
     else:
-        print(f"[SKIP] Voz premium del demo: {r.get('motivo', 'sin generar')}")
+        print(f"[SKIP] Voz del demo: {r.get('motivo', 'sin generar')}")
 
 
 def build_demo(tmp):

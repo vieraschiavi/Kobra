@@ -49,30 +49,79 @@ def leer_guion(html_path: str | None = None) -> list[dict]:
     return turnos
 
 
-def generar(voice_id_gestor: str | None = None, voice_id_cliente: str | None = None,
-           api_key: str | None = None, out_dir: str | None = None) -> dict:
-    """Sintetiza cada turno del guion con la voz premium (ElevenLabs) y guarda
-    los MP3 + manifest.js en `out_dir` (default: dashboard_estatico/audio_demo).
-    Devuelve un resumen {generados, omitidos, costo_est_usd}. Si falta la key
-    o el voice_id del gestor, no genera nada (demo sigue con voz de navegador)."""
+def elegir_motor(api_key: str | None = None, voice_id_gestor: str | None = None,
+                 forzar: str | None = None):
+    """Decide con qué motor sintetizar. Prioridad:
+
+      1. `forzar` / KOBRA_TTS_MOTOR ('local' | 'elevenlabs'), si se pide explícito.
+      2. Clonado LOCAL si hay un motor instalado — es gratis y no manda datos afuera.
+      3. ElevenLabs si hay API key y voice_id.
+
+    Devuelve (modulo, nombre, detalle) o (None, '', motivo) si no hay ninguno.
+    """
+    from kobra import voz_clon_local as klocal
     from kobra import voz_tts as ktts
 
+    forzar = (forzar or os.getenv("KOBRA_TTS_MOTOR", "")).strip().lower()
+    local = klocal.motor_disponible()
+    key = ktts.api_key_configurada(api_key)
+    vid = voice_id_gestor or os.getenv("ELEVENLABS_VOICE_ID_GESTOR", "")
+
+    if forzar == "local":
+        # Pedido explícito de motor gratuito: si no está, se avisa y no se
+        # genera. Caer a ElevenLabs acá le costaría plata a alguien que pidió
+        # justamente lo contrario.
+        if local:
+            return klocal, "local", f"clonado local · {local} · sin costo"
+        return None, "", ("Se pidió el clonador LOCAL pero no hay ninguno instalado "
+                          "(pip install chatterbox-tts). No se usa ElevenLabs porque "
+                          "tiene costo y no fue lo que se pidió.")
+    if forzar == "elevenlabs":
+        if key and vid:
+            return ktts, "elevenlabs", "ElevenLabs (con costo por carácter)"
+        return None, "", "Se pidió ElevenLabs pero falta ELEVENLABS_API_KEY o el voice_id."
+    # Sin preferencia explícita: primero lo gratuito, después lo pago.
+    if local:
+        return klocal, "local", f"clonado local · {local} · sin costo"
+    if key and vid:
+        return ktts, "elevenlabs", "ElevenLabs (con costo por carácter)"
+    return None, "", ("No hay motor de voz disponible: instalá el clonador local "
+                      "(pip install chatterbox-tts) o configurá ELEVENLABS_API_KEY "
+                      "+ ELEVENLABS_VOICE_ID_GESTOR.")
+
+
+def generar(voice_id_gestor: str | None = None, voice_id_cliente: str | None = None,
+           api_key: str | None = None, out_dir: str | None = None,
+           referencia: str | None = None, motor: str | None = None) -> dict:
+    """Sintetiza cada turno del guion con la voz del video y guarda los MP3 +
+    manifest.js en `out_dir` (default: dashboard_estatico/audio_demo).
+
+    Usa el clonador LOCAL si está instalado (gratis, sin mandar datos afuera) y
+    cae a ElevenLabs si no. `referencia` es el clip de voz a imitar; por defecto
+    la locución del video oficial. Devuelve {generados, omitidos, costo_est_usd,
+    motor}. Si no hay ningún motor, no genera nada y el demo sigue con la voz
+    del navegador — nunca rompe el build."""
+    mod, nombre_motor, detalle = elegir_motor(api_key, voice_id_gestor, motor)
+    if mod is None:
+        return {"generados": 0, "omitidos": 0, "costo_est_usd": 0.0,
+                "motor": "", "motivo": detalle}
+
+    from kobra import voz_tts as ktts
     api_key = ktts.api_key_configurada(api_key)
     voice_id_gestor = voice_id_gestor or os.getenv("ELEVENLABS_VOICE_ID_GESTOR", "")
     voice_id_cliente = voice_id_cliente or os.getenv("ELEVENLABS_VOICE_ID_CLIENTE", "") or voice_id_gestor
     out_dir = out_dir or AUDIO_DIR
-    if not api_key or not voice_id_gestor:
-        return {"generados": 0, "omitidos": 0, "costo_est_usd": 0.0,
-                "motivo": "Falta ELEVENLABS_API_KEY o ELEVENLABS_VOICE_ID_GESTOR — "
-                         "se omite el pre-render (el demo usa la voz del navegador)."}
 
     turnos = leer_guion()
     os.makedirs(out_dir, exist_ok=True)
     manifest, costo_total, generados, omitidos = [], 0.0, 0, 0
     for i, turno in enumerate(turnos):
         voice_id = voice_id_gestor if turno["who"] == "ia" else voice_id_cliente
-        res = ktts.sintetizar(turno["text"], voice_id, api_key=api_key,
-                              modelo=ktts.MODELO_LLAMADAS)
+        if nombre_motor == "local":
+            res = mod.sintetizar(turno["text"], referencia=referencia)
+        else:
+            res = mod.sintetizar(turno["text"], voice_id, api_key=api_key,
+                                 modelo=ktts.MODELO_LLAMADAS)
         entrada = {"i": i, "who": turno["who"], "archivo": None}
         if res["ok"]:
             nombre = f"turno_{i:02d}.mp3"
@@ -90,12 +139,14 @@ def generar(voice_id_gestor: str | None = None, voice_id_cliente: str | None = N
                 "window.AUDIO_DEMO_MANIFEST = " + json.dumps(manifest, ensure_ascii=False) + ";\n")
 
     return {"generados": generados, "omitidos": omitidos,
-            "costo_est_usd": round(costo_total, 4)}
+            "costo_est_usd": round(costo_total, 4),
+            "motor": nombre_motor, "detalle_motor": detalle}
 
 
 if __name__ == "__main__":
     r = generar()
     if r["generados"]:
+        print(f"[{r.get('detalle_motor', '')}]")
         print(f"[OK] {r['generados']} audio(s) premium generados en "
               f"dashboard_estatico/audio_demo/ (costo est. USD {r['costo_est_usd']}).")
         if r["omitidos"]:

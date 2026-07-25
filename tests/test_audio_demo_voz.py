@@ -31,10 +31,54 @@ def test_leer_guion_extrae_el_call_script_real():
     assert quienes == {"ia", "cliente"}
 
 
-def test_sin_api_key_no_genera_nada_y_no_rompe():
+def test_sin_api_key_no_genera_nada_y_no_rompe(monkeypatch):
+    from kobra import voz_clon_local as klocal
+    monkeypatch.setattr(klocal, "motor_disponible", lambda: "")
     r = gav.generar(api_key="", voice_id_gestor="")
     assert r["generados"] == 0 and r["omitidos"] == 0
     assert "motivo" in r
+
+
+# --- elección de motor: gratis primero, y nunca gastar sin permiso ----------
+_K = "k" * 20
+
+
+def _elegir(monkeypatch, local, key="", vid="", forzar=None):
+    from kobra import voz_clon_local as klocal
+    for v in ("KOBRA_TTS_MOTOR", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID_GESTOR"):
+        monkeypatch.delenv(v, raising=False)
+    monkeypatch.setattr(klocal, "motor_disponible", lambda: local)
+    return gav.elegir_motor(api_key=key, voice_id_gestor=vid, forzar=forzar)[1]
+
+
+def test_prefiere_el_clonador_local_gratuito(monkeypatch):
+    """Con ambos disponibles gana el local: es gratis y no manda la voz afuera."""
+    assert _elegir(monkeypatch, "chatterbox", _K, "vid") == "local"
+    assert _elegir(monkeypatch, "chatterbox") == "local"
+
+
+def test_cae_a_elevenlabs_solo_si_no_hay_local(monkeypatch):
+    assert _elegir(monkeypatch, "", _K, "vid") == "elevenlabs"
+    assert _elegir(monkeypatch, "") == ""
+
+
+def test_forzar_local_sin_motor_no_gasta_en_elevenlabs(monkeypatch):
+    """Regresión: forzar 'local' es pedir explícitamente NO gastar. Caer al
+    motor pago en ese caso le costaría plata a alguien que pidió lo contrario."""
+    assert _elegir(monkeypatch, "", _K, "vid", forzar="local") == ""
+
+
+def test_forzar_elevenlabs_lo_respeta(monkeypatch):
+    assert _elegir(monkeypatch, "chatterbox", _K, "vid", forzar="elevenlabs") == "elevenlabs"
+
+
+def test_motor_local_sin_dependencias_no_rompe(monkeypatch):
+    """Si no hay motor instalado, sintetizar devuelve ok=False con el motivo,
+    nunca una excepción que corte el build."""
+    from kobra import voz_clon_local as klocal
+    monkeypatch.setattr(klocal, "motor_disponible", lambda: "")
+    r = klocal.sintetizar("hola")
+    assert r["ok"] is False and r["costo_est_usd"] == 0.0 and r["error"]
 
 
 def test_con_key_genera_mp3_y_manifest_para_cada_turno(monkeypatch):
