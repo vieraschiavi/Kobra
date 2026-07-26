@@ -121,6 +121,24 @@ BANNERS = [
         "recorte": 0.20,
     },
     {
+        # Tarjeta de previsualización al compartir el link (Open Graph /
+        # Twitter Card). 1200×630 es el tamaño que esperan LinkedIn, X,
+        # WhatsApp y Facebook; no es el mismo que la imagen destacada del
+        # feed de LinkedIn (1200×627), así que va como pieza aparte.
+        "id": "og_card",
+        "titulo": "Tarjeta de previsualización al compartir (Open Graph)",
+        "ancho": 1200, "alto": 630,
+        "layout": "split",
+        "eyebrow": "ProbPago · Agente IA · Copiloto",
+        "headline": "Cobranzas <b>inteligentes</b>.",
+        "sub": "Predicción de pago, agente negociador y control de calidad "
+               "de cada gestión.",
+        "cta": False,
+        "chips": [],
+        "captura": "dashboard_overview.png",
+        "recorte": 0.20,
+    },
+    {
         "id": "mail_header",
         "titulo": "Cabecera de mail corporativo",
         "ancho": 1200, "alto": 420,

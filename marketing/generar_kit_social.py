@@ -382,8 +382,12 @@ def revisar_contenido(texto: str) -> list[str]:
 # --------------------------------------------------------------------------
 # Render
 # --------------------------------------------------------------------------
-def renderizar(out_dir: str, fuente: str | None = None) -> list[dict]:
+def renderizar(out_dir: str, fuente: str | None = None,
+               solo: set[str] | None = None) -> list[dict]:
     """Renderiza cada banner a PNG en tamaño real y lo valida.
+
+    `solo` limita el render a esos ids (levantar el navegador para una sola
+    pieza es mucho más rápido que rehacer las seis).
 
     Devuelve una lista de {id, archivo, ancho, alto, problemas}. Un banner con
     problemas se guarda igual (sirve para ver qué salió mal) pero se reporta,
@@ -407,6 +411,8 @@ def renderizar(out_dir: str, fuente: str | None = None) -> list[dict]:
         navegador = p.chromium.launch(
             **({"executable_path": ejecutable} if ejecutable else {}))
         for b in K.BANNERS:
+            if solo and b["id"] not in solo:
+                continue
             page = navegador.new_page(
                 viewport={"width": b["ancho"], "height": b["alto"]},
                 device_scale_factor=1)
@@ -522,13 +528,43 @@ def generar(out_dir: str | None = None, fuente: str | None = None) -> dict:
             "salida": out_dir}
 
 
+OG_DESTINO = os.path.join(ROOT, "landing", "og.png")
+
+
+def publicar_og(destino: str | None = None) -> str:
+    """Renderiza la tarjeta de previsualización y la deja en `landing/`.
+
+    A diferencia del resto del kit, este PNG **sí se versiona**: es un asset
+    servido por el sitio (`https://<dominio>/landing/og.png`), no material que
+    se baja a mano. Sin él, compartir el link en LinkedIn o WhatsApp no
+    muestra ninguna previsualización.
+    """
+    destino = destino or OG_DESTINO
+    banner = next(b for b in K.BANNERS if b["id"] == "og_card")
+    carpeta = os.path.dirname(destino)
+    os.makedirs(carpeta, exist_ok=True)
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        resultados = renderizar(tmp, solo={banner["id"]})
+        r = resultados[0]
+        if r["problemas"]:
+            raise RuntimeError(f"la tarjeta OG salió mal: {r['problemas']}")
+        shutil.copyfile(os.path.join(tmp, r["archivo"]), destino)
+    return destino
+
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--salida", default=SALIDA_DEFAULT)
+    ap.add_argument("--publicar-og", action="store_true",
+                    help="además, actualiza landing/og.png (asset versionado)")
     args = ap.parse_args(argv)
 
     r = generar(args.salida)
+    if args.publicar_og:
+        print(f"[OK] tarjeta OG actualizada: "
+              f"{os.path.relpath(publicar_og(), ROOT)}")
     for b in r["banners"]:
         estado = "OK " if not b["problemas"] else "MAL"
         print(f"[{estado}] {b['archivo']:44s} {b['titulo']}")
