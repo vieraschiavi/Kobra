@@ -7,7 +7,22 @@ empaqueta en ZIPs listos para publicar.
 pip3 install playwright pillow            # solo en la máquina que genera
 apt-get install -y fonts-inter            # tipografía del diseño
 python3 -m marketing.generar_kit_social
+python3 -m marketing.generar_kit_social --publicar-og   # + actualiza landing/og.png
 ```
+
+## La tarjeta de previsualización (`landing/og.png`)
+
+Es la única pieza que **se versiona en el repo**: no es material que alguien
+baja, es un asset que sirve el sitio. Las páginas públicas la referencian por
+URL absoluta en sus etiquetas Open Graph, y es lo que se ve cuando alguien
+comparte el link en LinkedIn, X o WhatsApp. Si cambia el diseño o la captura,
+hay que regenerarla con `--publicar-og` y commitear el PNG.
+
+Las tres páginas que la usan — `landing/index.html`, `landing/descarga.html` y
+`dashboard_estatico/index.html` — están cubiertas por
+`tests/test_meta_social.py`: si a alguna se le cae una etiqueta, si la imagen
+queda con una ruta relativa (que ningún scraper resuelve) o si el PNG deja de
+medir 1200×630, el test falla.
 
 Sale en `dist/social/` (ignorado por git — es material generado, se regenera
 cuando se necesita):
