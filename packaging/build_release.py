@@ -118,16 +118,24 @@ def _prerenderizar_voz_demo():
     en `dashboard_estatico/audio_demo/` para que _copy() lo incluya en el ZIP.
 
     Usa el clonador LOCAL si está instalado (gratis, sin mandar la voz a un
-    tercero) y cae a ElevenLabs solo si no hay local y hay API key. Si no hay
-    ningún motor, no hace nada: el demo sigue con la voz del navegador y el
-    build no se corta. Se limpia primero para no arrastrar audio de un guion
-    viejo."""
+    tercero) y cae a ElevenLabs solo si no hay local y hay API key.
+
+    El audio está versionado en el repo (lo sirve el sitio, no solo el ZIP), así
+    que **no se borra si no hay con qué regenerarlo**: en una máquina sin motor
+    de voz, limpiar primero dejaba el árbol de trabajo sin los MP3 y el paquete
+    sin voz, por un build que no tenía nada que ver. Cuando sí hay motor se
+    limpia, para no arrastrar audio de un guion viejo."""
     audio_dir = os.path.join(ROOT, "dashboard_estatico", "audio_demo")
-    shutil.rmtree(audio_dir, ignore_errors=True)
     import sys as _sys
     if ROOT not in _sys.path:
         _sys.path.insert(0, ROOT)
     from data import generar_audio_demo_voz as gav
+    modulo, _, motivo = gav.elegir_motor()
+    if modulo is None:
+        print(f"[SKIP] Voz del demo: {motivo} "
+              "(se conserva el audio ya versionado).")
+        return
+    shutil.rmtree(audio_dir, ignore_errors=True)
     # Los tres idiomas del producto: elegir portugués o inglés no cambiaba el
     # audio, que estaba pre-renderizado solo en castellano.
     resumen = gav.generar_todos()

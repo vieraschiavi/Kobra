@@ -39,7 +39,12 @@ scratchpad/
 
 # Voz premium del chatvoice de demo, pre-renderizada en build time con la key
 # de ElevenLabs de quien empaqueta (packaging/build_release.py) — nunca al repo.
-dashboard_estatico/audio_demo/
+# El audio pre-renderizado del chatvoice SI se versiona: lo sirve el sitio.
+# Estuvo ignorado y el demo hospedado nunca lo tuvo --- daba 404 y caia a la
+# voz robotica del navegador; los MP3 solo viajaban dentro del ZIP offline.
+# Son 1,4 MB los tres idiomas, y regenerarlos cuesta ~25 min de CPU por idioma
+# y tener instalado el clonador, asi que no es algo que se rehaga en cada clon.
+# (antes: dashboard_estatico/audio_demo/)
 
 # App de escritorio Electron (build local)
 electron/dist_installer/
