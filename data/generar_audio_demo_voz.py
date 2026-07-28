@@ -33,20 +33,34 @@ DASHBOARD = os.path.join(ROOT, "dashboard_estatico")
 AUDIO_DIR = os.path.join(DASHBOARD, "audio_demo")
 
 
-def leer_guion(html_path: str | None = None) -> list[dict]:
-    """Extrae el guion CALL_SCRIPT del HTML del demo (fuente única de verdad:
-    lo que se ve escrito en pantalla es lo mismo que se sintetiza en audio)."""
-    html_path = html_path or os.path.join(DASHBOARD, "index.html")
-    with open(html_path, encoding="utf-8") as f:
-        html = f.read()
-    m = re.search(r"var CALL_SCRIPT\s*=\s*(\[.*?\]);", html, re.S)
+IDIOMAS = ("es", "pt", "en")
+
+
+def leer_guiones(ruta: str | None = None) -> dict:
+    """Carga `dashboard_estatico/guiones.js` completo, con los tres idiomas.
+
+    Es la misma fuente que consume el navegador: lo que se ve escrito en
+    pantalla es exactamente lo que se sintetiza en audio, y no hay forma de que
+    se desincronicen."""
+    ruta = ruta or os.path.join(DASHBOARD, "guiones.js")
+    with open(ruta, encoding="utf-8") as f:
+        js = f.read()
+    # Anclado a principio de línea a propósito: el encabezado del archivo
+    # menciona el patrón `window.GUIONES = {...};` dentro de un comentario, y
+    # sin ancla la búsqueda lo engancha a él en vez de a la asignación real.
+    m = re.search(r"^window\.GUIONES\s*=\s*(\{.*?^\});", js, re.S | re.M)
     if not m:
-        raise ValueError("No encontré CALL_SCRIPT en dashboard_estatico/index.html")
-    bruto = m.group(1)
-    turnos = []
-    for who, text in re.findall(r"\{who:'(\w+)',text:'((?:[^'\\]|\\.)*)'\}", bruto):
-        turnos.append({"who": who, "text": text.replace("\\'", "'")})
-    return turnos
+        raise ValueError(f"No encontré window.GUIONES en {ruta}")
+    return json.loads(m.group(1))
+
+
+def leer_guion(idioma: str = "es", ruta: str | None = None) -> list[dict]:
+    """Los turnos de la llamada en un idioma."""
+    guiones = leer_guiones(ruta)
+    if idioma not in guiones:
+        raise ValueError(f"Idioma sin guion: {idioma!r} "
+                         f"(hay {', '.join(sorted(guiones))})")
+    return guiones[idioma]["llamada"]
 
 
 def elegir_motor(api_key: str | None = None, voice_id_gestor: str | None = None,
@@ -114,9 +128,10 @@ def generar(voice_id_gestor: str | None = None, voice_id_cliente: str | None = N
     api_key = ktts.api_key_configurada(api_key)
     voice_id_gestor = voice_id_gestor or os.getenv("ELEVENLABS_VOICE_ID_GESTOR", "")
     voice_id_cliente = voice_id_cliente or os.getenv("ELEVENLABS_VOICE_ID_CLIENTE", "") or voice_id_gestor
-    out_dir = out_dir or AUDIO_DIR
+    # Cada idioma en su carpeta: los MP3 se llaman igual y se pisarían.
+    out_dir = out_dir or os.path.join(AUDIO_DIR, idioma)
 
-    turnos = leer_guion()
+    turnos = leer_guion(idioma)
     os.makedirs(out_dir, exist_ok=True)
     manifest, costo_total, generados, omitidos = [], 0.0, 0, 0
     for i, turno in enumerate(turnos):
@@ -150,23 +165,62 @@ def generar(voice_id_gestor: str | None = None, voice_id_cliente: str | None = N
             omitidos += 1
         manifest.append(entrada)
 
-    with open(os.path.join(out_dir, "manifest.js"), "w", encoding="utf-8") as f:
-        f.write("// Generado por data/generar_audio_demo_voz.py — no editar a mano.\n"
-                "window.AUDIO_DEMO_MANIFEST = " + json.dumps(manifest, ensure_ascii=False) + ";\n")
-
     return {"generados": generados, "omitidos": omitidos,
-            "costo_est_usd": round(costo_total, 4),
+            "costo_est_usd": round(costo_total, 4), "idioma": idioma,
+            "manifest": manifest,
             "motor": nombre_motor, "detalle_motor": detalle}
 
 
+def escribir_manifest(por_idioma: dict, destino: str | None = None) -> str:
+    """Un único `manifest.js` con los tres idiomas.
+
+    El HTML lo carga con un `<script src>` fijo — no puede pedir uno distinto
+    por idioma sin recargar la página, y el demo offline corre sobre file://,
+    donde `fetch` está bloqueado. Así que el manifest trae todo y el navegador
+    elige la rama que corresponde."""
+    destino = destino or AUDIO_DIR
+    os.makedirs(destino, exist_ok=True)
+    ruta = os.path.join(destino, "manifest.js")
+    with open(ruta, "w", encoding="utf-8") as f:
+        f.write("// Generado por data/generar_audio_demo_voz.py — no editar a mano.\n"
+                "window.AUDIO_DEMO_MANIFEST = "
+                + json.dumps(por_idioma, ensure_ascii=False) + ";\n")
+    return ruta
+
+
+def generar_todos(idiomas=None, **kw) -> dict:
+    """Sintetiza la llamada en cada idioma y escribe un manifest común.
+
+    Elegir portugués o inglés en el sitio no cambiaba el audio: estaba
+    pre-renderizado solo en castellano. Ahora hay una tanda por idioma."""
+    idiomas = tuple(idiomas or IDIOMAS)
+    por_idioma, resumen = {}, {}
+    for idioma in idiomas:
+        r = generar(idioma=idioma, **kw)
+        por_idioma[idioma] = r.get("manifest", [])
+        resumen[idioma] = {k: v for k, v in r.items() if k != "manifest"}
+    escribir_manifest(por_idioma)
+    return resumen
+
+
 if __name__ == "__main__":
-    r = generar()
-    if r["generados"]:
-        print(f"[{r.get('detalle_motor', '')}]")
-        print(f"[OK] {r['generados']} audio(s) premium generados en "
-              f"dashboard_estatico/audio_demo/ (costo est. USD {r['costo_est_usd']}).")
-        if r["omitidos"]:
-            print(f"[AVISO] {r['omitidos']} turno(s) no se pudieron sintetizar "
-                  "(fallback a voz del navegador para esos).")
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--idiomas", default=",".join(IDIOMAS),
+                    help="idiomas a sintetizar, separados por coma")
+    args = ap.parse_args()
+
+    resumen = generar_todos(idiomas=[i.strip() for i in args.idiomas.split(",") if i.strip()])
+    total = sum(r["generados"] for r in resumen.values())
+    if not total:
+        primero = next(iter(resumen.values()), {})
+        print(f"[SKIP] {primero.get('motivo', 'nada que generar')}")
     else:
-        print(f"[SKIP] {r.get('motivo', 'nada que generar')}")
+        for idioma, r in resumen.items():
+            estado = f"{r['generados']} audio(s)"
+            if r["omitidos"]:
+                estado += f", {r['omitidos']} omitido(s) → voz del navegador"
+            print(f"[{idioma}] {estado}  ({r.get('detalle_motor', '')})")
+        costo = sum(r["costo_est_usd"] for r in resumen.values())
+        print(f"[OK] {total} audio(s) en dashboard_estatico/audio_demo/ "
+              f"(costo est. USD {round(costo, 4)}).")

@@ -35,6 +35,7 @@
      y la etiqueta de abajo los carga. Si el archivo no existe (build sin esa
      key), simplemente no carga nada y el demo sigue con la voz del
      navegador — nunca rompe. -->
+<script src="guiones.js"></script>
 <script src="audio_demo/manifest.js"></script>
 <script>
 /* Gate de demo: full por 3 días para cada usuario registrado (registro en la landing).
@@ -106,6 +107,11 @@
   .Alta{background:rgba(0,200,150,.18);color:var(--green);}
   .Media{background:rgba(253,203,110,.18);color:var(--yellow);}
   .Baja{background:rgba(255,118,117,.18);color:var(--red);}
+  .langsel{display:flex;gap:4px;background:#0b0e16;border:1px solid var(--border);
+           border-radius:9px;padding:3px;}
+  .langsel button{background:transparent;color:var(--muted);font-size:.74rem;
+           font-weight:700;padding:5px 10px;border-radius:6px;letter-spacing:.04em;}
+  .langsel button.on{background:var(--green);color:#08110d;}
   footer{color:var(--muted);font-size:.78rem;margin-top:20px;text-align:center;}
   @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr);}.grid2{grid-template-columns:1fr;}}
   @media(max-width:640px){.kpis{grid-template-columns:repeat(2,1fr);}.cop-kpis{grid-template-columns:repeat(2,1fr) !important;}}
@@ -117,7 +123,13 @@
     <h1><img src="mv_icon.png" alt="MV Kobra AI" style="height:46px;vertical-align:-10px;margin-right:10px;">MV Kobra AI <span class="badge">Cobranzas Inteligentes</span></h1>
     <div class="sub">ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero</div>
   </div>
-  <div class="model" id="modelInfo"></div>
+  <div style="display:flex;align-items:center;gap:14px">
+    <!-- Selector de idioma de las demos de voz y WhatsApp. Va acá y no solo
+         en la landing porque este dashboard también se distribuye suelto, en
+         el paquete offline, donde no hay landing de la que heredarlo. -->
+    <div class="langsel" id="langSel" aria-label="Idioma"></div>
+    <div class="model" id="modelInfo"></div>
+  </div>
 </header>
 
 <div class="filters" id="filters"></div>
@@ -430,17 +442,14 @@ analizarCopiloto();
 
 <script>
 // ---- Demo animada: Gestor IA por voz ----
-var CALL_SCRIPT=[
-  {who:'ia',text:'Buenos días, hablo de MV Kobra AI en representación de su entidad financiera. ¿Hablo con Juan Pérez?'},
-  {who:'cliente',text:'Sí, soy yo.'},
-  {who:'ia',text:'Lo contacto por un saldo pendiente de 6.000 pesos con más de 60 días de atraso. ¿Podemos revisar juntos las opciones de pago disponibles?'},
-  {who:'cliente',text:'La verdad ahora no puedo pagar todo junto, estoy complicado económicamente.'},
-  {who:'ia',text:'Entiendo la situación. Puedo ofrecerle cancelar hoy con un 5% de descuento, quedando en 5.700 pesos, o dividirlo en 3 cuotas de 1.900 pesos sin recargo. ¿Cuál se ajusta mejor a su situación?'},
-  {who:'cliente',text:'Prefiero las 3 cuotas.'},
-  {who:'ia',text:'Perfecto. Le voy a enviar por WhatsApp el link de pago de la primera cuota, con vencimiento en 5 días. ¿Confirma este número para el envío?'},
-  {who:'cliente',text:'Sí, confirmo.'},
-  {who:'ia',text:'Excelente. Quedó registrado el acuerdo de pago en 3 cuotas. Muchas gracias por su tiempo, que tenga un buen día.'},
-];
+// Los guiones viven en guiones.js, en los tres idiomas del producto. Antes
+// estaban acá escritos a mano solo en castellano, así que elegir portugués o
+// inglés en el sitio no cambiaba ni el texto ni el audio de la llamada.
+var IDIOMA = (typeof window!=='undefined' && window.IDIOMA_DEMO) || 'es';
+var _G = ((typeof window!=='undefined' && window.GUIONES) || {})[IDIOMA]
+      || ((typeof window!=='undefined' && window.GUIONES) || {}).es || {};
+var CALL_SCRIPT = _G.llamada || [];
+var TXT = _G.ui || {};
 function chatBubble(who,text,styleOut,styleIn,labelOut,labelIn){
   var b=document.createElement('div');
   var out=who==='ia';
@@ -458,10 +467,17 @@ if(TTS_OK){ loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
 var LANG_PRIORIDAD = ['es-uy','es-ar','es-419','es-us','es-mx','es-co','es-cl'];
 var NOMBRES_HOMBRE = /jorge|diego|carlos|pablo|fernando|andr[eé]s|miguel|enrique|mateo|male|hombre/i;
 function pickVoice(){
-  var es = ES_VOICES.filter(function(v){return /^es/i.test(v.lang);});
+  // El fallback del navegador también tiene que hablar en el idioma elegido:
+  // antes buscaba siempre una voz castellana, así que en portugués o inglés
+  // leía el texto traducido con fonética española.
+  var pref = new RegExp('^'+IDIOMA, 'i');
+  var es = ES_VOICES.filter(function(v){return pref.test(v.lang);});
+  if(!es.length) es = ES_VOICES.filter(function(v){return /^es/i.test(v.lang);});
   if(!es.length) return ES_VOICES[0] || null;
-  // 1) por idioma/acento, de mejor a peor (excluye es-ES hasta el final)
-  var noEspana = es.filter(function(v){return !/^es-es$/i.test(v.lang);});
+  // 1) por idioma/acento, de mejor a peor. La preferencia rioplatense (y el
+  //    descarte de es-ES) solo tiene sentido en castellano.
+  var noEspana = IDIOMA==='es'
+      ? es.filter(function(v){return !/^es-es$/i.test(v.lang);}) : es;
   var candidatos = noEspana.length ? noEspana : es;
   var porAcento = candidatos.slice().sort(function(a,b){
     var ia = LANG_PRIORIDAD.indexOf(a.lang.toLowerCase());
@@ -477,7 +493,7 @@ function speak(text, pitch, rate, cb){
   try{
     var u = new SpeechSynthesisUtterance(text);
     var v = pickVoice();
-    u.lang = v ? v.lang : 'es-419'; u.pitch = pitch; u.rate = rate;
+    u.lang = v ? v.lang : ({es:'es-419',pt:'pt-BR',en:'en-US'}[IDIOMA]||'es-419'); u.pitch = pitch; u.rate = rate;
     if(v) u.voice = v;
     var done=false; function fin(){ if(done)return; done=true; cb && cb(); }
     u.onend = fin; u.onerror = fin;
@@ -497,13 +513,17 @@ function speak(text, pitch, rate, cb){
 // que antes) — el chatvoice nunca se rompe por falta de esa key.
 var AUDIO_MANIFEST_POR_INDICE = {};
 (function(){
-  var m = (typeof window!=='undefined' && window.AUDIO_DEMO_MANIFEST) || [];
+  // El manifest trae los tres idiomas: un <script src> fijo no puede pedir uno
+  // distinto por idioma, y el demo offline corre sobre file://, donde fetch
+  // está bloqueado. Se elige la rama acá.
+  var todo = (typeof window!=='undefined' && window.AUDIO_DEMO_MANIFEST) || {};
+  var m = todo[IDIOMA] || todo.es || [];
   for(var k=0;k<m.length;k++){ if(m[k] && m[k].archivo) AUDIO_MANIFEST_POR_INDICE[m[k].i]=m[k].archivo; }
 })();
 var _audioActual = null;
 function playPremium(archivo, cb){
   try{
-    var a = new Audio('audio_demo/'+archivo);
+    var a = new Audio('audio_demo/'+IDIOMA+'/'+archivo);
     _audioActual = a;
     var done=false; function fin(){ if(done)return; done=true; cb && cb(); }
     a.addEventListener('ended', fin);
@@ -518,13 +538,15 @@ function detenerLlamada(){
   _llamadaGen++;
   if(TTS_OK) window.speechSynthesis.cancel();
   if(_audioActual){ try{ _audioActual.pause(); }catch(e){} _audioActual=null; }
-  var info=document.getElementById('callInfo'); if(info) info.textContent='⏹ Detenida';
+  var info=document.getElementById('callInfo'); if(info) info.textContent=(TXT.detenida||'⏹ Detenida');
 }
 function reproducirLlamada(){
   var box=document.getElementById('callBox'); box.innerHTML='';
   var hayPremium = Object.keys(AUDIO_MANIFEST_POR_INDICE).length>0;
   var info=document.getElementById('callInfo');
-  info.textContent = hayPremium ? '🔊 Llamada en curso (voz real)…' : (TTS_OK?'🔊 Llamada en curso (con voz)…':'🔊 Llamada en curso…');
+  info.textContent = hayPremium ? (TXT.en_curso_voz||'🔊 Llamada en curso (voz real)…')
+                 : (TTS_OK ? (TXT.en_curso_nav||'🔊 Llamada en curso (con voz)…')
+                           : (TXT.en_curso||'🔊 Llamada en curso…'));
   if(TTS_OK) window.speechSynthesis.cancel();
   var gen = ++_llamadaGen;
   var i=0;
@@ -534,12 +556,13 @@ function reproducirLlamada(){
       info.textContent='';
       var end=document.createElement('div');
       end.style.cssText='margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(0,200,150,.14);color:var(--green);font-size:.85rem;font-weight:700';
-      end.textContent='✓ Llamada finalizada · Duración 00:42 · Acuerdo de pago en 3 cuotas · sincronizado al ERP';
+      end.textContent=(TXT.finalizada||'✓ Llamada finalizada · Duración 00:42 · Acuerdo de pago en 3 cuotas · sincronizado al ERP');
       box.appendChild(end);
       return;
     }
     var turn=CALL_SCRIPT[i];
-    box.appendChild(chatBubble(turn.who,turn.text,'background:#16324a;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 MV Kobra AI (voz)','👤 Cliente'));
+    box.appendChild(chatBubble(turn.who,turn.text,'background:#16324a;color:#eaf1fb','background:#232838;color:#eaf1fb',
+      (TXT.etiqueta_ia||'🤖 MV Kobra AI (voz)'),(TXT.etiqueta_cliente||'👤 Cliente')));
     box.scrollTop=box.scrollHeight;
     var idx=i, archivo=AUDIO_MANIFEST_POR_INDICE[idx];
     i++;
@@ -550,16 +573,34 @@ function reproducirLlamada(){
   next();
 }
 
+// ---- Selector de idioma de las demos ----
+// Cambiar el idioma recarga la página con ?lang=: el guion, las etiquetas y
+// los MP3 se eligen al cargar, así que no alcanza con reescribir el DOM.
+(function(){
+  var cont = document.getElementById('langSel');
+  if(!cont) return;
+  var disponibles = Object.keys((typeof window!=='undefined' && window.GUIONES) || {});
+  if(disponibles.length < 2){ cont.style.display='none'; return; }
+  disponibles.forEach(function(codigo){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = codigo.toUpperCase();
+    b.title = (window.GUIONES[codigo] || {}).nombre || codigo;
+    if(codigo === IDIOMA) b.className = 'on';
+    b.addEventListener('click', function(){
+      if(codigo === IDIOMA) return;
+      try{ localStorage.setItem('kobra_lang', codigo); }catch(e){}
+      var u = new URL(window.location.href);
+      u.searchParams.set('lang', codigo);
+      window.location.href = u.toString();
+    });
+    cont.appendChild(b);
+  });
+  document.documentElement.lang = IDIOMA;
+})();
+
 // ---- Demo animada: Negociador por WhatsApp ----
-var WSP_SCRIPT=[
-  {who:'ia',text:'Hola Juan 👋 Soy el asistente de cobranzas de su entidad financiera. Tiene un saldo pendiente de $U 6.000 con más de 60 días de atraso. ¿Quiere que veamos opciones para regularizarlo?'},
-  {who:'cliente',text:'Hola, sí. Ahora no puedo pagar todo junto.'},
-  {who:'ia',text:'No hay problema. Puedo ofrecerle: 1) Pagar hoy $U 5.700 (5% de descuento), o 2) 3 cuotas de $U 1.900 sin recargo. ¿Cuál prefiere?'},
-  {who:'cliente',text:'Las 3 cuotas, por favor.'},
-  {who:'ia',text:'Perfecto ✅ Le comparto el link de pago de la primera cuota: kobra.pay/ab12c9 — vence en 5 días.'},
-  {who:'cliente',text:'Listo, muchas gracias.'},
-  {who:'ia',text:'Con gusto. Quedó registrado su acuerdo de pago en 3 cuotas. Ante cualquier consulta, escríbame por este medio.'},
-];
+var WSP_SCRIPT = _G.whatsapp || [];
 function reproducirWhatsApp(){
   var box=document.getElementById('wspBox'); box.innerHTML='';
   var info=document.getElementById('wspInfo'); info.textContent='💬 Escribiendo…';
