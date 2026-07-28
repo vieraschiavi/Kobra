@@ -31,18 +31,8 @@ CTA = "Agendá una demo"
 # repetirla: quedaría la misma frase dos veces, una debajo de la otra.
 BAJADA = "Cobranzas inteligentes"
 
-# Paleta: la de la landing (`landing/index.html`), que es la cara pública del
-# producto. La del PPTX gerencial es otra; no se mezclan en una misma pieza.
-COLORES = {
-    "navy": "#081527",
-    "navy2": "#0b1d33",
-    "green": "#00c896",
-    "green_hi": "#57e6bd",
-    "blue": "#2f74c0",
-    "ink": "#eaf1fb",
-    "sub": "#b9c8dc",
-    "muted": "#9db0c8",
-}
+# Paleta: desde `marca.py`, la fuente única. Antes estaba copiada acá.
+from marketing.marca import MARCA as COLORES  # noqa: E402
 
 # Términos que no pueden aparecer en una pieza publicada. Se chequean en el
 # texto renderizado, no en el código: lo que importa es lo que se ve.

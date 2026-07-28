@@ -5,7 +5,15 @@ node_modules/
 .streamlit/
 .ipynb_checkpoints/
 .uploads/
-presentation/canva/
+# Exports de Canva: el maestro editable es el propio Canva (enlace en el
+# README). Los originales pesan 85 MB entre los cuatro y no van al historial;
+# sí viaja la version comprimida, que es la que alguien necesita para mostrar
+# la presentacion sin tener acceso al Canva.
+# Se excluye el CONTENIDO y no el directorio: git no puede volver a incluir un
+# archivo si su carpeta esta excluida, asi que la negacion no funcionaria.
+presentation/canva/*
+!presentation/canva/Kobra_Canva_Honesta_comprimido.pdf
+!presentation/canva/LEEME.md
 dist/
 backups/
 
