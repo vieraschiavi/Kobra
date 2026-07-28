@@ -10,6 +10,7 @@ Uso:
 """
 import json
 import os
+import sys
 
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
@@ -20,14 +21,27 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, "assets")
 OUT = os.path.join(ROOT, "presentation", "MVKobraAI_Presentacion_Gerencial.pptx")
 
-# Paleta de marca
-DARK = RGBColor(0x0E, 0x11, 0x17)
-PANEL = RGBColor(0x1A, 0x1F, 0x2E)
-GREEN = RGBColor(0x00, 0xC8, 0x96)
-PURPLE = RGBColor(0x6C, 0x5C, 0xE7)
-WHITE = RGBColor(0xF5, 0xF6, 0xFA)
-GREY = RGBColor(0x9A, 0xA4, 0xB2)
-YELLOW = RGBColor(0xFD, 0xCB, 0x6E)
+# Paleta de marca — desde marketing/marca.py, que es la fuente única.
+# Antes estaba escrita a mano acá y había divergido de la del sitio: la
+# presentación gerencial y la landing no parecían de la misma empresa. El
+# violeta y el amarillo que se usaban para distinguir categorías pasaron a ser
+# el azul y el ámbar de la marca, que cumplen el mismo rol y sí aparecen en el
+# resto del material.
+sys.path.insert(0, ROOT)
+from marketing import marca as _marca                            # noqa: E402
+
+
+def _c(nombre):
+    return RGBColor(*_marca.rgb(_marca.MARCA[nombre]))
+
+
+DARK = _c("navy")
+PANEL = _c("panel")
+GREEN = _c("green")
+PURPLE = _c("blue")      # acento 2 (era violeta #6C5CE7, ajeno a la marca)
+WHITE = _c("ink")
+GREY = _c("muted")
+YELLOW = _c("amber")     # acento 3 (era amarillo #FDCB6E, ídem)
 
 W, H = Inches(13.333), Inches(7.5)
 

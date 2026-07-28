@@ -44,7 +44,9 @@ dist/social/
 | Titulares, bajadas, formatos de banner | `kit_social.py` → `BANNERS` |
 | Texto de los posts | `kit_social.py` → `COPY` |
 | Guiones de reels | `kit_social.py` → `REELS` |
-| Colores, dominio, CTA | `kit_social.py` (constantes de arriba) |
+| Dominio, CTA | `kit_social.py` (constantes de arriba) |
+| **Colores de marca** | `marca.py` — fuente única, la usan también la landing y la presentación |
+| El logo vectorial | `vectorizar_marca.py` (regenera los SVG desde el PNG) |
 | Composición, tipografías, tamaños | `generar_kit_social.py` |
 
 ## Reglas que el generador hace cumplir
@@ -74,3 +76,33 @@ avisa.
 Acá el layout es CSS grid (cada pieza en su celda) y hay una pasada de
 medición que corre siempre. Los tests de `tests/test_kit_social.py` renderizan
 los 5 banners y fallan si alguno vuelve a romperse.
+
+## Tokens de marca (`marca.py`)
+
+Los colores estaban escritos a mano en tres lugares —la landing, el generador
+de la presentación gerencial y este kit— y habían divergido: la presentación y
+el sitio no parecían de la misma empresa. Ahora hay una sola paleta y los tres
+la importan. `tests/test_marca.py` falla si alguna copia vuelve a separarse.
+
+El violeta y el amarillo que usaba la presentación no eran colores de marca:
+servían para distinguir categorías. Esa necesidad sigue, pero con el azul y el
+ámbar que ya usaba la landing.
+
+## Logo vectorial (`vectorizar_marca.py`)
+
+Todo el branding era raster. Estos SVG se reconstruyen desde el PNG sin
+redibujar nada a ojo: se despeja del antialias cuánto de cada píxel pertenece a
+cada forma, se saca la isolínea en 0,5 —lo que da precisión de sub-píxel— y se
+simplifica con Douglas-Peucker.
+
+```bash
+python3 -m marketing.vectorizar_marca
+```
+
+Genera `assets/brand/mv_icon.svg`, `mv_wordmark.svg` y `mv_wordmark_claro.svg`
+(esta última para fondos claros: el "MV" casi blanco desaparecería sobre
+papel). El logotipo sale **con fondo transparente**, a diferencia del PNG, que
+lo trae incrustado y por eso no se puede poner sobre ningún otro color.
+
+Fidelidad medida contra el PNG original: error medio de 0,34/255 en el isotipo
+y 1,04/255 en el logotipo.
