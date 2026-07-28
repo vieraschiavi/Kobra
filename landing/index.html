@@ -271,6 +271,12 @@ footer .legal{max-width:74ch;line-height:1.6}
   <div style="max-width:860px;margin:0 auto;border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.18)">
     <video controls preload="metadata" playsinline style="width:100%;display:block;background:#0E1117">
       <source src="/video/MVKobraAI_Copiloto_Demo.mp4" type="video/mp4">
+      <!-- La narración es en castellano. Los subtítulos se generan con
+           `python3 -m marketing.subtitulos` y setLang() activa el que
+           corresponde al idioma elegido. -->
+      <track kind="subtitles" src="/video/copiloto.es.vtt" srclang="es" label="Español" default>
+      <track kind="subtitles" src="/video/copiloto.pt.vtt" srclang="pt" label="Português">
+      <track kind="subtitles" src="/video/copiloto.en.vtt" srclang="en" label="English">
       Tu navegador no soporta la reproducción de video HTML5.
     </video>
   </div>
@@ -544,6 +550,18 @@ function setLang(lang){
   document.documentElement.lang=lang;
   document.querySelectorAll('.lang button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-lang')===lang);});
   try{localStorage.setItem('kobra_lang',lang);}catch(e){}
+  // El demo es otra página y hasta ahora se abría siempre en castellano: el
+  // idioma viaja en la URL además de en localStorage, para que funcione
+  // aunque el navegador tenga el almacenamiento bloqueado.
+  document.querySelectorAll('a[href^="/demo/"]').forEach(function(a){
+    a.setAttribute('href', '/demo/?lang=' + lang);
+  });
+  // Y los subtítulos del video pasan al idioma elegido.
+  document.querySelectorAll('video track').forEach(function(t){
+    var activo = t.getAttribute('srclang') === lang;
+    t.default = activo;
+    if(t.track) t.track.mode = activo ? 'showing' : 'disabled';
+  });
   pintarPaisPrecios();
 }
 document.querySelectorAll('.lang button').forEach(function(b){b.addEventListener('click',function(){setLang(b.getAttribute('data-lang'));});});

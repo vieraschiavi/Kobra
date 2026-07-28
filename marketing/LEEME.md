@@ -106,3 +106,28 @@ lo trae incrustado y por eso no se puede poner sobre ningún otro color.
 
 Fidelidad medida contra el PNG original: error medio de 0,34/255 en el isotipo
 y 1,04/255 en el logotipo.
+
+## Subtítulos del video (`subtitulos.py`)
+
+El video del Copiloto está narrado en castellano y no tenía subtítulos: quien
+elegía portugués o inglés en el sitio se quedaba sin entender la pieza
+principal de la landing.
+
+```bash
+python3 -m marketing.subtitulos
+```
+
+Genera `landing/video/copiloto.{es,pt,en}.vtt`. `setLang()` en la landing
+activa la pista del idioma elegido.
+
+**Por qué subtítulos y no doblaje.** La interfaz que se ve *dentro* del video
+también está en castellano. Una narración en inglés sobre una pantalla en
+español confunde más de lo que ayuda; los subtítulos acompañan el audio
+original y encima suman accesibilidad para quien mira sin sonido. Doblar de
+verdad exige regrabar la pantalla, no solo la voz.
+
+Los tiempos salen de transcribir el audio real, no de estimarlos. El texto en
+castellano es esa transcripción **corregida a mano**: el reconocedor escribía
+"cobra" en vez de "Kobra" y confundía varias palabras. Si se regenera la
+transcripción, hay que volver a corregirla — hay un test que verifica que el
+nombre del producto esté bien escrito.

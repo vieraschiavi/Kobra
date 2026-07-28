@@ -11,6 +11,8 @@ import os
 import sys
 import tempfile
 
+import pytest
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
@@ -18,9 +20,9 @@ from data import generar_audio_demo_voz as gav  # noqa: E402
 from kobra import voz_tts as ktts  # noqa: E402
 
 
-def test_leer_guion_extrae_el_call_script_real():
-    """Lee el guion directamente del HTML — misma fuente que se ve en pantalla,
-    para que nunca se desincronicen texto y audio."""
+def test_leer_guion_extrae_el_guion_real():
+    """Lee el guion de dashboard_estatico/guiones.js — misma fuente que consume
+    el navegador, para que nunca se desincronicen texto y audio."""
     turnos = gav.leer_guion()
     assert len(turnos) == 9
     assert turnos[0] == {"who": "ia", "text":
@@ -29,6 +31,39 @@ def test_leer_guion_extrae_el_call_script_real():
     assert turnos[1] == {"who": "cliente", "text": "Sí, soy yo."}
     quienes = {t["who"] for t in turnos}
     assert quienes == {"ia", "cliente"}
+
+
+def test_hay_guion_en_los_tres_idiomas():
+    """Regresión: el guion estaba solo en castellano, así que elegir portugués
+    o inglés en el sitio no cambiaba ni el texto ni el audio de la llamada."""
+    guiones = gav.leer_guiones()
+    assert set(guiones) == set(gav.IDIOMAS)
+    largos, whos = set(), set()
+    for idioma in gav.IDIOMAS:
+        turnos = gav.leer_guion(idioma)
+        largos.add(len(turnos))
+        whos.add(tuple(t["who"] for t in turnos))
+        assert all(t["text"].strip() for t in turnos), idioma
+        assert guiones[idioma]["whatsapp"], idioma
+        assert guiones[idioma]["ui"]["etiqueta_cliente"], idioma
+    # Mismo número de turnos y mismos roles en los tres: si no, el manifest de
+    # audio de un idioma no encajaría con el guion que se muestra.
+    assert len(largos) == 1 and len(whos) == 1
+
+
+def test_los_tres_idiomas_dicen_cosas_distintas():
+    """Un guion 'traducido' que quedó copiado del castellano no se nota hasta
+    que alguien escucha el audio."""
+    textos = {i: " ".join(t["text"] for t in gav.leer_guion(i))
+              for i in gav.IDIOMAS}
+    assert len({textos[i] for i in gav.IDIOMAS}) == 3
+    assert "instituição" in textos["pt"]
+    assert "instalments" in textos["en"]
+
+
+def test_idioma_sin_guion_falla_claro():
+    with pytest.raises(ValueError, match="Idioma sin guion"):
+        gav.leer_guion("fr")
 
 
 def test_sin_api_key_no_genera_nada_y_no_rompe(monkeypatch):
@@ -210,12 +245,14 @@ def test_con_key_genera_mp3_y_manifest_para_cada_turno(monkeypatch):
         assert r["generados"] == 9 and r["omitidos"] == 0
         assert os.path.exists(os.path.join(tmp, "turno_00.mp3"))
         assert os.path.exists(os.path.join(tmp, "turno_08.mp3"))
+        assert r["manifest"][0] == {"i": 0, "who": "ia", "archivo": "turno_00.mp3"}
+
+        gav.escribir_manifest({"es": r["manifest"]}, destino=tmp)
         manifest_js = open(os.path.join(tmp, "manifest.js")).read()
         assert "window.AUDIO_DEMO_MANIFEST" in manifest_js
         data = json.loads(manifest_js.split("=", 1)[1].strip().rstrip(";"))
-        assert len(data) == 9
-        assert data[0]["archivo"] == "turno_00.mp3"
-        assert data[0]["who"] == "ia"
+        # Un manifest por idioma, no una lista suelta: el HTML elige la rama.
+        assert set(data) == {"es"} and len(data["es"]) == 9
 
 
 def test_turno_que_falla_sintetizar_no_frena_a_los_demas(monkeypatch):
@@ -239,8 +276,14 @@ def test_dashboard_estatico_carga_manifest_con_fallback_seguro():
     html = open(os.path.join(ROOT, "dashboard_estatico", "index.html"),
                encoding="utf-8").read()
     assert '<script src="audio_demo/manifest.js"></script>' in html
+    assert '<script src="guiones.js"></script>' in html
     assert "AUDIO_MANIFEST_POR_INDICE" in html
     assert "playPremium" in html
+    # El MP3 se busca en la carpeta del idioma activo, no en la raíz: los tres
+    # idiomas tienen archivos con el mismo nombre y se pisarían.
+    assert "'audio_demo/'+IDIOMA+'/'+archivo" in html
+    # Y la rama del manifest se elige por idioma.
+    assert "todo[IDIOMA]" in html
 
 
 def test_build_demo_bundlea_audio_premium_cuando_hay_key(monkeypatch):
@@ -277,7 +320,9 @@ def test_build_demo_bundlea_audio_premium_cuando_hay_key(monkeypatch):
             with zipfile.ZipFile(z) as zf:
                 nombres = zf.namelist()
                 assert "dashboard/audio_demo/manifest.js" in nombres
-                assert "dashboard/audio_demo/turno_00.mp3" in nombres
+                assert "dashboard/guiones.js" in nombres
+                for idioma in gav.IDIOMAS:
+                    assert f"dashboard/audio_demo/{idioma}/turno_00.mp3" in nombres
         finally:
             shutil.rmtree(audio_dir, ignore_errors=True)
             shutil.rmtree(os.path.join(ROOT, "dist"), ignore_errors=True)

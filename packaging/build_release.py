@@ -128,14 +128,20 @@ def _prerenderizar_voz_demo():
     if ROOT not in _sys.path:
         _sys.path.insert(0, ROOT)
     from data import generar_audio_demo_voz as gav
-    r = gav.generar()
-    if r["generados"]:
-        costo = (f"costo est. USD {r['costo_est_usd']}" if r.get("motor") == "elevenlabs"
-                 else "sin costo")
-        print(f"[OK] Voz del demo ({r.get('detalle_motor', '')}): "
-              f"{r['generados']} audio(s), {costo}.")
+    # Los tres idiomas del producto: elegir portugués o inglés no cambiaba el
+    # audio, que estaba pre-renderizado solo en castellano.
+    resumen = gav.generar_todos()
+    total = sum(r["generados"] for r in resumen.values())
+    if total:
+        costo = sum(r["costo_est_usd"] for r in resumen.values())
+        detalle = next(iter(resumen.values())).get("detalle_motor", "")
+        por_idioma = " · ".join(f"{k}: {v['generados']}" for k, v in resumen.items())
+        print(f"[OK] Voz del demo ({detalle}): {total} audio(s) "
+              f"[{por_idioma}], "
+              + (f"costo est. USD {round(costo, 4)}." if costo else "sin costo."))
     else:
-        print(f"[SKIP] Voz del demo: {r.get('motivo', 'sin generar')}")
+        primero = next(iter(resumen.values()), {})
+        print(f"[SKIP] Voz del demo: {primero.get('motivo', 'sin generar')}")
 
 
 def build_demo(tmp):

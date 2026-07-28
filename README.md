@@ -859,6 +859,7 @@ Kobra/
 ├── webapp/                         # plataforma web profesional: backend FastAPI (JWT, multi-tenant) + frontend React
 ├── app/app.py                      # dashboard Streamlit (7 pestañas)
 ├── dashboard_estatico/             # dashboard + copiloto zero-install (offline)
+│   └── guiones.js                  # guiones de las demos de voz/WhatsApp (es · pt · en)
 ├── presentation/build_ppt.py       # generador de presentación gerencial
 ├── marketing/                      # kit de contenido para redes (banners + copy + reels)
 ├── tests/test_kobra.py             # pruebas del pipeline y el copiloto
