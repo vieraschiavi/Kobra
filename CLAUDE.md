@@ -47,7 +47,8 @@ sobre datos 100% sintéticos** — el pipeline es real, las métricas de impacto
 2. Hacé el cambio acotado.
 3. **Testeá:** `python3 -m pytest -q tests/` (o `/test`). Nunca declares algo listo sin tests verdes.
 4. **Publicá** con `/ship`: checkpoint (commit) → push → PR draft.
-5. Para trabajo pesado, delegá en subagentes (`explorer`, `parallel-worker`, `specialist`).
+5. Para trabajo pesado, delegá en subagentes (`explorer`, `planificador`, `parallel-worker`,
+   `specialist`, `revisor`, `verificador`).
 
 ## Convenciones
 - Datos **siempre sintéticos** — nunca metas datos reales de clientes ni PII.
