@@ -1167,6 +1167,52 @@ def calidad_evaluaciones(gestor: str | None = None, mes: str | None = None,
     return resumen
 
 
+@app.get("/api/calidad/panel")
+def calidad_panel(gestor: str | None = None, anio: str | None = None,
+                  mes: str | None = None, canal: str | None = None,
+                  u: Usuario = Depends(usuario_actual)):
+    """Tablero de calidad de llamadas con el desglose de una supervisión real:
+    por gestor, mes y año, por aspecto de la negociación, y **cada aspecto
+    comparado contra la media del equipo**.
+
+    La comparación es el punto: saber que un gestor tiene 68 de calidad no dice
+    qué entrenarle; saber que está 22 puntos por debajo de la media en
+    "Negociación deuda total" y 9 por encima en "Escucha activa", sí.
+    """
+    from kobra import calidad_gestion as kcalidad
+    panel = kcalidad.panel_calidad(_leer_calidad(u.empresa), gestor=gestor,
+                                   anio=anio, mes=mes, canal=canal)
+    panel["origen"] = _origen_gestiones(u.empresa)
+    return panel
+
+
+@app.get("/api/calidad/export.xlsx")
+def calidad_export_xlsx(gestor: str | None = None, anio: str | None = None,
+                        mes: str | None = None, canal: str | None = None,
+                        u: Usuario = Depends(usuario_actual)):
+    """El tablero de calidad completo en Excel: una hoja por vista, con el
+    mismo formato que el resto de los exports."""
+    from kobra import calidad_gestion as kcalidad
+    panel = kcalidad.panel_calidad(_leer_calidad(u.empresa), gestor=gestor,
+                                   anio=anio, mes=mes, canal=canal)
+    quien = gestor or "Equipo"
+    hojas = {
+        "Por aspecto": pd.DataFrame(panel.get("por_criterio", [])),
+        "Ranking gestores": pd.DataFrame(panel.get("ranking", [])),
+        "Evolucion mensual": pd.DataFrame(panel.get("evolucion", [])),
+        "Distribucion": pd.DataFrame(panel.get("distribucion", [])),
+        "Por canal": pd.DataFrame(panel.get("por_canal", [])),
+    }
+    periodo = mes or anio or "todo el período"
+    datos = _excel_formateado(
+        hojas, titulo=f"MV Kobra AI · Calidad de llamadas · {quien} · {periodo}")
+    nombre = f"MVKobraAI_Calidad_{_hoy_str()}.xlsx"
+    return Response(
+        content=datos,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
 class PreguntaIn(BaseModel):
     pregunta: str
 
