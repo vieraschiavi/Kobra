@@ -1,0 +1,22 @@
+﻿MV KOBRA AI · CONTRATO DE LICENÇA DE USO (EULA) · v1.3.0
+========================================================
+
+1. OBJETO. O titular da MV Kobra AI concede ao cliente uma licença de uso, não
+   exclusiva e intransferível, do software MV Kobra AI (Plataforma de Cobrança
+   Inteligente) para uso interno, conforme a proposta comercial acordada.
+2. PROPRIEDADE. O software, seu código, design e documentação são propriedade
+   do titular. Esta licença não transfere titularidade alguma.
+3. DADOS. O cliente é responsável pelos dados que carregar (incl. a LGPD,
+   Lei 13.709/2018, no Brasil). O pacote é distribuído com dados sintéticos,
+   sem informação pessoal real.
+4. ALCANCE HONESTO. As métricas da demonstração são ilustrativas da
+   metodologia. O desempenho real (modelo e impacto) é medido durante o
+   piloto/implantação com dados do cliente.
+5. RESTRIÇÕES. Proibida a redistribuição, sublicenciamento, engenharia
+   reversa e remoção de avisos de titularidade.
+6. GARANTIA E RESPONSABILIDADE. Salvo acordo escrito, o software é entregue
+   "COMO ESTÁ"; a responsabilidade total fica limitada ao valor pago pela
+   licença nos últimos 12 meses.
+7. LEI APLICÁVEL. República Oriental do Uruguai.
+
+(Minuta comercial: revisar e completar com assessoria jurídica antes de assinar.)
