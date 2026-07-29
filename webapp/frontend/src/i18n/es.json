@@ -189,7 +189,8 @@
       "col_gestor": "Gestor"
     },
     "cargando": "Cargando promesas vencidas…",
-    "mostrando_urgentes": "Mostrando las {{mostrando}} más urgentes (por monto) de {{total}} promesas vencidas."
+    "promesas_vencidas": "promesas vencidas",
+    "exportar_excel": "Exportar Excel"
   },
   "gestores": {
     "titulo": "Gestores & evolución",
@@ -204,8 +205,10 @@
       "recupero_pct": "Tasa recupero",
       "recuperado": "Recuperado",
       "gestionado": "Gestionado",
-      "usa_kobra": "Usa Kobra"
-    }
+      "usa_kobra": "Usa Kobra",
+      "total": "TOTAL / promedio"
+    },
+    "nota_totales": "Las tasas y la calidad del total están ponderadas por volumen de gestiones, no son el promedio simple de la columna."
   },
   "asistente": {
     "titulo": "Asistente IA",
@@ -465,6 +468,37 @@
     "fichas_col_cat": "Categoría",
     "fichas_col_archivo": "Archivo",
     "fichas_todos_gestores": "Todos los gestores",
-    "fichas_todos_meses": "Todos los meses"
+    "fichas_todos_meses": "Todos los meses",
+    "tab_panel": "Panel por gestor",
+    "panel": {
+      "todos_gestores": "Todos los gestores",
+      "todos_anios": "Todos los años",
+      "todos_meses": "Todos los meses",
+      "exportar": "Exportar Excel",
+      "vacio": "Todavía no hay llamadas evaluadas. Subí audios en «Evaluar audio» y el panel se arma solo.",
+      "kpi_audios": "Audios evaluados",
+      "kpi_calidad": "Calidad promedio",
+      "kpi_media": "Media del equipo",
+      "kpi_vs_media": "Diferencia vs. media",
+      "kpi_gestores": "Gestores evaluados",
+      "kpi_criticos": "Críticos por debajo del 60%",
+      "por_aspecto": "Por aspecto de la negociación",
+      "por_aspecto_sub": "Cada barra es el % del máximo del criterio. La línea vertical marca la media del equipo.",
+      "media_equipo": "Media del equipo",
+      "critico": "Criterio crítico",
+      "oportunidades": "Dónde entrenar primero",
+      "fortalezas": "Fortalezas",
+      "vs_media_txt": "vs. media del equipo",
+      "evolucion": "Evolución mensual",
+      "ranking": "Ranking de gestores",
+      "distribucion": "Distribución de notas",
+      "col_mes": "Mes",
+      "col_foco": "Seleccionado",
+      "col_equipo": "Equipo",
+      "col_gestor": "Gestor",
+      "col_audios": "Audios",
+      "col_calidad": "Calidad",
+      "col_vs": "vs. media"
+    }
   }
 }

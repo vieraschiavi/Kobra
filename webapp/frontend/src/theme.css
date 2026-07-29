@@ -165,3 +165,26 @@ select:focus, input:focus, textarea:focus { border-color: var(--green); }
   .sidebar .brand b, .sidebar .nav-item .txt, .session-chip, .pais-chip { display: none; }
   .main { padding: 20px 16px 50px; }
 }
+
+/* --- Origen de los datos -------------------------------------------------
+   El programa tiene que avisar SIEMPRE de dónde salen los números que
+   muestra. Antes la pantalla de gestores traía un texto fijo que decía "en la
+   demo son sintéticos" y seguía diciendo lo mismo con datos reales cargados:
+   una leyenda, no un aviso. */
+.badge-origen {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .02em;
+  padding: 3px 10px; border-radius: 999px; margin-left: 10px;
+  vertical-align: middle; white-space: nowrap; cursor: help;
+}
+.badge-origen.real { background: rgba(0,200,150,.16); color: var(--green); }
+.badge-origen.demo { background: rgba(253,203,110,.16); color: var(--yellow); }
+
+/* --- Fila de totales -----------------------------------------------------
+   Una tabla de montos sin totales obliga a sacar la calculadora justo para
+   la pregunta que se hace primero: cuánto suma el equipo. */
+tfoot .fila-total td {
+  font-weight: 800;
+  border-top: 2px solid var(--border);
+  background: rgba(255,255,255,.03);
+}
