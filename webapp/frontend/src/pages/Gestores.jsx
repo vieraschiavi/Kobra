@@ -23,13 +23,23 @@ export default function Gestores() {
     api("/api/gestores/resumen").then(setDatos).catch((e) => setError(e.message));
   }, []);
 
+  const origen = datos && datos.origen;
+  const tot = (datos && datos.totales) || null;
   const cols = datos && datos.ranking.length
     ? COLS.filter((c) => c.clave in datos.ranking[0])
     : COLS;
 
   return (
     <>
-      <h1 className="page-title">{t("gestores.titulo")}</h1>
+      <h1 className="page-title">
+        {t("gestores.titulo")}
+        {origen && (
+          <span className={`badge-origen ${origen.es_real ? "real" : "demo"}`}
+                title={origen.detalle}>
+            ● {origen.etiqueta}
+          </span>
+        )}
+      </h1>
       <p className="page-sub">{t("gestores.subtitulo")}</p>
       {error && <div className="empty">{error}</div>}
       {!datos && !error && <div className="empty">{t("gestores.cargando")}</div>}
@@ -55,8 +65,35 @@ export default function Gestores() {
                 </tr>
               ))}
             </tbody>
+            {tot && (
+              <tfoot>
+                <tr className="fila-total">
+                  <td>—</td>
+                  {cols.map((c) => {
+                    const v = tot[c.clave];
+                    // "usa_kobra" no se suma: se informa cuántos lo usan.
+                    if (c.clave === "usa_kobra") {
+                      return <td key={c.clave} className="tnum">
+                        {tot.usan_kobra}/{tot.gestores}
+                      </td>;
+                    }
+                    if (c.clave === "gestor") {
+                      return <td key={c.clave}>{t("gestores.tabla.total")}</td>;
+                    }
+                    return <td key={c.clave} className={c.num ? "tnum" : undefined}>
+                      {v == null ? "—" : c.fmt(v)}
+                    </td>;
+                  })}
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
+      )}
+      {tot && (
+        <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 8 }}>
+          {t("gestores.nota_totales")}
+        </p>
       )}
     </>
   );

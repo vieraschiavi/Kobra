@@ -189,7 +189,8 @@
       "col_gestor": "Operador"
     },
     "cargando": "Carregando promessas vencidas…",
-    "mostrando_urgentes": "Mostrando as {{mostrando}} mais urgentes (por valor) de {{total}} promessas vencidas."
+    "promesas_vencidas": "promessas vencidas",
+    "exportar_excel": "Exportar Excel"
   },
   "gestores": {
     "titulo": "Operadores & evolução",
@@ -204,8 +205,10 @@
       "recupero_pct": "Taxa recuperação",
       "recuperado": "Recuperado",
       "gestionado": "Gerenciado",
-      "usa_kobra": "Usa Kobra"
-    }
+      "usa_kobra": "Usa Kobra",
+      "total": "TOTAL / média"
+    },
+    "nota_totales": "As taxas e a qualidade do total são ponderadas por volume de atendimentos, não são a média simples da coluna."
   },
   "asistente": {
     "titulo": "Assistente de IA",
