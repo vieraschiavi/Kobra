@@ -1,0 +1,24 @@
+﻿MV KOBRA AI · SOFTWARE LICENCE AGREEMENT (EULA) · v1.3.0
+========================================================
+
+1. GRANT. The owner of MV Kobra AI grants the customer a non-exclusive,
+   non-transferable licence to use the MV Kobra AI software (Smart Collections
+   Platform) for internal purposes, as set out in the agreed commercial offer.
+2. OWNERSHIP. The software, its code, design and documentation belong to the
+   owner. This licence transfers no ownership.
+3. DATA. The customer is responsible for the data it loads, including
+   compliance with applicable data-protection law (Uruguay: Act 18.331;
+   Brazil: LGPD). The package ships with synthetic data and no real personal
+   information.
+4. HONEST SCOPE. The demo metrics illustrate the methodology. Real performance
+   (model and business impact) is measured during the pilot or rollout with
+   the customer's own data.
+5. RESTRICTIONS. Redistribution, sublicensing, reverse engineering and removal
+   of ownership notices are prohibited.
+6. WARRANTY AND LIABILITY. Unless otherwise agreed in writing, the software is
+   provided "AS IS"; total liability is limited to the licence fees paid over
+   the previous 12 months.
+7. GOVERNING LAW. Oriental Republic of Uruguay.
+
+(Commercial draft: have it reviewed and completed by legal counsel before
+signing.)

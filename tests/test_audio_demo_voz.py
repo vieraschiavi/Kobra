@@ -329,3 +329,41 @@ def test_build_demo_bundlea_audio_premium_cuando_hay_key(monkeypatch):
             if respaldo:
                 shutil.copytree(os.path.join(respaldo, "audio_demo"), audio_dir)
                 shutil.rmtree(respaldo, ignore_errors=True)
+
+
+def test_el_build_sin_motor_no_borra_el_audio_versionado(monkeypatch, tmp_path):
+    """Regresión: el audio pre-renderizado está versionado —lo sirve el sitio,
+    no solo el ZIP— y `_prerenderizar_voz_demo()` empezaba borrándolo para
+    regenerarlo. En una máquina sin motor de voz eso dejaba el árbol de trabajo
+    sin los MP3 y el paquete sin voz, por un build que no tenía nada que ver.
+    Ahora solo limpia si hay con qué regenerar."""
+    spec = importlib.util.spec_from_file_location(
+        "br_sin_motor", os.path.join(ROOT, "packaging", "build_release.py"))
+    br = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(br)
+
+    from kobra import voz_clon_local as klocal
+    for v in ("KOBRA_TTS_MOTOR", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID_GESTOR"):
+        monkeypatch.delenv(v, raising=False)
+    monkeypatch.setattr(klocal, "motor_disponible", lambda: "")
+
+    audio_dir = os.path.join(ROOT, "dashboard_estatico", "audio_demo")
+    antes = sorted(os.listdir(audio_dir)) if os.path.isdir(audio_dir) else []
+    br._prerenderizar_voz_demo()
+    despues = sorted(os.listdir(audio_dir)) if os.path.isdir(audio_dir) else []
+    assert despues == antes, "el build borró el audio que no podía regenerar"
+
+
+def test_el_audio_del_demo_esta_versionado():
+    """El sitio sirve estos MP3. Estuvieron en .gitignore y el demo hospedado
+    nunca los tuvo: daban 404 y caía a la voz del navegador."""
+    import subprocess
+    rel = "dashboard_estatico/audio_demo"
+    ignorado = subprocess.run(["git", "check-ignore", f"{rel}/es/turno_00.mp3"],
+                              cwd=ROOT, capture_output=True).returncode == 0
+    assert not ignorado, f"{rel} volvió a estar ignorado: el sitio no lo va a servir"
+    for idioma in gav.IDIOMAS:
+        carpeta = os.path.join(ROOT, rel, idioma)
+        assert os.path.isdir(carpeta), f"falta el audio de {idioma}"
+        mp3 = [f for f in os.listdir(carpeta) if f.endswith(".mp3")]
+        assert len(mp3) == len(gav.leer_guion(idioma)), idioma

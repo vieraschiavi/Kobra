@@ -5,7 +5,7 @@ cd /d "%~dp0.."
 
 echo ============================================================
 echo   MV Kobra AI - CONSTRUIR EL INSTALADOR EN ESTA PC
-echo   Genera MVKobraAI_Setup_vX.Y.Z.exe (Electron + React, con
+echo   Genera MVKobraAI_Setup.exe (Electron + React, con
 echo   desinstalador) sin usar GitHub Actions ni pagar nada.
 echo   Prepara TODO solo: Python, Node, dependencias y compilado.
 echo ============================================================
@@ -151,24 +151,31 @@ for /f "delims=" %%v in ('%VPY% -c "import kobra;print(kobra.__version__)"') do 
 if not defined KVER (
   echo   No pude leer la version del paquete. & pause & exit /b 1
 )
+rem --- Piezas de marca y licencias del asistente -------------------------
+rem Sin esto el instalador sale con las imagenes genericas de electron-builder
+rem y sin pantalla de terminos. Se regeneran siempre: son deterministas.
+echo [6/7] Generando marca y licencias del instalador...
+"!PYEXE!" packaging/licencias_instalador.py
+if not !errorlevel!==0 echo   (aviso) No pude regenerar las licencias; uso las que ya estaban.
+
 pushd electron
 call npm pkg set version=!KVER!
 call npm ci --no-audit --no-fund
 if not !errorlevel!==0 ( popd & echo   Fallo npm ci de electron. & pause & exit /b 1 )
 set "CSC_IDENTITY_AUTO_DISCOVERY=false"
 call npx electron-builder --win nsis --publish never
-if not exist "dist_installer\MVKobraAI_Setup_v!KVER!.exe" (
+if not exist "dist_installer\MVKobraAI_Setup.exe" (
   popd & echo   Fallo la construccion del instalador. & pause & exit /b 1
 )
 popd
 
-copy /y "electron\dist_installer\MVKobraAI_Setup_v!KVER!.exe" "%USERPROFILE%\Desktop\" >nul 2>nul
+copy /y "electron\dist_installer\MVKobraAI_Setup.exe" "%USERPROFILE%\Desktop\" >nul 2>nul
 
 echo.
 echo ============================================================
 echo   LISTO. Instalador generado:
 echo.
-echo   electron\dist_installer\MVKobraAI_Setup_v!KVER!.exe
+echo   electron\dist_installer\MVKobraAI_Setup.exe
 echo.
 echo   (tambien te deje una copia en el Escritorio)
 echo.

@@ -2,9 +2,12 @@
   "name": "mv-kobra-ai",
   "productName": "MV Kobra AI",
   "version": "1.3.0",
-  "description": "MV Kobra AI · Cobranzas con IA — app de escritorio (Electron + React)",
+  "description": "MV Kobra AI · Plataforma de Cobranzas Inteligentes — predicción de pago, agente negociador y copiloto de calidad",
   "main": "main.js",
-  "author": "MV Kobra AI",
+  "author": {
+    "name": "MV Kobra AI",
+    "email": "hola@mvkobranzaia.com"
+  },
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
@@ -18,7 +21,7 @@
   "build": {
     "appId": "com.mvkobraai.desktop",
     "productName": "MV Kobra AI",
-    "artifactName": "MVKobraAI_Setup_v${version}.${ext}",
+    "artifactName": "MVKobraAI_Setup.exe",
     "directories": {
       "output": "dist_installer",
       "buildResources": "build"
@@ -38,10 +41,14 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "publisherName": "MV Kobra AI",
+      "legalTrademarks": "MV Kobra AI"
     },
     "nsis": {
       "include": "build/installer.nsh",
@@ -53,8 +60,23 @@
       "shortcutName": "MV Kobra AI",
       "uninstallDisplayName": "MV Kobra AI",
       "deleteAppDataOnUninstall": false,
-      "installerLanguages": ["es_ES", "pt_BR"],
-      "multiLanguageInstaller": true
-    }
-  }
+      "installerLanguages": [
+        "es_ES",
+        "pt_BR",
+        "en_US"
+      ],
+      "multiLanguageInstaller": true,
+      "license": "build/license_es.txt",
+      "allowElevation": true,
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "menuCategory": "MV Kobra AI",
+      "runAfterFinish": true,
+      "displayLanguageSelector": true,
+      "warningsAsErrors": false
+    },
+    "copyright": "© MV Kobra AI. Todos los derechos reservados."
+  },
+  "homepage": "https://mvkobranzaia.com"
 }
