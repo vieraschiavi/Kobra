@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 import pandas as pd
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -271,7 +272,42 @@ def _aplicar_filtros(df: pd.DataFrame, segmento=None, tramo=None, propension=Non
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-app = FastAPI(title="MV Kobra AI · API", version="1.0")
+def _sanear(valor):
+    """Reemplaza NaN e infinitos por None, recursivamente.
+
+    Bug real: la Cartera priorizada devolvía **Error 500** contra un dataset
+    del cliente. La causa no estaba en la consulta sino en la serialización:
+
+        ValueError: Out of range float values are not JSON compliant
+
+    JSON no tiene forma de representar NaN ni infinito, y Starlette serializa
+    con `allow_nan=False`, así que **una sola celda vacía** en cualquier
+    columna numérica tumba la respuesta entera — no la fila, la pantalla
+    completa. Con datos sintéticos nunca pasa, porque el generador no deja
+    huecos; con una cartera real aparece en cuanto falta un monto o una fecha.
+
+    Se aplica a nivel de aplicación y no en un endpoint suelto a propósito: el
+    mismo defecto acecha en cualquier respuesta armada con `to_dict("records")`
+    —KPIs, agenda, gestores— y arreglarlos de a uno deja los que vengan.
+    """
+    if isinstance(valor, float):
+        return None if (valor != valor or valor in (float("inf"), float("-inf"))) else valor
+    if isinstance(valor, dict):
+        return {k: _sanear(v) for k, v in valor.items()}
+    if isinstance(valor, (list, tuple)):
+        return [_sanear(v) for v in valor]
+    return valor
+
+
+class JSONLimpia(JSONResponse):
+    """JSONResponse que nunca revienta por un NaN que se coló en los datos."""
+
+    def render(self, content) -> bytes:
+        return super().render(_sanear(content))
+
+
+app = FastAPI(title="MV Kobra AI · API", version="1.0",
+              default_response_class=JSONLimpia)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                    allow_headers=["*"])
 
