@@ -468,6 +468,37 @@
     "fichas_col_cat": "Categoria",
     "fichas_col_archivo": "Arquivo",
     "fichas_todos_gestores": "Todos os operadores",
-    "fichas_todos_meses": "Todos os meses"
+    "fichas_todos_meses": "Todos os meses",
+    "tab_panel": "Painel por atendente",
+    "panel": {
+      "todos_gestores": "Todos os atendentes",
+      "todos_anios": "Todos os anos",
+      "todos_meses": "Todos os meses",
+      "exportar": "Exportar Excel",
+      "vacio": "Ainda não há chamadas avaliadas. Suba áudios em «Avaliar áudio» e o painel se monta sozinho.",
+      "kpi_audios": "Áudios avaliados",
+      "kpi_calidad": "Qualidade média",
+      "kpi_media": "Média da equipe",
+      "kpi_vs_media": "Diferença vs. média",
+      "kpi_gestores": "Atendentes avaliados",
+      "kpi_criticos": "Críticos abaixo de 60%",
+      "por_aspecto": "Por aspecto da negociação",
+      "por_aspecto_sub": "Cada barra é o % do máximo do critério. A linha vertical marca a média da equipe.",
+      "media_equipo": "Média da equipe",
+      "critico": "Critério crítico",
+      "oportunidades": "Onde treinar primeiro",
+      "fortalezas": "Pontos fortes",
+      "vs_media_txt": "vs. média da equipe",
+      "evolucion": "Evolução mensal",
+      "ranking": "Ranking de atendentes",
+      "distribucion": "Distribuição de notas",
+      "col_mes": "Mês",
+      "col_foco": "Selecionado",
+      "col_equipo": "Equipe",
+      "col_gestor": "Atendente",
+      "col_audios": "Áudios",
+      "col_calidad": "Qualidade",
+      "col_vs": "vs. média"
+    }
   }
 }

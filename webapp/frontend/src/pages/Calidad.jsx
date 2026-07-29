@@ -543,11 +543,212 @@ function Fichas({ recargar }) {
   );
 }
 
+// ── Panel de calidad: gestor · mes · año · aspecto vs. la media ──────────────
+// Lo que hace útil al tablero no es la nota sino la COMPARACIÓN: saber que un
+// gestor tiene 58 no dice qué entrenarle; saber que está 40 puntos por debajo
+// de la media del equipo en "Negociación deuda total", sí.
+function BarraComparada({ c }) {
+  const brecha = c.brecha;
+  const color = brecha == null ? "var(--muted)"
+              : brecha >= 5 ? "var(--green)"
+              : brecha <= -5 ? "var(--red)" : "var(--yellow)";
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between",
+                    fontSize: 12.5, marginBottom: 3 }}>
+        <span>{c.criterio}{c.critico && <span title={t("calidad.panel.critico")}
+              style={{ color: "var(--red)", marginLeft: 4 }}>*</span>}</span>
+        <span className="tnum" style={{ color, fontWeight: 700 }}>
+          {c.pct == null ? "—" : `${c.pct}%`}
+          {brecha != null && ` (${brecha > 0 ? "+" : ""}${brecha})`}
+        </span>
+      </div>
+      <div style={{ position: "relative", height: 8, borderRadius: 4,
+                    background: "rgba(255,255,255,.07)" }}>
+        <div style={{ width: `${Math.max(0, Math.min(100, c.pct || 0))}%`,
+                      height: "100%", borderRadius: 4, background: color }} />
+        {/* Marca de la media del equipo: la referencia contra la que se lee. */}
+        {c.media_equipo_pct != null && (
+          <div title={t("calidad.panel.media_equipo")}
+               style={{ position: "absolute", top: -2, bottom: -2,
+                        left: `${Math.min(100, c.media_equipo_pct)}%`,
+                        width: 2, background: "var(--txt)", opacity: .65 }} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PanelCalidad() {
+  const [d, setD] = useState(null);
+  const [error, setError] = useState("");
+  const [gestor, setGestor] = useState("");
+  const [anio, setAnio] = useState("");
+  const [mes, setMes] = useState("");
+
+  const qs = () => {
+    const p = new URLSearchParams();
+    if (gestor) p.set("gestor", gestor);
+    if (anio) p.set("anio", anio);
+    if (mes) p.set("mes", mes);
+    return p.toString();
+  };
+
+  useEffect(() => {
+    setError("");
+    api(`/api/calidad/panel?${qs()}`).then(setD).catch((e) => setError(e.message));
+  }, [gestor, anio, mes]);
+
+  async function exportar() {
+    const ses = getSesion();
+    const r = await fetch(`/api/calidad/export.xlsx?${qs()}`,
+                          { headers: { Authorization: `Bearer ${ses.token}` } });
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "MVKobraAI_Calidad.xlsx";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  if (error) return <div className="empty">{error}</div>;
+  if (!d) return <div className="empty">{t("calidad.cargando")}</div>;
+
+  const k = d.kpis || {};
+  const sinDatos = !d.total;
+
+  return (
+    <>
+      <div className="toolbar" style={{ flexWrap: "wrap", gap: 8 }}>
+        <select value={gestor} onChange={(e) => setGestor(e.target.value)}>
+          <option value="">{t("calidad.panel.todos_gestores")}</option>
+          {(d.gestores || []).map((g) => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <select value={anio} onChange={(e) => { setAnio(e.target.value); setMes(""); }}>
+          <option value="">{t("calidad.panel.todos_anios")}</option>
+          {(d.anios || []).map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <select value={mes} onChange={(e) => setMes(e.target.value)}>
+          <option value="">{t("calidad.panel.todos_meses")}</option>
+          {(d.meses || []).filter((m) => !anio || m.startsWith(anio))
+            .map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <button className="btn ghost" onClick={exportar}>⬇ {t("calidad.panel.exportar")}</button>
+        {d.origen && (
+          <span className={`badge-origen ${d.origen.es_real ? "real" : "demo"}`}
+                title={d.origen.detalle}>● {d.origen.etiqueta}</span>
+        )}
+      </div>
+
+      {sinDatos ? (
+        <div className="empty">{t("calidad.panel.vacio")}</div>
+      ) : (
+        <>
+          <div className="kpis">
+            <div className="kpi"><div className="v">{k.audios}</div>
+              <div className="l">{t("calidad.panel.kpi_audios")}</div></div>
+            <div className="kpi"><div className="v">{k.calidad_prom ?? "—"}</div>
+              <div className="l">{t("calidad.panel.kpi_calidad")}</div></div>
+            <div className="kpi"><div className="v">{k.media_equipo ?? "—"}</div>
+              <div className="l">{t("calidad.panel.kpi_media")}</div></div>
+            <div className="kpi">
+              <div className="v" style={{ color: (k.vs_media ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>
+                {k.vs_media == null ? "—" : `${k.vs_media > 0 ? "+" : ""}${k.vs_media}`}
+              </div>
+              <div className="l">{t("calidad.panel.kpi_vs_media")}</div></div>
+            <div className="kpi"><div className="v">{k.gestores_evaluados}</div>
+              <div className="l">{t("calidad.panel.kpi_gestores")}</div></div>
+            <div className="kpi">
+              <div className="v" style={{ color: k.criticos_bajos ? "var(--red)" : "var(--green)" }}>
+                {k.criticos_bajos}</div>
+              <div className="l">{t("calidad.panel.kpi_criticos")}</div></div>
+          </div>
+
+          <div className="grid2">
+            <div className="card">
+              <h3 style={{ marginTop: 0 }}>{t("calidad.panel.por_aspecto")}</h3>
+              <p style={{ color: "var(--muted)", fontSize: 12, marginTop: -4 }}>
+                {t("calidad.panel.por_aspecto_sub")}
+              </p>
+              {(d.por_criterio || []).map((c) => <BarraComparada key={c.id} c={c} />)}
+            </div>
+            <div>
+              <div className="card">
+                <h3 style={{ marginTop: 0 }}>{t("calidad.panel.oportunidades")}</h3>
+                {(d.oportunidades || []).map((c) => (
+                  <div key={c.id} style={{ fontSize: 13, marginBottom: 6 }}>
+                    <b>{c.criterio}</b>{" "}
+                    <span style={{ color: "var(--red)" }}>{c.brecha}</span>{" "}
+                    <span style={{ color: "var(--muted)" }}>{t("calidad.panel.vs_media_txt")}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="card" style={{ marginTop: 12 }}>
+                <h3 style={{ marginTop: 0 }}>{t("calidad.panel.fortalezas")}</h3>
+                {(d.fortalezas || []).map((c) => (
+                  <div key={c.id} style={{ fontSize: 13, marginBottom: 6 }}>
+                    <b>{c.criterio}</b>{" "}
+                    <span style={{ color: "var(--green)" }}>+{c.brecha}</span>{" "}
+                    <span style={{ color: "var(--muted)" }}>{t("calidad.panel.vs_media_txt")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid2">
+            <div className="card">
+              <h3 style={{ marginTop: 0 }}>{t("calidad.panel.evolucion")}</h3>
+              <div className="tablewrap"><table>
+                <thead><tr><th>{t("calidad.panel.col_mes")}</th>
+                  <th>{gestor || t("calidad.panel.col_foco")}</th>
+                  <th>{t("calidad.panel.col_equipo")}</th></tr></thead>
+                <tbody>{(d.evolucion || []).map((e) => (
+                  <tr key={e.mes} className="norow"><td>{e.mes}</td>
+                    <td className="tnum">{e.gestor ?? "—"}</td>
+                    <td className="tnum">{e.equipo ?? "—"}</td></tr>
+                ))}</tbody>
+              </table></div>
+            </div>
+            <div className="card">
+              <h3 style={{ marginTop: 0 }}>{t("calidad.panel.ranking")}</h3>
+              <div className="tablewrap"><table>
+                <thead><tr><th>{t("calidad.panel.col_gestor")}</th>
+                  <th>{t("calidad.panel.col_audios")}</th>
+                  <th>{t("calidad.panel.col_calidad")}</th>
+                  <th>{t("calidad.panel.col_vs")}</th></tr></thead>
+                <tbody>{(d.ranking || []).map((r) => (
+                  <tr key={r.gestor} className="norow"><td>{r.gestor}</td>
+                    <td className="tnum">{r.audios}</td>
+                    <td className="tnum">{r.calidad_prom}</td>
+                    <td className="tnum" style={{ color: (r.vs_media ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>
+                      {r.vs_media == null ? "—" : `${r.vs_media > 0 ? "+" : ""}${r.vs_media}`}</td></tr>
+                ))}</tbody>
+              </table></div>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: 12 }}>
+            <h3 style={{ marginTop: 0 }}>{t("calidad.panel.distribucion")}</h3>
+            <div className="tablewrap"><table>
+              <thead><tr>{(d.distribucion || []).map((x) => <th key={x.tramo}>{x.tramo}</th>)}</tr></thead>
+              <tbody><tr className="norow">
+                {(d.distribucion || []).map((x) => <td key={x.tramo} className="tnum">{x.audios}</td>)}
+              </tr></tbody>
+            </table></div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 // ── Página con pestañas ──────────────────────────────────────────────────────
 export default function Calidad() {
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState("panel");
   const [recargarFichas, setRecargarFichas] = useState(0);
   const tabs = [
+    { id: "panel", label: t("calidad.tab_panel") },
     { id: "dashboard", label: t("calidad.tab_dashboard") },
     { id: "audio", label: t("calidad.tab_audio") },
     { id: "fichas", label: t("calidad.tab_fichas") },
@@ -563,6 +764,7 @@ export default function Calidad() {
                   onClick={() => setTab(x.id)}>{x.label}</button>
         ))}
       </div>
+      {tab === "panel" && <PanelCalidad />}
       {tab === "dashboard" && <Comparativa />}
       {tab === "audio" && <EvaluadorAudio onGuardado={() => setRecargarFichas((n) => n + 1)} />}
       {tab === "fichas" && (
