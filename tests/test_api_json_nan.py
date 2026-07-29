@@ -75,3 +75,87 @@ def test_la_api_real_usa_la_respuesta_saneada():
     gestores— y taparlos de a uno deja afuera los que vengan."""
     from webapp.backend import api
     assert api.app.router.default_response_class is api.JSONLimpia
+
+
+# --- 100% de los datos alcanzable, y totales -------------------------------
+def test_la_agenda_pagina_en_vez_de_recortar():
+    """Antes devolvía solo las 200 promesas más urgentes y el resto quedaba
+    inalcanzable: con 2.258 vencidas, el 91% de la cartera en riesgo no se
+    podía ver ni exportar desde la pantalla."""
+    import inspect
+
+    from webapp.backend import api
+    fuente = inspect.getsource(api.agenda)
+    assert "pagina" in fuente and "paginas" in fuente
+    assert "limite" in fuente, "se rompió la compatibilidad con el frontend viejo"
+
+
+def test_los_totales_de_gestores_ponderan_por_volumen():
+    """Regresión conceptual: promediar los porcentajes de cada gestor le da el
+    mismo peso al que hizo 840 gestiones que al que hizo 449, y el número sale
+    mal. Las tasas se calculan sobre el total, no promediando promedios."""
+    pd = pytest.importorskip("pandas")
+    from webapp.backend.api import _totales_gestores
+    r = pd.DataFrame({"gestor": ["A", "B"], "gestiones": [840, 449],
+                      "calidad_prom": [84.0, 64.5], "tasa_conversion": [0.77, 0.62],
+                      "recupero": [69.2e6, 31.6e6], "monto": [129.5e6, 87.5e6],
+                      "usa_kobra": [1, 1]})
+    t = _totales_gestores(r)
+    assert t["gestiones"] == 1289
+    assert t["recupero"] == pytest.approx(100.8e6)
+    # Sobre el total: 100,8 / 217,0 — no el promedio de 0,534 y 0,361.
+    assert t["tasa_recupero"] == pytest.approx(100.8 / 217.0, rel=1e-6)
+    simple = (84.0 + 64.5) / 2
+    assert t["calidad_prom"] != pytest.approx(simple), "quedó el promedio simple"
+    assert t["calidad_prom"] == pytest.approx(77.2075, rel=1e-4)
+
+
+def test_los_totales_no_rompen_con_ranking_vacio():
+    pd = pytest.importorskip("pandas")
+    from webapp.backend.api import _totales_gestores
+    assert _totales_gestores(pd.DataFrame()) == {}
+    assert _totales_gestores(None) == {}
+
+
+# --- Excel formateado ------------------------------------------------------
+def test_el_excel_sale_formateado_y_con_totales():
+    """Un export que hay que reformatear a mano cada vez no sirve para mandar
+    a gerencia."""
+    np = pytest.importorskip("numpy")
+    pd = pytest.importorskip("pandas")
+    openpyxl = pytest.importorskip("openpyxl")
+    import io
+
+    from webapp.backend.api import _excel_formateado
+    df = pd.DataFrame({
+        "id_deudor": ["KB-1", "KB-2"],
+        "monto_acordado": [12500.5, np.nan],
+        "tasa_recupero": [0.54, 0.31],
+        "fecha_promesa": pd.to_datetime(["2026-01-05", "2026-02-11"]),
+    })
+    datos = _excel_formateado({"Promesas": df}, titulo="Prueba")
+    ws = openpyxl.load_workbook(io.BytesIO(datos))["Promesas"]
+    filas = [[c for c in fila] for fila in ws.iter_rows(values_only=True)]
+    assert filas[0][0] == "Prueba"
+    assert "TOTAL" in [f[0] for f in filas]
+    total = next(f for f in filas if f[0] == "TOTAL")
+    assert str(total[1]).startswith("=SUM("), "no sumó la columna de dinero"
+    # Y NO suma la tasa: "tasa_recupero" contiene "recupero" y entraba por la
+    # ventana, dando un total sin sentido.
+    assert total[2] is None, "sumó una columna de porcentaje"
+
+
+def test_el_nombre_de_hoja_no_rompe_excel():
+    """Excel corta a 31 caracteres y rechaza []:*?/\\ — un nombre inválido hace
+    fallar la escritura entera."""
+    pd = pytest.importorskip("pandas")
+    openpyxl = pytest.importorskip("openpyxl")
+    import io
+
+    from webapp.backend.api import _excel_formateado
+    datos = _excel_formateado(
+        {"Cartera [2026]: priorizada/final*": pd.DataFrame({"a": [1]})})
+    wb = openpyxl.load_workbook(io.BytesIO(datos))
+    hoja = wb.sheetnames[0]
+    assert len(hoja) <= 31
+    assert not set(hoja) & set("[]:*?/\\")

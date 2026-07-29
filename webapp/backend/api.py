@@ -28,6 +28,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -267,6 +268,122 @@ def _aplicar_filtros(df: pd.DataFrame, segmento=None, tramo=None, propension=Non
             if mes:
                 df = df[serie_fecha.dt.month == int(mes)]
     return df
+
+
+# ---------------------------------------------------------------------------
+# Exportación a Excel
+# ---------------------------------------------------------------------------
+_MARCA_NAVY = "#081527"
+
+
+def _hoy_str() -> str:
+    import datetime as _dt
+    return _dt.date.today().isoformat()
+
+
+# Columnas cuyo contenido es dinero, porcentaje o fecha. Se detectan por nombre
+# porque los datasets del cliente traen nombres distintos a los de la demo, y
+# un Excel donde los montos salen como "1234567.891" no lo usa nadie.
+_PATRON_MONTO = ("monto", "saldo", "deuda", "recupero", "importe", "cuota",
+                 "valor", "capital", "pago")
+_PATRON_PCT = ("tasa", "porcentaje", "prob", "propension", "conversion", "pct")
+_PATRON_FECHA = ("fecha", "vencim", "cargado", "alta")
+
+
+def _excel_formateado(hojas: dict, titulo: str = "") -> bytes:
+    """DataFrames a Excel con formato de informe, no un volcado crudo.
+
+    Encabezado de marca, primera fila congelada, autofiltro, anchos calculados
+    sobre el contenido real y formato por tipo de columna: miles y dos decimales
+    para dinero, porcentaje para tasas, fecha corta para fechas. Es la
+    diferencia entre un export que se manda a gerencia y uno que hay que
+    reformatear a mano cada vez.
+    """
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="xlsxwriter") as xl:
+        libro = xl.book
+        f_titulo = libro.add_format({
+            "bold": True, "font_size": 13, "font_color": "#FFFFFF",
+            "bg_color": _MARCA_NAVY, "valign": "vcenter"})
+        f_encab = libro.add_format({
+            "bold": True, "font_color": "#FFFFFF", "bg_color": _MARCA_NAVY,
+            "border": 1, "border_color": "#2a4160", "text_wrap": True,
+            "valign": "vcenter"})
+        f_monto = libro.add_format({"num_format": "#,##0.00"})
+        f_pct = libro.add_format({"num_format": "0.0%"})
+        f_fecha = libro.add_format({"num_format": "yyyy-mm-dd"})
+        f_total = libro.add_format({"bold": True, "top": 2,
+                                    "num_format": "#,##0.00"})
+        f_total_txt = libro.add_format({"bold": True, "top": 2})
+
+        for nombre, df in hojas.items():
+            df = pd.DataFrame(df)
+            # Excel corta los nombres de hoja a 31 caracteres y no acepta []:*?/\
+            hoja = re.sub(r"[\[\]:*?/\\]", "-", str(nombre))[:31] or "Datos"
+            fila0 = 2 if titulo else 0
+            df.to_excel(xl, sheet_name=hoja, index=False, startrow=fila0)
+            ws = xl.sheets[hoja]
+            if titulo:
+                ws.merge_range(0, 0, 0, max(0, len(df.columns) - 1), titulo,
+                               f_titulo)
+                ws.set_row(0, 24)
+            if df.empty:
+                ws.write(fila0, 0, "Sin datos para exportar", f_encab)
+                continue
+
+            for col, columna in enumerate(df.columns):
+                ws.write(fila0, col, str(columna), f_encab)
+                bajo = str(columna).lower()
+                serie = df[columna]
+                if any(p in bajo for p in _PATRON_FECHA):
+                    fmt = f_fecha
+                elif any(p in bajo for p in _PATRON_PCT):
+                    fmt = f_pct
+                elif any(p in bajo for p in _PATRON_MONTO):
+                    fmt = f_monto
+                else:
+                    fmt = None
+                # Ancho segun el contenido real, con techo para que una nota
+                # larga no haga una columna de 300 caracteres.
+                largo = max([len(str(columna))] +
+                            [len(str(v)) for v in serie.head(200)])
+                ws.set_column(col, col, min(max(10, largo + 2), 42), fmt)
+
+            ws.freeze_panes(fila0 + 1, 0)
+            ws.autofilter(fila0, 0, fila0 + len(df), len(df.columns) - 1)
+
+            # Fila de totales para las columnas de dinero: sin ella hay que
+            # sumar a mano justo lo que se va a mirar primero.
+            fila_total = fila0 + len(df) + 1
+            escribio = False
+            for col, columna in enumerate(df.columns):
+                bajo = str(columna).lower()
+                # Solo dinero. Una tasa NO se suma: "tasa_recupero" contiene
+                # "recupero" y entraba por la ventana, dando un total de 2,64
+                # que no significa nada y ensucia el informe.
+                if any(p in bajo for p in _PATRON_PCT):
+                    continue
+                if any(p in bajo for p in _PATRON_MONTO) and \
+                        pd.api.types.is_numeric_dtype(df[columna]):
+                    letra = _letra_col(col)
+                    ws.write_formula(
+                        fila_total, col,
+                        f"=SUM({letra}{fila0 + 2}:{letra}{fila0 + 1 + len(df)})",
+                        f_total)
+                    escribio = True
+            if escribio:
+                ws.write(fila_total, 0, "TOTAL", f_total_txt)
+    return buf.getvalue()
+
+
+def _letra_col(indice: int) -> str:
+    """0 → A, 25 → Z, 26 → AA. Excel no usa índices en las fórmulas."""
+    letras = ""
+    indice += 1
+    while indice:
+        indice, resto = divmod(indice - 1, 26)
+        letras = chr(65 + resto) + letras
+    return letras
 
 
 # ---------------------------------------------------------------------------
@@ -673,24 +790,118 @@ def deudor(id_deudor: str, u: Usuario = Depends(usuario_actual)):
     return out
 
 
-@app.get("/api/agenda")
-def agenda(limite: int = 200, u: Usuario = Depends(usuario_actual)):
-    """Promesas vencidas a retomar HOY. Se devuelven las `limite` mas urgentes
-    (mayor monto acordado primero, desempate por dias vencida): con carteras
-    grandes la demo trae miles y renderizarlas todas congela la pagina ~15 s —
-    el gestor igual trabaja de a una, empezando por las que mas importan."""
-    g = _gestiones(u.empresa)
+def _promesas_vencidas(empresa: str):
+    """Promesas vencidas ordenadas por urgencia (mayor monto, luego mas dias
+    vencida). Devuelve el DataFrame completo: quien llama decide si pagina."""
+    g = _gestiones(empresa)
     if g is None or g.empty:
-        return {"vencidas": [], "total": 0, "mostrando": 0}
+        return None
     venc = kseg.promesas_incumplidas(g)
-    total = int(len(venc))
-    if total and {"monto_acordado", "dias_vencida"} <= set(venc.columns):
+    if len(venc) and {"monto_acordado", "dias_vencida"} <= set(venc.columns):
         venc = venc.sort_values(["monto_acordado", "dias_vencida"],
                                 ascending=[False, False])
-    limite = max(1, min(int(limite), 1000))
-    venc = venc.head(limite)
-    return {"total": total, "mostrando": int(len(venc)),
-            "vencidas": venc.to_dict("records")}
+    return venc
+
+
+@app.get("/api/agenda")
+def agenda(u: Usuario = Depends(usuario_actual), pagina: int = 1,
+           tamano: int = 100, limite: int | None = None):
+    """Promesas vencidas a retomar HOY, **paginadas**.
+
+    Antes se devolvian solo las 200 mas urgentes y el resto quedaba
+    inalcanzable: con 2.258 promesas vencidas, el 91% de la cartera en riesgo
+    no se podia ver ni exportar desde la pantalla. Renderizar miles de filas de
+    una congela la pagina ~15 s, asi que la solucion no es subir el tope sino
+    paginar: se llega al 100% de a paginas.
+
+    `limite` se conserva por compatibilidad con el frontend anterior.
+    """
+    venc = _promesas_vencidas(u.empresa)
+    if venc is None:
+        return {"vencidas": [], "total": 0, "mostrando": 0,
+                "pagina": 1, "tamano": tamano, "paginas": 0}
+    total = int(len(venc))
+    if limite is not None:            # modo viejo: las N mas urgentes
+        tamano, pagina = max(1, min(int(limite), 1000)), 1
+    tamano = max(1, min(int(tamano), 500))
+    pagina = max(1, int(pagina))
+    ini = (pagina - 1) * tamano
+    hoja = venc.iloc[ini:ini + tamano]
+    return {"total": total, "mostrando": int(len(hoja)),
+            "pagina": pagina, "tamano": tamano,
+            "paginas": (total + tamano - 1) // tamano if total else 0,
+            "vencidas": hoja.to_dict("records")}
+
+
+@app.get("/api/agenda/export.xlsx")
+def agenda_export_xlsx(u: Usuario = Depends(usuario_actual)):
+    """**Todas** las promesas vencidas en Excel con formato — no la pagina que
+    se este viendo. Lo que no entra en pantalla tiene que poder salir igual."""
+    venc = _promesas_vencidas(u.empresa)
+    if venc is None:
+        venc = pd.DataFrame()
+    datos = _excel_formateado(
+        {"Promesas vencidas": venc},
+        titulo=f"MV Kobra AI · Promesas vencidas · {len(venc)} casos")
+    nombre = f"MVKobraAI_Promesas_Vencidas_{_hoy_str()}.xlsx"
+    return Response(
+        content=datos,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+def _totales_gestores(ranking: pd.DataFrame) -> dict:
+    """Fila de totales del ranking de gestores.
+
+    La tabla mostraba 14 filas de montos sin ninguna suma: para saber cuánto
+    recuperó el equipo había que sacar la calculadora. Las tasas y la calidad
+    NO se suman — se promedian, y ponderadas por volumen: promediar los
+    porcentajes de cada gestor le da el mismo peso al que hizo 840 gestiones
+    que al que hizo 449, y el número sale mal.
+    """
+    if ranking is None or ranking.empty:
+        return {}
+    gestiones = float(ranking.get("gestiones", pd.Series(dtype=float)).sum())
+    recupero = float(ranking.get("recupero", pd.Series(dtype=float)).sum())
+    monto = float(ranking.get("monto", pd.Series(dtype=float)).sum())
+
+    def _ponderado(columna: str) -> float | None:
+        if columna not in ranking.columns or not gestiones:
+            return None
+        pesos = ranking["gestiones"].fillna(0)
+        valores = ranking[columna].fillna(0)
+        return float((valores * pesos).sum() / pesos.sum()) if pesos.sum() else None
+
+    return {
+        "gestores": int(len(ranking)),
+        "gestiones": int(gestiones),
+        "recupero": recupero,
+        "monto": monto,
+        # Sobre el total, no promediando promedios.
+        "tasa_recupero": (recupero / monto) if monto else None,
+        "calidad_prom": _ponderado("calidad_gestion")
+                        if "calidad_gestion" in ranking.columns
+                        else _ponderado("calidad_prom"),
+        "tasa_conversion": _ponderado("tasa_conversion"),
+        "usan_kobra": int(ranking.get("usa_kobra", pd.Series(dtype=float))
+                          .fillna(0).astype(bool).sum()),
+    }
+
+
+def _origen_gestiones(empresa: str) -> dict:
+    """De dónde salen las gestiones que se están mostrando.
+
+    La pantalla de gestores decía «en la demo son sintéticos» en un texto fijo,
+    que seguía diciendo lo mismo con datos reales cargados. Que el programa
+    avise de verdad exige mirar el dato, no repetir una leyenda."""
+    modo = _modo_cartera(empresa)
+    real = modo == "real"
+    return {"tipo": modo, "es_real": real,
+            "etiqueta": "Datos reales" if real else "Demo · datos sintéticos",
+            "detalle": ("Del dataset cargado por la empresa."
+                        if real else
+                        "Generados sintéticamente: sirven para evaluar el "
+                        "producto, no son resultados de una operación real.")}
 
 
 @app.get("/api/gestores/resumen")
@@ -698,9 +909,12 @@ def gestores_resumen(u: Usuario = Depends(usuario_actual)):
     g = _gestiones(u.empresa)
     if g is None or g.empty:
         return {"ranking": [], "impacto": None}
-    ranking = kanalitica.ranking_gestores(g).head(15)
+    completo = kanalitica.ranking_gestores(g)
+    ranking = completo.head(15)
     impacto = kanalitica.impacto_kobra(g)
     return {"ranking": ranking.reset_index().to_dict("records"),
+            "totales": _totales_gestores(completo),
+            "origen": _origen_gestiones(u.empresa),
             "impacto": {k: (v.to_dict("records") if isinstance(v, pd.DataFrame)
                             else (None if isinstance(v, float) and pd.isna(v) else v))
                         for k, v in (impacto or {}).items()
