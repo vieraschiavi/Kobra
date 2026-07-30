@@ -6,9 +6,11 @@ cargás una base de teléfonos y el bot llama, negocia según ProbPago,
 completa los campos ERP y registra cada gestión (aparece en el dashboard
 "Gestores & Evolución" como gestor IA, medible contra humanos).
 
-Concurrencia: hasta **50 líneas simultáneas** (asyncio.Semaphore) — el motor
-de diálogo es puro CPU local, así que la concurrencia real la limita el canal
-de voz, no MV Kobra AI.
+Concurrencia: hasta **50 líneas simultáneas** (asyncio.Semaphore + el tope
+compartido de `kobra/concurrencia.py`). Cada turno de diálogo se resuelve en un
+hilo, no en el event loop: sin key de LLM el motor es CPU local y rendía igual
+de las dos formas, pero con LLM la espera de red bloqueaba el loop y las 50
+líneas se atendían de a una (medido: 15,1 s contra 0,66 s con 50 simultáneas).
 
 Capas (para no depender de APIs externas):
   ┌───────────────────────────────────────────────────────────┐
@@ -36,11 +38,13 @@ import os
 import random
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from kobra.gestor_ia import SesionGestorIA        # noqa: E402
+from kobra import concurrencia as kconc           # noqa: E402
 from kobra import cumplimiento, registro          # noqa: E402
 
 
@@ -111,13 +115,13 @@ async def _llamada(id_deudor: str, gestor_id: str, sem: asyncio.Semaphore,
             ses = SesionGestorIA(id_deudor=id_deudor, canal="Llamada",
                                  gestor_id=gestor_id, usar_claude=usar_claude)
             cliente = ClienteSimulado(id_deudor, float(ses.brief["probpago"]))
-            r = ses.responder(None)                      # saludo
+            r = await asyncio.to_thread(ses.responder, None)      # saludo
             for _ in range(12):                          # tope de turnos
                 if r["fin"]:
                     break
                 await asyncio.sleep(0.01)                # cede el loop (I/O real iría acá)
-                r = ses.responder(cliente.responder(r["texto"]))
-            g = ses.registrar(archivo=archivo_gestiones)
+                r = await asyncio.to_thread(ses.responder, cliente.responder(r["texto"]))
+            g = await asyncio.to_thread(ses.registrar, archivo_gestiones)
             metricas[g["resultado"]] = metricas.get(g["resultado"], 0) + 1
             metricas["ok"] += 1
         except Exception as e:
@@ -139,14 +143,27 @@ async def correr_campania(ids: list, lineas: int = 50, gestor_id: str = "IA01",
                       if not cumplimiento.esta_en_no_contactar(i, "Llamada", archivo_dnc)]
         bloqueados = solicitados - len(permitidos)
         ids = permitidos
+    # El tope vive acá, no solo en el CLI: `correr_campania` se llama también
+    # desde el dashboard y desde tests, y ahí `--lineas 200` entraba sin
+    # chistar (medido: pico 200 líneas simultáneas). El tope es el mismo del
+    # resto del producto (kobra/concurrencia.py, KOBRA_MAX_LLAMADAS).
+    lineas = max(min(int(lineas), kconc.MAX_SIMULTANEAS), 1)
     sem = asyncio.Semaphore(lineas)
     metricas = {"total": len(ids), "solicitados": solicitados,
-                "bloqueados_no_contactar": bloqueados,
+                "bloqueados_no_contactar": bloqueados, "lineas": lineas,
                 "ok": 0, "errores": 0, "en_curso": 0, "pico": 0}
     t0 = time.perf_counter()
-    await asyncio.gather(*[
-        _llamada(i, gestor_id, sem, metricas, archivo_gestiones, usar_claude)
-        for i in ids])
+    # El executor por default de asyncio tiene min(32, cpu+4) hilos — 8 en una
+    # máquina de 4 núcleos. Con 50 líneas pedidas, 42 quedarían esperando un
+    # hilo libre sin que nada lo diga. Se dimensiona por las líneas reales.
+    ejecutor = ThreadPoolExecutor(max_workers=lineas, thread_name_prefix="linea")
+    asyncio.get_running_loop().set_default_executor(ejecutor)
+    try:
+        await asyncio.gather(*[
+            _llamada(i, gestor_id, sem, metricas, archivo_gestiones, usar_claude)
+            for i in ids])
+    finally:
+        ejecutor.shutdown(wait=False)
     metricas["segundos"] = round(time.perf_counter() - t0, 2)
     return metricas
 
@@ -164,7 +181,8 @@ def main():
     ap.add_argument("--base", default=None,
                     help="CSV con columna id_deudor (default: top prioridad de la cartera)")
     ap.add_argument("--llamadas", type=int, default=50)
-    ap.add_argument("--lineas", type=int, default=50, help="líneas simultáneas (máx. 50)")
+    ap.add_argument("--lineas", type=int, default=kconc.MAX_SIMULTANEAS,
+                    help=f"líneas simultáneas (máx. {kconc.MAX_SIMULTANEAS})")
     ap.add_argument("--gestor", default="IA01")
     ap.add_argument("--sin-claude", action="store_true",
                     help="forzar plantillas locales (sin API de Claude)")
@@ -176,7 +194,7 @@ def main():
     else:
         ids = base_desde_cartera(args.llamadas)
 
-    lineas = min(args.lineas, 50)
+    lineas = min(args.lineas, kconc.MAX_SIMULTANEAS)
     print(f"[voicebot] Campaña: {len(ids)} llamadas · {lineas} líneas simultáneas · "
           f"gestor {args.gestor}")
     print(f"[voicebot] Voz local: TTS Piper {'✓' if tts_local_disponible() else '– (modo texto)'} · "
