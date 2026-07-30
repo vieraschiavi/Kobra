@@ -22,9 +22,11 @@ Ejecutar:
 """
 import os
 import sys
+import tempfile
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -37,12 +39,39 @@ from kobra import registro            # noqa: E402
 from kobra import voz_tts             # noqa: E402
 from kobra import auditoria as kauditoria   # noqa: E402
 from kobra import campana             # noqa: E402
+from kobra import concurrencia as kconc   # noqa: E402
 from realtime import connectors   # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
 app = FastAPI(title="MV Kobra AI · Copiloto en Vivo")
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+# El diálogo del Gestor IA es CPU (sentimiento, técnicas, calidad) y, con
+# ANTHROPIC_API_KEY puesta, además un POST bloqueante a la API del LLM. Ese
+# trabajo NO puede correr en el event loop: medido con un LLM de 300 ms, 50
+# conversaciones simultáneas en un handler `async def` tardan 15,1 s (perfecta
+# serialización) contra 0,66 s mandándolo al threadpool. Starlette manda al
+# threadpool los handlers `def`; los que necesitan `await` (leer el form de
+# Twilio) usan `run_in_threadpool` para el tramo pesado.
+#
+# El threadpool de anyio trae 40 hilos por default: menos que el tope de 50
+# llamadas, así que las últimas 10 quedarían encoladas sin motivo.
+def _ampliar_threadpool(minimo: int) -> None:
+    try:
+        import anyio.to_thread
+        limitador = anyio.to_thread.current_default_thread_limiter()
+        if limitador.total_tokens < minimo:
+            limitador.total_tokens = minimo
+    except (ImportError, RuntimeError):
+        pass   # sin anyio o fuera de un loop: queda el default
+
+
+@app.on_event("startup")
+async def _preparar_capacidad():
+    # +8 hilos de holgura para las subidas de audio y el resto de los endpoints.
+    _ampliar_threadpool(kconc.MAX_SIMULTANEAS + 8)
 
 
 @app.get("/")
@@ -62,17 +91,52 @@ def health():
             "idioma": copiloto.idioma_configurado()}
 
 
+@app.get("/capacidad")
+def capacidad():
+    """Cuántas conversaciones simultáneas hay en curso y cuántas entran todavía.
+    Sirve para el monitoreo y para decidir cuándo sumar workers."""
+    return {"limite_por_worker": kconc.MAX_SIMULTANEAS,
+            "voz": _SESIONES_VOZ.metricas(),
+            "whatsapp": _SESIONES_WA.metricas(),
+            "copiloto_en_vivo": _COPILOTO_WS.metricas()}
+
+
+def _guardar_temporal(contenido: bytes, nombre: str | None, defecto: str) -> str:
+    """Deja el upload en un archivo con nombre ÚNICO y devuelve la ruta.
+
+    Antes se guardaba en `/tmp/<el nombre que manda el cliente>`. Dos gestores
+    subiendo "grabacion.wav" a la vez escribían el MISMO archivo: medido con 30
+    subidas simultáneas del mismo nombre, 7 respuestas salieron mal — unas con
+    HTTP 400 (WAV truncado) y otras devolviendo el análisis de OTRA llamada
+    (se subió un audio de 1,5 s y la respuesta decía 1,3 s). En un producto de
+    calidad de llamadas, devolver la grabación del vecino es la peor falla
+    posible: es silenciosa. Con nombres únicos, 30/30 correctas.
+
+    De paso, el nombre deja de venir del cliente: solo se conserva la extensión.
+    """
+    _, ext = os.path.splitext(nombre or defecto)
+    if not ext or len(ext) > 8 or not ext[1:].isalnum():
+        ext = os.path.splitext(defecto)[1]
+    fd, ruta = tempfile.mkstemp(prefix="kobra_", suffix=ext)
+    with os.fdopen(fd, "wb") as f:
+        f.write(contenido)
+    return ruta
+
+
+def _borrar(ruta: str) -> None:
+    try:
+        os.remove(ruta)
+    except OSError:
+        pass
+
+
 @app.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
     """Transcribe un chunk de audio con Whisper (si hay OPENAI_API_KEY)."""
-    tmp = os.path.join("/tmp", audio.filename or "chunk.webm")
-    with open(tmp, "wb") as f:
-        f.write(await audio.read())
-    texto = copiloto.transcribir_audio(tmp, idioma=copiloto.idioma_configurado())
-    try:
-        os.remove(tmp)
-    except OSError:
-        pass
+    tmp = _guardar_temporal(await audio.read(), audio.filename, "chunk.webm")
+    texto = await run_in_threadpool(
+        copiloto.transcribir_audio, tmp, idioma=copiloto.idioma_configurado())
+    _borrar(tmp)
     if texto is None:
         return JSONResponse(
             {"error": "Transcripción no disponible (configurá OPENAI_API_KEY)"},
@@ -83,18 +147,13 @@ async def transcribe(audio: UploadFile = File(...)):
 @app.post("/analizar_audio")
 async def analizar_audio(audio: UploadFile = File(...)):
     """Diarización + emoción acústica de una grabación (.wav)."""
-    tmp = os.path.join("/tmp", audio.filename or "call.wav")
-    with open(tmp, "wb") as f:
-        f.write(await audio.read())
+    tmp = _guardar_temporal(await audio.read(), audio.filename, "call.wav")
     try:
-        return voz.analizar_llamada(tmp)
+        return await run_in_threadpool(voz.analizar_llamada, tmp)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     finally:
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
+        _borrar(tmp)
 
 
 @app.get("/brief/{id_deudor}")
@@ -136,28 +195,58 @@ async def copiloto_audio(audio: UploadFile = File(...), transcript: str = Form("
     diarización + transcripción por hablante (Whisper si hay key, o alineación
     del texto provisto) + emoción acústica + asesoría del copiloto.
     """
-    tmp = os.path.join("/tmp", audio.filename or "call.wav")
-    with open(tmp, "wb") as f:
-        f.write(await audio.read())
+    tmp = _guardar_temporal(await audio.read(), audio.filename, "call.wav")
     tt = None
     if transcript.strip():
         conv = copiloto.parsear_conversacion(transcript, nombre_gestor="Gestor")
         tt = [{"emisor": t.emisor, "texto": t.texto} for t in conv.turnos]
     try:
-        return voz.copiloto_desde_audio(tmp, transcript_turnos=tt, idioma=copiloto.idioma_configurado())
+        return await run_in_threadpool(
+            voz.copiloto_desde_audio, tmp, transcript_turnos=tt,
+            idioma=copiloto.idioma_configurado())
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     finally:
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
+        _borrar(tmp)
+
+
+# Pantallas del copiloto en vivo abiertas (una por gestor negociando). Comparte
+# el mismo tope que las llamadas del Gestor IA: son los mismos 50 puestos.
+_COPILOTO_WS = kconc.RegistroSesiones("copiloto_en_vivo")
+
+
+class _CupoWS:
+    """Toma un cupo del registro mientras dure el WebSocket. Sin esto, cada
+    pantalla abierta quedaba contada para siempre y nada frenaba la 51ª."""
+
+    def __init__(self, etiqueta: str):
+        self.clave = f"{etiqueta}-{secrets.token_urlsafe(9)}"
+
+    def __enter__(self):
+        _COPILOTO_WS.abrir(self.clave, lambda: True)   # LimiteAlcanzado si no hay cupo
+        return self
+
+    def toco(self):
+        _COPILOTO_WS.obtener(self.clave)               # refresca la actividad
+
+    def __exit__(self, *_):
+        _COPILOTO_WS.cerrar(self.clave)
+        return False
+
+
+# Código de cierre de WebSocket para "servidor sobrecargado" (RFC 6455).
+_WS_SOBRECARGA = 1013
 
 
 @app.websocket("/ws")
 async def ws(sock: WebSocket):
     """Recibe turnos y devuelve la asesoría del copiloto en vivo."""
     await sock.accept()
+    try:
+        cupo = _CupoWS("ws").__enter__()
+    except kconc.LimiteAlcanzado as e:
+        await sock.close(code=_WS_SOBRECARGA, reason=str(e)[:120])
+        return
     turnos = []          # líneas "emisor: texto"
     probpago = None
     estrategia = None
@@ -178,8 +267,10 @@ async def ws(sock: WebSocket):
                 continue
             etiqueta = "Gestor" if emisor == "gestor" else "Cliente"
             turnos.append(f"{etiqueta}: {texto}")
+            cupo.toco()
 
-            res = copiloto.analizar_conversacion(
+            res = await run_in_threadpool(
+                copiloto.analizar_conversacion,
                 "\n".join(turnos), canal="llamada",
                 probpago=probpago, estrategia=estrategia,
                 nombre_gestor="Gestor", idioma=copiloto.idioma_configurado())
@@ -199,12 +290,14 @@ async def ws(sock: WebSocket):
             })
     except WebSocketDisconnect:
         return
+    finally:
+        cupo.__exit__(None, None, None)
 
 
 # ---------------------------------------------------------------------------
 # Chatbot de WhatsApp con Gestor IA (para quien no quiere hablar por teléfono)
 # ---------------------------------------------------------------------------
-_SESIONES_WA: dict = {}
+_SESIONES_WA = kconc.RegistroSesiones("whatsapp")
 
 
 @app.post("/whatsapp/webhook")
@@ -221,23 +314,38 @@ async def whatsapp_webhook(payload: dict):
     """
     from kobra.gestor_ia import SesionGestorIA
     sesion_id = str(payload.get("sesion") or payload.get("telefono") or "anon")
-    ses = _SESIONES_WA.get(sesion_id)
-    if ses is None:
+    ses = _SESIONES_WA.obtener(sesion_id)
+    nueva = ses is None
+    if nueva:
         if not payload.get("id_deudor"):
             return JSONResponse({"error": "falta id_deudor para abrir la sesión"},
                                 status_code=400)
-        ses = SesionGestorIA(id_deudor=str(payload["id_deudor"]),
-                             canal="WhatsApp",
-                             gestor_id=str(payload.get("gestor_id", "IA01")))
-        _SESIONES_WA[sesion_id] = ses
-        r = ses.responder(None)                      # saludo inicial
-        if payload.get("mensaje"):
-            r = ses.responder(str(payload["mensaje"]))
-    else:
-        r = ses.responder(str(payload.get("mensaje", "")))
+        try:
+            ses = _SESIONES_WA.abrir(sesion_id, lambda: SesionGestorIA(
+                id_deudor=str(payload["id_deudor"]), canal="WhatsApp",
+                gestor_id=str(payload.get("gestor_id", "IA01"))))
+        except kconc.LimiteAlcanzado as e:
+            # 503 + Retry-After: el proxy del canal reintenta, no pierde el chat.
+            return JSONResponse(
+                {"error": "Capacidad completa: todas las conversaciones "
+                          "simultáneas están ocupadas. Reintentá en unos segundos.",
+                 "detalle": str(e), "capacidad": _SESIONES_WA.metricas()},
+                status_code=503, headers={"Retry-After": "5"})
+
+    # El diálogo (y su posible llamada al LLM) va al threadpool: en el event
+    # loop, 50 chats simultáneos se atienden de a uno.
+    def _turno():
+        if nueva:
+            r = ses.responder(None)                  # saludo inicial
+            if payload.get("mensaje"):
+                r = ses.responder(str(payload["mensaje"]))
+        else:
+            r = ses.responder(str(payload.get("mensaje", "")))
+        return (r, ses.registrar() if r["fin"] else None)
+
+    r, gestion = await run_in_threadpool(_turno)
     if r["fin"]:
-        gestion = ses.registrar()
-        _SESIONES_WA.pop(sesion_id, None)
+        _SESIONES_WA.cerrar(sesion_id)
         return {"respuesta": r["texto"], "estado": r["estado"], "fin": True,
                 "campos_erp": r["campos_erp"], "gestion": gestion}
     return {"respuesta": r["texto"], "estado": r["estado"], "fin": False}
@@ -255,11 +363,17 @@ async def ws_audio(sock: WebSocket):
     Responde, al cerrar cada turno, con la asesoría del copiloto en vivo.
     """
     await sock.accept()
+    try:
+        cupo = _CupoWS("ws_audio").__enter__()
+    except kconc.LimiteAlcanzado as e:
+        await sock.close(code=_WS_SOBRECARGA, reason=str(e)[:120])
+        return
     sess = connectors.StreamSession()
     try:
         while True:
             m = await sock.receive_json()
             t = m.get("tipo")
+            cupo.toco()
             if t == "start":
                 # Con id_deudor, el briefing (ProbPago/estrategia) se carga solo
                 probpago, estrategia = m.get("probpago"), m.get("estrategia")
@@ -279,11 +393,14 @@ async def ws_audio(sock: WebSocket):
                     sess.agregar(canal, connectors.pcm16_to_float(
                         base64.b64decode(m["pcm_b64"])))
                 if m.get("fin_turno"):
-                    r = sess.cerrar_turno(canal, m.get("texto"))
+                    # Transcribir + medir emoción + correr el copiloto es CPU
+                    # (y Whisper si hay key): fuera del event loop.
+                    r = await run_in_threadpool(sess.cerrar_turno, canal, m.get("texto"))
                     if r:
                         await sock.send_json(r)
             elif t == "flush":
-                r = sess.cerrar_turno(m.get("canal", "cliente"), m.get("texto"))
+                r = await run_in_threadpool(
+                    sess.cerrar_turno, m.get("canal", "cliente"), m.get("texto"))
                 if r:
                     await sock.send_json(r)
             elif t == "stop":
@@ -291,7 +408,8 @@ async def ws_audio(sock: WebSocket):
                 fin = sess.resumen_final()
                 gestion = None
                 if fin and fin.get("id_deudor"):
-                    gestion = registro.registrar_gestion(
+                    gestion = await run_in_threadpool(
+                        registro.registrar_gestion,
                         id_deudor=fin["id_deudor"], gestor_id=fin["gestor_id"],
                         canal=m.get("canal", "Llamada"), calidad=fin["calidad"],
                         clima=fin["clima"], emociones=fin["emociones"],
@@ -300,6 +418,8 @@ async def ws_audio(sock: WebSocket):
                 break
     except WebSocketDisconnect:
         return
+    finally:
+        cupo.__exit__(None, None, None)
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +438,7 @@ from urllib.parse import quote                          # noqa: E402
 from fastapi import Request                              # noqa: E402
 from fastapi.responses import Response, HTMLResponse    # noqa: E402
 
-_SESIONES_VOZ: dict = {}
+_SESIONES_VOZ = kconc.RegistroSesiones("voz")
 # Voz por defecto: Polly Lupe (neural, es-US) — la voz latina más natural
 # incluida vía Twilio. Sin TWILIO_TTS_VOICE, Twilio usaba su voz estándar
 # (robótica y con dejo peninsular), que es lo primero que un cliente
@@ -387,6 +507,18 @@ def _gather(action: str, prompt: str, request: "Request | None" = None) -> str:
             f'action="{action}" method="POST">{_say(prompt, request)}</Gather>')
 
 
+async def _twiml_async(*partes) -> Response:
+    """Arma el TwiML en el threadpool.
+
+    `_say()` con voz premium hace un POST a ElevenLabs, y ese POST es
+    bloqueante: dejarlo en el event loop serializa todas las llamadas en curso
+    igual que el LLM. Cada parte es (fn, *args): se evalúan juntas en un hilo.
+    """
+    def _armar():
+        return "".join(fn(*args) for fn, *args in partes)
+    return _twiml(await run_in_threadpool(_armar))
+
+
 def _twiml(*cuerpo: str) -> Response:
     xml = ('<?xml version="1.0" encoding="UTF-8"?><Response>'
            + "".join(cuerpo) + "</Response>")
@@ -419,15 +551,26 @@ async def voz_entrante(request: Request):
     call_sid = form.get("CallSid") or qp.get("CallSid") or qp.get("call") or "sin-sid"
     id_deudor = qp.get("id_deudor", "") or form.get("id_deudor", "")
     gestor = qp.get("gestor", "IA01")
-    brief = _brief_para_voz(id_deudor, qp.get("monto"))
-    ses = SesionGestorIA(id_deudor=id_deudor or "TEL", canal="Llamada",
-                         gestor_id=gestor, brief=brief,
-                         usar_claude=bool(os.getenv("ANTHROPIC_API_KEY")))
-    _SESIONES_VOZ[call_sid] = ses
-    r = ses.responder(None)                              # saludo
+    brief = await run_in_threadpool(_brief_para_voz, id_deudor, qp.get("monto"))
+    try:
+        ses = _SESIONES_VOZ.abrir(call_sid, lambda: SesionGestorIA(
+            id_deudor=id_deudor or "TEL", canal="Llamada", gestor_id=gestor,
+            brief=brief, usar_claude=bool(os.getenv("ANTHROPIC_API_KEY"))))
+    except kconc.LimiteAlcanzado:
+        # Todas las líneas ocupadas. Se corta con un mensaje digno en vez de
+        # aceptar la llamada y hacerla esperar: una llamada rechazada se
+        # reintenta, una llamada degradada se pierde con el cliente adentro.
+        kauditoria.registrar("llamada_rechazada_por_capacidad",
+                             _SESIONES_VOZ.metricas())
+        return await _twiml_async(
+            (_say, "En este momento todas nuestras líneas están ocupadas. "
+                   "Lo volvemos a llamar en unos minutos. Disculpe las molestias.",
+             request))
+    r = await run_in_threadpool(ses.responder, None)      # saludo
     action = f"/voz/turno?call={quote(call_sid)}"
-    return _twiml(_gather(action, r["texto"], request),
-                  _say("No lo escuché. Lo llamaremos en otro momento. Hasta luego.", request))
+    return await _twiml_async(
+        (_gather, action, r["texto"], request),
+        (_say, "No lo escuché. Lo llamaremos en otro momento. Hasta luego.", request))
 
 
 @app.post("/voz/turno")
@@ -435,21 +578,29 @@ async def voz_turno(request: Request):
     """Cada turno: recibe lo que dijo el cliente (SpeechResult) y responde."""
     form = dict(await request.form())
     call_sid = request.query_params.get("call") or form.get("CallSid") or "sin-sid"
-    ses = _SESIONES_VOZ.get(call_sid)
+    ses = _SESIONES_VOZ.obtener(call_sid)
     if ses is None:
-        return _twiml(_say("Disculpe, se interrumpió la comunicación. Hasta luego.", request))
+        return await _twiml_async(
+            (_say, "Disculpe, se interrumpió la comunicación. Hasta luego.", request))
     speech = (form.get("SpeechResult") or "").strip()
-    r = ses.responder(speech)
+
+    def _turno():
+        r = ses.responder(speech)
+        if r["fin"]:
+            try:
+                ses.registrar()                          # persiste la gestión real
+            except Exception:
+                pass
+        return r
+
+    r = await run_in_threadpool(_turno)
     if r["fin"]:
-        try:
-            ses.registrar()                              # persiste la gestión real
-        except Exception:
-            pass
-        _SESIONES_VOZ.pop(call_sid, None)
-        return _twiml(_say(r["texto"], request))
+        _SESIONES_VOZ.cerrar(call_sid)
+        return await _twiml_async((_say, r["texto"], request))
     action = f"/voz/turno?call={quote(call_sid)}"
-    return _twiml(_gather(action, r["texto"], request),
-                  _say("Si sigue en línea, dígame. Si no, hasta luego.", request))
+    return await _twiml_async(
+        (_gather, action, r["texto"], request),
+        (_say, "Si sigue en línea, dígame. Si no, hasta luego.", request))
 
 
 def _public_base(request: Request) -> str:
@@ -575,6 +726,11 @@ async def twilio_media(sock: WebSocket):
     del gestor vía /ws).
     """
     await sock.accept()
+    try:
+        cupo = _CupoWS("twilio").__enter__()
+    except kconc.LimiteAlcanzado as e:
+        await sock.close(code=_WS_SOBRECARGA, reason=str(e)[:120])
+        return
     sess = connectors.StreamSession(sr=8000)
     ultimo = None
     try:
@@ -587,18 +743,21 @@ async def twilio_media(sock: WebSocket):
                 sess.agregar(canal, connectors.ulaw_to_float(
                     base64.b64decode(m["media"]["payload"])))
                 if ultimo and ultimo != canal:      # cambió quien habla → cerrar turno previo
-                    r = sess.cerrar_turno(ultimo)
+                    cupo.toco()
+                    r = await run_in_threadpool(sess.cerrar_turno, ultimo)
                     if r:
                         await sock.send_json(r)
                 ultimo = canal
             elif ev == "stop":
                 if ultimo:
-                    r = sess.cerrar_turno(ultimo)
+                    r = await run_in_threadpool(sess.cerrar_turno, ultimo)
                     if r:
                         await sock.send_json(r)
                 break
     except WebSocketDisconnect:
         return
+    finally:
+        cupo.__exit__(None, None, None)
 
 
 # ---------------------------------------------------------------------------
@@ -689,5 +848,22 @@ except ImportError:
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
+    # timeout_keep_alive: uvicorn cierra a los 5 s la conexión que queda
+    # ociosa. Con el servidor cargado, entre un turno de Twilio y el siguiente
+    # pasan más de 5 s y la conexión se cae CON LA LLAMADA ADENTRO. Medido con
+    # 100 conversaciones simultáneas: 5 a 13 llamadas caídas con el default de
+    # 5 s, 0 caídas con 120 s (mismo servidor, misma carga, misma prueba).
+    keep_alive = int(os.getenv("KOBRA_KEEPALIVE_SEG", "120"))
+    workers = int(os.getenv("KOBRA_WORKERS", "1"))
+    cap = kconc.capacidad_total(workers)
     print(f"[MV Kobra AI] Copiloto en Vivo → http://localhost:{port}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print(f"[MV Kobra AI] Capacidad: {cap['simultaneas']} conversaciones "
+          f"simultáneas ({cap['por_worker']} × {cap['workers']} worker/s) · "
+          f"keep-alive {keep_alive}s")
+    if workers > 1:
+        # Con varios workers uvicorn necesita la app por string (reimporta en
+        # cada proceso); `app` como objeto no es picklable.
+        uvicorn.run("realtime.server:app", host="0.0.0.0", port=port,
+                    workers=workers, timeout_keep_alive=keep_alive)
+    else:
+        uvicorn.run(app, host="0.0.0.0", port=port, timeout_keep_alive=keep_alive)
