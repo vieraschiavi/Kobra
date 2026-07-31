@@ -668,11 +668,23 @@ def test_desde_dataframe_tolerante():
 # ---------------------------------------------------------------------------
 # Llamada de voz autónoma con el Gestor IA (TwiML Twilio)
 # ---------------------------------------------------------------------------
-def test_voz_twiml_negociacion(tmp_path):
+def test_voz_twiml_negociacion(tmp_path, monkeypatch):
     """El Gestor IA conduce la llamada por TwiML: saludo → oferta → cierre."""
     import asyncio, os
     from types import SimpleNamespace
+    from kobra import registro
     from realtime import server
+
+    # El turno de cierre persiste la gestión de verdad, y sin redirigirla iba a
+    # `data/kobra_gestiones.csv` — el dataset versionado del repo. Cada corrida
+    # de la suite dejaba una fila espuria ahí y el árbol de trabajo sucio.
+    # `archivo` es un argumento por DEFECTO de registrar_gestion, evaluado al
+    # importar: monkeypatchear registro.GESTIONES_CSV no lo cambia. Hay que
+    # envolver la función.
+    real = registro.registrar_gestion
+    destino = str(tmp_path / "gestiones.csv")
+    monkeypatch.setattr(registro, "registrar_gestion",
+                        lambda **kw: real(**{**kw, "archivo": destino}))
 
     class FakeReq:
         def __init__(self, method="POST", query=None, form=None, headers=None):
