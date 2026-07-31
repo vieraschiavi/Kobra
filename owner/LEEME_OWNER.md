@@ -31,23 +31,36 @@ todo solo, sin que instales nada previo:
 1. Si falta Python 3.11+, lo **descarga del sitio oficial e instala en
    silencio** usando PowerShell (incluido en todo Windows — **no depende de
    winget**).
-2. Crea un entorno virtual propio (`.kobra_venv`, no toca tu Python).
-3. Instala las dependencias (`requirements.txt`).
-4. Usa la interfaz **ya compilada** que viene en `owner/ui_dist/` — **no
+2. **Te pregunta dónde instalar** (Enter usa la sugerida; podés escribir
+   cualquier ruta, por ejemplo `D:\MVKobraAI`). Ahí van el entorno y tus
+   datos. La elección se recuerda: la próxima vez alcanza con dar Enter.
+3. Crea un entorno virtual propio en esa carpeta (no toca tu Python).
+4. Instala las dependencias (`requirements.txt`).
+5. Usa la interfaz **ya compilada** que viene en `owner/ui_dist/` — **no
    necesita Node**.
-5. Arranca en modo owner y abre en una **ventana de app** (limpia, sin barra
+6. Arranca en modo owner y abre en una **ventana de app** (limpia, sin barra
    de navegador, se ve como app de escritorio — usa Chrome o Edge, sin sumar
    el peso de Electron).
+
+El código del programa se queda donde está el .bat; lo que se mueve a la
+carpeta elegida es lo que pesa: el entorno (~2 GB), los datos y los archivos
+temporales de la instalación.
 
 La primera vez tarda (baja Python + dependencias); las siguientes son
 instantáneas. Si Python se instaló recién, quizás tengas que cerrar y reabrir
 el .bat una vez (Windows necesita reabrir la consola para tomarlo).
 
-> **Necesitás ~3 GB libres en disco** para que las dependencias se descarguen
-> e instalen bien (pandas, scikit-learn, streamlit, etc. pesan bastante). El
-> .bat chequea el espacio antes de arrancar y avisa si falta; si el error es
-> "No space left on device" a mitad de instalar, liberá espacio y volvé a
-> correrlo — lo que ya se instaló no hace falta bajarlo de nuevo.
+> **Necesitás ~3 GB libres** en el disco que elijas. El .bat mide el espacio
+> de **esa** carpeta y avisa antes de empezar.
+>
+> Esto último tiene historia. Antes el chequeo miraba el disco donde está el
+> código y decía, por ejemplo, «~523 GB libres» — pero pip descomprime cada
+> paquete en `%TEMP%`, que vive en `C:`. Con `C:` lleno, el chequeo daba OK y
+> la instalación se moría igual con `[Errno 28] No space left on device` a
+> mitad de bajar plotly: el número que mostraba no era el número que
+> importaba. Ahora **todo va al disco que elegís** —entorno, datos y
+> temporales de pip—, así que elegir un disco con lugar alcanza para
+> resolverlo.
 
 > La interfaz es **React + FastAPI** (la webapp profesional), NO el dashboard
 > Streamlit viejo. Ese dashboard clásico sigue en el paquete pero no es lo
