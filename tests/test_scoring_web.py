@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -332,7 +333,24 @@ def test_el_dato_crudo_del_visitante_va_escapado():
     html = open(os.path.join(DEMO, "index.html"), encoding="utf-8").read()
     ini = html.index("function pintar(csv, filas, probs")
     bloque = html[ini:html.index("})();", ini)]
-    for expr in ("esc(id)", "esc(nombre)"):
-        assert expr in bloque, f"falta escapar: se esperaba {expr}"
-    assert "+id+" not in bloque and "+nombre+" not in bloque, (
-        "hay un dato del archivo del visitante concatenado sin escapar")
+
+    # Se comprueba la propiedad, no una escritura concreta: cada línea que
+    # arma HTML y menciona un dato del visitante tiene que pasar por esc().
+    # Escrito así porque la versión anterior exigía literalmente `esc(nombre)`
+    # y se rompió sola al pasar el resumen por el traductor —a pesar de que el
+    # escape seguía estando—. Un test que se rompe con un refactor inocuo
+    # entrena a ignorarlo.
+    riesgosas = []
+    for linea in bloque.splitlines():
+        if "html" not in linea and "innerHTML" not in linea:
+            continue
+        if not re.search(r"\b(id|nombre)\b", linea):
+            continue
+        # El dato tiene que estar dentro de un esc(...) en esa misma línea.
+        if not re.search(r"esc\([^)]*\b(id|nombre)\b", linea):
+            riesgosas.append(linea.strip()[:110])
+    assert not riesgosas, (
+        "hay datos del archivo del visitante entrando a innerHTML sin esc(): "
+        + " | ".join(riesgosas))
+    assert "esc(" in bloque and bloque.count("esc(") >= 5, (
+        "el bloque que pinta la tabla dejó de escapar")

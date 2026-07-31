@@ -50,7 +50,7 @@
 (function(){
   function run(){
     var rib=document.createElement('a');
-    rib.href='/'; rib.textContent='Demo publica · datos sinteticos · ver planes';
+    rib.href='/'; rib.textContent=window.T('cinta');
     rib.style.cssText='position:absolute;top:10px;right:12px;z-index:20;background:#FDCB6E;color:#1c1305;'
       +'font:700 12px/1 "Segoe UI",system-ui,sans-serif;padding:7px 12px;border-radius:20px;'
       +'box-shadow:0 6px 18px rgba(0,0,0,.35);white-space:nowrap;text-decoration:none';
@@ -110,8 +110,8 @@
 <body>
 <header>
   <div>
-    <h1><img src="mv_icon.png" alt="MV Kobra AI" style="height:46px;vertical-align:-10px;margin-right:10px;">MV Kobra AI <span class="badge">Cobranzas Inteligentes</span></h1>
-    <div class="sub">ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero</div>
+    <h1><img src="mv_icon.png" alt="MV Kobra AI" style="height:46px;vertical-align:-10px;margin-right:10px;">MV Kobra AI <span class="badge" data-i18n="badge">Cobranzas Inteligentes</span></h1>
+    <div class="sub" data-i18n="header_sub">ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero</div>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
     <!-- Selector de idioma de las demos de voz y WhatsApp. Va acá y no solo
@@ -127,17 +127,17 @@
 <div class="kpis" id="kpis"></div>
 
 <div class="grid2">
-  <div class="card"><h2>Cartera vs. recupero esperado por tramo de mora (M$U)</h2><canvas id="chartTramo"></canvas></div>
-  <div class="card"><h2>Distribución por propensión de pago</h2><canvas id="chartProp"></canvas></div>
+  <div class="card"><h2 data-i18n="g_tramo">Cartera vs. recupero esperado por tramo de mora (M$U)</h2><canvas id="chartTramo"></canvas></div>
+  <div class="card"><h2 data-i18n="g_prop">Distribución por propensión de pago</h2><canvas id="chartProp"></canvas></div>
 </div>
 <div class="grid2">
-  <div class="card"><h2>Recupero esperado por segmento (UYU)</h2><canvas id="chartSeg"></canvas></div>
-  <div class="card"><h2>Recupero esperado por estrategia (UYU)</h2><canvas id="chartEst"></canvas></div>
+  <div class="card"><h2 data-i18n="g_seg">Recupero esperado por segmento (UYU)</h2><canvas id="chartSeg"></canvas></div>
+  <div class="card"><h2 data-i18n="g_est">Recupero esperado por estrategia (UYU)</h2><canvas id="chartEst"></canvas></div>
 </div>
 
 <div class="card" id="miCartera">
-  <h2>🧪 Probalo con tu cartera</h2>
-  <p class="sub" style="margin-bottom:12px">
+  <h2 data-i18n="mc_titulo">🧪 Probalo con tu cartera</h2>
+  <p class="sub" style="margin-bottom:12px" data-i18n-html="mc_texto">
     Subí un CSV anonimizado —500 cuentas alcanzan— y mirá el scoring corriendo sobre
     <b>tus</b> números. <b>El archivo no sale de tu navegador</b>: se lee y se scorea acá,
     no se sube a ningún servidor. Es el mismo modelo que ves arriba, no una versión de
@@ -145,56 +145,56 @@
   </p>
   <div class="toolbar" style="flex-wrap:wrap;gap:10px">
     <label class="btn" style="cursor:pointer;display:inline-block">
-      📁 Elegir CSV
+      <span data-i18n="mc_elegir">📁 Elegir CSV</span>
       <input type="file" id="csvCartera" accept=".csv,text/csv" style="display:none">
     </label>
-    <a class="btn alt" href="ejemplo_500_cuentas.csv" download>⬇ Bajar un CSV de ejemplo (500 cuentas)</a>
+    <a class="btn alt" href="ejemplo_500_cuentas.csv" download data-i18n="mc_bajar">⬇ Bajar un CSV de ejemplo (500 cuentas)</a>
     <span class="sub" id="csvInfo"></span>
   </div>
   <div id="csvResultado" style="display:none;margin-top:14px"></div>
 </div>
 
 <div class="card">
-  <h2>Cartera priorizada</h2>
+  <h2 data-i18n="t_titulo">Cartera priorizada</h2>
   <div class="toolbar">
-    <button onclick="exportCSV()">📄 Exportar CSV</button>
-    <button class="alt" onclick="exportXLSX()">📊 Exportar Excel</button>
+    <button onclick="exportCSV()" data-i18n="btn_csv">📄 Exportar CSV</button>
+    <button class="alt" onclick="exportXLSX()" data-i18n="btn_excel">📊 Exportar Excel</button>
     <span class="sub" id="rowInfo"></span>
   </div>
   <div class="tablewrap"><table id="tabla"></table></div>
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h2>📞 Gestor IA por voz</h2>
-  <p class="sub" style="margin-bottom:10px;">Así llama y negocia MV Kobra AI por teléfono, con voz sintetizada en vivo (subí el volumen).</p>
-  <div class="toolbar"><button onclick="reproducirLlamada()">▶ Reproducir llamada de ejemplo (con voz)</button>
-    <button class="alt" onclick="detenerLlamada()">⏹ Detener</button>
+  <h2 data-i18n="v_titulo">📞 Gestor IA por voz</h2>
+  <p class="sub" style="margin-bottom:10px;" data-i18n="v_sub">Así llama y negocia MV Kobra AI por teléfono, con voz sintetizada en vivo (subí el volumen).</p>
+  <div class="toolbar"><button onclick="reproducirLlamada()" data-i18n="v_btn">▶ Reproducir llamada de ejemplo (con voz)</button>
+    <button class="alt" onclick="detenerLlamada()" data-i18n="v_stop">⏹ Detener</button>
     <span class="sub" id="callInfo"></span></div>
   <div id="callBox" style="background:#0b0e16;border:1px solid var(--border);border-radius:12px;padding:16px;min-height:60px;max-height:420px;overflow:auto;"></div>
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h2>💬 Negociador por WhatsApp</h2>
-  <p class="sub" style="margin-bottom:10px;">El mismo agente cierra por chat, manda el link de pago y registra todo solo.</p>
-  <div class="toolbar"><button onclick="reproducirWhatsApp()">▶ Reproducir conversación de ejemplo</button>
+  <h2 data-i18n="w_titulo">💬 Negociador por WhatsApp</h2>
+  <p class="sub" style="margin-bottom:10px;" data-i18n="w_sub">El mismo agente cierra por chat, manda el link de pago y registra todo solo.</p>
+  <div class="toolbar"><button onclick="reproducirWhatsApp()" data-i18n="w_btn">▶ Reproducir conversación de ejemplo</button>
     <span class="sub" id="wspInfo"></span></div>
   <div id="wspBox" style="background:#0b0e16;border:1px solid var(--border);border-radius:12px;padding:16px;min-height:60px;max-height:420px;overflow:auto;"></div>
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h2>🎧 Copiloto de Negociación</h2>
-  <p class="sub" id="convHint" style="margin-bottom:10px;">Pegá una conversación (WhatsApp o transcripción). Analizala <b>offline</b> en tu navegador, o con <b>IA en vivo</b> (motor neuronal real).</p>
+  <h2 data-i18n="c_titulo">🎧 Copiloto de Negociación</h2>
+  <p class="sub" id="convHint" style="margin-bottom:10px;" data-i18n-html="c_hint">Pegá una conversación (WhatsApp o transcripción). Analizala <b>offline</b> en tu navegador, o con <b>IA en vivo</b> (motor neuronal real).</p>
   <textarea id="convText" aria-labelledby="convHint" style="width:100%;height:150px;background:#0b0e16;color:var(--txt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.85rem;"></textarea>
-  <div class="toolbar"><button onclick="analizarCopiloto()">⚡ Analizar offline</button>
-    <button class="alt" onclick="analizarIA()">🤖 Analizar con IA en vivo</button>
+  <div class="toolbar"><button onclick="analizarCopiloto()" data-i18n="c_btn_offline">⚡ Analizar offline</button>
+    <button class="alt" onclick="analizarIA()" data-i18n="c_btn_ia">🤖 Analizar con IA en vivo</button>
     <span class="sub" id="copInfo"></span></div>
   <div id="copAI" style="display:none;margin:12px 0;padding:16px;background:#0b0e16;border:1px solid var(--border);border-radius:12px;"></div>
   <div id="copResult" style="display:none;">
     <div class="kpis cop-kpis" id="copKpis" style="grid-template-columns:repeat(4,1fr);"></div>
     <div class="grid2">
-      <div><h3 style="color:var(--muted);font-size:.85rem;margin-bottom:8px;">Sentimiento del cliente turno a turno</h3><canvas id="copSpark" style="max-height:180px;"></canvas>
-        <div style="margin-top:8px;"><b class="sub">Emociones:</b> <span id="copEmos"></span></div>
-        <div style="margin-top:4px;"><b class="sub">Técnicas del gestor:</b> <span id="copTecs"></span></div>
+      <div><h3 style="color:var(--muted);font-size:.85rem;margin-bottom:8px;" data-i18n="c_sentimiento">Sentimiento del cliente turno a turno</h3><canvas id="copSpark" style="max-height:180px;"></canvas>
+        <div style="margin-top:8px;"><b class="sub" data-i18n="c_emociones">Emociones:</b> <span id="copEmos"></span></div>
+        <div style="margin-top:4px;"><b class="sub" data-i18n="c_tecnicas">Técnicas del gestor:</b> <span id="copTecs"></span></div>
       </div>
       <div id="copTips"></div>
     </div>
@@ -209,23 +209,23 @@ function analizarIA(){
   if(ta && !ta.value.trim()) ta.value=COP_SAMPLE;
   var texto=(ta?ta.value:'').trim();
   var info=document.getElementById('copInfo');
-  if(!texto){ if(info) info.textContent='Pegá una conversación primero.'; return; }
-  if(info) info.textContent='🤖 Consultando a la IA…';
+  if(!texto){ if(info) info.textContent=window.T('c_pega_primero'); return; }
+  if(info) info.textContent=window.T('ia_consultando');
   fetch('/api/copiloto',{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({texto:texto})})
    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})})
    .then(function(res){
      if(!res.ok){
        if(info) info.textContent='';
-       var msg=(res.j&&res.j.error==='no_key')?'La IA en vivo todavía no está configurada (falta la API key en el servidor).':
-               (res.j&&res.j.error==='limit')?'Se agotaron las demos de IA en vivo gratis. Escribinos a vieraschiavi@gmail.com para ampliar.':
-               'No se pudo analizar en vivo ('+((res.j&&res.j.detail)||(res.j&&res.j.error)||'error')+').';
+       var msg=(res.j&&res.j.error==='no_key')?window.T('ia_nokey'):
+               (res.j&&res.j.error==='limit')?window.T('ia_limit'):
+               window.T('ia_error',{e:(res.j&&res.j.detail)||(res.j&&res.j.error)||'error'});
        renderAI({_error:msg}); return;
      }
-     if(info) info.textContent=(res.j&&res.j.remaining!=null)?('IA en vivo: quedan '+res.j.remaining+' demos gratis (global)'):'';
+     if(info) info.textContent=(res.j&&res.j.remaining!=null)?window.T('ia_restantes',{n:res.j.remaining}):'';
      renderAI(res.j.analisis||{_raw:res.j.raw});
    })
-   .catch(function(e){ if(info) info.textContent=''; renderAI({_error:'Sin conexión con la IA: '+e}); });
+   .catch(function(e){ if(info) info.textContent=''; renderAI({_error:window.T('ia_sin_conexion',{e:e})}); });
 }
 // Escape para todo lo que venga de la API, del dataset o del cliente antes de
 // entrar a innerHTML. El HTML de esta pagina es propio y estatico; lo que NO es
@@ -248,35 +248,47 @@ function renderAI(a){
   var sc=a.sentimiento==='Positivo'?'var(--green)':a.sentimiento==='Negativo'?'var(--red)':'var(--yellow)';
   var tecs=(a.tecnicas||[]).map(function(t){return chip(t)}).join('')||'<span class="sub">—</span>';
   box.innerHTML=
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><b style="color:var(--green)">🤖 Análisis de IA (en vivo)</b>'
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><b style="color:var(--green)">'+esc(window.T('ia_titulo'))+'</b>'
     +'<span class="pill" style="background:rgba(0,200,150,.16);color:'+sc+'">'+esc(a.sentimiento||'—')+'</span></div>'
-    +'<div class="sub" style="margin-bottom:4px">Temperatura del cliente</div>'
+    +'<div class="sub" style="margin-bottom:4px">'+esc(window.T('ia_temp'))+'</div>'
     +'<div style="height:9px;background:#1a1f2e;border-radius:6px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:'+temp+'%;background:'+sc+'"></div></div>'
-    +'<div style="margin-bottom:8px"><b class="sub">Técnicas detectadas:</b><br>'+tecs+'</div>'
-    +'<div style="margin-bottom:8px"><b class="sub">Próxima jugada:</b> '+esc(a.proxima_jugada||'—')+'</div>'
-    +'<div style="background:#101a2b;border:1px solid var(--border);border-radius:10px;padding:10px 12px"><b class="sub" style="color:var(--green)">Guion sugerido:</b><br>'+esc(a.guion||'—')+'</div>';
+    +'<div style="margin-bottom:8px"><b class="sub">'+esc(window.T('ia_tecnicas'))+'</b><br>'+tecs+'</div>'
+    +'<div style="margin-bottom:8px"><b class="sub">'+esc(window.T('ia_jugada'))+'</b> '+esc(a.proxima_jugada||'—')+'</div>'
+    +'<div style="background:#101a2b;border:1px solid var(--border);border-radius:10px;padding:10px 12px"><b class="sub" style="color:var(--green)">'+esc(window.T('ia_guion'))+'</b><br>'+esc(a.guion||'—')+'</div>';
 }
 </script>
 
 <div class="card" style="margin-top:16px;">
-  <h2>📤 Resultados enviados a tu ERP</h2>
-  <p class="sub" style="margin-bottom:10px;">Cada gestión cerrada (voz, WhatsApp o copiloto) se sincroniza sola a tu ERP o base de datos — por API REST, SQL o archivo. Así se ve del otro lado:</p>
+  <h2 data-i18n="e_titulo">📤 Resultados enviados a tu ERP</h2>
+  <p class="sub" style="margin-bottom:10px;" data-i18n="e_sub">Cada gestión cerrada (voz, WhatsApp o copiloto) se sincroniza sola a tu ERP o base de datos — por API REST, SQL o archivo. Así se ve del otro lado:</p>
   <div class="kpis" id="erpKpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px"></div>
-  <h3 style="margin-bottom:10px;color:var(--muted);font-size:.9rem">Evolución de recupero (últimos 30 días)</h3>
+  <h3 style="margin-bottom:10px;color:var(--muted);font-size:.9rem" data-i18n="e_evolucion">Evolución de recupero (últimos 30 días)</h3>
   <canvas id="chartEvol" style="max-height:220px;margin-bottom:18px"></canvas>
   <div class="toolbar">
     <button onclick="exportResultadosCSV()">📄 CSV</button>
     <button class="alt" onclick="exportResultadosXLSX()">📊 Excel</button>
     <button onclick="exportResultadosPDF()">🖨️ PDF</button>
     <button class="alt" onclick="exportResultadosWord()">📝 Word</button>
-    <span class="sub">Mismo dato que recibe tu ERP vía API/SQL</span>
+    <span class="sub" data-i18n="e_mismo_dato">Mismo dato que recibe tu ERP vía API/SQL</span>
   </div>
   <div class="tablewrap"><table id="tablaResultados"></table></div>
 </div>
 
-<footer>MV Kobra AI · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). Sin nombres de clientes.</footer>
+<footer data-i18n="pie">MV Kobra AI · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). Sin nombres de clientes.</footer>
 
 <script>
+// `T` y `traducirDOM` los define guiones.js, que se carga en el <head>. El
+// alias local es para no escribir `window.` en cada etiqueta.
+const T = window.T, propLabel = v => T('prop_'+v) || v;
+// Las emociones vienen del motor con clave tipo `dificultad_economica`; si el
+// diccionario no la tiene, se muestra la clave legible en vez de nada.
+const emoLabel = e => e ? (T('emo_'+e) || e.replace(/_/g,' ')) : '—';
+// Los valores categóricos del dataset (segmento, producto, estrategia, canal)
+// se MUESTRAN traducidos pero se GUARDAN como vienen: los filtros y los
+// gráficos comparan contra el dato, no contra la etiqueta. Si el pipeline
+// agrega una categoría nueva, `dato()` la muestra tal cual en vez de vaciarla.
+const dato = v => v == null ? v : (T('d_'+v) || v);
+window.traducirDOM();
 const D = (window.KOBRA && window.KOBRA.registros) ? window.KOBRA : {registros:[],kpis:{},metrics:{}};
 const ALL = D.registros;
 const fmt = n => new Intl.NumberFormat('es-UY',{maximumFractionDigits:0}).format(n);
@@ -286,25 +298,29 @@ const TRAMOS=["1-30","31-60","61-90","91-180","180+"];
 let charts={};
 
 document.getElementById('modelInfo').innerHTML =
-  `${D.metrics.modelo??'ProbPago'} · <b>AUC ${D.metrics.auc_roc??'—'}</b> · Lift decil 10: <b>${D.metrics.lift_decil10??'—'}x</b>`;
+  `${esc(/log[íi]stica/i.test(D.metrics.modelo||'') ? T('modelo_logistica') : (D.metrics.modelo??'ProbPago'))} · `
+  + `<b>AUC ${esc(D.metrics.auc_roc??'—')}</b> · Lift ${esc(T('lift_decil'))}: <b>${esc(D.metrics.lift_decil10??'—')}x</b>`;
 
 // ---- Filtros ----
 const FILTERS=[
-  {k:'segmento',label:'Segmento'},{k:'producto',label:'Producto'},
-  {k:'tramo_mora',label:'Tramo de mora',opts:TRAMOS},
-  {k:'segmento_propension',label:'Propensión',opts:['Alta','Media','Baja']},
-  {k:'departamento',label:'Departamento'},
+  {k:'segmento',label:T('f_segmento'),etiquetar:dato},{k:'producto',label:T('f_producto'),etiquetar:dato},
+  {k:'tramo_mora',label:T('f_tramo_mora'),opts:TRAMOS},
+  {k:'segmento_propension',label:T('f_propension'),opts:['Alta','Media','Baja'],etiquetar:propLabel},
+  {k:'departamento',label:T('f_departamento')},
 ];
 const fc=document.getElementById('filters');
 FILTERS.forEach(f=>{
   const opts=f.opts||uniq(f.k);
   const div=document.createElement('div');
+  // El VALOR del <option> queda siempre en el idioma del dato (los filtros
+  // comparan contra el dataset); lo que se traduce es la etiqueta visible.
+  const et=f.etiquetar||(o=>o);
   div.innerHTML=`<label for="f_${f.k}">${esc(f.label)}</label><select id="f_${f.k}">
-    <option value="">Todos</option>${opts.map(o=>`<option>${o}</option>`).join('')}</select>`;
+    <option value="">${esc(T('f_todos'))}</option>${opts.map(o=>`<option value="${esc(o)}">${esc(et(o))}</option>`).join('')}</select>`;
   fc.appendChild(div);
 });
 const pmDiv=document.createElement('div');
-pmDiv.innerHTML=`<label for="f_prob">ProbPago mínima: <span id="pmVal">0%</span></label>
+pmDiv.innerHTML=`<label for="f_prob">${esc(T('f_prob_min'))} <span id="pmVal">0%</span></label>
   <input type="range" id="f_prob" min="0" max="100" value="0"
          aria-label="ProbPago mínima, en porcentaje">`;
 fc.appendChild(pmDiv);
@@ -337,10 +353,10 @@ function render(){
   const prob=rows.length?rows.reduce((a,r)=>a+r.probpago,0)/rows.length:0;
   const mora=rows.length?rows.reduce((a,r)=>a+r.dias_mora,0)/rows.length:0;
   const K=[
-    [fmt(rows.length),'Deudores'],[fmtM(cartera),'Cartera (UYU)'],
-    [fmtM(recu),`Recupero esp. (${cartera?Math.round(recu/cartera*100):0}%)`],
-    [Math.round(prob*100)+'%','ProbPago promedio'],
-    [Math.round(mora)+' días','Mora promedio'],[fmtM(riesgo),'Cartera en riesgo'],
+    [fmt(rows.length),T('kpi_deudores')],[fmtM(cartera),T('kpi_cartera')],
+    [fmtM(recu),T('kpi_recupero',{p:cartera?Math.round(recu/cartera*100):0})],
+    [Math.round(prob*100)+'%',T('kpi_probpago')],
+    [Math.round(mora)+' '+T('dias'),T('kpi_mora')],[fmtM(riesgo),T('kpi_riesgo')],
   ];
   document.getElementById('kpis').innerHTML=K.map(k=>`<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
 
@@ -348,36 +364,41 @@ function render(){
   const cTr={},rTr={};TRAMOS.forEach(t=>{cTr[t]=0;rTr[t]=0;});
   rows.forEach(r=>{if(cTr[r.tramo_mora]!=null){cTr[r.tramo_mora]+=r.monto_deuda;rTr[r.tramo_mora]+=r.valor_esperado_recupero;}});
   drawBar('chartTramo',TRAMOS,[
-    {label:'Cartera',data:TRAMOS.map(t=>cTr[t]/1e6),backgroundColor:C.grey},
-    {label:'Recupero esperado',data:TRAMOS.map(t=>rTr[t]/1e6),backgroundColor:C.green}],true);
+    {label:T('ds_cartera'),data:TRAMOS.map(t=>cTr[t]/1e6),backgroundColor:C.grey},
+    {label:T('ds_recupero_esp'),data:TRAMOS.map(t=>rTr[t]/1e6),backgroundColor:C.green}],true);
 
   const props=['Alta','Media','Baja'];
   const pc=props.map(p=>rows.filter(r=>r.segmento_propension===p).length);
-  drawDoughnut('chartProp',props,pc,[C.green,C.yellow,C.red]);
+  drawDoughnut('chartProp',props.map(propLabel),pc,[C.green,C.yellow,C.red]);
 
   const seg=sumBy(rows,'segmento','valor_esperado_recupero');
-  drawBar('chartSeg',Object.keys(seg),[{label:'Recupero',data:Object.values(seg),
+  drawBar('chartSeg',Object.keys(seg).map(dato),[{label:T('ds_recupero'),data:Object.values(seg),
     backgroundColor:[C.green,C.purple,C.yellow]}],false);
 
   const est=sumBy(rows,'estrategia','valor_esperado_recupero');
   const estE=Object.entries(est).sort((a,b)=>b[1]-a[1]);
-  drawBarH('chartEst',estE.map(e=>e[0]),estE.map(e=>e[1]));
+  drawBarH('chartEst',estE.map(e=>dato(e[0])),estE.map(e=>e[1]));
 
   // Tabla (top 300 por prioridad)
   const cols=['prioridad','id_deudor','segmento','producto','departamento','tramo_mora',
     'monto_deuda','probpago','segmento_propension','estrategia','descuento_recomendado',
     'canal_recomendado','valor_esperado_recupero'];
-  const head=['#','ID','Segmento','Producto','Depto','Tramo','Monto','ProbPago','Prop.','Estrategia','Desc.','Canal','Recupero esp.'];
+  const head=['th_num','th_id','th_segmento','th_producto','th_depto','th_tramo','th_monto',
+    'th_probpago','th_prop','th_estrategia','th_desc','th_canal','th_recupero'].map(T);
   const sorted=[...rows].sort((a,b)=>a.prioridad-b.prioridad).slice(0,300);
   let html='<thead><tr>'+head.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>';
   sorted.forEach(r=>{html+='<tr>'+cols.map(c=>{
     if(c==='monto_deuda'||c==='valor_esperado_recupero')return `<td>${esc(fmt(r[c]))}</td>`;
     if(c==='probpago')return `<td>${Math.round(r[c]*100)}%</td>`;
     if(c==='descuento_recomendado')return `<td>${Math.round(r[c]*100)}%</td>`;
-    if(c==='segmento_propension')return `<td><span class="pill ${esc(r[c])}">${esc(r[c])}</span></td>`;
+    // La clase CSS sigue el valor del dato (Alta/Media/Baja pintan colores);
+    // solo la etiqueta visible se traduce.
+    if(c==='segmento_propension')return `<td><span class="pill ${esc(r[c])}">${esc(propLabel(r[c]))}</span></td>`;
+    if(c==='segmento'||c==='producto'||c==='estrategia'||c==='canal_recomendado')
+      return `<td>${esc(dato(r[c]))}</td>`;
     return `<td>${esc(r[c])}</td>`;}).join('')+'</tr>';});
   document.getElementById('tabla').innerHTML=html+'</tbody>';
-  document.getElementById('rowInfo').textContent=`${fmt(rows.length)} registros filtrados · mostrando top 300 por prioridad`;
+  document.getElementById('rowInfo').textContent=T('t_info',{n:fmt(rows.length)});
   window._filtered=rows;
 }
 
@@ -432,25 +453,25 @@ document.getElementById('convText').value = CONV_DEMO;
 
 function analizarCopiloto(){
   const txt = document.getElementById('convText').value;
-  if(!txt.trim()){ document.getElementById('copInfo').textContent='Pegá una conversación.'; return; }
+  if(!txt.trim()){ document.getElementById('copInfo').textContent=T('c_pega'); return; }
   const r = KobraCopiloto.analizar(txt);
   const cop = r.copiloto;
   document.getElementById('copResult').style.display='block';
   const emoji = {positivo:'🟢',neutro:'🟡',negativo:'🔴'}[cop.clima_etiqueta];
-  const K=[[Math.round(r.calidad.score_total)+'/100','Calidad de gestión'],
-    [emoji+' '+cop.clima_etiqueta,'Clima del cliente'],
-    [(cop.emociones_cliente[0]||'—').replace(/_/g,' '),'Emoción dominante'],
-    [Object.values(r.tecnicas).filter(Boolean).length,'Técnicas usadas']];
+  const K=[[Math.round(r.calidad.score_total)+'/100',T('c_k_calidad')],
+    [emoji+' '+(T('clima_'+cop.clima_etiqueta)||cop.clima_etiqueta),T('c_k_clima')],
+    [emoLabel(cop.emociones_cliente[0]),T('c_k_emocion')],
+    [Object.values(r.tecnicas).filter(Boolean).length,T('c_k_tecnicas')]];
   document.getElementById('copKpis').innerHTML=K.map(k=>`<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
   document.getElementById('copEmos').innerHTML = cop.emociones_cliente.length
-    ? cop.emociones_cliente.map(e=>`<span class="pill Baja">${e.replace(/_/g,' ')}</span>`).join(' ') : '—';
+    ? cop.emociones_cliente.map(e=>`<span class="pill Baja">${esc(emoLabel(e))}</span>`).join(' ') : '—';
   const tec = Object.keys(r.tecnicas).filter(k=>r.tecnicas[k]);
   document.getElementById('copTecs').innerHTML = tec.length
     ? tec.map(t=>`<span class="pill" style="background:rgba(108,92,231,.2);color:#b3a9f7;">${t}</span>`).join(' ') : '—';
   let tips = cop.sugerencias.map(s=>`<div style="background:#141b2d;border-left:4px solid var(--green);border-radius:8px;padding:11px 13px;margin:8px 0;font-size:.88rem;"><b style="color:var(--green);">${s[0]}</b><br>${s[1]}</div>`).join('');
-  tips += `<h4 style="color:var(--muted);font-size:.85rem;margin:10px 0 6px;">💬 Próxima frase sugerida</h4><div style="background:#14261f;border:1px dashed var(--green);border-radius:10px;padding:12px;font-size:.92rem;">${cop.proxima_frase}</div>`;
+  tips += `<h4 style="color:var(--muted);font-size:.85rem;margin:10px 0 6px;">${esc(T('c_proxima'))}</h4><div style="background:#14261f;border:1px dashed var(--green);border-radius:10px;padding:12px;font-size:.92rem;">${cop.proxima_frase}</div>`;
   document.getElementById('copTips').innerHTML = tips;
-  document.getElementById('copInfo').textContent = `${r.turnos.length} turnos analizados`;
+  document.getElementById('copInfo').textContent = T('c_turnos',{n:r.turnos.length});
 
   const cli = r.turnos.map((t,i)=>({t,s:r.sents[i]})).filter(x=>x.t.emisor==='cliente');
   if(charts.copSpark) charts.copSpark.destroy();
@@ -630,7 +651,7 @@ function reproducirLlamada(){
 var WSP_SCRIPT = _G.whatsapp || [];
 function reproducirWhatsApp(){
   var box=document.getElementById('wspBox'); box.innerHTML='';
-  var info=document.getElementById('wspInfo'); info.textContent='💬 Escribiendo…';
+  var info=document.getElementById('wspInfo'); info.textContent=T('w_escribiendo');
   var i=0;
   function next(){
     if(i>=WSP_SCRIPT.length){
@@ -653,28 +674,32 @@ function reproducirWhatsApp(){
 
 // ---- Resultados enviados a tu ERP (sincronización + evolución + exportables) ----
 var RESULTADOS=(function(){
-  var canales=['Voz','WhatsApp','Copiloto'];
-  var resultados=['Pago total','Acuerdo en cuotas','Promesa de pago','Sin contacto'];
+  // Estos valores los inventa el demo (no vienen del dataset), así que se
+  // generan ya traducidos. `SIN_CONTACTO` se guarda aparte porque abajo se
+  // compara contra él para poner el monto en cero.
+  var canales=[T('e_c_voz'),T('e_c_whatsapp'),T('e_c_copiloto')];
+  var SIN_CONTACTO=T('e_r_sin_contacto');
+  var resultados=[T('e_r_pago'),T('e_r_acuerdo'),T('e_r_promesa'),SIN_CONTACTO];
   var out=[], base=Date.now();
   for(var i=0;i<40;i++){
     var dias=Math.floor(Math.random()*30);
     var fecha=new Date(base-dias*86400000).toISOString().slice(0,10);
     var canal=canales[i%canales.length];
     var resultado=resultados[Math.floor(Math.random()*resultados.length)];
-    var monto=resultado==='Sin contacto'?0:Math.round((1500+Math.random()*6000)/100)*100;
+    var monto=resultado===SIN_CONTACTO?0:Math.round((1500+Math.random()*6000)/100)*100;
     out.push({fecha:fecha,cliente:'DEU-'+(1000+i),canal:canal,resultado:resultado,monto:monto,
-      estado_erp:(i%7===0)?'Pendiente':'Sincronizado'});
+      estado_erp:(i%7===0)?T('e_pendiente'):T('e_sincronizado')});
   }
   return out.sort(function(a,b){return a.fecha<b.fecha?1:(a.fecha>b.fecha?-1:0);});
 })();
 
 (function renderResultados(){
   var total=RESULTADOS.length;
-  var sync=RESULTADOS.filter(function(r){return r.estado_erp==='Sincronizado';}).length;
+  var sync=RESULTADOS.filter(function(r){return r.estado_erp===T('e_sincronizado');}).length;
   var pend=total-sync;
   var recuperado=RESULTADOS.reduce(function(a,r){return a+r.monto;},0);
-  var K=[[fmt(total),'Gestiones cerradas'],[fmt(sync),'Sincronizadas al ERP'],
-    [fmt(pend),'Pendientes de sync'],[fmtM(recuperado),'Recuperado (30 días)']];
+  var K=[[fmt(total),T('e_k_cerradas')],[fmt(sync),T('e_k_sync')],
+    [fmt(pend),T('e_k_pend')],[fmtM(recuperado),T('e_k_recuperado')]];
   document.getElementById('erpKpis').innerHTML=K.map(function(k){return '<div class="kpi"><div class="v">'+k[0]+'</div><div class="l">'+k[1]+'</div></div>';}).join('');
 
   var byDay={};
@@ -682,17 +707,17 @@ var RESULTADOS=(function(){
   var days=Object.keys(byDay).sort();
   if(charts.chartEvol) charts.chartEvol.destroy();
   charts.chartEvol=new Chart(document.getElementById('chartEvol'),{type:'line',
-    data:{labels:days,datasets:[{label:'Recuperado (UYU)',data:days.map(function(d){return byDay[d];}),
+    data:{labels:days,datasets:[{label:T('e_ds_recuperado'),data:days.map(function(d){return byDay[d];}),
       borderColor:'#00C896',backgroundColor:'rgba(0,200,150,.12)',borderWidth:2,tension:.3,fill:true}]},
     options:{responsive:true,plugins:{legend:{display:false}}}});
 
   var cols=['fecha','cliente','canal','resultado','monto','estado_erp'];
-  var head=['Fecha','Cliente','Canal','Resultado','Monto','Estado ERP'];
+  var head=['e_th_fecha','e_th_cliente','e_th_canal','e_th_resultado','e_th_monto','e_th_estado'].map(T);
   var html='<thead><tr>'+head.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>';
   RESULTADOS.forEach(function(r){
     html+='<tr>'+cols.map(function(c){
       if(c==='monto')return '<td>'+fmt(r[c])+'</td>';
-      if(c==='estado_erp')return '<td><span class="pill '+(r[c]==='Sincronizado'?'Alta':'Media')+'">'+r[c]+'</span></td>';
+      if(c==='estado_erp')return '<td><span class="pill '+(r[c]===T('e_sincronizado')?'Alta':'Media')+'">'+esc(r[c])+'</span></td>';
       return '<td>'+r[c]+'</td>';
     }).join('')+'</tr>';
   });
@@ -714,7 +739,7 @@ function exportResultadosWord(){
   var rows=RESULTADOS, cols=Object.keys(rows[0]||{});
   var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
     +'<head><meta charset="utf-8"><title>MV Kobra AI · Resultados</title></head><body>'
-    +'<h2 style="font-family:Calibri,Arial,sans-serif">MV Kobra AI · Resultados enviados a ERP</h2>'
+    +'<h2 style="font-family:Calibri,Arial,sans-serif">'+esc(T('e_doc_titulo'))+'</h2>'
     +'<table border="1" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt">'
     +'<tr>'+cols.map(function(c){return '<th style="background:#00C896;color:#fff;padding:4px 8px">'+c+'</th>';}).join('')+'</tr>'
     +rows.map(function(r){return '<tr>'+cols.map(function(c){return '<td style="padding:4px 8px">'+r[c]+'</td>';}).join('')+'</tr>';}).join('')
@@ -729,7 +754,7 @@ function exportResultadosPDF(){
     +'body{font-family:Arial,sans-serif;color:#111;padding:24px}h2{color:#00895f}'
     +'table{width:100%;border-collapse:collapse;font-size:12px}'
     +'th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#00C896;color:#fff}'
-    +'</style></head><body><h2>MV Kobra AI · Resultados enviados a ERP</h2><table><tr>'
+    +'</style></head><body><h2>'+esc(T('e_doc_titulo'))+'</h2><table><tr>'
     +cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>'
     +rows.map(function(r){return '<tr>'+cols.map(function(c){return '<td>'+r[c]+'</td>';}).join('')+'</tr>';}).join('')
     +'</table></body></html>';
@@ -773,19 +798,18 @@ function exportResultadosPDF(){
     // 20 MB es holgado para una cartera de cientos de miles de filas en CSV, y
     // frena que alguien arrastre un archivo equivocado y cuelgue la pestaña.
     if(f.size > 20*1024*1024){
-      aviso('Ese archivo pesa '+Math.round(f.size/1048576)+' MB. Probá con una '
-        +'muestra de unas miles de filas: para ver el scoring alcanza.', 'sub');
+      aviso(esc(T('mc_pesado',{mb:Math.round(f.size/1048576)})), 'sub');
       return;
     }
-    info.textContent = 'Leyendo '+esc(f.name)+'…';
+    info.textContent = T('mc_leyendo',{archivo:f.name});
     var lector = new FileReader();
-    lector.onerror = function(){ info.textContent=''; aviso('No pude leer el archivo.'); };
+    lector.onerror = function(){ info.textContent=''; aviso(esc(T('mc_no_lee'))); };
     lector.onload = function(){
       cargarModelo().then(function(bundle){
         procesar(String(lector.result||''), bundle, f.name);
       }).catch(function(e){
         info.textContent='';
-        aviso('No pude cargar el modelo ('+esc(e.message||e)+'). Recargá la página.');
+        aviso(esc(T('mc_no_modelo',{e:e.message||e})));
       });
     };
     lector.readAsText(f);
@@ -796,16 +820,15 @@ function exportResultadosPDF(){
     var K = window.KobraScoring;
     var csv = K.parsearCSV(texto);
     if(!csv.filas.length){
-      aviso('El archivo no tiene filas de datos. ¿Le quedó solo el encabezado?');
+      aviso(esc(T('mc_sin_filas')));
       return;
     }
     var rev = K.revisarColumnas(bundle, csv.columnas);
     if(rev.faltan.length){
-      aviso('<b>Le faltan '+rev.faltan.length+' columna(s) al archivo.</b><br>'
-        +'El modelo necesita: <code>'+esc(rev.pedidas.join(', '))+'</code>.<br>'
-        +'No encontré: <code>'+esc(rev.faltan.join(', '))+'</code>.<br>'
-        +'Bajá el CSV de ejemplo de arriba para ver el formato exacto — '
-        +'los nombres no distinguen mayúsculas.');
+      // Los nombres de columna salen del modelo, no del archivo, pero igual
+      // van escapados: es la regla, no una excepción que haya que razonar.
+      aviso(T('mc_faltan',{n:rev.faltan.length,
+        pedidas:esc(rev.pedidas.join(', ')), faltan:esc(rev.faltan.join(', '))}));
       return;
     }
     var filas = K.normalizar(csv.filas, rev.mapa);
@@ -837,16 +860,17 @@ function exportResultadosPDF(){
     }).slice(0,15);
 
     var html = '<div class="kpis" style="margin-bottom:14px">'
-      +'<div class="kpi"><div class="v">'+n.toLocaleString('es-UY')+'</div><div class="l">Cuentas scoreadas</div></div>'
-      +'<div class="kpi"><div class="v">'+Math.round(media*100)+'%</div><div class="l">ProbPago promedio</div></div>'
-      +'<div class="kpi"><div class="v">'+fmt(esperado)+'</div><div class="l">Recupero esperado</div></div>'
-      +'<div class="kpi"><div class="v">'+alta+' / '+baja+'</div><div class="l">Alta / baja propensión</div></div>'
+      +'<div class="kpi"><div class="v">'+n.toLocaleString('es-UY')+'</div><div class="l">'+esc(T('mc_k_cuentas'))+'</div></div>'
+      +'<div class="kpi"><div class="v">'+Math.round(media*100)+'%</div><div class="l">'+esc(T('mc_k_prob'))+'</div></div>'
+      +'<div class="kpi"><div class="v">'+fmt(esperado)+'</div><div class="l">'+esc(T('mc_k_recupero'))+'</div></div>'
+      +'<div class="kpi"><div class="v">'+alta+' / '+baja+'</div><div class="l">'+esc(T('mc_k_altabaja'))+'</div></div>'
       +'</div>'
-      +'<p class="sub" style="margin-bottom:10px">'+esc(nombre)+' · '+n.toLocaleString('es-UY')
-      +' filas en '+ms+' ms, en tu navegador. Cartera '+fmt(deuda)+'.</p>'
-      +'<h3>Top 15 por valor esperado de recupero</h3>'
-      +'<div class="tablewrap"><table><thead><tr><th>#</th><th>Cuenta</th>'
-      +'<th>Monto</th><th>ProbPago</th><th>Recupero esperado</th><th>Propensión</th>'
+      +'<p class="sub" style="margin-bottom:10px">'+esc(T('mc_resumen',{
+          archivo:nombre, n:n.toLocaleString('es-UY'), ms:ms, cartera:fmt(deuda)}))+'</p>'
+      +'<h3>'+esc(T('mc_top'))+'</h3>'
+      +'<div class="tablewrap"><table><thead><tr><th>#</th><th>'+esc(T('mc_th_cuenta'))+'</th>'
+      +'<th>'+esc(T('mc_th_monto'))+'</th><th>'+esc(T('th_probpago'))+'</th>'
+      +'<th>'+esc(T('mc_th_recupero'))+'</th><th>'+esc(T('mc_th_prop'))+'</th>'
       +'</tr></thead><tbody>';
     for(var k=0;k<idx.length;k++){
       var j = idx[k], p = probs[j];
@@ -859,12 +883,10 @@ function exportResultadosPDF(){
         +'<td class="tnum">'+fmt(m)+'</td>'
         +'<td class="tnum">'+Math.round(p*100)+'%</td>'
         +'<td class="tnum">'+fmt(m*p)+'</td>'
-        +'<td><span class="pill '+seg+'">'+seg+'</span></td></tr>';
+        +'<td><span class="pill '+seg+'">'+esc(propLabel(seg))+'</span></td></tr>';
     }
     html += '</tbody></table></div>'
-      +'<p class="sub" style="margin-top:10px">El modelo está entrenado con datos '
-      +'<b>sintéticos</b>: esto muestra la mecánica del scoring y la priorización. '
-      +'El desempeño real se mide reentrenando con tu histórico de pagos.</p>';
+      +'<p class="sub" style="margin-top:10px">'+T('mc_pie')+'</p>';
     caja.style.display='block';
     caja.innerHTML = html;
     caja.scrollIntoView({behavior:'smooth', block:'nearest'});

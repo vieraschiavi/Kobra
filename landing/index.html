@@ -629,9 +629,24 @@ function pintarPaisPrecios(){
     if(PAIS_IDIOMA[sel.value]&&PAIS_IDIOMA[sel.value]!==CUR_LANG)setLang(PAIS_IDIOMA[sel.value]);
     else pintarPaisPrecios();
   });
+  // Misma prioridad que el demo: ?lang= primero, después lo que quedó
+  // guardado, después el navegador, y castellano como piso. El parámetro de la
+  // URL es lo único que sobrevive a compartir el link: sin esto, mandarle
+  // /?lang=en a alguien le abría la página en castellano igual, y el selector
+  // del demo tampoco servía de nada porque el visitante nunca llegaba a verlo.
+  var soportados=['es','pt','en'];
+  function normLang(v){
+    if(!v) return null;
+    v=String(v).toLowerCase().slice(0,2);
+    return soportados.indexOf(v)>=0?v:null;
+  }
+  var langURL=null;
+  try{langURL=normLang(new URLSearchParams(location.search).get('lang'));}catch(e){}
   var langGuardado=null;
-  try{langGuardado=localStorage.getItem('kobra_lang');}catch(e){}
-  if(langGuardado&&langGuardado!=='es')setLang(langGuardado);
+  try{langGuardado=normLang(localStorage.getItem('kobra_lang'));}catch(e){}
+  var langNav=normLang(navigator&&navigator.language);
+  var lang=langURL||langGuardado||langNav||'es';
+  if(lang!=='es')setLang(lang);
   else pintarPaisPrecios();
 })();
 document.querySelectorAll('[data-pay]').forEach(function(btn){
