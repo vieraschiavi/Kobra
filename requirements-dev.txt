@@ -1,0 +1,30 @@
+# Dependencias para DESARROLLAR y TESTEAR MV Kobra AI.
+# Las de ejecución están en requirements.txt; estas son las que hacen falta
+# además para correr la suite y el linter.
+#
+#     pip install -r requirements.txt -r requirements-dev.txt
+#     python -m pytest -q tests/
+#
+# Por qué existe este archivo: hasta ahora `pytest` no estaba declarado en
+# ningún lado — el CI lo instalaba a mano con un `pip install pytest joblib`
+# suelto, así que una máquina limpia que siguiera el README no podía correr los
+# tests. Se comprobó al recrear el entorno: de todo lo que necesita la suite,
+# lo único que faltaba era exactamente pytest y httpx.
+
+pytest>=8.0
+
+# httpx (NO httpx2): es lo que usa `fastapi.testclient.TestClient` por dentro.
+# requirements.txt declara `httpx2`, que es otro paquete distinto y no sirve
+# para el TestClient — de ahí que la suite fallara en un entorno limpio.
+httpx>=0.27
+
+# Linter. La configuración vive en pyproject.toml.
+ruff>=0.6
+
+# --- Dependencias de SISTEMA (no se instalan con pip) ----------------------
+# ffmpeg — lo usan la generación del audio de la demo y el conversor de voz.
+# Sin él, esos tests se saltean solos (no fallan), pero para regenerar el
+# audio de la demo hace falta:
+#     Debian/Ubuntu : sudo apt-get install -y ffmpeg
+#     macOS         : brew install ffmpeg
+#     Windows       : winget install Gyan.FFmpeg

@@ -12,7 +12,6 @@ baje. Eso no se arregla con un comentario en el README: se bloquea en el
 código, y estos tests verifican que el bloqueo funcione.
 """
 import importlib.util
-import io
 import json
 import os
 import sys

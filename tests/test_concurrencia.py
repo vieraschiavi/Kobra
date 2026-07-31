@@ -14,7 +14,7 @@ import pytest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from kobra import concurrencia as kconc   # noqa: E402
+from kobra import concurrencia as kconc  # noqa: E402
 
 
 class Reloj:

@@ -34,8 +34,7 @@ import time
 from datetime import datetime, timezone
 
 import pandas as pd
-from fastapi import (Depends, FastAPI, File, Header, HTTPException, Request,
-                     Response, UploadFile)
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -44,19 +43,18 @@ from pydantic import BaseModel
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, ROOT)
 
-from kobra import analitica as kanalitica          # noqa: E402
-from kobra import autenticacion as kauth           # noqa: E402
-from kobra import ayuda as kayuda                  # noqa: E402
-from kobra import cartera_manual as kcartera       # noqa: E402
-from kobra import config as kconfig                # noqa: E402
-from kobra import informe_ejecutivo as kinforme    # noqa: E402
-from kobra import limitador as klimite             # noqa: E402
-from kobra import llm as kllm                      # noqa: E402
-from kobra import paises as kpaises                # noqa: E402
-from kobra import registro as kregistro            # noqa: E402
-from kobra import rutas as krutas                  # noqa: E402
-from kobra import seguimiento as kseg              # noqa: E402
 from backend_venta import licencias as klicencias  # noqa: E402
+from kobra import analitica as kanalitica  # noqa: E402
+from kobra import autenticacion as kauth  # noqa: E402
+from kobra import ayuda as kayuda  # noqa: E402
+from kobra import cartera_manual as kcartera  # noqa: E402
+from kobra import config as kconfig  # noqa: E402
+from kobra import informe_ejecutivo as kinforme  # noqa: E402
+from kobra import limitador as klimite  # noqa: E402
+from kobra import llm as kllm  # noqa: E402
+from kobra import paises as kpaises  # noqa: E402
+from kobra import rutas as krutas  # noqa: E402
+from kobra import seguimiento as kseg  # noqa: E402
 
 # Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo (ROOT),
 # igual que antes; instalado, es una carpeta propia del usuario, nunca
@@ -114,8 +112,12 @@ def usuario_actual(authorization: str = Header(default="")) -> Usuario:
         raise HTTPException(401, "Falta el token (Authorization: Bearer …).")
     try:
         datos = jwt.decode(authorization[7:], _secreto(), algorithms=["HS256"])
-    except Exception:
-        raise HTTPException(401, "Token inválido o vencido — iniciá sesión de nuevo.")
+    except Exception as e:
+        # `from e` deja la causa real (firma rota, vencido, malformado) en el
+        # log del servidor sin exponerla al cliente, que sigue viendo el mismo
+        # mensaje. Sin esto, el traceback dice solo "During handling of the
+        # above exception, another exception occurred" y se pierde cuál era.
+        raise HTTPException(401, "Token inválido o vencido — iniciá sesión de nuevo.") from e
     return Usuario(rol=datos.get("rol", "gestor"),
                    empresa=datos.get("empresa", EMPRESA_DEFAULT))
 
@@ -478,7 +480,7 @@ def _frenar(limitador: klimite.Limitador, request: Request, accion: str) -> str:
         raise HTTPException(
             429,
             f"Demasiados intentos. Esperá {e.espera_seg} segundos y probá de nuevo.",
-            headers={"Retry-After": str(e.espera_seg)})
+            headers={"Retry-After": str(e.espera_seg)}) from e
     return clave
 
 
@@ -1114,7 +1116,7 @@ async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "L
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(400, f"No se pudo procesar el audio: {e}")
+        raise HTTPException(400, f"No se pudo procesar el audio: {e}") from e
     finally:
         for p in (destino, liviano):
             try:
@@ -1176,8 +1178,9 @@ def _guardar_calidad(empresa: str, gestor: str, fecha: str | None, canal: str,
                      archivo: str, evaluacion: dict) -> dict:
     """Acumula una evaluación de audio en el registro de calidad del tenant, para
     armar fichas de gestor por mes y su evolución."""
-    from kobra import calidad_gestion as kcalidad
     import uuid
+
+    from kobra import calidad_gestion as kcalidad
     if not fecha:
         fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     fila = kcalidad.fila_evaluacion(gestor, fecha, canal, archivo, evaluacion,
@@ -1404,6 +1407,7 @@ def originacion_cola(n: int = 15, u: Usuario = Depends(usuario_actual)):
     para lo que no venga); en demo, solicitudes sintéticas. No hay una carga
     aparte para esta pestaña."""
     import json as _json
+
     from kobra import originacion as korig
     modelo = _originacion()
     tope = max(5, min(n, 50))
@@ -1550,7 +1554,7 @@ async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends
         df_bruto = (pd.read_csv(io.BytesIO(contenido), dtype=str) if nombre.endswith(".csv")
                     else pd.read_excel(io.BytesIO(contenido), dtype=str))
     except Exception as e:
-        raise HTTPException(400, f"No pude leer el archivo: {e}")
+        raise HTTPException(400, f"No pude leer el archivo: {e}") from e
 
     # Se adapta solo a nombres de columna parecidos (MontoDeuda, Saldo Vencido,
     # Dívida, Total Debt…); mostramos que reconoció para que el cliente confíe.
@@ -1558,7 +1562,7 @@ async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends
     try:
         full = kcartera.importar_y_scorear(df_bruto.fillna(""))
     except ValueError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
 
     export = _guardar_cartera_real(u.empresa, full, archivo.filename)
     detectadas = "; ".join(f"«{orig}» → {campo}" for orig, campo in mapeo.items())
@@ -1587,16 +1591,16 @@ def cartera_importar_sql(datos: ImportarSQLIn, u: Usuario = Depends(solo_admin))
     try:
         contactos = kcartera.desde_base_de_datos(datos.conn_url, datos.consulta)  # limite=None
     except ValueError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
     except Exception as e:
-        raise HTTPException(400, f"No pude conectar o consultar la base: {e}")
+        raise HTTPException(400, f"No pude conectar o consultar la base: {e}") from e
     if not contactos:
         raise HTTPException(422, "La consulta no devolvió ninguna fila con un monto de "
                                  "deuda válido (columna 'deuda', 'monto' o 'monto_deuda').")
     try:
         full = kcartera.importar_y_scorear(pd.DataFrame(contactos))
     except ValueError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
 
     export = _guardar_cartera_real(u.empresa, full, "Base de datos (SQL)")
     return {"deudores": int(len(export)),
@@ -1643,7 +1647,7 @@ async def voz_analizar(archivo: UploadFile = File(...), id_deudor: str | None = 
         res = kvoz.copiloto_desde_audio(destino, probpago=probpago,
                                         estrategia=estrategia, idioma=idioma)
     except Exception as e:
-        raise HTTPException(400, f"No se pudo analizar el audio: {e}")
+        raise HTTPException(400, f"No se pudo analizar el audio: {e}") from e
     finally:
         try:
             os.remove(destino)
@@ -1695,7 +1699,7 @@ def gestor_ia_demo(datos: GestorDemoIn, u: Usuario = Depends(usuario_actual)):
     try:
         full = kcartera.importar_y_scorear(bruto.astype(str))
     except ValueError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
     brief = kcartera.brief_desde_fila(full.iloc[0])
 
     ses = SesionGestorIA(id_deudor=brief["id_deudor"], canal=canal,

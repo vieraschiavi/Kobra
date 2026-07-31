@@ -89,8 +89,8 @@ def test_no_pide_permisos_de_administrador(instalar):
     justamente para explicar por qué NO se usa — hay que sacar tanto los
     comentarios de línea (#) como el bloque de ayuda (<# … #>) del encabezado."""
     sin_bloque = re.sub(r"<#.*?#>", "", instalar, flags=re.S)
-    codigo = [l for l in sin_bloque.splitlines()
-              if l.strip() and not l.strip().startswith("#")]
+    codigo = [ln for ln in sin_bloque.splitlines()
+              if ln.strip() and not ln.strip().startswith("#")]
     for linea in codigo:
         assert "HKLM" not in linea, f"escribe en HKLM: {linea.strip()}"
         assert "ProgramFiles" not in linea, f"instala en Archivos de programa: {linea.strip()}"

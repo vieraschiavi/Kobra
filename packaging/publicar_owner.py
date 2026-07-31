@@ -107,7 +107,7 @@ def _pedir(url: str, token: str, datos=None, metodo=None,
             return json.loads(r.read() or b"{}")
     except urllib.error.HTTPError as e:
         detalle = e.read().decode("utf-8", "replace")[:400]
-        raise SystemExit(f"[ERROR] GitHub respondió {e.code} en {url}\n{detalle}")
+        raise SystemExit(f"[ERROR] GitHub respondió {e.code} en {url}\n{detalle}") from e
 
 
 def _validar_destino(repo: str, token: str) -> None:

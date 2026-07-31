@@ -109,21 +109,8 @@ def _fmt_pct(x: float) -> str:
     return f"{x * 100:.1f}%"
 
 
-def generar_pdf(scored: pd.DataFrame, gestiones: pd.DataFrame | None,
-                empresa: str, codigo_pais: str = "UY",
-                datos_demo: bool = True) -> bytes:
-    """Genera el informe ejecutivo. Devuelve los bytes del PDF."""
-    from fpdf import FPDF
-
-    pais = kpaises.obtener(codigo_pais)
-    t = _TXT.get(pais.idioma, _TXT["es"])
-
-    pdf = FPDF(format="A4")
-    pdf.set_auto_page_break(auto=True, margin=18)
-    pdf.add_page()
-    ancho = pdf.w - pdf.l_margin - pdf.r_margin
-
-    # --- Encabezado con marca --------------------------------------------
+def _pdf_encabezado(pdf, t, ancho, empresa, pais) -> None:
+    """Banda de marca + línea de generación."""
     pdf.set_fill_color(*_NAVY)
     pdf.rect(0, 0, pdf.w, 26, "F")
     pdf.set_xy(pdf.l_margin, 8)
@@ -145,7 +132,8 @@ def generar_pdf(scored: pd.DataFrame, gestiones: pd.DataFrame | None,
         fecha=fecha, empresa=empresa, pais=pais.nombre)))
     pdf.ln(10)
 
-    # --- KPIs --------------------------------------------------------------
+
+def _pdf_kpis(pdf, t, ancho, scored, pais) -> None:
     cartera = float(scored["monto_deuda"].sum())
     recupero = float(scored["valor_esperado_recupero"].sum())
     riesgo = float(scored.loc[scored["segmento_propension"] == "Baja",
@@ -159,17 +147,25 @@ def generar_pdf(scored: pd.DataFrame, gestiones: pd.DataFrame | None,
         (t["riesgo"], f"{_fmt_monto(riesgo, pais)}  ({_fmt_pct(riesgo / cartera if cartera else 0)})"),
     ]
     _seccion(pdf, t["kpis"])
+    _pdf_lista_etiqueta_valor(pdf, ancho, kpis)
+
+
+def _pdf_lista_etiqueta_valor(pdf, ancho, filas) -> None:
+    """Etiqueta gris a la izquierda, valor en negrita navy a la derecha.
+    Lo usan los KPIs y los segmentos: era el mismo bloque repetido dos veces."""
     pdf.set_font("helvetica", "", 10)
-    for etiqueta, valor in kpis:
+    for etiqueta, valor in filas:
         pdf.set_text_color(*_GRIS)
-        pdf.cell(ancho * 0.45, 7, _latin1(etiqueta))
+        pdf.cell(ancho * 0.45, 7, _latin1(str(etiqueta)))
         pdf.set_text_color(*_NAVY)
         pdf.set_font("helvetica", "B", 10)
-        pdf.cell(ancho * 0.55, 7, _latin1(valor), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(ancho * 0.55, 7, _latin1(str(valor)), new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("helvetica", "", 10)
     pdf.ln(4)
 
-    # --- Tramos de mora (tabla con barra de recupero) -----------------------
+
+def _pdf_tramos_mora(pdf, t, ancho, scored, pais) -> None:
+    """Tabla de tramos con una barra proporcional a la cartera de cada uno."""
     _seccion(pdf, t["tramos"])
     por_tramo = (scored.groupby("tramo_mora")
                  .agg(cartera=("monto_deuda", "sum"),
@@ -185,20 +181,13 @@ def generar_pdf(scored: pd.DataFrame, gestiones: pd.DataFrame | None,
                     barra=fila["cartera"] / max_cartera)
     pdf.ln(4)
 
-    # --- Segmentos y propensión, lado a lado --------------------------------
+
+def _pdf_segmentos_y_propension(pdf, t, ancho, scored, pais) -> None:
     _seccion(pdf, t["segmentos"])
     por_seg = (scored.groupby("segmento")["valor_esperado_recupero"].sum()
                .sort_values(ascending=False))
-    pdf.set_font("helvetica", "", 10)
-    for seg, val in por_seg.items():
-        pdf.set_text_color(*_GRIS)
-        pdf.cell(ancho * 0.45, 7, _latin1(str(seg)))
-        pdf.set_text_color(*_NAVY)
-        pdf.set_font("helvetica", "B", 10)
-        pdf.cell(ancho * 0.55, 7, _latin1(_fmt_monto(val, pais)),
-                 new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("helvetica", "", 10)
-    pdf.ln(4)
+    _pdf_lista_etiqueta_valor(
+        pdf, ancho, [(seg, _fmt_monto(val, pais)) for seg, val in por_seg.items()])
 
     _seccion(pdf, t["propension"])
     prop = scored.groupby("segmento_propension")["id_deudor"].count()
@@ -209,31 +198,36 @@ def generar_pdf(scored: pd.DataFrame, gestiones: pd.DataFrame | None,
                                      _fmt_pct(prop[nombre] / len(scored))])
     pdf.ln(4)
 
-    # --- Gestores ------------------------------------------------------------
+
+def _pdf_gestores(pdf, t, ancho, gestiones, pais) -> None:
     _seccion(pdf, t["gestores"])
     if gestiones is None or gestiones.empty:
         pdf.set_font("helvetica", "I", 9)
         pdf.set_text_color(*_GRIS)
         pdf.multi_cell(ancho, 6, _latin1(t["sin_gestiones"]))
-    else:
-        from kobra import analitica as kanalitica
-        ranking = kanalitica.ranking_gestores(gestiones).head(10)
-        if "index" in ranking.columns:
-            ranking = ranking.drop(columns="index")
-        enc = {"es": ["Gestor", "Gestiones", "Calidad prom.", "Recupero", "Conversión"],
-               "pt": ["Operador", "Atendimentos", "Qualidade méd.", "Recuperação", "Conversão"]}
-        _fila_tabla(pdf, ancho, enc.get(pais.idioma, enc["es"]), encabezado=True)
-        for _, fila in ranking.iterrows():
-            _fila_tabla(pdf, ancho, [
-                str(fila.get("gestor", fila.get("gestor_id", ""))),
-                str(int(fila.get("gestiones", 0))),
-                f"{float(fila.get('calidad_prom', 0)):.1f}",
-                _fmt_monto(float(fila.get("recupero", 0)), pais),
-                _fmt_pct(float(fila.get("tasa_conversion", 0) or 0)),
-            ])
+        pdf.ln(6)
+        return
+    from kobra import analitica as kanalitica
+    ranking = kanalitica.ranking_gestores(gestiones).head(10)
+    if "index" in ranking.columns:
+        ranking = ranking.drop(columns="index")
+    enc = {"es": ["Gestor", "Gestiones", "Calidad prom.", "Recupero", "Conversión"],
+           "pt": ["Operador", "Atendimentos", "Qualidade méd.", "Recuperação", "Conversão"]}
+    _fila_tabla(pdf, ancho, enc.get(pais.idioma, enc["es"]), encabezado=True)
+    for _, fila in ranking.iterrows():
+        _fila_tabla(pdf, ancho, [
+            str(fila.get("gestor", fila.get("gestor_id", ""))),
+            str(int(fila.get("gestiones", 0))),
+            f"{float(fila.get('calidad_prom', 0)):.1f}",
+            _fmt_monto(float(fila.get("recupero", 0)), pais),
+            _fmt_pct(float(fila.get("tasa_conversion", 0) or 0)),
+        ])
     pdf.ln(6)
 
-    # --- Pie: honestidad + marca ---------------------------------------------
+
+def _pdf_pie(pdf, t, ancho, datos_demo: bool) -> None:
+    """Cierre con la nota de honestidad: las métricas de la demo son
+    ilustrativas y el PDF tiene que decirlo, no el vendedor."""
     pdf.set_draw_color(*_LINEA)
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
     pdf.ln(3)
@@ -243,6 +237,33 @@ def generar_pdf(scored: pd.DataFrame, gestiones: pd.DataFrame | None,
         pdf.multi_cell(ancho, 4.5, _latin1(t["pie_honestidad"]))
         pdf.ln(1)
     pdf.multi_cell(ancho, 4.5, _latin1(t["pie_marca"]))
+
+
+def generar_pdf(scored: pd.DataFrame, gestiones: pd.DataFrame | None,
+                empresa: str, codigo_pais: str = "UY",
+                datos_demo: bool = True) -> bytes:
+    """Genera el informe ejecutivo. Devuelve los bytes del PDF.
+
+    Cada bloque del informe vive en su propia función `_pdf_*`; acá queda el
+    orden de las secciones, que es lo que se lee para saber qué trae el
+    informe sin tener que leer cómo se dibuja cada una.
+    """
+    from fpdf import FPDF
+
+    pais = kpaises.obtener(codigo_pais)
+    t = _TXT.get(pais.idioma, _TXT["es"])
+
+    pdf = FPDF(format="A4")
+    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.add_page()
+    ancho = pdf.w - pdf.l_margin - pdf.r_margin
+
+    _pdf_encabezado(pdf, t, ancho, empresa, pais)
+    _pdf_kpis(pdf, t, ancho, scored, pais)
+    _pdf_tramos_mora(pdf, t, ancho, scored, pais)
+    _pdf_segmentos_y_propension(pdf, t, ancho, scored, pais)
+    _pdf_gestores(pdf, t, ancho, gestiones, pais)
+    _pdf_pie(pdf, t, ancho, datos_demo)
 
     return bytes(pdf.output())
 

@@ -112,14 +112,14 @@ def _norm(texto: str) -> str:
 def _turnos_gestor(transcripcion: str) -> tuple[str, int, int]:
     """Separa lo que dijo el GESTOR (para no puntuarle señales del cliente) y
     cuenta turnos/preguntas. Si no hay marcas de hablante, usa todo el texto."""
-    lineas = [l.strip() for l in str(transcripcion).splitlines() if l.strip()]
+    lineas = [ln.strip() for ln in str(transcripcion).splitlines() if ln.strip()]
     gestor, n_gestor, n_cliente = [], 0, 0
     marcado = False
-    for l in lineas:
-        m = re.match(r"^\s*(gestor|agente|operador|cobrador|asesor)\s*[:\-]", l, re.I)
-        c = re.match(r"^\s*(cliente|deudor|titular|socio)\s*[:\-]", l, re.I)
+    for ln in lineas:
+        m = re.match(r"^\s*(gestor|agente|operador|cobrador|asesor)\s*[:\-]", ln, re.I)
+        c = re.match(r"^\s*(cliente|deudor|titular|socio)\s*[:\-]", ln, re.I)
         if m:
-            marcado = True; n_gestor += 1; gestor.append(l.split(":", 1)[-1])
+            marcado = True; n_gestor += 1; gestor.append(ln.split(":", 1)[-1])
         elif c:
             marcado = True; n_cliente += 1
     if not marcado:
@@ -313,7 +313,6 @@ def perfil_criterios(gestiones, canal: str | None = None, mes: str | None = None
     """Perfil por criterio (ítem de negociación) de IA vs Humano: en qué ítems
     es fuerte cada uno y en cuáles hay oportunidad de mejora. Devuelve, por
     criterio, el puntaje estimado de IA y de Humano y la brecha."""
-    import pandas as pd
     g = _filtrar(gestiones, canal, mes)
     if g is None or g.empty or "tipo_gestor" not in g.columns:
         return {"items": [], "fortalezas_ia": [], "oportunidades_humano": []}
@@ -484,18 +483,95 @@ def _pct(valor, tope):
     return round(100.0 * v / float(tope), 1)
 
 
+def _criterios_vs_equipo(foco, periodo) -> list:
+    """Cada aspecto de la negociación, del gestor contra la media del equipo.
+
+    La comparación es el punto del tablero: saber que un gestor tiene 68 de
+    calidad no dice qué entrenarle; saber que está 22 puntos por debajo del
+    equipo en «Negociación deuda total» y 9 por encima en «Escucha activa», sí.
+    """
+    filas = []
+    for c in RUBRICA:
+        col = f"c{c['id']}"
+        if col not in periodo.columns:
+            continue
+        suyo = _pct(foco[col].mean(), c["max"])
+        equipo = _pct(periodo[col].mean(), c["max"])
+        filas.append({
+            "id": c["id"], "criterio": c["nombre"], "max": c["max"],
+            "critico": bool(c.get("critico")),
+            "puntaje": round(float(foco[col].mean()), 2)
+                       if foco[col].notna().any() else None,
+            "pct": suyo, "media_equipo_pct": equipo,
+            "brecha": None if (suyo is None or equipo is None)
+                      else round(suyo - equipo, 1),
+        })
+    return filas
+
+
+def _evolucion_mensual(foco, periodo, hay_gestor: bool) -> list:
+    """El gestor contra el equipo, mes a mes."""
+    filas = []
+    for m in sorted(periodo["mes"].unique()):
+        pm = periodo[periodo["mes"] == m]
+        fm = foco[foco["mes"] == m]
+        filas.append({
+            "mes": str(m),
+            "gestor": round(float(fm["puntaje_total"].mean()), 1) if len(fm) else None,
+            "equipo": round(float(pm["puntaje_total"].mean()), 1) if len(pm) else None,
+            "audios": int(len(fm)) if hay_gestor else int(len(pm)),
+        })
+    return filas
+
+
+def _ranking_gestores(periodo, nota_equipo) -> list:
+    filas = []
+    for g, sub in periodo.groupby("gestor"):
+        filas.append({
+            "gestor": str(g), "audios": int(len(sub)),
+            "calidad_prom": round(float(sub["puntaje_total"].mean()), 1),
+            "vs_media": (round(float(sub["puntaje_total"].mean()) - nota_equipo, 1)
+                         if nota_equipo is not None else None),
+        })
+    filas.sort(key=lambda x: x["calidad_prom"], reverse=True)
+    return filas
+
+
+# Tramos de la distribución de notas: sirven para ver la FORMA y no solo la
+# media — diez audios de 75 y cinco de 95 con cinco de 55 dan el mismo promedio
+# y son dos equipos distintos.
+TRAMOS_NOTA = [(0, 60, "Insuficiente"), (60, 70, "Regular"), (70, 80, "Bueno"),
+               (80, 90, "Muy bueno"), (90, 101, "Excelente")]
+
+
+def _distribucion_notas(foco) -> list:
+    return [
+        {"tramo": nombre, "desde": a, "hasta": b,
+         "audios": int(((foco["puntaje_total"] >= a) &
+                        (foco["puntaje_total"] < b)).sum())}
+        for a, b, nombre in TRAMOS_NOTA]
+
+
+def _calidad_por_canal(foco, periodo) -> list:
+    if "canal" not in periodo.columns:
+        return []
+    return [{"canal": str(c), "audios": int(len(sub)),
+             "calidad_prom": round(float(sub["puntaje_total"].mean()), 1)}
+            for c, sub in foco.groupby("canal")]
+
+
 def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
     """Tablero de calidad de llamadas, con el desglose que pide una supervisión
     real: por gestor, por mes y año, por aspecto de la negociación, y **cada
     aspecto comparado contra la media del equipo**.
 
-    La comparación es el punto. Saber que un gestor tiene 68 de calidad no dice
-    qué entrenarle; saber que está 22 puntos por debajo de la media del equipo
-    en "Negociación deuda total" y 9 por encima en "Escucha activa", sí.
-
     El filtro por gestor acota la ficha, pero **la media se calcula siempre
     sobre el equipo completo** del período: compararlo contra sí mismo daría
     cero de brecha en todos los aspectos y el tablero no serviría para nada.
+
+    Cada bloque del tablero vive en su propia función (`_criterios_vs_equipo`,
+    `_evolucion_mensual`, `_ranking_gestores`, `_distribucion_notas`,
+    `_calidad_por_canal`); acá queda el filtrado y el armado.
     """
     import pandas as pd
 
@@ -534,23 +610,7 @@ def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
     if len(foco) == 0:
         return {**vacio, **universo}
 
-    por_criterio = []
-    for c in RUBRICA:
-        col = f"c{c['id']}"
-        if col not in periodo.columns:
-            continue
-        suyo = _pct(foco[col].mean(), c["max"])
-        equipo = _pct(periodo[col].mean(), c["max"])
-        por_criterio.append({
-            "id": c["id"], "criterio": c["nombre"], "max": c["max"],
-            "critico": bool(c.get("critico")),
-            "puntaje": round(float(foco[col].mean()), 2)
-                       if foco[col].notna().any() else None,
-            "pct": suyo, "media_equipo_pct": equipo,
-            "brecha": None if (suyo is None or equipo is None)
-                      else round(suyo - equipo, 1),
-        })
-
+    por_criterio = _criterios_vs_equipo(foco, periodo)
     con_brecha = [c for c in por_criterio if c["brecha"] is not None]
     fuertes = sorted(con_brecha, key=lambda c: -c["brecha"])[:3]
     debiles = sorted(con_brecha, key=lambda c: c["brecha"])[:3]
@@ -558,43 +618,6 @@ def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
     nota = float(foco["puntaje_total"].mean()) if foco["puntaje_total"].notna().any() else None
     nota_equipo = (float(periodo["puntaje_total"].mean())
                    if periodo["puntaje_total"].notna().any() else None)
-
-    # Evolución mensual: el gestor contra el equipo, mes a mes.
-    evolucion = []
-    for m in sorted(periodo["mes"].unique()):
-        pm = periodo[periodo["mes"] == m]
-        fm = foco[foco["mes"] == m]
-        evolucion.append({
-            "mes": str(m),
-            "gestor": round(float(fm["puntaje_total"].mean()), 1) if len(fm) else None,
-            "equipo": round(float(pm["puntaje_total"].mean()), 1) if len(pm) else None,
-            "audios": int(len(fm)) if gestor else int(len(pm)),
-        })
-
-    ranking = []
-    for g, sub in periodo.groupby("gestor"):
-        ranking.append({
-            "gestor": str(g), "audios": int(len(sub)),
-            "calidad_prom": round(float(sub["puntaje_total"].mean()), 1),
-            "vs_media": (round(float(sub["puntaje_total"].mean()) - nota_equipo, 1)
-                         if nota_equipo is not None else None),
-        })
-    ranking.sort(key=lambda x: x["calidad_prom"], reverse=True)
-
-    # Distribución de notas en tramos de 10, para ver la forma y no solo la media.
-    tramos = [(0, 60, "Insuficiente"), (60, 70, "Regular"), (70, 80, "Bueno"),
-              (80, 90, "Muy bueno"), (90, 101, "Excelente")]
-    distribucion = [
-        {"tramo": nombre, "desde": a, "hasta": b,
-         "audios": int(((foco["puntaje_total"] >= a) &
-                        (foco["puntaje_total"] < b)).sum())}
-        for a, b, nombre in tramos]
-
-    por_canal = []
-    if "canal" in periodo.columns:
-        for c, sub in foco.groupby("canal"):
-            por_canal.append({"canal": str(c), "audios": int(len(sub)),
-                              "calidad_prom": round(float(sub["puntaje_total"].mean()), 1)})
 
     return {
         "total": int(len(foco)),
@@ -613,9 +636,9 @@ def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
         "por_criterio": por_criterio,
         "fortalezas": fuertes,
         "oportunidades": debiles,
-        "evolucion": evolucion,
-        "ranking": ranking,
-        "distribucion": distribucion,
-        "por_canal": por_canal,
+        "evolucion": _evolucion_mensual(foco, periodo, bool(gestor)),
+        "ranking": _ranking_gestores(periodo, nota_equipo),
+        "distribucion": _distribucion_notas(foco),
+        "por_canal": _calidad_por_canal(foco, periodo),
         **universo,
     }

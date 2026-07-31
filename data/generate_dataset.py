@@ -13,6 +13,7 @@ Uso:
     python data/generate_dataset.py --n 12000 --seed 42
 """
 import argparse
+
 import numpy as np
 import pandas as pd
 

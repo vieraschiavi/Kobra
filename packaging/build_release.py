@@ -585,7 +585,7 @@ def main():
         print(f"[OK] {os.path.basename(z)}  ({mb:.1f} MB)  sha256={digest[:16]}…")
     with open(os.path.join(DIST, "SHA256SUMS.txt"), "w") as f:
         f.write("\n".join(lines) + "\n")
-    print(f"[OK] Checksums: dist/SHA256SUMS.txt")
+    print("[OK] Checksums: dist/SHA256SUMS.txt")
 
 
 if __name__ == "__main__":

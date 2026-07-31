@@ -44,6 +44,7 @@ def cliente(tmp_path, monkeypatch):
     kauth.establecer_password("gestor", "GestorTest123!")
 
     from fastapi.testclient import TestClient
+
     from webapp.backend import api
     yield TestClient(api.app)
 

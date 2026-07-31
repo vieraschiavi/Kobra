@@ -8,6 +8,7 @@ real, sin romper el fallback a la voz del navegador cuando no hay API key."""
 import importlib.util
 import json
 import os
+import shutil
 import sys
 import tempfile
 
@@ -113,6 +114,7 @@ def test_usa_el_modelo_multilingue_no_el_ingles():
     raro y perdía el acento. Tiene que cargar el modelo MULTILINGÜE y pasarle
     el idioma."""
     import inspect
+
     from kobra import voz_clon_local as klocal
     fuente = inspect.getsource(klocal._cargar)
     assert "ChatterboxMultilingualTTS" in fuente
@@ -121,9 +123,19 @@ def test_usa_el_modelo_multilingue_no_el_ingles():
     assert "language_id=idioma" in inspect.getsource(klocal.sintetizar)
 
 
+SIN_FFMPEG = shutil.which("ffmpeg") is None
+
+
+@pytest.mark.skipif(SIN_FFMPEG, reason="requiere ffmpeg (ver requirements-dev.txt)")
 def test_el_generador_pasa_el_idioma_al_motor_local(monkeypatch):
     """El idioma no puede quedar librado al default: el producto también
-    vende en portugués."""
+    vende en portugués.
+
+    Se saltea sin ffmpeg: `generar()` extrae la voz de referencia del video
+    de la demo con ffmpeg, que es una dependencia de SISTEMA y no entra por
+    pip. Antes este test reventaba con FileNotFoundError y rompía la suite
+    entera en cualquier máquina limpia — que es justo lo que el estándar
+    pide que no pase."""
     from kobra import voz_clon_local as klocal
     vistos = []
 
@@ -174,6 +186,7 @@ def test_referencia_grave_baja_el_tono_de_la_muestra():
     baja tono y formantes juntos (eso es lo que la vuelve masculina) y
     `atempo` devuelve la duración original — sin él quedaría en cámara lenta."""
     import inspect
+
     from kobra import voz_clon_local as klocal
     fuente = inspect.getsource(klocal.referencia_grave)
     assert "asetrate" in fuente and "atempo" in fuente

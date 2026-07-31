@@ -9,7 +9,6 @@ Sobre el historial de gestiones responde:
   3. ¿Cuál es el impacto en cobranza? (calidad de gestión ↔ recupero)
   4. ¿Mejoran los gestores con el tiempo usando las herramientas de MV Kobra AI?
 """
-import numpy as np
 import pandas as pd
 
 CONVERSION = ("Pago", "Promesa", "Arreglo de pago", "Promesa de pago")

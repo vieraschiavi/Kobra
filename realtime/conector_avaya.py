@@ -47,7 +47,7 @@ import numpy as np
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from realtime import connectors   # noqa: E402
+from realtime import connectors  # noqa: E402
 
 SR = 8000
 UMBRAL_VOZ = 0.004        # RMS mínimo para considerar que hay voz
@@ -86,7 +86,7 @@ def decodificar(pt: int, payload: bytes) -> np.ndarray:
 class _CanalRTP(asyncio.DatagramProtocol):
     """Recibe el RTP de una pata (gestor o cliente) y acumula el turno."""
 
-    def __init__(self, canal: str, puente: "PuenteAvaya"):
+    def __init__(self, canal: str, puente: PuenteAvaya):
         self.canal = canal
         self.puente = puente
         self.buf: list = []

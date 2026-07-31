@@ -41,9 +41,10 @@ re-valida walk-forward.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass, field
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import roc_auc_score
@@ -159,7 +160,8 @@ _DEFAULTS_ORIG = {
 
 
 def _norm_orig(s: str) -> str:
-    import re, unicodedata
+    import re
+    import unicodedata
     s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]", "", s.lower())
 

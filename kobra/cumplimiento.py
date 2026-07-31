@@ -62,7 +62,11 @@ def _pascua(anio: int) -> date:
     g = (b - f + 1) // 3
     h = (19 * a + b - d - g + 15) % 30
     i, k = divmod(c, 4)
-    l = (32 + 2 * e + 2 * i - h - k) % 7
+    # `l` es el nombre de la variable en el algoritmo de Gauss publicado
+    # (a, b, c, d, e, g, h, i, k, l, m). Renombrarla haria mas dificil
+    # cotejar esta funcion contra la formula de referencia, que es la unica
+    # forma razonable de auditar un calculo de Pascua.
+    l = (32 + 2 * e + 2 * i - h - k) % 7  # noqa: E741
     m = (a + 11 * h + 22 * l) // 451
     mes, dia = divmod(h + l - 7 * m + 114, 31)
     return date(anio, mes, dia + 1)

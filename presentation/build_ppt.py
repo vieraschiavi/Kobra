@@ -13,9 +13,9 @@ import os
 import sys
 
 from pptx import Presentation
-from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+from pptx.util import Inches, Pt
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, "assets")
@@ -28,7 +28,7 @@ OUT = os.path.join(ROOT, "presentation", "MVKobraAI_Presentacion_Gerencial.pptx"
 # el azul y el ámbar de la marca, que cumplen el mismo rol y sí aparecen en el
 # resto del material.
 sys.path.insert(0, ROOT)
-from marketing import marca as _marca                            # noqa: E402
+from marketing import marca as _marca  # noqa: E402
 
 
 def _c(nombre):

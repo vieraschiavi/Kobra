@@ -18,8 +18,8 @@ import pytest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from data import generar_audio_demo_voz as gav      # noqa: E402
-from marketing import subtitulos as S               # noqa: E402
+from data import generar_audio_demo_voz as gav  # noqa: E402
+from marketing import subtitulos as S  # noqa: E402
 
 DEMO = os.path.join(ROOT, "dashboard_estatico")
 LANDING = os.path.join(ROOT, "landing", "index.html")

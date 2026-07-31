@@ -24,7 +24,7 @@ import pytest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from kobra import limitador as klimite   # noqa: E402
+from kobra import limitador as klimite  # noqa: E402
 
 
 class Reloj:

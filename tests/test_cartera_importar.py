@@ -28,6 +28,7 @@ def cliente(tmp_path, monkeypatch):
     from kobra import autenticacion as kauth
     kauth.establecer_password("admin", "AdminTest123!")
     from fastapi.testclient import TestClient
+
     from webapp.backend import api
     importlib.reload(api)
     return api, TestClient(api.app)
@@ -319,9 +320,8 @@ def test_cartera_no_rompe_con_esquema_sin_prioridad(cliente):
     """Regresión del 'Error 500': una cartera real cuyo scoring no trae
     'prioridad' NO debe tirar 500 — ordena por otro criterio."""
     api, c = cliente
-    h = _h_admin(c)
+
     from webapp.backend import api as apimod
-    import pandas as pd
     df = apimod._scored("principal").drop(columns=["prioridad"])
     assert not apimod._ordenar_cartera(df).empty  # no lanza KeyError
 

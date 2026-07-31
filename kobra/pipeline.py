@@ -20,10 +20,12 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from kobra.probpago import ProbPagoModel               # noqa: E402
-from kobra import negociador                            # noqa: E402
-from kobra import explicabilidad                        # noqa: E402
-from kobra import rutas as krutas                       # noqa: E402
+from kobra import (
+    explicabilidad,  # noqa: E402
+    negociador,  # noqa: E402
+)
+from kobra import rutas as krutas  # noqa: E402
+from kobra.probpago import ProbPagoModel  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo, igual
@@ -69,7 +71,7 @@ def run():
 
     # 2b) Explicabilidad: reason codes por deudor (por qué esta ProbPago)
     full["motivo_probpago"] = explicabilidad.explicar_cartera(model, full)
-    print(f"[pipeline] Explicabilidad: reason codes generados por deudor")
+    print("[pipeline] Explicabilidad: reason codes generados por deudor")
 
     # 3) Exports tabulares
     cols_export = [
@@ -117,8 +119,8 @@ def run():
     _analitica_gestiones()
 
     print(f"[pipeline] Exports listos en {OUT_DIR}/")
-    print(f"           - kobra_scored.csv / .xlsx")
-    print(f"           - kobra_bundle.json (dashboard)")
+    print("           - kobra_scored.csv / .xlsx")
+    print("           - kobra_bundle.json (dashboard)")
     _print_kpis(bundle["kpis"])
     return full, model
 

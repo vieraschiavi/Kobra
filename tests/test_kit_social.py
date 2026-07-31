@@ -14,8 +14,8 @@ import pytest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from marketing import kit_social as K              # noqa: E402
-from marketing import generar_kit_social as G      # noqa: E402
+from marketing import generar_kit_social as G  # noqa: E402
+from marketing import kit_social as K  # noqa: E402
 
 
 # --- contenido -------------------------------------------------------------

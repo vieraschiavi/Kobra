@@ -135,7 +135,7 @@ def test_el_excel_sale_formateado_y_con_totales():
     })
     datos = _excel_formateado({"Promesas": df}, titulo="Prueba")
     ws = openpyxl.load_workbook(io.BytesIO(datos))["Promesas"]
-    filas = [[c for c in fila] for fila in ws.iter_rows(values_only=True)]
+    filas = [list(fila) for fila in ws.iter_rows(values_only=True)]
     assert filas[0][0] == "Prueba"
     assert "TOTAL" in [f[0] for f in filas]
     total = next(f for f in filas if f[0] == "TOTAL")

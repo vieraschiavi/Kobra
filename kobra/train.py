@@ -22,16 +22,16 @@ import json
 import os
 import sys
 
-import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import (GradientBoostingClassifier,
-                              HistGradientBoostingClassifier,
-                              RandomForestClassifier)
+from sklearn.ensemble import (
+    GradientBoostingClassifier,
+    HistGradientBoostingClassifier,
+    RandomForestClassifier,
+)
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (average_precision_score, brier_score_loss,
-                             roc_auc_score)
+from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
 from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -39,8 +39,8 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from kobra.probpago import NUM_FEATURES, CAT_FEATURES, TARGET   # noqa: E402
-from kobra import rutas as krutas                               # noqa: E402
+from kobra import rutas as krutas  # noqa: E402
+from kobra.probpago import CAT_FEATURES, NUM_FEATURES, TARGET  # noqa: E402
 
 # Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo, igual
 # que antes; instalado, es una carpeta propia del usuario, no Program Files.

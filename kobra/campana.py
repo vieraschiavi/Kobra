@@ -247,8 +247,9 @@ def iniciar_llamada(to: str, id_deudor: str, monto, base_url: str,
     """Dispara una llamada real vía la API de Twilio (misma lógica que
     `POST /voz/llamar` en `realtime/server.py`, factorizada para poder
     llamarla también desde el scheduler, sin pasar por HTTP)."""
-    import requests
     from urllib.parse import quote
+
+    import requests
 
     sid = sid or os.getenv("TWILIO_ACCOUNT_SID")
     token = token or os.getenv("TWILIO_AUTH_TOKEN")
@@ -286,6 +287,7 @@ def enviar_whatsapp(to: str, content_variables: dict, sid: str | None = None,
     (vía Twilio) con al menos una plantilla de mensaje aprobada.
     """
     import json
+
     import requests
 
     sid = sid or os.getenv("TWILIO_ACCOUNT_SID")

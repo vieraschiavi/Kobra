@@ -43,9 +43,9 @@ from concurrent.futures import ThreadPoolExecutor
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from kobra.gestor_ia import SesionGestorIA        # noqa: E402
-from kobra import concurrencia as kconc           # noqa: E402
-from kobra import cumplimiento, registro          # noqa: E402
+from kobra import concurrencia as kconc  # noqa: E402
+from kobra import cumplimiento, registro  # noqa: E402
+from kobra.gestor_ia import SesionGestorIA  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
