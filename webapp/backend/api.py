@@ -393,6 +393,25 @@ def _letra_col(indice: int) -> str:
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
+def _detalle_sin_rutas(e: Exception, limite: int = 160) -> str:
+    """Mensaje de la excepción sin las rutas del servidor.
+
+    Probado con un archivo que no era audio: la respuesta al usuario era
+    `Error opening '/home/.../.uploads/voz_c298d20c…wav': Format not
+    recognised.` — le filtra al cliente la ruta interna del servidor y le dice,
+    en inglés y en jerga de librería, algo que no puede accionar. Se conserva
+    la causa (sirve para diagnosticar) pero sin rutas y acotada.
+    """
+    import re as _re
+    txt = " ".join(str(e).split())
+    # Rutas POSIX (/home/…/x.wav) y Windows (C:\Users\…\x.xlsx), con o sin
+    # comillas alrededor. Se exige al menos una barra para no confundir una
+    # fracción o una fecha con una ruta.
+    txt = _re.sub(r"""['"]?(?:[A-Za-z]:)?[\\/][^\s'"]*[\\/][^\s'"]*['"]?""",
+                  "el archivo", txt)
+    return (txt[:limite] + "…") if len(txt) > limite else txt
+
+
 def _sanear(valor):
     """Reemplaza NaN e infinitos por None, recursivamente.
 
@@ -1116,7 +1135,10 @@ async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "L
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(400, f"No se pudo procesar el audio: {e}") from e
+        raise HTTPException(
+            400, "No pude procesar esa grabación. Verificá que sea un .wav o .mp3 "
+                 "válido y que no esté cortado. "
+                 f"(detalle: {_detalle_sin_rutas(e)})") from e
     finally:
         for p in (destino, liviano):
             try:
@@ -1554,7 +1576,10 @@ async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends
         df_bruto = (pd.read_csv(io.BytesIO(contenido), dtype=str) if nombre.endswith(".csv")
                     else pd.read_excel(io.BytesIO(contenido), dtype=str))
     except Exception as e:
-        raise HTTPException(400, f"No pude leer el archivo: {e}") from e
+        raise HTTPException(
+            400, "No pude leer ese archivo. Tiene que ser un .csv o un .xlsx con "
+                 "una fila de encabezados. "
+                 f"(detalle: {_detalle_sin_rutas(e)})") from e
 
     # Se adapta solo a nombres de columna parecidos (MontoDeuda, Saldo Vencido,
     # Dívida, Total Debt…); mostramos que reconoció para que el cliente confíe.
@@ -1593,7 +1618,11 @@ def cartera_importar_sql(datos: ImportarSQLIn, u: Usuario = Depends(solo_admin))
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
     except Exception as e:
-        raise HTTPException(400, f"No pude conectar o consultar la base: {e}") from e
+        raise HTTPException(
+            400, "No pude conectar a la base o la consulta falló. Revisá la cadena "
+                 "de conexión, que el servidor sea alcanzable y que la consulta "
+                 "sea válida. "
+                 f"(detalle: {_detalle_sin_rutas(e)})") from e
     if not contactos:
         raise HTTPException(422, "La consulta no devolvió ninguna fila con un monto de "
                                  "deuda válido (columna 'deuda', 'monto' o 'monto_deuda').")
@@ -1647,7 +1676,10 @@ async def voz_analizar(archivo: UploadFile = File(...), id_deudor: str | None = 
         res = kvoz.copiloto_desde_audio(destino, probpago=probpago,
                                         estrategia=estrategia, idioma=idioma)
     except Exception as e:
-        raise HTTPException(400, f"No se pudo analizar el audio: {e}") from e
+        raise HTTPException(
+            400, "No pude analizar esa grabación. Verificá que sea un .wav o .mp3 "
+                 "válido y que no esté cortado. "
+                 f"(detalle: {_detalle_sin_rutas(e)})") from e
     finally:
         try:
             os.remove(destino)
