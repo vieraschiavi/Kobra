@@ -16,7 +16,7 @@ set "PYEXE="
 where python >nul 2>nul && set "PYEXE=python"
 
 if "!PYEXE!"=="" (
-  echo [1/6] Python no encontrado. Descargando e instalando Python 3.11...
+  echo [1/7] Python no encontrado. Descargando e instalando Python 3.11...
   echo       (usa PowerShell, incluido en Windows - no requiere winget)
   set "PYINST=%TEMP%\python311_kobra.exe"
   powershell -NoProfile -ExecutionPolicy Bypass -Command ^
@@ -45,7 +45,7 @@ if "!PYEXE!"=="" (
     pause & exit /b 0
   )
 ) else (
-  echo [1/6] Python: OK
+  echo [1/7] Python: OK
 )
 
 rem --- 2) Donde instalar (el usuario elige) ---------------------------------
@@ -60,7 +60,7 @@ if exist "!MEMORIA!" (
 )
 
 echo.
-echo [2/6] Carpeta de instalacion
+echo [2/7] Carpeta de instalacion
 echo       Ahi van el entorno de Python y tus datos ^(hacen falta ~3 GB^).
 echo       El codigo del programa se queda donde esta: %CODIGO%
 echo.
@@ -112,7 +112,7 @@ rem     de bajar plotly. Ahora se mide el disco de destino Y se manda el temp
 rem     de pip al mismo disco elegido, que es el que el usuario sabe que tiene
 rem     lugar. Asi el numero que se muestra es el numero que importa.
 echo.
-echo [3/6] Espacio en disco
+echo [3/7] Espacio en disco
 call :libres "!DESTINO!" LIBRE_DESTINO
 if "!LIBRE_DESTINO!"=="?" (
   echo       No pude medir el espacio libre. Sigo igual.
@@ -132,7 +132,7 @@ if "!LIBRE_DESTINO!"=="?" (
 rem --- 4) Entorno virtual propio (no toca el Python del sistema) ------------
 if not exist "!VENV!\Scripts\python.exe" (
   echo.
-  echo [4/6] Creando entorno propio...
+  echo [4/7] Creando entorno propio...
   "!PYEXE!" -m venv "!VENV!"
 )
 set "VPY=!VENV!\Scripts\python.exe"
@@ -149,7 +149,7 @@ rem     --no-cache-dir: no guarda una copia extra de cada .whl descargado.
 rem     TEMP/TMP: pip descomprime en el temp del sistema aunque no cachee, asi
 rem     que se lo apunta al disco elegido (ver el comentario del paso 3).
 echo.
-echo [5/6] Instalando dependencias ^(la 1a vez tarda unos minutos^)...
+echo [5/7] Instalando dependencias ^(la 1a vez tarda unos minutos^)...
 set "TEMP=!TRABAJO!"
 set "TMP=!TRABAJO!"
 set "TMPDIR=!TRABAJO!"
@@ -167,9 +167,24 @@ if not !errorlevel!==0 (
   pause & exit /b 1
 )
 
-rem --- 6) Arranque en modo OWNER (React + FastAPI, UI ya compilada) ---------
+rem --- 6) Dejarlo instalado: icono, Menu Inicio y desinstalador ------------
+rem     Antes el .bat solo ARRANCABA el programa: no quedaba instalado en
+rem     ningun lado, asi que para abrirlo habia que volver a buscar el .bat, y
+rem     "desinstalarlo" era borrar carpetas a mano. Todo va a HKCU y al perfil
+rem     del usuario: no pide administrador.
 echo.
-echo [6/6] Iniciando MV Kobra AI...
+echo [6/7] Dejando el programa instalado ^(icono, Menu Inicio, desinstalador^)...
+set "PYW=!VENV!\Scripts\pythonw.exe"
+if not exist "!PYW!" set "PYW=!VPY!"
+powershell -NoProfile -ExecutionPolicy Bypass -File "!CODIGO!\packaging\instalar_windows.ps1" -Destino "!DESTINO!" -Codigo "!CODIGO!" -Python "!PYW!" -Datos "!DATOS!" -Owner
+if errorlevel 1 (
+  echo       ^(!^) No se pudieron crear los accesos. El programa igual funciona:
+  echo           se abre volviendo a ejecutar este .bat.
+)
+
+rem --- 7) Arranque en modo OWNER (React + FastAPI, UI ya compilada) ---------
+echo.
+echo [7/7] Iniciando MV Kobra AI...
 echo.
 set KOBRA_OWNER=1
 set "KOBRA_DATA_DIR=!DATOS!"

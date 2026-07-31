@@ -367,3 +367,44 @@ def test_el_audio_del_demo_esta_versionado():
         assert os.path.isdir(carpeta), f"falta el audio de {idioma}"
         mp3 = [f for f in os.listdir(carpeta) if f.endswith(".mp3")]
         assert len(mp3) == len(gav.leer_guion(idioma)), idioma
+
+
+def test_una_sintesis_cortada_a_mitad_no_destruye_el_audio_versionado(monkeypatch):
+    """Pasó de verdad, armando un release: el build hace `rmtree` y regenera,
+    la corrida se cortó por timeout y el árbol quedó con `en/` sin un solo MP3
+    y `pt/` con 6 de 9. No es un archivo temporal: son los MP3 que sirve el
+    sitio, versionados en el repo.
+
+    Ahora se respalda antes de borrar y se restaura ante cualquier fallo —
+    incluido Ctrl-C, que es `KeyboardInterrupt` y no `Exception`."""
+    import importlib.util
+    import shutil
+
+    spec = importlib.util.spec_from_file_location(
+        "build_release_2", os.path.join(ROOT, "packaging", "build_release.py"))
+    br = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(br)
+
+    audio_dir = os.path.join(ROOT, "dashboard_estatico", "audio_demo")
+    def _inventario():
+        return {d: sorted(os.listdir(os.path.join(audio_dir, d)))
+                for d in sorted(os.listdir(audio_dir))
+                if os.path.isdir(os.path.join(audio_dir, d))}
+
+    antes = _inventario()
+    assert antes, "no hay audio versionado que proteger"
+
+    # Motor "disponible" para que entre en la rama que borra, y una síntesis
+    # que rompe DESPUÉS de haber destruido parte del material.
+    monkeypatch.setattr(gav, "elegir_motor", lambda *a, **k: (object(), "x", "simulado"))
+
+    def _explota(*a, **k):
+        shutil.rmtree(os.path.join(audio_dir, gav.IDIOMAS[-1]), ignore_errors=True)
+        raise KeyboardInterrupt("corte a mitad")
+    monkeypatch.setattr(gav, "generar_todos", _explota)
+
+    with pytest.raises(KeyboardInterrupt):
+        br._prerenderizar_voz_demo()
+
+    assert _inventario() == antes, "el corte se llevó puesto el audio del repo"
+    assert not os.path.isdir(audio_dir + ".respaldo"), "quedó el respaldo sin limpiar"

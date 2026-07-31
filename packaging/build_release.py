@@ -71,12 +71,25 @@ LICENCIA_PROD = f"""MV KOBRA AI · CONTRATO DE LICENCIA DE USO (EULA) · v{VERSI
 
 
 def _write(path, content=None, crlf=False, **kw):
+    """Escribe un archivo del paquete. `crlf` = destino Windows.
+
+    El BOM va en los .txt y NO en los .bat. Los .txt lo necesitan para que el
+    Bloc de notas muestre bien los acentos; en un .bat es un defecto: cmd.exe
+    no lo saltea, se lo come como parte del primer comando y la ventana
+    arranca con «'∩╗┐@echo' no se reconoce como un comando interno o externo».
+
+    No se había notado porque los .bat que se venían usando son los del repo
+    (sin BOM, escritos a mano). Los 8 .bat que genera este script sí lo
+    llevaban — y son justamente los que va a abrir quien descargue un ZIP.
+    """
     if content is None:
         content = kw["content"]
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if crlf:
         content = content.replace("\n", "\r\n")
-    with open(path, "w", encoding="utf-8-sig" if crlf else "utf-8", newline="") as f:
+    ejecutable = os.path.splitext(path)[1].lower() in (".bat", ".cmd")
+    codec = "utf-8" if (ejecutable or not crlf) else "utf-8-sig"
+    with open(path, "w", encoding=codec, newline="") as f:
         f.write(content)
 
 
@@ -135,10 +148,31 @@ def _prerenderizar_voz_demo():
         print(f"[SKIP] Voz del demo: {motivo} "
               "(se conserva el audio ya versionado).")
         return
-    shutil.rmtree(audio_dir, ignore_errors=True)
-    # Los tres idiomas del producto: elegir portugués o inglés no cambiaba el
-    # audio, que estaba pre-renderizado solo en castellano.
-    resumen = gav.generar_todos()
+
+    # Borrar y regenerar dentro del árbol de trabajo no es reversible: si el
+    # build se corta a mitad —Ctrl-C, timeout, un error de síntesis— el audio
+    # versionado queda destruido y el repo, roto. Pasó: una corrida
+    # interrumpida dejó `en/` sin un solo MP3 y `pt/` con 6 de 9.
+    # Por eso se guarda una copia antes y se restaura ante cualquier fallo.
+    respaldo = None
+    if os.path.isdir(audio_dir):
+        respaldo = audio_dir + ".respaldo"
+        shutil.rmtree(respaldo, ignore_errors=True)
+        shutil.copytree(audio_dir, respaldo)
+    try:
+        shutil.rmtree(audio_dir, ignore_errors=True)
+        # Los tres idiomas del producto: elegir portugués o inglés no cambiaba
+        # el audio, que estaba pre-renderizado solo en castellano.
+        resumen = gav.generar_todos()
+    except BaseException:      # incluye KeyboardInterrupt y SystemExit
+        if respaldo:
+            shutil.rmtree(audio_dir, ignore_errors=True)
+            shutil.move(respaldo, audio_dir)
+            print("[AVISO] Falló la síntesis: se restauró el audio versionado.")
+        raise
+    finally:
+        if respaldo and os.path.isdir(respaldo):
+            shutil.rmtree(respaldo, ignore_errors=True)
     total = sum(r["generados"] for r in resumen.values())
     if total:
         costo = sum(r["costo_est_usd"] for r in resumen.values())
@@ -368,6 +402,11 @@ _RUNTIME_ITEMS = [
     "data/generate_audio_demo.py", "data/ejemplo_whatsapp.txt",
     "outputs/kobra_scored.csv", "data/kobra_gestiones.csv",
     "owner/ui_dist", "assets/brand", "requirements.txt",
+    # Instalación real en Windows (icono, Menú Inicio, desinstalador). Sin
+    # esto el paquete corría pero no quedaba "instalado" en ningún lado: para
+    # abrirlo había que acordarse de dónde estaba la carpeta descomprimida.
+    "packaging/instalar_windows.ps1", "packaging/desinstalar_windows.ps1",
+    "electron/build/icon.ico",
 ]
 
 DEMO_DIAS = 14   # límite de la versión de evaluación
@@ -430,6 +469,47 @@ def build_edicion(tmp, key):
            "python3 kobra_launcher.py\n")
     os.chmod(os.path.join(stage, f"iniciar_{key.lower()}.sh"), 0o755)
 
+    # INSTALAR.bat — deja el programa instalado de verdad: icono propio, Menú
+    # Inicio, Escritorio y entrada en «Agregar o quitar programas». Todo en
+    # HKCU y en el perfil del usuario, así que NO pide administrador.
+    # pythonw y no python: `w` es la variante sin consola, para que abrir el
+    # programa no levante una ventana negra atrás.
+    flag_owner = " -Owner" if owner else ""
+    # El titulo va en ASCII: un .bat corre en la code page de la consola
+    # (850/437), no en UTF-8, y "dueño ·" saldria como mojibake en la barra.
+    _write(os.path.join(stage, "INSTALAR.bat"), crlf=True, content=(
+        "@echo off\r\n"
+        "setlocal\r\n"
+        f"title MV Kobra AI - Instalar ({key})\r\n"
+        "cd /d \"%~dp0\"\r\n"
+        "set \"CODIGO=%CD%\\kobra_software\"\r\n"
+        "\r\n"
+        "rem pythonw.exe del Python del sistema (sin ventana de consola).\r\n"
+        "set \"PYW=\"\r\n"
+        "for /f \"delims=\" %%P in ('where pythonw 2^>nul') do if not defined PYW set \"PYW=%%P\"\r\n"
+        "if not defined PYW for /f \"delims=\" %%P in ('where python 2^>nul') do "
+        "if not defined PYW set \"PYW=%%~dpPpythonw.exe\"\r\n"
+        "if not defined PYW (\r\n"
+        "  echo   No encontre Python. Instala Python 3.11+ desde\r\n"
+        "  echo   https://www.python.org/downloads/ marcando \"Add Python to PATH\"\r\n"
+        "  echo   y volve a ejecutar este INSTALAR.bat.\r\n"
+        "  pause & exit /b 1\r\n"
+        ")\r\n"
+        "\r\n"
+        "set \"DESTINO=%LocalAppData%\\MV Kobra AI\"\r\n"
+        "set /p \"DESTINO=  Carpeta de instalacion [%DESTINO%]: \"\r\n"
+        "set \"DESTINO=%DESTINO:\"=%\"\r\n"
+        "\r\n"
+        "powershell -NoProfile -ExecutionPolicy Bypass -File "
+        "\"%CODIGO%\\packaging\\instalar_windows.ps1\" -Destino \"%DESTINO%\" "
+        f"-Codigo \"%CODIGO%\" -Python \"%PYW%\" -Version \"{VERSION}\"{flag_owner}\r\n"
+        "if errorlevel 1 (\r\n"
+        "  echo.\r\n"
+        "  echo   Fallo la instalacion de los accesos. El programa igual se puede\r\n"
+        f"  echo   abrir con INICIAR_{key.upper()}.bat.\r\n"
+        ")\r\n"
+        "pause\r\n"))
+
     limite = ("Sin límite de tiempo (edición del dueño)." if owner
               else f"Evaluación por {dias} días." if plan == "trial"
               else f"Licencia por {dias} días · plan {plan} completo.")
@@ -443,6 +523,15 @@ CÓMO INICIAR (no requiere Node; solo Python 3.11+):
   Mac/Linux: ejecutar      ./iniciar_{key.lower()}.sh
 
 La app abre en el navegador (http://localhost). Corre 100% local en tu equipo.
+
+DEJARLO INSTALADO EN WINDOWS (opcional pero recomendado):
+  Doble clic en  INSTALAR.bat
+  Te pregunta la carpeta y deja el programa instalado como cualquier otro:
+    · icono propio y acceso directo en el Escritorio
+    · entrada en el Menú Inicio
+    · desinstalador en «Agregar o quitar programas»
+  No pide permisos de administrador (todo va a tu perfil de usuario).
+  Al desinstalar, tus datos NO se borran salvo que lo pidas expresamente.
 
 EDICIÓN
   {titulo}
@@ -465,7 +554,24 @@ HONESTIDAD DE LOS DATOS
 
 
 def main():
+    # `--edicion Owner` arma una sola edición y saltea el paquete Demo, que
+    # pre-renderiza la voz del chatvoice y tarda varios minutos. Para bajarse
+    # la copia del dueño no hace falta pagar ese costo.
+    import argparse
+    ap = argparse.ArgumentParser(description="Empaquetador de releases")
+    ap.add_argument("--edicion", choices=sorted(EDICIONES),
+                    help="armar SOLO esta edición (rápido, sin Demo ni Producción)")
+    args = ap.parse_args()
+
     tmp = os.path.join(DIST, "_staging")
+    if args.edicion:
+        paquetes = [build_edicion(tmp, args.edicion)]
+        shutil.rmtree(tmp, ignore_errors=True)
+        for p in paquetes:
+            print(f"[OK] {os.path.basename(p)}  ({os.path.getsize(p) // 1024} KB)")
+            print(f"     sha256: {_sha256(p)}")
+        return
+
     paquetes = [build_demo(tmp), build_prod(tmp)]
     for key in EDICIONES:
         paquetes.append(build_edicion(tmp, key))
