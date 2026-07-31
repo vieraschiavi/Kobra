@@ -18,7 +18,7 @@ producción se puede reemplazar el estimador por un modelo SER entrenado
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
 import numpy as np
 

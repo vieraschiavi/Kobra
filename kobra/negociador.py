@@ -16,7 +16,6 @@ El guion es un template parametrizado (sin nombres reales) que cualquier
 gestor puede usar tal cual. Diseñado para maximizar recupero minimizando
 la quita, priorizando por valor esperado.
 """
-import numpy as np
 import pandas as pd
 
 

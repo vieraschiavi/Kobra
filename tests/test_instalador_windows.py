@@ -109,7 +109,7 @@ def test_hay_licencia_en_cada_idioma_del_instalador(idioma, cfg):
     """electron-builder elige `license_<idioma>.txt` según el idioma que el
     cliente seleccione. Si falta uno, esa pantalla queda vacía."""
     assert idioma.upper() in " ".join(
-        l.upper() for l in cfg["build"]["nsis"]["installerLanguages"]).replace("_", " ")
+        idm.upper() for idm in cfg["build"]["nsis"]["installerLanguages"]).replace("_", " ")
     ruta = os.path.join(BUILD, f"license_{idioma}.txt")
     assert os.path.exists(ruta), f"falta {os.path.basename(ruta)}"
     crudo = open(ruta, "rb").read()

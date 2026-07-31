@@ -180,8 +180,9 @@ async def gateway_tts(payload: dict, claims: dict = Depends(requerir_licencia)):
     if not key:
         raise HTTPException(503, "ELEVENLABS_API_KEY no configurada en el servidor del gateway")
 
-    from kobra import voz_tts
     import base64
+
+    from kobra import voz_tts
 
     with uso.lock_cliente(claims["sub"]):
         _chequear_cupo(claims)

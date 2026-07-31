@@ -217,7 +217,7 @@ def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = No
             # es no determinístico, así que otra pasada suele salir limpia.
             # Se queda con la última si ninguna convence — audio imperfecto es
             # mejor que ningún audio, y el turno igual queda utilizable.
-            for intento in range(3):
+            for _intento in range(3):
                 if nombre == "chatterbox":
                     # exaggeration bajo y cfg_weight algo alto = lectura sobria,
                     # sin sobreactuar: es una llamada de cobranza, no un audiolibro.

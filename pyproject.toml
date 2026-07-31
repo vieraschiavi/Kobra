@@ -1,0 +1,56 @@
+[tool.ruff]
+# Linter del proyecto. Corre con:
+#     ruff check .
+#
+# Antes no había ninguno: nada impedía que entrara un import sin usar, una
+# variable muerta o un `except` que se traga todo sin decirlo.
+target-version = "py311"
+line-length = 100
+extend-exclude = [
+    "electron/node_modules",
+    "webapp/frontend/node_modules",
+    "owner/ui_dist",
+    "dist",
+    "referencia_R",
+    ".kobra_venv",
+]
+
+[tool.ruff.lint]
+# E,F = pycodestyle + pyflakes (lo que rompe de verdad)
+# I   = orden de imports
+# B   = bugbear: patrones que compilan pero muerden (mutable default, etc.)
+# UP  = modismos viejos de Python
+# C4  = comprensiones innecesarias
+select = ["E", "F", "I", "B", "UP", "C4"]
+
+ignore = [
+    # Los módulos del producto hacen `sys.path.insert(...)` antes de importar
+    # `kobra`, porque se ejecutan como script y como módulo. El import DEBE ir
+    # después; ya está marcado con `# noqa: E402` donde corresponde.
+    "E402",
+    # Líneas largas: el código tiene comentarios explicativos en prosa y
+    # cortarlos a la fuerza los vuelve ilegibles. La longitud la cuida
+    # `line-length` en el formateo, no una falla de lint.
+    "E501",
+    # `zip()` sin `strict=`: revisar caso por caso, no en masa.
+    "B905",
+    # `Depends(...)` en un default de argumento es LA forma de declarar una
+    # dependencia en FastAPI — no un descuido. 53 usos, todos correctos.
+    "B008",
+    # `dict(a=1, b=2)` en vez de `{"a": 1}`: se usa a propósito donde se arman
+    # kwargs, porque se lee mejor al lado de la llamada que los consume.
+    # Cambiar 49 sitios es puro churn con riesgo de regresión y cero beneficio.
+    "C408",
+    # `a = 1; b = 2` en scripts y tests, para setups compactos de una línea.
+    "E702", "E701",
+    # `datetime.timezone.utc` → `datetime.UTC`: alias nuevo, mismo objeto.
+    "UP017",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Los tests declaran variables para documentar el caso y a veces no las usan.
+"tests/*" = ["B011"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["kobra", "webapp", "realtime", "backend_venta", "data",
+                     "packaging", "marketing"]

@@ -1,4 +1,8 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MV Kobra AI · Cobranzas Inteligentes</title>
 <link rel="icon" type="image/png" href="/landing/mv_icon.png">
 <!-- Previsualización al compartir el link (LinkedIn, X, WhatsApp, Facebook).
@@ -27,10 +31,10 @@
 :root{
   --navy:#081527; --navy2:#0c2137; --hero-a:#0d2440; --hero-b:#081324;
   --amber:#f2b441; --amber2:#e39a2e; --amber-ink:#1c1305;
-  --ink:#eaf1fb; --muted:#9db0c8; --faint:#6c7f99;
+  --ink:#eaf1fb; --muted:#9db0c8; --faint:#7a8da7;   /* 4.67:1 sobre los fondos oscuros (AA) */
   --line:#1d3149; --line2:#2a4160;
   --paper:#ffffff; --ink-d:#122238; --muted-d:#586a80; --line-d:#e6ebf2; --tint:#f4f7fb;
-  --blue:#2f74c0; --green:#00c896;
+  --blue:#215ea3; --green:#00c896;   /* 5.89:1 sobre el celeste del resalte (AA) */
   --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,monospace;
 }
@@ -105,7 +109,7 @@ nav .wrap{display:flex;align-items:center;gap:16px;height:60px}
 .chat .h .av{width:38px;height:38px;border-radius:50%;background:#0f2135;color:#fff;display:flex;align-items:center;
   justify-content:center;font-weight:800;font-size:13px;flex:none}
 .chat .h b{font-size:14px;display:block}
-.chat .h span{font-size:11.5px;color:#159a6b;display:flex;align-items:center;gap:5px}
+.chat .h span{font-size:11.5px;color:#0f8259;display:flex;align-items:center;gap:5px}
 .chat .h span::before{content:"";width:6px;height:6px;border-radius:50%;background:#22c55e}
 .b{display:table;max-width:84%;padding:10px 13px;border-radius:15px;font-size:13.5px;line-height:1.4;margin:8px 0}
 .b.in{background:#eef2f7;color:#22303f;border-top-left-radius:5px}
@@ -145,7 +149,7 @@ nav .wrap{display:flex;align-items:center;gap:16px;height:60px}
 .plan .amt{font-size:38px;font-weight:850;color:var(--ink-d);line-height:1;letter-spacing:-.02em}
 .plan .amt small{font-size:15px;color:var(--muted-d);font-weight:600}
 .plan .per{color:var(--muted-d);font-size:12.5px;margin-top:4px}
-.plan .uyu{color:var(--faint);font-size:11.5px;margin-top:3px}
+.plan .uyu{color:var(--muted-d);font-size:11.5px;margin-top:3px}
 .plan ul{list-style:none;padding:0;margin:18px 0 22px;flex:1}
 .plan li{font-size:13px;color:var(--muted-d);padding:7px 0 7px 20px;position:relative;border-bottom:1px solid var(--line-d)}
 .plan li:last-child{border-bottom:0}.plan li::before{content:"→";position:absolute;left:0;color:var(--amber2)}
@@ -207,6 +211,9 @@ footer{padding:34px 0 14px;color:var(--faint);font-size:13px}
 footer .legal{max-width:74ch;line-height:1.6}
 :focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:6px}
 </style>
+</head>
+<body>
+
 
 <nav><div class="wrap">
   <div class="brand"><img src="/landing/mv_icon.png" alt="MV Kobra AI" class="mk"><b>MV KOBRA <span class="am">AI</span></b></div>
@@ -537,6 +544,12 @@ var I18N={
     legal:"MV Kobra AI · Smart Collections. AI-assisted debt-collection management platform. 100% synthetic demo data; metrics shown are illustrative of the product."
   }
 };
+// Traduccion: los dos innerHTML de abajo son HTML PROPIO Y ESTATICO. `ORIG`
+// guarda el marcado que ya esta en esta pagina y `I18N` es un diccionario
+// escrito a mano en este mismo archivo — llevan <b> y <br> a proposito. No hay
+// ninguna via por la que un dato de usuario, de la API o de la base llegue
+// aca. Las resenas, que SI vienen de un JSON, se pintan con textContent mas
+// abajo, no con innerHTML.
 var ORIG={};
 document.querySelectorAll('[data-i]').forEach(function(el){ORIG[el.getAttribute('data-i')]=el.innerHTML;});
 var CUR_LANG='es';
@@ -725,3 +738,5 @@ if(regform){regform.addEventListener('submit',function(e){
   window.location.href='/demo/';
 });}
 </script>
+</body>
+</html>

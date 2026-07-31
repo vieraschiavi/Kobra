@@ -29,7 +29,6 @@ from datetime import datetime, timedelta
 from kobra import copiloto, cumplimiento, registro
 from kobra import llm as kllm
 
-
 # ---------------------------------------------------------------------------
 # Detección de intención del cliente (offline, reutiliza el léxico del copiloto)
 # ---------------------------------------------------------------------------

@@ -26,7 +26,7 @@ import numpy as np
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from kobra import copiloto, voz   # noqa: E402
+from kobra import copiloto, voz  # noqa: E402
 
 
 def _ulaw_tabla() -> np.ndarray:

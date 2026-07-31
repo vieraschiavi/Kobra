@@ -157,6 +157,7 @@ def main():
                          args=(f"http://localhost:{port}",), daemon=True).start()
 
     import uvicorn
+
     from webapp.backend.api import app
     uvicorn.run(app, host="127.0.0.1", port=int(port), log_level="warning")
 

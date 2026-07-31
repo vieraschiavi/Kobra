@@ -90,8 +90,9 @@ def test_launcher_siembra_licencia_demo_idempotente(tmp_path, monkeypatch):
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "cfg"))
     from kobra import config as kconfig
     importlib.reload(kconfig)
-    from backend_venta import licencias as klic
     import secrets
+
+    from backend_venta import licencias as klic
     secreto = secrets.token_hex(32)
     token = klic.emitir_licencia("edicion-demo", "trial", dias=14, secreto=secreto)
     (tmp_path / "edicion.json").write_text(json.dumps(

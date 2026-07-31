@@ -21,7 +21,7 @@ def entorno(tmp_path, monkeypatch):
 
     from kobra import config as kconfig
     importlib.reload(kconfig)
-    from backend_venta import licencias, uso, descargas
+    from backend_venta import descargas, licencias, uso
     importlib.reload(licencias)
     importlib.reload(uso)
     importlib.reload(descargas)

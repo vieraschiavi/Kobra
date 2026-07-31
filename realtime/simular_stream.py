@@ -20,7 +20,7 @@ import numpy as np
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from kobra import voz, copiloto   # noqa: E402
+from kobra import copiloto, voz  # noqa: E402
 
 WAV = os.path.join(ROOT, "data", "ejemplo_llamada.wav")
 TXT = os.path.join(ROOT, "data", "ejemplo_whatsapp.txt")

@@ -40,10 +40,18 @@ jobs:
           cache: pip
 
       - name: Instalar dependencias
+        # Las de test salen de requirements-dev.txt, no de un `pip install`
+        # suelto: si estan declaradas en un solo lugar, una maquina limpia que
+        # siga el README puede correr la suite. Antes `pytest` no figuraba en
+        # ningun requirements y solo lo instalaba esta linea.
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest joblib
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Linter
+        # Antes del test: un import roto o una variable indefinida los detecta
+        # ruff en segundos, sin esperar los dos minutos de la suite.
+        run: ruff check .
 
       - name: Generar dataset (semilla fija)
         run: python data/generate_dataset.py --n 3000 --seed 42

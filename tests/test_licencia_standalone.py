@@ -28,6 +28,7 @@ def _cliente(tmp_path, monkeypatch, standalone, owner=False):
     from kobra import config as kconfig
     importlib.reload(kconfig)
     from fastapi.testclient import TestClient
+
     from webapp.backend import api
     importlib.reload(api)  # MODO_STANDALONE/MODO_OWNER se leen al importar
     return api, TestClient(api.app)

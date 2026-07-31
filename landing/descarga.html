@@ -56,7 +56,7 @@ var paymentId=qp('payment_id') || qp('collection_id');
 var status=qp('status') || qp('collection_status');
 
 var PLAN_NAMES={starter:'Starter',pro:'Pro · Todo incluido',enterprise:'Enterprise'};
-function esc(s){return String(s==null?'':s).replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];});}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 var INSTALADOR_URL='https://github.com/vieraschiavi/mv-kobra-ai-releases/releases/latest/download/MVKobraAI_Setup.exe';
 function showOk(plan,license){
   var planName=PLAN_NAMES[plan]||plan;
@@ -88,8 +88,11 @@ function showPending(){
     +'<div class="muted">¿Dudas? <a class="link" href="mailto:vieraschiavi@gmail.com">vieraschiavi@gmail.com</a></div>';
 }
 function showFail(msg){
+  // `msg` se escapa aunque hoy solo se lo llame con literales de este archivo:
+  // el dia que alguien le pase `d.error` de la API —que es lo natural— seria
+  // una inyeccion silenciosa, sin nada que la frene.
   card.innerHTML='<h1 class="err">No pudimos confirmar el pago</h1>'
-    +'<p>'+(msg||'Si ya pagaste y ves este mensaje, escribinos con el número de operación y lo resolvemos al toque.')+'</p>'
+    +'<p>'+esc(msg||'Si ya pagaste y ves este mensaje, escribinos con el número de operación y lo resolvemos al toque.')+'</p>'
     +'<a class="btn" href="/#precios">Volver a planes</a>'
     +'<div class="muted"><a class="link" href="mailto:vieraschiavi@gmail.com">vieraschiavi@gmail.com</a></div>';
 }

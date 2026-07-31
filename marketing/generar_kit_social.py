@@ -52,7 +52,20 @@ SALIDA_DEFAULT = os.path.join(ROOT, "dist", "social")
 # Familias aceptables, en orden de preferencia. Tienen que estar INSTALADAS:
 # si el render cae a una fuente de fallback, las métricas cambian y el diseño
 # se rompe de la misma forma que rompió la primera vez.
-FUENTES = ("Inter", "Roboto", "Open Sans", "Lato", "DejaVu Sans")
+#
+# DejaVu Sans SALIÓ de la lista, y no por gusto: es la única que suele estar en
+# un Linux pelado, así que colarla acá hacía que el generador se diera por
+# satisfecho y exportara igual. Medido en una máquina con solo DejaVu, el
+# banner `linkedin_feed` sale con la marca encima del texto — exactamente el
+# defecto que este módulo existe para evitar. Es notablemente más ancha que
+# Inter/Roboto: los titulares ocupan más líneas y desbordan su celda.
+#
+# Sin ninguna de estas instalada, `fuente_disponible()` devuelve '' y el
+# generador se planta, que es lo correcto: mejor no generar el kit que publicar
+# cinco PNG rotos. Para habilitarlo:
+#     Debian/Ubuntu: sudo apt-get install -y fonts-inter   (o fonts-roboto)
+#     macOS        : brew install --cask font-inter
+FUENTES = ("Inter", "Roboto", "Open Sans", "Lato")
 
 
 # --------------------------------------------------------------------------
@@ -245,8 +258,8 @@ def html_banner(banner: dict, fuente: str) -> str:
      texto se achica solo para entrar en lo que queda. */
   .stack{{grid-template-rows:1fr {round(banner["alto"] * float(banner.get("mockup") or .34))}px}}
   .banda{{align-items:center}}
-  .txt{{display:flex;flex-direction:column;justify-content:center;
-    gap:{e["pad"] * .42}px;min-width:0;overflow:hidden}}
+  .txt{{display:flex;flex-direction:column;justify-content:safe center;
+    gap:{e["pad"] * .42}px;min-width:0;min-height:0;overflow:hidden}}
   .eyeb{{font-size:{e["eye"]}px;letter-spacing:.16em;text-transform:uppercase;
     color:{c["green_hi"]};font-weight:600}}
   .hl{{font-size:{e["hl"]}px;font-weight:800;letter-spacing:-.03em;line-height:1.04;

@@ -12,7 +12,6 @@ import json
 import os
 import sys
 
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -21,25 +20,27 @@ import streamlit as st
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from kobra import rutas as krutas             # noqa: E402
-from kobra.probpago import ProbPagoModel      # noqa: E402
-from kobra import negociador                  # noqa: E402
-from kobra import copiloto                    # noqa: E402
-from kobra import analitica                   # noqa: E402
-from kobra import config as kconfig           # noqa: E402
-from kobra import roi as kroi                 # noqa: E402
+from kobra import (
+    analitica,  # noqa: E402
+    copiloto,  # noqa: E402
+    negociador,  # noqa: E402
+)
+from kobra import config as kconfig  # noqa: E402
+from kobra import roi as kroi  # noqa: E402
+from kobra import rutas as krutas  # noqa: E402
+from kobra.probpago import ProbPagoModel  # noqa: E402
 
 # Escribible siempre: instalado en Program Files, ROOT es de solo lectura
 # para un usuario sin admin (PermissionError). Ver kobra/rutas.py.
 SCRATCH = os.path.join(krutas.DIR_DATOS, ".uploads")
-from kobra import integracion as kerp         # noqa: E402
-from kobra import auditoria as kauditoria     # noqa: E402
-from kobra import consulta_bd as kconsulta    # noqa: E402
-from kobra import seguimiento as kseg         # noqa: E402
-from kobra import voz_tts                     # noqa: E402
-from kobra import campana as kcampana         # noqa: E402
-from kobra import twilio_setup as ktwilio     # noqa: E402
-from kobra import ayuda as kayuda             # noqa: E402
+from kobra import auditoria as kauditoria  # noqa: E402
+from kobra import ayuda as kayuda  # noqa: E402
+from kobra import campana as kcampana  # noqa: E402
+from kobra import consulta_bd as kconsulta  # noqa: E402
+from kobra import integracion as kerp  # noqa: E402
+from kobra import seguimiento as kseg  # noqa: E402
+from kobra import twilio_setup as ktwilio  # noqa: E402
+from kobra import voz_tts  # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -110,9 +111,9 @@ st.markdown(f"""
 # Acceso: login/setup obligatorio antes de mostrar cualquier dato (ver
 # kobra/autenticacion.py). Roles: admin (todo) / gestor (sin Configuración).
 # ----------------------------------------------------------------------------
-from kobra import autenticacion as kauth          # noqa: E402
-from kobra import sso_oidc as ksso                # noqa: E402
-from kobra import backup as kbackup               # noqa: E402
+from kobra import autenticacion as kauth  # noqa: E402
+from kobra import backup as kbackup  # noqa: E402
+from kobra import sso_oidc as ksso  # noqa: E402
 
 ROL_ACTIVO = kauth.render_gate()
 if ROL_ACTIVO is None:
@@ -1500,7 +1501,7 @@ with tab7:
                    "Okta, Google Workspace u otro proveedor OIDC, en vez de (o además de) la "
                    "contraseña local. El login local sigue funcionando igual aunque configures esto.")
         _sso_activo = ksso.configurado()
-        st.markdown(("🟢 SSO activo" if _sso_activo else "⚪ SSO no configurado"))
+        st.markdown("🟢 SSO activo" if _sso_activo else "⚪ SSO no configurado")
         with st.form("form_sso"):
             sso_issuer = st.text_input("Issuer / Authority", value="",
                                        placeholder="https://login.microsoftonline.com/<tenant>/v2.0",

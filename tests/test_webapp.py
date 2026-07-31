@@ -20,6 +20,7 @@ def cliente(tmp_path, monkeypatch):
     kauth.establecer_password("gestor", "GestorTest123!")
 
     from fastapi.testclient import TestClient
+
     from webapp.backend import api
     return TestClient(api.app)
 
@@ -55,6 +56,7 @@ def test_primer_arranque_crea_admin_desde_la_webapp(tmp_path, monkeypatch):
     from kobra import autenticacion as kauth
     importlib.reload(kauth)
     from fastapi.testclient import TestClient
+
     from webapp.backend import api
     importlib.reload(api)
     c = TestClient(api.app)
@@ -87,8 +89,9 @@ def test_standalone_no_permite_saltear_la_licencia_con_password(tmp_path, monkey
     importlib.reload(kconfig)
     from kobra import autenticacion as kauth
     importlib.reload(kauth)
-    from backend_venta import licencias as klic
     from fastapi.testclient import TestClient
+
+    from backend_venta import licencias as klic
     from webapp.backend import api
     importlib.reload(api)
     c = TestClient(api.app)
@@ -115,6 +118,7 @@ def test_owner_conserva_su_entrada_directa(tmp_path, monkeypatch):
     from kobra import autenticacion as kauth
     importlib.reload(kauth)
     from fastapi.testclient import TestClient
+
     from webapp.backend import api
     importlib.reload(api)
     c = TestClient(api.app)

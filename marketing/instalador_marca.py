@@ -103,7 +103,6 @@ def html_header() -> str:
 
 def _render(html: str, tamano: tuple[int, int], destino: str) -> str:
     """Renderiza y guarda como BMP de 24 bits, que es lo que traga NSIS."""
-    import io
     import tempfile
 
     from PIL import Image

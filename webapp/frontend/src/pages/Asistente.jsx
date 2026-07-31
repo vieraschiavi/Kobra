@@ -226,6 +226,9 @@ export default function Asistente() {
   return (
     <>
       <h1 className="page-title">{t("asistente.titulo")}</h1>
+      {/* HTML propio y estatico: el texto sale del diccionario i18n del
+          repo (src/i18n), no de la API ni del usuario. Lleva <b> y <br> a
+          proposito. Cualquier dato dinamico va por {…}, nunca por aca. */}
       <p className="page-sub" dangerouslySetInnerHTML={{ __html: t("asistente.subtitulo") }} />
 
       <div className="chat-box">

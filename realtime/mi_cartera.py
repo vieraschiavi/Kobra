@@ -29,13 +29,12 @@ from datetime import datetime
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-import pandas as pd                                      # noqa: E402
+import pandas as pd  # noqa: E402
 
-from kobra.probpago import ProbPagoModel                 # noqa: E402
-from kobra import (cartera_manual, negociador, explicabilidad,   # noqa: E402
-                   cumplimiento, gestor_ia)
-from realtime.voicebot import ClienteSimulado            # noqa: E402
-from data.generate_dataset import generar                # noqa: E402
+from data.generate_dataset import generar  # noqa: E402
+from kobra import cartera_manual, cumplimiento, explicabilidad, gestor_ia, negociador  # noqa: E402
+from kobra.probpago import ProbPagoModel  # noqa: E402
+from realtime.voicebot import ClienteSimulado  # noqa: E402
 
 BASE_DEFAULT = os.path.join(ROOT, "data", "mi_cartera_prueba.csv")
 

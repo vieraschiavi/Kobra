@@ -42,14 +42,23 @@ MARCA = {
     # Color principal
     "green": "#00c896",
     "green_hi": "#57e6bd",
-    # Acentos, para distinguir categorías y series
-    "blue": "#2f74c0",
+    # Acentos, para distinguir categorías y series.
+    #
+    # El azul se oscureció de #2f74c0 a #215ea3 por contraste: sobre el celeste
+    # de resalte (#e8f4ff) daba 4,30:1 y WCAG AA pide 4,5:1 — Lighthouse lo
+    # marcaba como fallo de accesibilidad en la landing. Ahora da 5,89:1. Es el
+    # mismo azul, más oscuro; no es un cambio de identidad, pero cambia el
+    # color de un acento y por eso queda dicho acá.
+    "blue": "#215ea3",
     "amber": "#f2b441",
     # Texto
     "ink": "#eaf1fb",
     "sub": "#b9c8dc",
     "muted": "#9db0c8",
-    "faint": "#6c7f99",
+    # Se aclaró de #6c7f99 a #7a8da7 por contraste: sobre los fondos oscuros
+    # daba entre 3,87:1 y 4,48:1, por debajo del 4,5:1 que pide WCAG AA, y
+    # Lighthouse lo marcaba en la landing. Ahora da entre 4,67:1 y 5,40:1.
+    "faint": "#7a8da7",
     # Bordes
     "line": "#1d3149",
 }

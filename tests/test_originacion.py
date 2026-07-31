@@ -91,6 +91,7 @@ def cliente(tmp_path, monkeypatch):
     from kobra import autenticacion as kauth
     kauth.establecer_password("admin", "AdminTest123!")
     from fastapi.testclient import TestClient
+
     from webapp.backend import api
     return TestClient(api.app)
 

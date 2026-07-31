@@ -32,7 +32,13 @@ CTA = "Agendá una demo"
 BAJADA = "Cobranzas inteligentes"
 
 # Paleta: desde `marca.py`, la fuente única. Antes estaba copiada acá.
-from marketing.marca import MARCA as COLORES  # noqa: E402
+#
+# El `noqa: F401` es a propósito y NO se puede sacar. `COLORES` no se usa en
+# este archivo: es un re-export, y `tests/test_marca.py` verifica justamente
+# que sea el MISMO objeto que `marca.MARCA` — así, si alguien vuelve a copiar
+# la paleta acá, el test lo detecta. Un `ruff --fix` ya lo borró una vez por
+# "import sin usar" y rompió esa garantía.
+from marketing.marca import MARCA as COLORES  # noqa: E402,F401
 
 # Términos que no pueden aparecer en una pieza publicada. Se chequean en el
 # texto renderizado, no en el código: lo que importa es lo que se ve.

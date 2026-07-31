@@ -145,6 +145,25 @@ streamlit run app/app.py                              # dashboard interactivo
 python presentation/build_ppt.py                      # presentación gerencial (PPTX)
 ```
 
+### Tests y linter
+
+En una máquina limpia, dos comandos y listo:
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+python -m pytest -q tests/                            # 416 tests
+ruff check .                                          # linter
+```
+
+`requirements-dev.txt` trae lo que hace falta **además** para testear (`pytest`,
+`httpx`, `ruff`). Antes `pytest` no figuraba en ningún requirements —solo lo
+instalaba una línea suelta del CI—, así que seguir el README no alcanzaba para
+correr la suite.
+
+Los tests que necesitan `ffmpeg` (regeneración del audio de la demo) se saltean
+solos si no está: es una dependencia de **sistema**, no de pip, y su ausencia no
+puede romper la suite entera.
+
 ### 🪟 Instalador standalone para Windows (programa, sin instalar Python)
 
 Un **`MVKobraAI_Setup.exe`** que instala MV Kobra AI como un programa (empaqueta Python,

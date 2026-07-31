@@ -17,8 +17,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data.generate_dataset import generar
+from kobra import analitica, copiloto, negociador
 from kobra.probpago import ProbPagoModel
-from kobra import negociador, copiloto, analitica
 
 
 def _df():
@@ -183,8 +183,8 @@ def test_voz_diarizacion_y_emocion(tmp_path):
         import soundfile  # noqa: F401
     except Exception:
         pytest.skip("soundfile no disponible")
-    from kobra import voz
     from data.generate_audio_demo import generar
+    from kobra import voz
     wav = str(tmp_path / "call.wav")
     generar(seed=1, out=wav)
     res = voz.analizar_llamada(wav)
@@ -202,8 +202,8 @@ def test_voz_transcripcion_alineada(tmp_path):
         import soundfile  # noqa: F401
     except Exception:
         pytest.skip("soundfile no disponible")
-    from kobra import voz, copiloto
     from data.generate_audio_demo import generar
+    from kobra import copiloto, voz
     wav = str(tmp_path / "call.wav")
     generar(seed=2, out=wav)
     conv = copiloto.parsear_conversacion(
@@ -254,8 +254,9 @@ def test_gestor_ia_deriva_a_humano():
 
 def test_voicebot_campania_concurrente(tmp_path):
     import asyncio
-    from realtime import voicebot
+
     from kobra import registro
+    from realtime import voicebot
     df = registro._scored()
     if df is None:
         __import__("pytest").skip("outputs/kobra_scored.csv no generado")
@@ -283,6 +284,7 @@ def test_comparativa_ia():
 
 def test_stream_session():
     import numpy as np
+
     from realtime import connectors
     sess = connectors.StreamSession(sr=8000, probpago=0.7, estrategia="Plan de cuotas")
     tono = (0.2 * np.sin(2 * np.pi * 180 * np.arange(8000) / 8000)).astype("float32")
@@ -296,6 +298,7 @@ def test_stream_session():
 def test_config_persistencia(tmp_path, monkeypatch):
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path))
     import importlib
+
     from kobra import config as c
     importlib.reload(c)          # recalcula CONFIG_DIR con el tmp_path
     c.limpiar()
@@ -317,6 +320,7 @@ def test_config_cifrado_no_es_texto_plano(tmp_path, monkeypatch):
     quedar cifrada en disco — nunca la API key en texto plano."""
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path))
     import importlib
+
     from kobra import config as c
     importlib.reload(c)
     monkeypatch.setattr(c, "_keyring_disponible", lambda: None)  # forzar sin keyring
@@ -388,14 +392,15 @@ def test_stream_session_resumen_final():
 def test_g711_codecs_bit_exactos():
     """Codecs G.711 propios (μ-law y A-law) idénticos a la referencia."""
     import numpy as np
-    from realtime.connectors import ulaw_to_float, alaw_to_float
-    from realtime.simular_rtp import lin_a_ulaw, lin_a_alaw
+
+    from realtime.connectors import alaw_to_float, ulaw_to_float
+    from realtime.simular_rtp import lin_a_alaw, lin_a_ulaw
     xs = np.arange(-32768, 32768, dtype=np.int32).astype(np.float32) / 32767.0
     # round-trip: error acotado a la cuantización G.711
     assert np.max(np.abs(ulaw_to_float(lin_a_ulaw(xs)) - xs)) < 0.04
     assert np.max(np.abs(alaw_to_float(lin_a_alaw(xs)) - xs)) < 0.04
     try:
-        import audioop                     # referencia (no existe en 3.13+)
+        import audioop  # referencia (no existe en 3.13+)
         pcm = (np.clip(np.arange(-32768, 32768, dtype=np.int32), -32767, 32767)
                .astype(np.int16).tobytes())
         assert lin_a_ulaw(xs) == audioop.lin2ulaw(pcm, 2)
@@ -410,8 +415,9 @@ def test_g711_codecs_bit_exactos():
 def test_conector_avaya_rtp():
     """Parseo RTP y decodificación por payload type (0=PCMU, 8=PCMA)."""
     import numpy as np
-    from realtime.simular_rtp import rtp_packet, lin_a_alaw, lin_a_ulaw
-    from realtime.conector_avaya import parse_rtp, decodificar
+
+    from realtime.conector_avaya import decodificar, parse_rtp
+    from realtime.simular_rtp import lin_a_alaw, lin_a_ulaw, rtp_packet
     x = (0.3 * np.sin(2 * np.pi * 200 * np.arange(160) / 8000)).astype("float32")
     for pt, enc in ((8, lin_a_alaw), (0, lin_a_ulaw)):
         pkt = rtp_packet(pt, 7, 1600, 0xABCD, enc(x))
@@ -426,6 +432,7 @@ def test_conector_avaya_rtp():
 
 def test_stream_decoders():
     import numpy as np
+
     from realtime import connectors
     pcm = (np.array([0, 16000, -16000, 8000], dtype="int16")).tobytes()
     f = connectors.pcm16_to_float(pcm)
@@ -447,6 +454,7 @@ def test_stream_decoders():
 # ---------------------------------------------------------------------------
 def test_cumplimiento_horario_y_dia():
     from datetime import datetime
+
     from kobra import cumplimiento as cp
     pol = cp.PoliticaContacto(permitir_feriados=True)   # aislar del calendario
     # Lunes 10:00 → permitido
@@ -462,6 +470,7 @@ def test_cumplimiento_horario_y_dia():
 
 def test_cumplimiento_feriado():
     from datetime import datetime
+
     from kobra import cumplimiento as cp
     # 25 de agosto (Declaratoria de la Independencia) → feriado, un martes en 2026
     d = cp.puede_contactar("KB-1", "Llamada", datetime(2026, 8, 25, 10, 0))
@@ -474,6 +483,7 @@ def test_cumplimiento_feriado():
 
 def test_cumplimiento_feriados_por_pais():
     from datetime import datetime
+
     from kobra import cumplimiento as cp
     # México: 16 de setiembre (Independencia) es feriado ahí, no en Uruguay.
     pol_mx = cp.PoliticaContacto(pais="MX")
@@ -495,6 +505,7 @@ def test_cumplimiento_feriados_por_pais():
 
 def test_cumplimiento_topes_frecuencia():
     from datetime import datetime, timedelta
+
     from kobra import cumplimiento as cp
     pol = cp.PoliticaContacto(permitir_feriados=True, max_por_dia=1, max_por_semana=3)
     ahora = datetime(2026, 7, 6, 11, 0)           # lunes
@@ -534,6 +545,7 @@ def test_gestor_ia_opt_out_registra(tmp_path):
 
 def test_voicebot_respeta_no_contactar(tmp_path):
     import asyncio
+
     from kobra import cumplimiento as cp
     from realtime.voicebot import correr_campania
     dnc = str(tmp_path / "dnc.csv")
@@ -634,9 +646,9 @@ def test_leer_csv_preserva_telefono(tmp_path):
 
 def test_procesar_cartera_end_to_end():
     """procesar(): score + reason codes + cumplimiento + negociación por contacto."""
-    from realtime.mi_cartera import procesar, resultados_a_dataframe
-    from kobra.probpago import ProbPagoModel
     from kobra import explicabilidad
+    from kobra.probpago import ProbPagoModel
+    from realtime.mi_cartera import procesar, resultados_a_dataframe
     df = _df()
     model = ProbPagoModel().fit(df)
     base = explicabilidad.baseline_cartera(df)
@@ -668,11 +680,24 @@ def test_desde_dataframe_tolerante():
 # ---------------------------------------------------------------------------
 # Llamada de voz autónoma con el Gestor IA (TwiML Twilio)
 # ---------------------------------------------------------------------------
-def test_voz_twiml_negociacion(tmp_path):
+def test_voz_twiml_negociacion(tmp_path, monkeypatch):
     """El Gestor IA conduce la llamada por TwiML: saludo → oferta → cierre."""
-    import asyncio, os
+    import asyncio
     from types import SimpleNamespace
+
+    from kobra import registro
     from realtime import server
+
+    # El turno de cierre persiste la gestión de verdad, y sin redirigirla iba a
+    # `data/kobra_gestiones.csv` — el dataset versionado del repo. Cada corrida
+    # de la suite dejaba una fila espuria ahí y el árbol de trabajo sucio.
+    # `archivo` es un argumento por DEFECTO de registrar_gestion, evaluado al
+    # importar: monkeypatchear registro.GESTIONES_CSV no lo cambia. Hay que
+    # envolver la función.
+    real = registro.registrar_gestion
+    destino = str(tmp_path / "gestiones.csv")
+    monkeypatch.setattr(registro, "registrar_gestion",
+                        lambda **kw: real(**{**kw, "archivo": destino}))
 
     class FakeReq:
         def __init__(self, method="POST", query=None, form=None, headers=None):
@@ -704,8 +729,10 @@ def test_voz_twiml_negociacion(tmp_path):
 
 def test_voz_llamar_sin_credenciales():
     """El disparador de llamada exige credenciales de Twilio (falla claro)."""
-    import asyncio, os
+    import asyncio
+    import os
     from types import SimpleNamespace
+
     from realtime import server
     for k in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM"):
         os.environ.pop(k, None)
@@ -739,6 +766,7 @@ def test_integracion_sabana_y_exportes():
 
 def test_integracion_sincronizar_sqlite(tmp_path):
     import sqlite3
+
     from kobra import integracion as ig
     sab = ig.sabana(_gestiones()).head(30)
     db = str(tmp_path / "erp.db")
@@ -841,8 +869,8 @@ def test_consulta_bd_ejecutar_sql_aplica_limite(tmp_path):
 
 
 def test_consulta_bd_motor_responder_pipeline_completo(tmp_path, monkeypatch):
-    from kobra import consulta_bd as kcbd
     from kobra import auditoria as kaud
+    from kobra import consulta_bd as kcbd
 
     # Espía sobre registrar() en vez de redirigir LOG_FILE: el default de
     # registrar() ya quedó fijado al importar el módulo, así que monkeypatchear
@@ -1096,6 +1124,7 @@ def test_campana_enviar_email_ok_mockeado(monkeypatch):
 def test_campana_plantillas_default_y_customizadas(tmp_path, monkeypatch):
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config"))
     import importlib
+
     from kobra import config as kconfig
     importlib.reload(kconfig)
     from kobra import campana as kcamp
@@ -1122,8 +1151,8 @@ def test_campana_renderizar_plantilla():
 
 
 def test_campana_contactados_hoy_por_campana(monkeypatch):
-    from kobra import campana as kcamp
     from kobra import auditoria as kaud
+    from kobra import campana as kcamp
 
     hoy = date(2026, 7, 6)
     entradas = [
@@ -1151,8 +1180,8 @@ def test_campana_cargar_contactos(tmp_path):
 
 
 def test_campana_ejecutar_plan_dispatcha_por_canal(monkeypatch):
-    from kobra import campana as kcamp
     from kobra import auditoria as kaud
+    from kobra import campana as kcamp
 
     llamadas, whatsapps, emails_enviados, auditados = [], [], [], []
     monkeypatch.setattr(kcamp, "iniciar_llamada",
@@ -1209,6 +1238,7 @@ def test_cartera_desde_base_de_datos(tmp_path):
 
 def test_cartera_desde_base_de_datos_solo_lectura(tmp_path):
     import pytest
+
     from kobra import cartera_manual as cm
     url = _db_cartera_sqlite(tmp_path)
     for mala in ("DELETE FROM cartera", "DROP TABLE cartera",
@@ -1438,8 +1468,8 @@ def test_auditoria_detecta_manipulacion(tmp_path, monkeypatch):
 
 
 def _rsa_par_de_prueba():
-    from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     priv_pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                  serialization.NoEncryption())
@@ -1473,7 +1503,9 @@ def test_oidc_callback_verifica_token_de_verdad(monkeypatch):
     valida state + firma + issuer + audiencia contra un token real, sin pegarle
     a la red (discovery/JWKS/token-exchange, todos mockeados)."""
     import time
+
     import jwt as pyjwt
+
     from kobra import sso_oidc
 
     priv_pem, pub_pem = _rsa_par_de_prueba()
@@ -1527,7 +1559,9 @@ def test_oidc_callback_rechaza_firma_de_otra_clave(monkeypatch):
     """Un token firmado con una clave distinta a la del JWKS del proveedor
     (ej. un atacante con su propio par de claves) debe rechazarse."""
     import time
+
     import jwt as pyjwt
+
     from kobra import sso_oidc
 
     priv_atacante, _ = _rsa_par_de_prueba()
@@ -1569,6 +1603,7 @@ def test_auditoria_concurrente_no_rompe_la_cadena(tmp_path):
     leyeran el mismo 'último hash' y la cadena quedaba rota (ver historia del
     commit). Con portalocker, 100 registros concurrentes deben verificar OK."""
     import concurrent.futures
+
     from kobra import auditoria as kaud
     archivo = str(tmp_path / "audit_concurrente.log")
 
@@ -1587,6 +1622,7 @@ def test_registrar_gestion_concurrente_no_duplica_ids(tmp_path):
     con gestiones concurrentes (el Gestor IA corre hasta 50 en paralelo,
     ver realtime/voicebot.py), varias terminaban con el mismo id_gestion."""
     import concurrent.futures
+
     from kobra import registro
     archivo = str(tmp_path / "gestiones_concurrentes.csv")
 
@@ -1606,7 +1642,6 @@ def test_registrar_gestion_concurrente_no_duplica_ids(tmp_path):
 
 def test_gestor_ia_tipifica_arreglo(tmp_path):
     from kobra.gestor_ia import SesionGestorIA
-    from kobra import registro
     arch = str(tmp_path / "g.csv")
     ses = SesionGestorIA(id_deudor="KB-100773", gestor_id="IA01", usar_claude=False,
                          brief={"monto_deuda": 6000, "probpago": 0.6, "estrategia": "Plan de cuotas",
@@ -1622,9 +1657,10 @@ def test_gestor_ia_tipifica_arreglo(tmp_path):
 
 
 def test_backup_crea_y_restaura(tmp_path, monkeypatch):
+    import importlib
+
     from kobra import backup as kbackup
     from kobra import config as kconfig
-    import importlib
 
     monkeypatch.setattr(kbackup, "ROOT", str(tmp_path))
     monkeypatch.setattr(kbackup, "_ARCHIVOS_NEGOCIO", ["data/kobra_gestiones.csv", "data/no_contactar.csv"])
@@ -1658,6 +1694,7 @@ def test_backup_retencion_conserva_los_mas_recientes(tmp_path):
     así que llamarlo 5 veces seguidas podría pisar el mismo archivo) — arma
     5 zips de backup "falsos" con nombres válidos y prueba la retención sola."""
     import zipfile
+
     from kobra import backup as kbackup
     destino = str(tmp_path / "backups")
     os.makedirs(destino)

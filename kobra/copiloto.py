@@ -52,7 +52,7 @@ def idioma_configurado() -> str:
 POS_WORDS_POR_IDIOMA = {
     "es": {
         "gracias", "perfecto", "excelente", "bien", "buenísimo", "buenisimo",
-        "genial", "acepto", "acepto", "dale", "listo", "ok", "okey", "de acuerdo",
+        "genial", "acepto", "dale", "listo", "ok", "okey", "de acuerdo",
         "acuerdo", "puedo", "quiero", "pago", "pagar", "abonar", "abono",
         "solucion", "solución", "ayuda", "ayudar", "tranquilo", "tranquila",
         "conforme", "contento", "contenta", "agradezco", "dispuesto", "dispuesta",
@@ -196,7 +196,7 @@ class Conversacion:
 def parsear_conversacion(texto: str, canal: str = "whatsapp",
                          nombre_gestor: str | None = None) -> Conversacion:
     """Parsea un export de WhatsApp o una transcripción con etiquetas de emisor."""
-    raw = [l for l in texto.splitlines() if l.strip()]
+    raw = [ln for ln in texto.splitlines() if ln.strip()]
     parsed = []   # (ts, nombre, mensaje)
     for line in raw:
         m = WA_LINE.match(line.strip())

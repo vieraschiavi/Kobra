@@ -34,7 +34,7 @@ import time
 from datetime import datetime, timezone
 
 import pandas as pd
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -43,18 +43,18 @@ from pydantic import BaseModel
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, ROOT)
 
-from kobra import analitica as kanalitica          # noqa: E402
-from kobra import autenticacion as kauth           # noqa: E402
-from kobra import ayuda as kayuda                  # noqa: E402
-from kobra import cartera_manual as kcartera       # noqa: E402
-from kobra import config as kconfig                # noqa: E402
-from kobra import informe_ejecutivo as kinforme    # noqa: E402
-from kobra import llm as kllm                      # noqa: E402
-from kobra import paises as kpaises                # noqa: E402
-from kobra import registro as kregistro            # noqa: E402
-from kobra import rutas as krutas                  # noqa: E402
-from kobra import seguimiento as kseg              # noqa: E402
 from backend_venta import licencias as klicencias  # noqa: E402
+from kobra import analitica as kanalitica  # noqa: E402
+from kobra import autenticacion as kauth  # noqa: E402
+from kobra import ayuda as kayuda  # noqa: E402
+from kobra import cartera_manual as kcartera  # noqa: E402
+from kobra import config as kconfig  # noqa: E402
+from kobra import informe_ejecutivo as kinforme  # noqa: E402
+from kobra import limitador as klimite  # noqa: E402
+from kobra import llm as kllm  # noqa: E402
+from kobra import paises as kpaises  # noqa: E402
+from kobra import rutas as krutas  # noqa: E402
+from kobra import seguimiento as kseg  # noqa: E402
 
 # Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo (ROOT),
 # igual que antes; instalado, es una carpeta propia del usuario, nunca
@@ -112,8 +112,12 @@ def usuario_actual(authorization: str = Header(default="")) -> Usuario:
         raise HTTPException(401, "Falta el token (Authorization: Bearer …).")
     try:
         datos = jwt.decode(authorization[7:], _secreto(), algorithms=["HS256"])
-    except Exception:
-        raise HTTPException(401, "Token inválido o vencido — iniciá sesión de nuevo.")
+    except Exception as e:
+        # `from e` deja la causa real (firma rota, vencido, malformado) en el
+        # log del servidor sin exponerla al cliente, que sigue viendo el mismo
+        # mensaje. Sin esto, el traceback dice solo "During handling of the
+        # above exception, another exception occurred" y se pierde cuál era.
+        raise HTTPException(401, "Token inválido o vencido — iniciá sesión de nuevo.") from e
     return Usuario(rol=datos.get("rol", "gestor"),
                    empresa=datos.get("empresa", EMPRESA_DEFAULT))
 
@@ -389,6 +393,25 @@ def _letra_col(indice: int) -> str:
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
+def _detalle_sin_rutas(e: Exception, limite: int = 160) -> str:
+    """Mensaje de la excepción sin las rutas del servidor.
+
+    Probado con un archivo que no era audio: la respuesta al usuario era
+    `Error opening '/home/.../.uploads/voz_c298d20c…wav': Format not
+    recognised.` — le filtra al cliente la ruta interna del servidor y le dice,
+    en inglés y en jerga de librería, algo que no puede accionar. Se conserva
+    la causa (sirve para diagnosticar) pero sin rutas y acotada.
+    """
+    import re as _re
+    txt = " ".join(str(e).split())
+    # Rutas POSIX (/home/…/x.wav) y Windows (C:\Users\…\x.xlsx), con o sin
+    # comillas alrededor. Se exige al menos una barra para no confundir una
+    # fracción o una fecha con una ruta.
+    txt = _re.sub(r"""['"]?(?:[A-Za-z]:)?[\\/][^\s'"]*[\\/][^\s'"]*['"]?""",
+                  "el archivo", txt)
+    return (txt[:limite] + "…") if len(txt) > limite else txt
+
+
 def _sanear(valor):
     """Reemplaza NaN e infinitos por None, recursivamente.
 
@@ -427,6 +450,57 @@ app = FastAPI(title="MV Kobra AI · API", version="1.0",
               default_response_class=JSONLimpia)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                    allow_headers=["*"])
+
+
+# ---------------------------------------------------------------------------
+# Cabeceras de seguridad
+# ---------------------------------------------------------------------------
+# La API devuelve JSON, CSV, XLSX y PDF con datos de deudores. Sin estas
+# cabeceras el navegador queda libre de adivinar el tipo de un archivo subido
+# por el cliente (`X-Content-Type-Options`) y de mandar la URL completa —con el
+# id del deudor adentro— a cualquier sitio externo al que se navegue después
+# (`Referrer-Policy`). La CSP acá es la de una API: no ejecuta nada.
+CABECERAS_SEGURIDAD = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    "Cross-Origin-Resource-Policy": "same-site",
+}
+
+
+@app.middleware("http")
+async def _cabeceras_seguridad(request: Request, call_next):
+    respuesta = await call_next(request)
+    for k, v in CABECERAS_SEGURIDAD.items():
+        respuesta.headers.setdefault(k, v)
+    return respuesta
+
+
+# ---------------------------------------------------------------------------
+# Límite de intentos en la puerta pública
+# ---------------------------------------------------------------------------
+# Estos tres endpoints son los únicos que aceptan un secreto sin tener sesión
+# —contraseña de admin y token de licencia—, así que son los únicos que se
+# pueden probar a fuerza bruta. Cada uno lleva su propio cubo: gastar los
+# intentos de licencia no puede dejar afuera a quien está intentando entrar.
+_LIMITE_LOGIN = klimite.Limitador()
+_LIMITE_LICENCIA = klimite.Limitador()
+_LIMITE_SETUP = klimite.Limitador()
+
+
+def _frenar(limitador: klimite.Limitador, request: Request, accion: str) -> str:
+    """Consume un intento o corta con 429. Devuelve la clave, para poder
+    perdonar el intento si resultó correcto."""
+    clave = f"{accion}:{klimite.ip_de(request)}"
+    try:
+        limitador.intentar(clave)
+    except klimite.LimiteIntentos as e:
+        raise HTTPException(
+            429,
+            f"Demasiados intentos. Esperá {e.espera_seg} segundos y probá de nuevo.",
+            headers={"Retry-After": str(e.espera_seg)}) from e
+    return clave
 
 
 @app.get("/api/health")
@@ -470,13 +544,14 @@ class SetupIn(BaseModel):
 
 
 @app.post("/api/auth/setup")
-def auth_setup(datos: SetupIn):
+def auth_setup(datos: SetupIn, request: Request):
     """Primer arranque: crea la contraseña de administrador desde la propia
     webapp (antes había que abrir el dashboard Streamlit, imposible en hosting).
     Solo funciona si TODAVÍA no hay admin — si ya existe, devuelve 409 para no
     permitir reset sin autenticación. Deja la sesión iniciada.
 
     No existe en la copia instalada de un cliente: ahí se entra por licencia."""
+    _frenar(_LIMITE_SETUP, request, "setup")
     _sin_puerta_por_password()
     if kauth.configurado():
         raise HTTPException(409, "El administrador ya está configurado. Iniciá sesión.")
@@ -489,7 +564,11 @@ def auth_setup(datos: SetupIn):
 
 
 @app.post("/api/auth/login")
-def auth_login(datos: LoginIn):
+def auth_login(datos: LoginIn, request: Request):
+    # El freno va ANTES de verificar: si se comprobara primero la contraseña,
+    # el atacante ya habría conseguido lo que buscaba (saber si acertó) y el
+    # límite solo le ahorraría trabajo al servidor, no se lo negaría a él.
+    clave = _frenar(_LIMITE_LOGIN, request, "login")
     _sin_puerta_por_password()
     if not kauth.configurado():
         raise HTTPException(409, "Todavía no hay contraseña de administrador creada — "
@@ -501,6 +580,9 @@ def auth_login(datos: LoginIn):
             break
     if not rol:
         raise HTTPException(401, "Contraseña incorrecta.")
+    # Acertó: se le devuelve el intento. El límite castiga el tanteo, no al
+    # usuario que se equivocó una vez y después entró bien.
+    _LIMITE_LOGIN.perdonar(clave)
     return {"token": _emitir_token(rol, datos.empresa), "rol": rol,
             "empresa": datos.empresa}
 
@@ -546,7 +628,10 @@ def licencia_owner_login():
 
 
 @app.post("/api/licencia/activar")
-def licencia_activar(datos: LicenciaIn):
+def licencia_activar(datos: LicenciaIn, request: Request):
+    # Un token de licencia es un secreto que se puede tantear: sin freno, un
+    # script prueba candidatos hasta dar con uno vigente.
+    clave = _frenar(_LIMITE_LICENCIA, request, "licencia")
     if not MODO_STANDALONE:
         raise HTTPException(404, "Este endpoint es solo para la versión standalone.")
     r = klicencias.licencia_activa(datos.token)
@@ -555,6 +640,7 @@ def licencia_activar(datos: LicenciaIn):
                   if r["error"] == "licencia_expirada" else
                   "Licencia inválida — revisá que la copiaste completa.")
         raise HTTPException(400, mensaje)
+    _LIMITE_LICENCIA.perdonar(clave)
     kconfig.guardar_extra(_CLAVE_LICENCIA, datos.token)
     estado = _estado_licencia(datos.token)
     return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
@@ -1049,7 +1135,10 @@ async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "L
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(400, f"No se pudo procesar el audio: {e}")
+        raise HTTPException(
+            400, "No pude procesar esa grabación. Verificá que sea un .wav o .mp3 "
+                 "válido y que no esté cortado. "
+                 f"(detalle: {_detalle_sin_rutas(e)})") from e
     finally:
         for p in (destino, liviano):
             try:
@@ -1111,8 +1200,9 @@ def _guardar_calidad(empresa: str, gestor: str, fecha: str | None, canal: str,
                      archivo: str, evaluacion: dict) -> dict:
     """Acumula una evaluación de audio en el registro de calidad del tenant, para
     armar fichas de gestor por mes y su evolución."""
-    from kobra import calidad_gestion as kcalidad
     import uuid
+
+    from kobra import calidad_gestion as kcalidad
     if not fecha:
         fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     fila = kcalidad.fila_evaluacion(gestor, fecha, canal, archivo, evaluacion,
@@ -1339,6 +1429,7 @@ def originacion_cola(n: int = 15, u: Usuario = Depends(usuario_actual)):
     para lo que no venga); en demo, solicitudes sintéticas. No hay una carga
     aparte para esta pestaña."""
     import json as _json
+
     from kobra import originacion as korig
     modelo = _originacion()
     tope = max(5, min(n, 50))
@@ -1485,7 +1576,10 @@ async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends
         df_bruto = (pd.read_csv(io.BytesIO(contenido), dtype=str) if nombre.endswith(".csv")
                     else pd.read_excel(io.BytesIO(contenido), dtype=str))
     except Exception as e:
-        raise HTTPException(400, f"No pude leer el archivo: {e}")
+        raise HTTPException(
+            400, "No pude leer ese archivo. Tiene que ser un .csv o un .xlsx con "
+                 "una fila de encabezados. "
+                 f"(detalle: {_detalle_sin_rutas(e)})") from e
 
     # Se adapta solo a nombres de columna parecidos (MontoDeuda, Saldo Vencido,
     # Dívida, Total Debt…); mostramos que reconoció para que el cliente confíe.
@@ -1493,7 +1587,7 @@ async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends
     try:
         full = kcartera.importar_y_scorear(df_bruto.fillna(""))
     except ValueError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
 
     export = _guardar_cartera_real(u.empresa, full, archivo.filename)
     detectadas = "; ".join(f"«{orig}» → {campo}" for orig, campo in mapeo.items())
@@ -1522,16 +1616,20 @@ def cartera_importar_sql(datos: ImportarSQLIn, u: Usuario = Depends(solo_admin))
     try:
         contactos = kcartera.desde_base_de_datos(datos.conn_url, datos.consulta)  # limite=None
     except ValueError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
     except Exception as e:
-        raise HTTPException(400, f"No pude conectar o consultar la base: {e}")
+        raise HTTPException(
+            400, "No pude conectar a la base o la consulta falló. Revisá la cadena "
+                 "de conexión, que el servidor sea alcanzable y que la consulta "
+                 "sea válida. "
+                 f"(detalle: {_detalle_sin_rutas(e)})") from e
     if not contactos:
         raise HTTPException(422, "La consulta no devolvió ninguna fila con un monto de "
                                  "deuda válido (columna 'deuda', 'monto' o 'monto_deuda').")
     try:
         full = kcartera.importar_y_scorear(pd.DataFrame(contactos))
     except ValueError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
 
     export = _guardar_cartera_real(u.empresa, full, "Base de datos (SQL)")
     return {"deudores": int(len(export)),
@@ -1578,7 +1676,10 @@ async def voz_analizar(archivo: UploadFile = File(...), id_deudor: str | None = 
         res = kvoz.copiloto_desde_audio(destino, probpago=probpago,
                                         estrategia=estrategia, idioma=idioma)
     except Exception as e:
-        raise HTTPException(400, f"No se pudo analizar el audio: {e}")
+        raise HTTPException(
+            400, "No pude analizar esa grabación. Verificá que sea un .wav o .mp3 "
+                 "válido y que no esté cortado. "
+                 f"(detalle: {_detalle_sin_rutas(e)})") from e
     finally:
         try:
             os.remove(destino)
@@ -1630,7 +1731,7 @@ def gestor_ia_demo(datos: GestorDemoIn, u: Usuario = Depends(usuario_actual)):
     try:
         full = kcartera.importar_y_scorear(bruto.astype(str))
     except ValueError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
     brief = kcartera.brief_desde_fila(full.iloc[0])
 
     ses = SesionGestorIA(id_deudor=brief["id_deudor"], canal=canal,

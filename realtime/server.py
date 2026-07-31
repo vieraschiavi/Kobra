@@ -24,23 +24,26 @@ import os
 import sys
 import tempfile
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-import base64               # noqa: E402
-from kobra import copiloto   # noqa: E402
-from kobra import voz        # noqa: E402
-from kobra import config as kconfig   # noqa: E402
-from kobra import registro            # noqa: E402
-from kobra import voz_tts             # noqa: E402
-from kobra import auditoria as kauditoria   # noqa: E402
-from kobra import campana             # noqa: E402
-from kobra import concurrencia as kconc   # noqa: E402
-from realtime import connectors   # noqa: E402
+import base64  # noqa: E402
+
+from kobra import auditoria as kauditoria  # noqa: E402
+from kobra import (
+    campana,  # noqa: E402
+    copiloto,  # noqa: E402
+    registro,  # noqa: E402
+    voz,  # noqa: E402
+    voz_tts,  # noqa: E402
+)
+from kobra import concurrencia as kconc  # noqa: E402
+from kobra import config as kconfig  # noqa: E402
+from realtime import connectors  # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -431,12 +434,13 @@ async def ws_audio(sock: WebSocket):
 #   2) el bot saluda dentro de un <Gather input="speech">
 #   3) Twilio transcribe lo que dice el cliente y lo postea a /voz/turno
 #   4) el Gestor IA responde; se repite hasta cerrar (promesa / sin acuerdo)
-import html as _html                                    # noqa: E402
-import secrets                                          # noqa: E402
-from collections import OrderedDict                     # noqa: E402
-from urllib.parse import quote                          # noqa: E402
-from fastapi import Request                              # noqa: E402
-from fastapi.responses import Response, HTMLResponse    # noqa: E402
+import html as _html  # noqa: E402
+import secrets  # noqa: E402
+from collections import OrderedDict  # noqa: E402
+from urllib.parse import quote  # noqa: E402
+
+from fastapi import Request  # noqa: E402
+from fastapi.responses import HTMLResponse, Response  # noqa: E402
 
 _SESIONES_VOZ = kconc.RegistroSesiones("voz")
 # Voz por defecto: Polly Lupe (neural, es-US) — la voz latina más natural
@@ -806,6 +810,7 @@ def _job_informe_semanal():
     if not destino or not os.path.exists(scored_csv):
         return
     import pandas as pd
+
     from kobra import informe_ejecutivo as kinforme
     from kobra import paises as kpaises_mod
     scored = pd.read_csv(scored_csv)
