@@ -544,6 +544,12 @@ var I18N={
     legal:"MV Kobra AI · Smart Collections. AI-assisted debt-collection management platform. 100% synthetic demo data; metrics shown are illustrative of the product."
   }
 };
+// Traduccion: los dos innerHTML de abajo son HTML PROPIO Y ESTATICO. `ORIG`
+// guarda el marcado que ya esta en esta pagina y `I18N` es un diccionario
+// escrito a mano en este mismo archivo — llevan <b> y <br> a proposito. No hay
+// ninguna via por la que un dato de usuario, de la API o de la base llegue
+// aca. Las resenas, que SI vienen de un JSON, se pintan con textContent mas
+// abajo, no con innerHTML.
 var ORIG={};
 document.querySelectorAll('[data-i]').forEach(function(el){ORIG[el.getAttribute('data-i')]=el.innerHTML;});
 var CUR_LANG='es';

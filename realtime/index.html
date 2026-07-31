@@ -126,6 +126,20 @@
 
 <script>
 const $ = id => document.getElementById(id);
+
+// Escape obligatorio para TODO lo que entra a innerHTML desde afuera.
+//
+// Esta pantalla es el copiloto EN VIVO: lo que pinta es la transcripcion de lo
+// que dice el deudor en una llamada real —texto libre, que llega de Whisper o
+// del reconocimiento de voz del navegador— mas el analisis que devuelve la API.
+// Nada de eso es contenido propio. Un deudor que dicte "<img onerror=...>", o
+// una transcripcion que lo contenga, ejecutaria en la pantalla del gestor.
+function esc(v){
+  if(v===null||v===undefined) return '';
+  return String(v).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
 let ws, listening=false, recog=null, sentSeries=[];
 const DEMO = [
   ["gestor","Buenos días, le escribo del área de cobranzas, ¿hablo con el titular de la cuenta?"],
@@ -154,7 +168,7 @@ function sendTurn(emisor, texto){
 }
 function addMsg(emisor, texto){
   const d=document.createElement('div'); d.className='msg '+emisor;
-  d.innerHTML=`<div class="meta">${emisor==='gestor'?'🟢 Gestor':'🔴 Cliente'}</div>${texto}`;
+  d.innerHTML=`<div class="meta">${emisor==='gestor'?'🟢 Gestor':'🔴 Cliente'}</div>${esc(texto)}`;
   $('transcript').appendChild(d); $('transcript').scrollTop=1e9;
 }
 
@@ -166,13 +180,13 @@ function render(r){
   $('kTec').textContent = r.tecnicas.length;
 
   $('emos').innerHTML = r.emociones_cliente.length
-    ? r.emociones_cliente.map(e=>`<span class="pill neg">${e.replace(/_/g,' ')}</span>`).join('')
+    ? r.emociones_cliente.map(e=>`<span class="pill neg">${esc(String(e).replace(/_/g,' '))}</span>`).join('')
     : '<span class="sub">—</span>';
   $('tecs').innerHTML = r.tecnicas.length
-    ? r.tecnicas.map(t=>`<span class="pill tec">${t}</span>`).join('')
+    ? r.tecnicas.map(t=>`<span class="pill tec">${esc(t)}</span>`).join('')
     : '<span class="sub">—</span>';
 
-  $('tips').innerHTML = r.sugerencias.map(s=>`<div class="tip"><b>${s[0]}</b><br>${s[1]}</div>`).join('');
+  $('tips').innerHTML = r.sugerencias.map(s=>`<div class="tip"><b>${esc(s[0])}</b><br>${esc(s[1])}</div>`).join('');
   $('nextWrap').style.display='block'; $('next').textContent = r.proxima_frase;
 
   if(typeof r.sentimiento_turno==='number' && r.emisor==='cliente'){
@@ -235,24 +249,24 @@ function renderTel(res){
   const v = res.voz, modo = {whisper:'Whisper (timestamps reales)',alineado:'alineada al texto provisto',sin_texto:'sin texto'}[res.modo_transcripcion]||res.modo_transcripcion;
   let html = `<div class="kpis" style="margin-top:12px;">
     <div class="kpi"><div class="v">${res.calidad?Math.round(res.calidad.score_total):'—'}/100</div><div class="l">Calidad de gestión</div></div>
-    <div class="kpi"><div class="v">${v.canales}</div><div class="l">Canales (${v.modo_diarizacion})</div></div>
+    <div class="kpi"><div class="v">${esc(v.canales)}</div><div class="l">Canales (${esc(v.modo_diarizacion)})</div></div>
     <div class="kpi"><div class="v">${v.duracion_seg.toFixed(0)}s</div><div class="l">Duración</div></div>
     <div class="kpi"><div class="v">${res.turnos.length}</div><div class="l">Turnos</div></div></div>`;
-  html += `<h3 style="margin-top:12px;">📝 Transcripción por hablante · <span class="sub">${modo}</span></h3>`;
+  html += `<h3 style="margin-top:12px;">📝 Transcripción por hablante · <span class="sub">${esc(modo)}</span></h3>`;
   html += `<div class="tablewrap" style="max-height:none;overflow:visible;"><table><thead><tr><th>Ini</th><th>Hablante</th><th>Texto</th><th>Emoción voz</th><th>Sent. texto</th><th>Sent. voz+texto</th></tr></thead><tbody>`;
   for(const t of res.turnos){
     const col = EMO_COL[t.emocion_voz]||'#74B9FF';
     const st_ = t.sent_texto==null?'—':t.sent_texto.toFixed(2);
     const sf = t.sent_fusion==null?'—':t.sent_fusion.toFixed(2);
-    html += `<tr><td>${t.inicio}s</td><td>${t.hablante}</td><td>${t.texto||'—'}</td>
-      <td><span class="pill" style="background:${col}33;color:${col};">${t.emocion_voz}</span></td>
+    html += `<tr><td>${esc(t.inicio)}s</td><td>${esc(t.hablante)}</td><td>${esc(t.texto||'—')}</td>
+      <td><span class="pill" style="background:${col}33;color:${col};">${esc(t.emocion_voz)}</span></td>
       <td>${st_}</td><td><b>${sf}</b></td></tr>`;
   }
   html += `</tbody></table></div>`;
   if(res.copiloto){
     html += `<h3 style="margin-top:12px;">🧭 Asesoría del copiloto (sobre la transcripción real)</h3>`;
-    html += res.copiloto.sugerencias.map(s=>`<div class="tip"><b>${s[0]}</b><br>${s[1]}</div>`).join('');
-    html += `<div class="next" style="margin-top:8px;"><b>💬 Próxima frase:</b> ${res.copiloto.proxima_frase}</div>`;
+    html += res.copiloto.sugerencias.map(s=>`<div class="tip"><b>${esc(s[0])}</b><br>${esc(s[1])}</div>`).join('');
+    html += `<div class="next" style="margin-top:8px;"><b>💬 Próxima frase:</b> ${esc(res.copiloto.proxima_frase)}</div>`;
   }
   $('telResult').innerHTML = html;
 }
@@ -292,9 +306,9 @@ $('btnStream').onclick = ()=>{
     const sug = r.sugerencias && r.sugerencias.length ? r.sugerencias[r.sugerencias.length-1] : null;
     const div = document.createElement('div'); div.className='tip';
     div.innerHTML = `<b>${t.canal==='gestor'?'🟢 Gestor':'🔴 Cliente'}</b> `+
-      `<span class="pill" style="background:${col}33;color:${col};">${t.emocion_voz}</span> `+
-      `<span class="sub">fusión ${t.sent_fusion==null?'—':t.sent_fusion.toFixed(2)}</span><br>«${t.texto}»`+
-      (sug?`<br>💡 <b>${sug[0]}</b>: ${sug[1]}`:'');
+      `<span class="pill" style="background:${col}33;color:${col};">${esc(t.emocion_voz)}</span> `+
+      `<span class="sub">fusión ${t.sent_fusion==null?'—':t.sent_fusion.toFixed(2)}</span><br>«${esc(t.texto)}»`+
+      (sug?`<br>💡 <b>${esc(sug[0])}</b>: ${esc(sug[1])}`:'');
     $('streamLive').appendChild(div); $('streamLive').scrollTop=1e9;
   };
 };
