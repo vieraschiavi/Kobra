@@ -1,0 +1,501 @@
+id_cuenta,monto_deuda,dias_mora,cuotas_atrasadas,antiguedad_cliente_meses,score_buro,ingreso_estimado,pagos_ultimos_12m,promesas_cumplidas,promesas_incumplidas,contactabilidad,gestiones_previas,segmento,producto,departamento,canal_preferido
+AC-00001,231530.0,13,1,175,576,37300.0,7,0,0,0.749,6,Pyme,Tarjeta de crédito,Cerro Largo,Llamada
+AC-00002,20240.0,62,2,67,640,82500.0,6,0,2,0.598,3,Retail,Microcrédito,Paysandú,Email
+AC-00003,65440.0,28,1,21,447,75600.0,6,2,0,0.547,2,Pyme,Microcrédito,Canelones,WhatsApp
+AC-00004,179960.0,26,1,146,473,36300.0,4,5,1,0.565,3,Pyme,Tarjeta de crédito,San José,WhatsApp
+AC-00005,1739840.0,132,5,129,438,39600.0,3,4,0,0.252,6,Corporativo,Microcrédito,Montevideo,WhatsApp
+AC-00006,74930.0,202,7,31,439,35800.0,3,2,0,0.825,8,Retail,Tarjeta de crédito,Montevideo,Email
+AC-00007,19140.0,28,1,119,789,47700.0,3,0,1,0.732,4,Retail,Tarjeta de crédito,Montevideo,SMS
+AC-00008,30360.0,111,4,160,544,51900.0,6,0,1,0.836,4,Retail,Tarjeta de crédito,Flores,WhatsApp
+AC-00009,732210.0,34,1,24,643,14400.0,7,2,2,0.758,4,Corporativo,Tarjeta de crédito,Montevideo,Llamada
+AC-00010,156720.0,24,1,168,522,19800.0,2,1,1,0.555,5,Retail,Préstamo personal,Canelones,Llamada
+AC-00011,12480.0,133,4,19,407,36200.0,4,0,0,0.264,1,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00012,34410.0,23,1,157,466,52800.0,5,0,1,0.799,2,Retail,Microcrédito,Montevideo,Email
+AC-00013,566490.0,87,2,25,527,48200.0,6,0,0,0.266,4,Corporativo,Cuenta corriente,San José,SMS
+AC-00014,91190.0,153,5,144,521,46000.0,5,3,1,0.215,9,Retail,Tarjeta de crédito,Canelones,Llamada
+AC-00015,33290.0,159,6,144,770,14300.0,2,2,3,0.536,5,Retail,Tarjeta de crédito,Canelones,SMS
+AC-00016,15130.0,160,5,86,561,92100.0,6,3,2,0.205,7,Retail,Microcrédito,Canelones,Email
+AC-00017,1071020.0,79,2,6,468,40200.0,5,0,2,0.127,6,Corporativo,Crédito automotor,Salto,WhatsApp
+AC-00018,14970.0,29,1,132,444,36400.0,5,1,1,0.472,5,Retail,Microcrédito,Maldonado,WhatsApp
+AC-00019,21330.0,82,2,27,542,53700.0,3,0,2,0.602,4,Retail,Tarjeta de crédito,Colonia,WhatsApp
+AC-00020,20230.0,115,4,117,640,36800.0,11,3,1,0.643,3,Retail,Tarjeta de crédito,Canelones,WhatsApp
+AC-00021,32990.0,57,1,28,466,19400.0,9,4,1,0.438,7,Pyme,Préstamo personal,Tacuarembó,WhatsApp
+AC-00022,13920.0,110,4,8,356,63000.0,5,5,3,0.345,10,Retail,Tarjeta de crédito,Montevideo,Llamada
+AC-00023,27880.0,30,1,61,656,40600.0,4,2,3,0.805,7,Retail,Tarjeta de crédito,Durazno,WhatsApp
+AC-00024,133150.0,116,3,135,504,17900.0,7,3,4,0.219,1,Pyme,Financiación retail,Treinta y Tres,Llamada
+AC-00025,193120.0,1,1,112,502,45100.0,6,2,0,0.99,3,Pyme,Cuenta corriente,Paysandú,SMS
+AC-00026,43890.0,73,2,25,639,17100.0,5,2,0,0.395,6,Retail,Tarjeta de crédito,Paysandú,SMS
+AC-00027,4470.0,51,1,117,467,21500.0,7,5,5,0.708,4,Retail,Financiación retail,Canelones,WhatsApp
+AC-00028,13700.0,27,1,93,704,38800.0,3,2,0,0.542,1,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00029,9010.0,64,3,140,427,42100.0,5,1,0,0.356,2,Retail,Tarjeta de crédito,Canelones,WhatsApp
+AC-00030,8660.0,76,2,44,714,25300.0,3,2,2,0.495,7,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00031,7720.0,11,1,30,393,111900.0,5,4,0,0.604,1,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00032,27750.0,82,3,112,540,29400.0,4,0,0,0.73,6,Retail,Préstamo personal,Artigas,Email
+AC-00033,17950.0,74,3,74,478,52600.0,5,5,1,0.17,8,Retail,Tarjeta de crédito,Montevideo,SMS
+AC-00034,474450.0,6,1,176,564,116400.0,9,2,1,0.657,4,Pyme,Préstamo personal,Montevideo,Email
+AC-00035,20230.0,128,5,47,596,25500.0,5,1,4,0.567,5,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00036,14710.0,49,1,67,610,46900.0,5,2,1,0.639,5,Retail,Cuenta corriente,Maldonado,Llamada
+AC-00037,29240.0,146,5,93,804,40400.0,4,5,0,0.609,2,Retail,Préstamo personal,Florida,WhatsApp
+AC-00038,32940.0,36,1,34,250,54800.0,5,5,3,0.867,3,Retail,Crédito automotor,Canelones,SMS
+AC-00039,22070.0,43,2,71,640,25600.0,8,5,0,0.319,8,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00040,210870.0,32,1,62,506,62900.0,5,5,0,0.489,3,Pyme,Tarjeta de crédito,Durazno,WhatsApp
+AC-00041,35840.0,52,1,126,512,13400.0,6,3,2,0.71,5,Retail,Crédito automotor,Durazno,WhatsApp
+AC-00042,176740.0,46,2,137,877,20800.0,6,3,1,0.558,5,Corporativo,Cuenta corriente,Río Negro,WhatsApp
+AC-00043,192230.0,51,1,176,591,40800.0,6,0,1,0.709,7,Retail,Préstamo personal,Canelones,Llamada
+AC-00044,43940.0,104,4,148,729,70400.0,7,1,0,0.612,0,Retail,Crédito automotor,Montevideo,WhatsApp
+AC-00045,25110.0,23,1,155,443,38400.0,6,3,1,0.224,2,Retail,Crédito automotor,Tacuarembó,WhatsApp
+AC-00046,52780.0,19,1,117,650,47100.0,9,2,1,0.522,3,Retail,Cuenta corriente,Montevideo,Email
+AC-00047,36030.0,26,1,101,455,62800.0,0,0,2,0.557,3,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00048,12830.0,13,1,76,614,41900.0,4,2,1,0.558,2,Retail,Crédito automotor,Montevideo,WhatsApp
+AC-00049,66400.0,123,4,179,442,59200.0,8,4,1,0.621,4,Retail,Cuenta corriente,San José,WhatsApp
+AC-00050,95110.0,24,1,81,757,28600.0,5,1,1,0.727,7,Pyme,Financiación retail,Florida,SMS
+AC-00051,314970.0,40,2,101,531,85500.0,3,3,1,0.934,2,Corporativo,Tarjeta de crédito,Montevideo,Email
+AC-00052,16930.0,90,4,107,566,14100.0,8,5,2,0.871,2,Retail,Financiación retail,Rocha,Llamada
+AC-00053,131010.0,25,1,94,353,41400.0,4,1,1,0.702,4,Pyme,Tarjeta de crédito,Maldonado,Llamada
+AC-00054,1232230.0,235,8,9,633,21800.0,2,4,3,0.608,7,Corporativo,Préstamo personal,Colonia,Email
+AC-00055,146040.0,121,4,98,597,99800.0,5,4,3,0.422,4,Pyme,Financiación retail,Montevideo,SMS
+AC-00056,19070.0,20,1,102,593,63500.0,7,2,2,0.548,2,Retail,Préstamo personal,Montevideo,Llamada
+AC-00057,45340.0,250,9,34,447,18000.0,5,4,2,0.852,10,Retail,Préstamo personal,Paysandú,WhatsApp
+AC-00058,157590.0,73,3,91,392,21000.0,5,1,1,0.289,2,Pyme,Financiación retail,Montevideo,Llamada
+AC-00059,220230.0,62,3,27,583,31600.0,4,1,3,0.446,3,Pyme,Microcrédito,Montevideo,WhatsApp
+AC-00060,39490.0,83,2,67,341,49800.0,11,3,1,0.6,3,Retail,Préstamo personal,Montevideo,Email
+AC-00061,1150760.0,91,3,48,737,38900.0,4,4,3,0.408,4,Corporativo,Cuenta corriente,Artigas,Llamada
+AC-00062,30130.0,48,2,78,563,39300.0,4,3,1,0.782,3,Retail,Préstamo personal,Rocha,Email
+AC-00063,10190.0,96,3,115,465,54600.0,6,2,0,0.48,6,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00064,109180.0,14,1,7,635,45500.0,6,5,0,0.441,5,Corporativo,Tarjeta de crédito,Montevideo,Email
+AC-00065,75460.0,22,1,43,566,41500.0,8,2,4,0.567,3,Pyme,Cuenta corriente,San José,Email
+AC-00066,121550.0,63,3,138,350,76400.0,4,1,1,0.673,2,Pyme,Tarjeta de crédito,Río Negro,SMS
+AC-00067,71290.0,44,2,96,499,163700.0,5,5,1,0.617,5,Pyme,Préstamo personal,Soriano,SMS
+AC-00068,162020.0,13,1,22,473,127700.0,5,2,1,0.332,3,Corporativo,Tarjeta de crédito,Montevideo,Email
+AC-00069,10740.0,61,3,154,484,52700.0,6,2,2,0.572,4,Retail,Préstamo personal,Tacuarembó,WhatsApp
+AC-00070,19610.0,66,3,85,781,82100.0,7,3,1,0.756,3,Retail,Tarjeta de crédito,Paysandú,WhatsApp
+AC-00071,83970.0,15,1,169,502,43400.0,10,4,0,0.621,7,Pyme,Microcrédito,Montevideo,Llamada
+AC-00072,14570.0,49,1,143,567,24000.0,8,2,2,0.573,1,Retail,Tarjeta de crédito,Treinta y Tres,WhatsApp
+AC-00073,159550.0,102,3,4,695,55100.0,6,3,2,0.689,7,Pyme,Préstamo personal,Montevideo,WhatsApp
+AC-00074,6600.0,54,1,110,585,18800.0,5,5,1,0.483,4,Retail,Microcrédito,Montevideo,SMS
+AC-00075,36490.0,265,9,99,631,8900.0,4,4,3,0.318,9,Retail,Microcrédito,Rocha,Email
+AC-00076,11390.0,70,2,27,325,29300.0,4,3,3,0.337,4,Retail,Financiación retail,Montevideo,WhatsApp
+AC-00077,19900.0,24,1,94,520,47000.0,4,2,1,0.483,3,Retail,Préstamo personal,Montevideo,Llamada
+AC-00078,39410.0,15,1,108,571,55000.0,7,4,1,0.39,5,Retail,Préstamo personal,San José,WhatsApp
+AC-00079,40430.0,124,4,90,457,47600.0,7,4,0,0.538,4,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00080,49240.0,117,3,39,573,23900.0,2,5,1,0.627,8,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00081,21170.0,29,1,44,525,45800.0,5,3,0,0.609,9,Retail,Financiación retail,Montevideo,Email
+AC-00082,79260.0,102,3,17,467,67800.0,7,3,1,0.485,6,Retail,Financiación retail,Montevideo,WhatsApp
+AC-00083,36160.0,39,2,46,863,36000.0,7,0,0,0.645,2,Retail,Tarjeta de crédito,Canelones,Email
+AC-00084,14870.0,362,13,161,638,53300.0,3,1,2,0.865,10,Retail,Préstamo personal,Salto,WhatsApp
+AC-00085,13340.0,134,4,157,544,34300.0,3,3,1,0.478,8,Retail,Crédito automotor,Montevideo,SMS
+AC-00086,53410.0,15,1,17,447,44700.0,9,0,0,0.983,3,Retail,Tarjeta de crédito,Colonia,Llamada
+AC-00087,14300.0,46,1,175,455,20600.0,4,5,3,0.141,4,Retail,Financiación retail,San José,SMS
+AC-00088,37580.0,74,2,32,532,16100.0,2,0,0,0.574,4,Retail,Tarjeta de crédito,Montevideo,Llamada
+AC-00089,145860.0,179,6,67,686,18600.0,2,0,0,0.944,2,Pyme,Préstamo personal,Canelones,WhatsApp
+AC-00090,19050.0,68,2,90,727,51200.0,6,4,1,0.63,3,Retail,Tarjeta de crédito,Canelones,WhatsApp
+AC-00091,14310.0,84,3,27,555,33800.0,4,5,2,0.69,3,Retail,Préstamo personal,Colonia,Llamada
+AC-00092,42270.0,51,2,100,602,86300.0,7,5,0,0.708,2,Pyme,Microcrédito,Artigas,WhatsApp
+AC-00093,112880.0,77,3,149,662,19100.0,9,4,2,0.516,9,Pyme,Préstamo personal,Colonia,WhatsApp
+AC-00094,384820.0,24,1,132,704,93500.0,7,4,0,0.963,3,Pyme,Crédito automotor,Montevideo,WhatsApp
+AC-00095,13520.0,32,2,10,543,46100.0,5,3,2,0.506,6,Retail,Microcrédito,Rivera,WhatsApp
+AC-00096,62180.0,38,2,30,731,63800.0,10,0,2,0.557,4,Pyme,Préstamo personal,Montevideo,Llamada
+AC-00097,272180.0,25,1,90,544,13300.0,3,1,0,0.803,5,Corporativo,Préstamo personal,Montevideo,WhatsApp
+AC-00098,545730.0,76,2,98,337,39400.0,4,2,0,0.537,3,Corporativo,Préstamo personal,Canelones,WhatsApp
+AC-00099,54400.0,450,16,16,639,62800.0,3,2,5,0.37,8,Pyme,Crédito automotor,Montevideo,WhatsApp
+AC-00100,315690.0,27,1,167,437,49600.0,4,3,2,0.435,3,Pyme,Financiación retail,Soriano,Llamada
+AC-00101,28510.0,173,6,143,641,28000.0,8,1,2,0.323,7,Retail,Cuenta corriente,Montevideo,Llamada
+AC-00102,85830.0,100,3,144,759,49800.0,7,2,3,0.751,3,Retail,Tarjeta de crédito,Tacuarembó,Llamada
+AC-00103,96270.0,57,2,31,597,165400.0,4,1,1,0.391,4,Pyme,Microcrédito,Canelones,Email
+AC-00104,26530.0,33,2,100,746,34400.0,5,1,0,0.538,3,Retail,Tarjeta de crédito,Artigas,Llamada
+AC-00105,13060.0,144,5,143,741,75000.0,5,3,4,0.484,5,Retail,Microcrédito,Tacuarembó,WhatsApp
+AC-00106,66370.0,35,2,124,483,36200.0,9,3,3,0.693,2,Retail,Préstamo personal,Salto,Email
+AC-00107,12880.0,8,1,6,349,47200.0,6,5,1,0.497,4,Retail,Préstamo personal,Soriano,Email
+AC-00108,897880.0,3,1,141,620,25400.0,4,0,1,0.494,6,Pyme,Crédito automotor,Montevideo,Llamada
+AC-00109,22430.0,13,1,74,432,27700.0,3,2,0,0.477,3,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00110,9150.0,8,1,169,425,44600.0,7,5,1,0.694,3,Retail,Tarjeta de crédito,Canelones,SMS
+AC-00111,324180.0,62,2,121,686,40700.0,5,5,1,0.294,5,Corporativo,Tarjeta de crédito,Colonia,Llamada
+AC-00112,46220.0,23,1,3,268,21400.0,8,0,0,0.513,2,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00113,181800.0,124,5,47,447,69200.0,4,1,3,0.857,5,Corporativo,Microcrédito,Rocha,WhatsApp
+AC-00114,17140.0,82,3,56,664,51700.0,7,1,0,0.473,2,Retail,Préstamo personal,Maldonado,Email
+AC-00115,152970.0,152,5,170,407,67200.0,5,2,3,0.366,5,Pyme,Microcrédito,Colonia,WhatsApp
+AC-00116,33610.0,268,8,175,458,41400.0,6,1,1,0.67,8,Retail,Financiación retail,San José,WhatsApp
+AC-00117,88230.0,50,1,110,697,38200.0,6,2,6,0.639,2,Pyme,Microcrédito,Soriano,WhatsApp
+AC-00118,25090.0,95,4,60,606,80900.0,7,4,1,0.624,3,Retail,Financiación retail,San José,WhatsApp
+AC-00119,19750.0,63,3,18,518,84800.0,6,2,0,0.713,5,Retail,Microcrédito,Lavalleja,Llamada
+AC-00120,31590.0,16,1,164,656,23400.0,6,3,3,0.696,1,Retail,Préstamo personal,Montevideo,Email
+AC-00121,29500.0,61,3,32,590,86600.0,5,1,2,0.683,1,Retail,Tarjeta de crédito,Florida,SMS
+AC-00122,986160.0,46,2,1,478,33200.0,5,5,1,0.615,5,Corporativo,Financiación retail,Salto,Email
+AC-00123,15620.0,17,1,93,370,30200.0,6,4,0,0.375,6,Retail,Crédito automotor,Canelones,WhatsApp
+AC-00124,16340.0,71,3,8,382,25900.0,4,5,1,0.743,7,Retail,Cuenta corriente,Montevideo,WhatsApp
+AC-00125,18330.0,120,5,113,651,25200.0,9,0,1,0.631,1,Retail,Préstamo personal,Montevideo,Llamada
+AC-00126,1450760.0,48,1,12,410,81800.0,2,5,4,0.775,4,Corporativo,Financiación retail,Canelones,WhatsApp
+AC-00127,12520.0,45,1,61,496,55100.0,7,3,0,0.743,5,Retail,Tarjeta de crédito,Artigas,WhatsApp
+AC-00128,20250.0,243,8,116,596,33800.0,2,4,0,0.537,11,Retail,Crédito automotor,Montevideo,WhatsApp
+AC-00129,1501160.0,11,1,20,519,48600.0,8,4,1,0.542,1,Corporativo,Préstamo personal,Paysandú,WhatsApp
+AC-00130,203960.0,64,2,118,593,48900.0,8,4,1,0.587,0,Pyme,Préstamo personal,Cerro Largo,Llamada
+AC-00131,27470.0,85,2,122,576,38500.0,3,0,4,0.602,2,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00132,46210.0,186,7,79,423,61100.0,12,1,1,0.198,1,Pyme,Crédito automotor,Montevideo,Llamada
+AC-00133,119620.0,74,3,75,719,44600.0,12,0,3,0.559,3,Pyme,Microcrédito,San José,Email
+AC-00134,44040.0,32,1,143,750,27900.0,6,3,2,0.237,4,Retail,Préstamo personal,Canelones,Email
+AC-00135,1504790.0,19,1,175,730,71700.0,6,1,1,0.58,3,Corporativo,Crédito automotor,Canelones,WhatsApp
+AC-00136,2381640.0,39,2,53,630,25100.0,5,1,1,0.563,3,Corporativo,Cuenta corriente,Montevideo,WhatsApp
+AC-00137,10650.0,34,2,160,762,40000.0,6,0,3,0.529,1,Retail,Préstamo personal,Salto,SMS
+AC-00138,55470.0,27,1,145,527,39500.0,3,4,1,0.831,3,Retail,Crédito automotor,Montevideo,WhatsApp
+AC-00139,26070.0,5,1,39,604,49100.0,4,5,1,0.412,4,Retail,Préstamo personal,Canelones,Llamada
+AC-00140,18040.0,54,2,34,685,167700.0,5,4,2,0.46,1,Retail,Microcrédito,Montevideo,SMS
+AC-00141,34330.0,86,3,120,478,27300.0,12,3,4,0.472,6,Retail,Microcrédito,Montevideo,Email
+AC-00142,27180.0,11,1,36,600,40400.0,7,0,0,0.948,1,Retail,Microcrédito,Montevideo,Email
+AC-00143,19660.0,57,2,122,402,56100.0,5,2,1,0.532,5,Retail,Crédito automotor,Maldonado,WhatsApp
+AC-00144,22140.0,117,3,75,540,46400.0,3,0,4,0.504,3,Retail,Tarjeta de crédito,Salto,WhatsApp
+AC-00145,115470.0,62,2,6,760,30600.0,8,0,1,0.445,7,Pyme,Cuenta corriente,San José,Llamada
+AC-00146,40670.0,41,2,109,680,56700.0,4,5,2,0.655,4,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00147,2684770.0,14,1,75,761,36100.0,8,5,1,0.768,3,Corporativo,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00148,273480.0,88,2,158,583,104600.0,8,4,0,0.367,6,Pyme,Microcrédito,Canelones,SMS
+AC-00149,98260.0,37,1,62,547,200100.0,2,4,1,0.592,1,Retail,Tarjeta de crédito,Montevideo,Email
+AC-00150,11750.0,10,1,107,417,55800.0,3,0,0,0.375,2,Retail,Financiación retail,Lavalleja,WhatsApp
+AC-00151,1916390.0,14,1,37,461,45700.0,5,0,0,0.704,5,Corporativo,Préstamo personal,Canelones,WhatsApp
+AC-00152,8810.0,41,1,129,365,93300.0,4,2,1,0.644,2,Retail,Préstamo personal,Canelones,Llamada
+AC-00153,9860.0,63,2,57,658,53800.0,9,0,1,0.549,5,Retail,Préstamo personal,Paysandú,WhatsApp
+AC-00154,15810.0,167,6,98,452,91100.0,8,0,3,0.545,3,Retail,Tarjeta de crédito,Paysandú,WhatsApp
+AC-00155,12250.0,68,3,131,441,51800.0,5,4,1,0.6,6,Retail,Préstamo personal,Canelones,Llamada
+AC-00156,2547310.0,180,7,93,756,75500.0,10,2,1,0.587,7,Corporativo,Préstamo personal,Colonia,Llamada
+AC-00157,69360.0,8,1,69,675,42000.0,4,2,1,0.701,0,Pyme,Microcrédito,Montevideo,SMS
+AC-00158,35980.0,135,5,71,547,13100.0,2,5,3,0.418,10,Retail,Préstamo personal,Canelones,WhatsApp
+AC-00159,39550.0,74,3,51,531,60500.0,5,0,2,0.651,4,Retail,Préstamo personal,Paysandú,WhatsApp
+AC-00160,13360.0,88,2,33,548,77300.0,5,2,1,0.79,2,Retail,Crédito automotor,Montevideo,WhatsApp
+AC-00161,72690.0,91,3,92,819,41600.0,4,1,0,0.604,2,Retail,Crédito automotor,San José,Llamada
+AC-00162,33290.0,103,3,123,547,58500.0,8,3,2,0.546,4,Retail,Financiación retail,Artigas,SMS
+AC-00163,907690.0,18,1,106,450,51800.0,8,1,1,0.526,5,Corporativo,Crédito automotor,Montevideo,Llamada
+AC-00164,399660.0,41,2,111,404,30400.0,5,3,0,0.826,2,Pyme,Cuenta corriente,Montevideo,WhatsApp
+AC-00165,44490.0,18,1,131,462,50100.0,6,2,2,0.275,6,Pyme,Préstamo personal,Montevideo,Llamada
+AC-00166,60510.0,56,1,30,419,55100.0,4,4,0,0.816,5,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00167,14680.0,22,1,136,618,38400.0,4,5,2,0.632,1,Retail,Crédito automotor,Montevideo,Email
+AC-00168,31960.0,10,1,92,639,32900.0,5,0,0,0.781,6,Retail,Microcrédito,Canelones,WhatsApp
+AC-00169,22590.0,25,1,82,549,34000.0,6,1,0,0.32,2,Retail,Tarjeta de crédito,Soriano,WhatsApp
+AC-00170,387420.0,132,5,178,685,56800.0,3,2,3,0.488,5,Corporativo,Préstamo personal,Montevideo,WhatsApp
+AC-00171,82280.0,4,1,65,420,26700.0,5,0,1,0.876,5,Retail,Cuenta corriente,Trinidad,WhatsApp
+AC-00172,14660.0,10,1,75,607,93600.0,9,3,0,0.689,3,Retail,Préstamo personal,San José,WhatsApp
+AC-00173,5940.0,45,2,130,573,24500.0,1,2,0,0.432,2,Retail,Tarjeta de crédito,Montevideo,Llamada
+AC-00174,31210.0,29,1,136,701,31600.0,6,1,0,0.74,5,Retail,Préstamo personal,Rivera,Email
+AC-00175,303480.0,124,5,131,615,37200.0,9,5,1,0.391,6,Corporativo,Crédito automotor,Artigas,Llamada
+AC-00176,24060.0,54,1,20,422,52800.0,5,5,1,0.616,2,Retail,Préstamo personal,Florida,Llamada
+AC-00177,56410.0,70,3,84,434,60500.0,5,5,0,0.429,4,Retail,Financiación retail,Durazno,Email
+AC-00178,60640.0,16,1,51,625,47300.0,2,4,1,0.571,4,Pyme,Préstamo personal,Montevideo,Email
+AC-00179,45830.0,47,1,120,579,90100.0,7,4,1,0.705,4,Retail,Préstamo personal,Paysandú,Llamada
+AC-00180,30720.0,107,4,13,411,35000.0,6,5,2,0.521,4,Retail,Tarjeta de crédito,Canelones,WhatsApp
+AC-00181,14360.0,37,1,95,404,7900.0,9,0,0,0.533,4,Retail,Crédito automotor,Soriano,WhatsApp
+AC-00182,8640.0,57,1,118,469,177400.0,9,4,2,0.393,5,Retail,Préstamo personal,Canelones,Llamada
+AC-00183,264530.0,354,12,93,463,41500.0,1,4,3,0.495,13,Pyme,Tarjeta de crédito,Maldonado,WhatsApp
+AC-00184,31980.0,108,3,71,422,53000.0,6,5,3,0.508,5,Retail,Cuenta corriente,Canelones,WhatsApp
+AC-00185,9890.0,176,6,105,581,71000.0,4,4,3,0.771,6,Retail,Crédito automotor,Canelones,Llamada
+AC-00186,63520.0,66,2,33,568,18800.0,5,1,2,0.619,5,Retail,Financiación retail,Rivera,WhatsApp
+AC-00187,107350.0,194,7,52,551,46000.0,6,2,0,0.35,11,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00188,35690.0,18,1,88,360,23700.0,2,3,2,0.552,4,Retail,Tarjeta de crédito,Colonia,Email
+AC-00189,984270.0,63,3,60,571,27000.0,2,2,1,0.342,3,Corporativo,Préstamo personal,Montevideo,Llamada
+AC-00190,87320.0,61,2,139,589,106500.0,5,0,1,0.785,8,Pyme,Microcrédito,Montevideo,Llamada
+AC-00191,34540.0,33,2,36,573,17100.0,6,0,0,0.793,3,Retail,Cuenta corriente,Montevideo,Llamada
+AC-00192,133980.0,231,8,10,436,54400.0,5,1,1,0.297,7,Pyme,Préstamo personal,Canelones,Llamada
+AC-00193,29380.0,31,2,168,516,53500.0,11,5,2,0.65,6,Retail,Financiación retail,Canelones,SMS
+AC-00194,53410.0,46,1,78,469,56100.0,5,5,0,0.315,3,Pyme,Préstamo personal,Canelones,WhatsApp
+AC-00195,261670.0,53,1,150,504,10500.0,5,0,0,0.747,5,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00196,224820.0,229,7,112,692,55900.0,1,3,3,0.454,3,Pyme,Tarjeta de crédito,San José,Llamada
+AC-00197,63190.0,107,3,158,808,38100.0,5,1,0,0.547,2,Retail,Crédito automotor,Colonia,WhatsApp
+AC-00198,37640.0,30,1,68,626,38600.0,3,2,1,0.556,0,Retail,Financiación retail,Durazno,WhatsApp
+AC-00199,93860.0,187,6,113,663,109700.0,4,5,2,0.742,7,Pyme,Financiación retail,Montevideo,WhatsApp
+AC-00200,37350.0,351,12,66,496,80300.0,12,5,2,0.398,12,Retail,Crédito automotor,Maldonado,Llamada
+AC-00201,103960.0,47,1,51,640,44300.0,5,4,0,0.581,2,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00202,437370.0,44,2,45,508,21300.0,6,3,1,0.737,7,Corporativo,Tarjeta de crédito,Montevideo,SMS
+AC-00203,17360.0,66,3,14,603,29600.0,8,3,2,0.813,5,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00204,39030.0,39,2,70,364,14700.0,5,3,0,0.596,3,Retail,Préstamo personal,Canelones,WhatsApp
+AC-00205,51230.0,29,1,131,790,57800.0,6,5,4,0.853,4,Pyme,Préstamo personal,San José,Email
+AC-00206,1418740.0,19,1,133,308,51000.0,4,0,1,0.682,3,Corporativo,Préstamo personal,Montevideo,WhatsApp
+AC-00207,33540.0,195,7,143,586,47400.0,3,5,0,0.368,4,Retail,Préstamo personal,Paysandú,WhatsApp
+AC-00208,73040.0,259,8,134,517,52100.0,4,3,1,0.589,7,Pyme,Financiación retail,Soriano,Llamada
+AC-00209,22360.0,38,2,27,768,20300.0,6,0,1,0.789,5,Retail,Préstamo personal,Treinta y Tres,WhatsApp
+AC-00210,1721060.0,36,1,52,736,18000.0,4,3,2,0.463,4,Corporativo,Tarjeta de crédito,Maldonado,WhatsApp
+AC-00211,17810.0,348,12,27,622,44200.0,7,5,4,0.597,8,Retail,Crédito automotor,Montevideo,Llamada
+AC-00212,37480.0,26,1,11,422,27300.0,6,0,2,0.405,3,Retail,Financiación retail,Durazno,Llamada
+AC-00213,194580.0,24,1,76,270,24300.0,5,0,1,0.307,2,Pyme,Préstamo personal,Montevideo,SMS
+AC-00214,42120.0,179,5,144,539,20400.0,2,0,3,0.273,9,Retail,Tarjeta de crédito,Montevideo,Email
+AC-00215,24090.0,13,1,35,537,48500.0,6,3,1,0.683,1,Retail,Crédito automotor,Canelones,Email
+AC-00216,41560.0,85,2,139,612,34200.0,5,5,1,0.684,7,Retail,Financiación retail,Tacuarembó,SMS
+AC-00217,319260.0,91,3,164,548,22200.0,9,4,2,0.99,3,Pyme,Préstamo personal,Rocha,WhatsApp
+AC-00218,187070.0,25,1,111,757,9700.0,5,4,2,0.898,8,Pyme,Financiación retail,Canelones,Email
+AC-00219,27040.0,17,1,163,591,38400.0,8,2,1,0.497,4,Retail,Préstamo personal,San José,WhatsApp
+AC-00220,371800.0,16,1,29,443,120100.0,7,5,1,0.697,2,Pyme,Cuenta corriente,Paysandú,Llamada
+AC-00221,8910.0,27,1,179,363,38800.0,5,5,1,0.617,5,Pyme,Financiación retail,Montevideo,WhatsApp
+AC-00222,42740.0,60,2,109,659,82700.0,6,2,0,0.618,5,Retail,Préstamo personal,Montevideo,Email
+AC-00223,509860.0,14,1,25,496,110000.0,6,3,0,0.621,6,Pyme,Tarjeta de crédito,Montevideo,Email
+AC-00224,59200.0,24,1,9,706,25700.0,5,3,3,0.516,1,Retail,Préstamo personal,Tacuarembó,WhatsApp
+AC-00225,49930.0,20,1,9,595,38300.0,4,0,1,0.76,3,Retail,Crédito automotor,Montevideo,Email
+AC-00226,51460.0,69,2,136,374,32200.0,7,2,2,0.292,9,Retail,Tarjeta de crédito,Trinidad,Llamada
+AC-00227,68000.0,106,3,154,583,170500.0,2,4,0,0.413,8,Retail,Tarjeta de crédito,Salto,WhatsApp
+AC-00228,108970.0,237,8,51,777,56300.0,1,4,2,0.751,6,Retail,Tarjeta de crédito,Canelones,WhatsApp
+AC-00229,29630.0,59,1,28,528,113400.0,6,2,0,0.436,3,Retail,Cuenta corriente,Artigas,Email
+AC-00230,9520.0,71,3,88,719,16300.0,4,1,1,0.629,3,Retail,Tarjeta de crédito,Montevideo,Email
+AC-00231,25660.0,45,1,108,456,42300.0,7,1,1,0.318,1,Retail,Financiación retail,Río Negro,WhatsApp
+AC-00232,24030.0,189,6,48,495,13800.0,4,4,4,0.583,6,Retail,Préstamo personal,Montevideo,Llamada
+AC-00233,55170.0,62,3,103,538,42100.0,8,1,1,0.818,1,Retail,Financiación retail,Colonia,Llamada
+AC-00234,601110.0,21,1,112,385,68000.0,3,0,1,0.371,4,Pyme,Préstamo personal,Paysandú,WhatsApp
+AC-00235,14630.0,5,1,69,624,109500.0,5,5,1,0.611,2,Retail,Préstamo personal,Montevideo,Llamada
+AC-00236,200560.0,35,2,14,661,65600.0,4,1,0,0.76,6,Corporativo,Tarjeta de crédito,Tacuarembó,WhatsApp
+AC-00237,1748920.0,11,1,159,532,48100.0,5,1,1,0.763,0,Corporativo,Crédito automotor,Montevideo,WhatsApp
+AC-00238,35850.0,87,2,49,582,72400.0,12,4,1,0.427,5,Retail,Crédito automotor,San José,WhatsApp
+AC-00239,576840.0,36,2,127,631,64100.0,5,5,1,0.438,5,Corporativo,Préstamo personal,Colonia,WhatsApp
+AC-00240,429980.0,88,2,115,671,21400.0,10,5,1,0.507,4,Pyme,Financiación retail,Soriano,Llamada
+AC-00241,241620.0,11,1,37,522,44200.0,8,0,1,0.57,2,Pyme,Préstamo personal,Río Negro,Llamada
+AC-00242,47600.0,31,2,38,555,34000.0,6,2,2,0.619,4,Pyme,Préstamo personal,Canelones,Llamada
+AC-00243,43580.0,16,1,84,549,39700.0,6,5,1,0.691,3,Pyme,Préstamo personal,Montevideo,Llamada
+AC-00244,70460.0,112,4,49,487,23600.0,8,2,1,0.903,6,Pyme,Microcrédito,Montevideo,Email
+AC-00245,18530.0,145,5,132,381,38600.0,3,3,1,0.762,2,Retail,Tarjeta de crédito,San José,WhatsApp
+AC-00246,555280.0,229,7,8,640,28500.0,5,0,2,0.413,6,Corporativo,Tarjeta de crédito,Maldonado,WhatsApp
+AC-00247,13320.0,10,1,81,641,142400.0,9,0,1,0.967,2,Retail,Préstamo personal,Flores,WhatsApp
+AC-00248,504570.0,121,4,64,395,25200.0,10,1,6,0.86,1,Pyme,Préstamo personal,Soriano,SMS
+AC-00249,52850.0,105,3,179,346,87800.0,3,5,1,0.692,3,Retail,Préstamo personal,Colonia,WhatsApp
+AC-00250,83730.0,18,1,74,750,68900.0,3,0,0,0.636,4,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00251,165290.0,104,3,143,592,48500.0,5,1,2,0.841,8,Retail,Microcrédito,Montevideo,SMS
+AC-00252,156530.0,43,1,35,748,206900.0,7,0,3,0.365,6,Pyme,Préstamo personal,Colonia,SMS
+AC-00253,5210.0,38,2,100,709,105300.0,5,3,0,0.697,8,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00254,22800.0,4,1,50,559,17000.0,6,5,1,0.865,1,Retail,Préstamo personal,Canelones,WhatsApp
+AC-00255,6880.0,107,3,4,614,41000.0,6,5,3,0.503,8,Retail,Crédito automotor,Canelones,WhatsApp
+AC-00256,25780.0,54,2,111,635,46400.0,10,3,0,0.446,4,Retail,Tarjeta de crédito,Paysandú,SMS
+AC-00257,39610.0,16,1,52,424,32000.0,4,0,2,0.665,2,Retail,Financiación retail,Canelones,Email
+AC-00258,100910.0,96,3,72,505,69300.0,9,0,0,0.855,5,Pyme,Tarjeta de crédito,Maldonado,WhatsApp
+AC-00259,36580.0,10,1,59,495,24400.0,6,0,0,0.593,0,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00260,30610.0,149,4,168,410,34900.0,4,4,0,0.084,4,Retail,Préstamo personal,Salto,Llamada
+AC-00261,93860.0,40,2,177,429,20900.0,11,2,1,0.562,6,Retail,Tarjeta de crédito,Tacuarembó,Llamada
+AC-00262,517670.0,41,1,89,627,138600.0,11,1,1,0.456,3,Corporativo,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00263,21080.0,120,5,65,757,34100.0,2,4,3,0.583,3,Retail,Préstamo personal,Maldonado,WhatsApp
+AC-00264,24580.0,148,4,151,697,51500.0,8,1,1,0.75,1,Retail,Préstamo personal,Durazno,WhatsApp
+AC-00265,21820.0,40,1,87,805,43900.0,2,3,0,0.976,2,Retail,Préstamo personal,Montevideo,Email
+AC-00266,616730.0,72,2,173,546,83900.0,6,0,1,0.695,2,Corporativo,Crédito automotor,Montevideo,WhatsApp
+AC-00267,20700.0,28,1,127,547,27800.0,6,1,3,0.588,3,Retail,Cuenta corriente,Paysandú,WhatsApp
+AC-00268,20090.0,26,1,86,742,20300.0,2,4,0,0.541,1,Retail,Cuenta corriente,San José,Llamada
+AC-00269,19800.0,72,3,145,534,42200.0,4,1,1,0.801,5,Retail,Financiación retail,Maldonado,WhatsApp
+AC-00270,5170.0,74,3,28,619,98900.0,9,0,5,0.47,7,Retail,Crédito automotor,Montevideo,Llamada
+AC-00271,21650.0,103,3,2,621,19900.0,6,0,1,0.422,7,Retail,Tarjeta de crédito,Paysandú,SMS
+AC-00272,112810.0,37,1,98,625,40200.0,9,1,0,0.939,3,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00273,106430.0,34,2,67,899,32300.0,11,5,2,0.79,2,Retail,Financiación retail,Montevideo,WhatsApp
+AC-00274,219830.0,133,4,5,469,31300.0,5,5,3,0.734,4,Pyme,Préstamo personal,Artigas,SMS
+AC-00275,240920.0,49,1,48,365,41600.0,10,4,0,0.47,2,Pyme,Préstamo personal,Maldonado,WhatsApp
+AC-00276,269870.0,114,3,83,669,26900.0,6,0,1,0.548,6,Retail,Tarjeta de crédito,Montevideo,SMS
+AC-00277,42800.0,13,1,86,541,42400.0,4,5,1,0.557,5,Retail,Cuenta corriente,Montevideo,WhatsApp
+AC-00278,245860.0,97,3,96,723,32400.0,4,3,2,0.768,3,Pyme,Financiación retail,Florida,WhatsApp
+AC-00279,9000.0,163,6,70,446,63400.0,3,0,2,0.43,7,Retail,Préstamo personal,Paysandú,WhatsApp
+AC-00280,12270.0,46,1,178,615,73000.0,5,2,0,0.44,5,Retail,Préstamo personal,Canelones,WhatsApp
+AC-00281,178570.0,29,1,57,633,64200.0,8,3,1,0.3,3,Pyme,Tarjeta de crédito,Canelones,Email
+AC-00282,14760.0,62,2,76,528,45600.0,6,2,0,0.232,6,Retail,Tarjeta de crédito,Canelones,Llamada
+AC-00283,13960.0,155,6,132,413,99200.0,6,0,2,0.737,4,Retail,Microcrédito,Montevideo,Email
+AC-00284,66220.0,81,2,9,640,94300.0,8,5,1,0.768,0,Retail,Préstamo personal,Montevideo,SMS
+AC-00285,43510.0,16,1,58,446,39600.0,6,3,4,0.337,0,Retail,Préstamo personal,Colonia,SMS
+AC-00286,27180.0,18,1,142,460,44800.0,10,3,1,0.273,6,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00287,83730.0,30,1,145,466,93300.0,5,5,0,0.425,3,Pyme,Microcrédito,Salto,Llamada
+AC-00288,5240.0,171,5,103,358,37100.0,4,2,3,0.566,5,Retail,Préstamo personal,Montevideo,Llamada
+AC-00289,635890.0,29,1,139,684,41400.0,7,3,4,0.532,0,Corporativo,Crédito automotor,Florida,Email
+AC-00290,104430.0,63,3,41,321,28500.0,5,5,2,0.636,5,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00291,21550.0,132,5,36,761,55900.0,5,4,1,0.799,5,Retail,Tarjeta de crédito,Tacuarembó,Llamada
+AC-00292,371130.0,40,1,116,613,31700.0,7,1,1,0.655,3,Pyme,Financiación retail,Rivera,Llamada
+AC-00293,108230.0,21,1,171,653,26000.0,7,1,3,0.319,3,Corporativo,Microcrédito,Montevideo,Llamada
+AC-00294,20260.0,36,1,144,359,30500.0,5,4,2,0.632,6,Retail,Cuenta corriente,Montevideo,WhatsApp
+AC-00295,670440.0,82,3,34,386,28200.0,5,2,2,0.659,3,Corporativo,Préstamo personal,Rivera,WhatsApp
+AC-00296,70690.0,60,2,47,469,73800.0,5,5,2,0.447,2,Pyme,Tarjeta de crédito,Tacuarembó,WhatsApp
+AC-00297,31920.0,29,1,174,457,50800.0,3,3,0,0.793,4,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00298,69500.0,23,1,65,694,100000.0,8,4,4,0.701,6,Pyme,Crédito automotor,Montevideo,WhatsApp
+AC-00299,40040.0,48,1,31,250,39200.0,4,4,2,0.566,7,Retail,Microcrédito,Montevideo,Email
+AC-00300,9790.0,15,1,47,719,33000.0,5,2,0,0.638,0,Retail,Préstamo personal,Montevideo,Email
+AC-00301,175880.0,136,4,161,500,18900.0,9,0,0,0.262,5,Pyme,Financiación retail,Durazno,Email
+AC-00302,3920.0,75,2,129,620,95400.0,0,3,2,0.549,4,Retail,Cuenta corriente,Tacuarembó,Llamada
+AC-00303,38190.0,48,1,102,530,44600.0,5,0,3,0.949,9,Pyme,Financiación retail,Maldonado,WhatsApp
+AC-00304,219480.0,80,3,169,534,43800.0,6,4,1,0.82,4,Pyme,Crédito automotor,Montevideo,Llamada
+AC-00305,408520.0,6,1,61,663,39400.0,4,2,1,0.342,3,Pyme,Financiación retail,Montevideo,WhatsApp
+AC-00306,29220.0,31,2,168,452,17700.0,8,4,1,0.482,6,Retail,Crédito automotor,Montevideo,Email
+AC-00307,65800.0,209,6,105,557,52800.0,8,4,2,0.313,9,Retail,Préstamo personal,Montevideo,Llamada
+AC-00308,145280.0,40,2,46,551,42200.0,4,2,3,0.65,5,Pyme,Crédito automotor,Maldonado,WhatsApp
+AC-00309,8270.0,24,1,60,579,22600.0,6,0,2,0.695,3,Retail,Crédito automotor,Montevideo,Llamada
+AC-00310,124930.0,42,2,109,595,109400.0,7,0,0,0.639,2,Corporativo,Crédito automotor,Montevideo,WhatsApp
+AC-00311,329040.0,97,3,45,585,26300.0,8,4,1,0.92,6,Pyme,Cuenta corriente,Colonia,Llamada
+AC-00312,41360.0,61,3,164,717,406000.0,3,5,1,0.879,5,Retail,Tarjeta de crédito,Montevideo,Llamada
+AC-00313,44990.0,7,1,56,654,34300.0,5,5,2,0.821,3,Retail,Financiación retail,Artigas,Llamada
+AC-00314,12900.0,22,1,72,756,60700.0,7,0,3,0.648,4,Retail,Préstamo personal,Colonia,WhatsApp
+AC-00315,124330.0,28,1,136,412,21000.0,8,2,1,0.291,2,Retail,Tarjeta de crédito,Canelones,SMS
+AC-00316,40970.0,66,3,126,487,81500.0,10,1,3,0.529,5,Retail,Tarjeta de crédito,Salto,WhatsApp
+AC-00317,451830.0,27,1,142,634,21000.0,2,2,3,0.505,4,Pyme,Crédito automotor,Rocha,WhatsApp
+AC-00318,12140.0,34,2,28,472,40500.0,11,0,1,0.365,2,Retail,Tarjeta de crédito,Colonia,WhatsApp
+AC-00319,49300.0,19,1,32,612,55400.0,8,0,1,0.619,2,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00320,39990.0,47,2,44,627,20400.0,7,5,0,0.131,3,Retail,Crédito automotor,Colonia,Email
+AC-00321,91580.0,20,1,36,672,23100.0,4,0,0,0.307,6,Pyme,Microcrédito,Montevideo,Llamada
+AC-00322,83530.0,69,3,132,461,11900.0,7,1,3,0.378,1,Pyme,Microcrédito,Rivera,WhatsApp
+AC-00323,19360.0,7,1,152,305,42100.0,6,1,2,0.387,2,Retail,Crédito automotor,Montevideo,WhatsApp
+AC-00324,79680.0,41,1,28,656,47100.0,4,5,3,0.541,1,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00325,39020.0,14,1,115,784,85900.0,3,0,1,0.391,3,Retail,Cuenta corriente,Canelones,Llamada
+AC-00326,44790.0,23,1,38,698,33500.0,6,2,1,0.343,2,Retail,Financiación retail,Río Negro,SMS
+AC-00327,18800.0,28,1,125,586,18100.0,6,0,1,0.56,1,Retail,Microcrédito,San José,Llamada
+AC-00328,20150.0,30,1,38,821,100500.0,2,3,1,0.589,2,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00329,51470.0,190,6,131,560,46800.0,5,3,2,0.59,3,Retail,Tarjeta de crédito,Montevideo,Llamada
+AC-00330,216350.0,232,7,140,683,100500.0,4,2,1,0.69,8,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00331,61530.0,153,6,143,304,25400.0,5,0,4,0.369,6,Pyme,Microcrédito,Salto,WhatsApp
+AC-00332,35640.0,117,4,163,552,84000.0,12,4,0,0.66,3,Retail,Microcrédito,Canelones,Llamada
+AC-00333,31500.0,43,2,108,592,29500.0,7,2,0,0.553,3,Retail,Microcrédito,Montevideo,WhatsApp
+AC-00334,20790.0,89,2,73,638,61900.0,3,4,2,0.307,3,Retail,Préstamo personal,Canelones,Llamada
+AC-00335,29940.0,192,6,127,556,155500.0,3,5,2,0.618,7,Retail,Crédito automotor,San José,Llamada
+AC-00336,19260.0,142,4,134,485,84800.0,0,4,3,0.236,6,Retail,Préstamo personal,Canelones,WhatsApp
+AC-00337,695860.0,134,4,141,447,68500.0,5,4,2,0.505,6,Corporativo,Préstamo personal,Montevideo,Llamada
+AC-00338,562980.0,124,5,11,742,51600.0,6,2,3,0.542,4,Corporativo,Tarjeta de crédito,Soriano,SMS
+AC-00339,8990.0,6,1,88,605,48600.0,4,4,2,0.8,5,Retail,Financiación retail,Salto,SMS
+AC-00340,25290.0,159,5,5,366,66900.0,7,5,0,0.285,3,Retail,Microcrédito,Canelones,WhatsApp
+AC-00341,17990.0,118,4,150,703,40800.0,7,2,2,0.309,5,Retail,Préstamo personal,Maldonado,Email
+AC-00342,74890.0,20,1,38,544,25100.0,6,5,0,0.675,4,Retail,Tarjeta de crédito,Canelones,Llamada
+AC-00343,301180.0,15,1,146,545,27600.0,7,4,3,0.683,4,Pyme,Microcrédito,Paysandú,WhatsApp
+AC-00344,11870.0,15,1,112,497,37700.0,5,2,1,0.833,4,Retail,Crédito automotor,Montevideo,SMS
+AC-00345,60270.0,181,6,122,384,71300.0,3,1,1,0.545,7,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00346,407000.0,174,5,118,298,31900.0,4,1,1,0.287,4,Pyme,Financiación retail,San José,WhatsApp
+AC-00347,118490.0,11,1,2,411,85200.0,7,5,3,0.48,4,Pyme,Financiación retail,Montevideo,WhatsApp
+AC-00348,189250.0,14,1,46,872,97300.0,9,2,2,0.99,3,Pyme,Financiación retail,Montevideo,Llamada
+AC-00349,60580.0,147,4,165,675,89600.0,1,2,4,0.025,4,Pyme,Financiación retail,Soriano,WhatsApp
+AC-00350,86990.0,18,1,168,604,32300.0,4,4,2,0.54,2,Pyme,Préstamo personal,Montevideo,Llamada
+AC-00351,788930.0,7,1,133,582,41600.0,5,5,1,0.583,6,Corporativo,Financiación retail,Montevideo,WhatsApp
+AC-00352,56890.0,48,1,150,427,40200.0,9,4,1,0.613,7,Pyme,Préstamo personal,Maldonado,Llamada
+AC-00353,21910.0,30,2,31,445,36100.0,7,2,2,0.28,8,Retail,Préstamo personal,Trinidad,Llamada
+AC-00354,21850.0,131,5,64,841,24800.0,4,2,1,0.433,5,Retail,Préstamo personal,Colonia,Llamada
+AC-00355,106210.0,75,3,32,529,29000.0,7,1,0,0.697,3,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00356,438330.0,19,1,175,950,86800.0,5,4,2,0.595,7,Corporativo,Cuenta corriente,Montevideo,Llamada
+AC-00357,1459050.0,105,4,106,340,40300.0,3,2,2,0.668,4,Corporativo,Financiación retail,Montevideo,Llamada
+AC-00358,40230.0,53,2,65,610,42800.0,4,5,1,0.381,6,Retail,Cuenta corriente,Montevideo,Email
+AC-00359,417460.0,63,2,94,317,48300.0,6,0,0,0.613,5,Pyme,Préstamo personal,Treinta y Tres,WhatsApp
+AC-00360,152080.0,19,1,114,426,34900.0,4,0,0,0.468,2,Pyme,Tarjeta de crédito,Montevideo,Email
+AC-00361,88580.0,22,1,130,611,30600.0,7,4,1,0.46,8,Pyme,Tarjeta de crédito,Canelones,WhatsApp
+AC-00362,49950.0,63,3,132,387,16400.0,9,1,0,0.686,4,Retail,Préstamo personal,Maldonado,Email
+AC-00363,10840.0,146,4,144,506,25900.0,4,3,1,0.273,10,Retail,Tarjeta de crédito,Montevideo,Llamada
+AC-00364,84220.0,15,1,26,576,115500.0,4,2,0,0.403,3,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00365,17530.0,29,1,136,505,59400.0,5,3,0,0.277,1,Retail,Financiación retail,Montevideo,Email
+AC-00366,11440.0,12,1,45,681,37900.0,4,3,0,0.51,5,Retail,Tarjeta de crédito,Maldonado,Email
+AC-00367,102420.0,101,4,160,383,50400.0,5,3,0,0.956,5,Pyme,Financiación retail,Tacuarembó,WhatsApp
+AC-00368,176180.0,28,1,22,499,35300.0,7,3,0,0.535,1,Pyme,Microcrédito,Canelones,WhatsApp
+AC-00369,19290.0,10,1,73,643,103500.0,6,1,0,0.583,1,Retail,Crédito automotor,Montevideo,SMS
+AC-00370,25390.0,216,8,164,498,17300.0,4,1,2,0.739,2,Retail,Préstamo personal,Montevideo,Email
+AC-00371,31580.0,20,1,100,488,49800.0,3,3,0,0.803,3,Retail,Préstamo personal,Montevideo,Llamada
+AC-00372,12350.0,17,1,1,513,32500.0,7,1,0,0.721,4,Retail,Préstamo personal,Florida,SMS
+AC-00373,18660.0,228,8,118,459,74900.0,8,5,0,0.418,6,Retail,Préstamo personal,Artigas,SMS
+AC-00374,145400.0,156,5,119,503,75100.0,4,0,1,0.459,6,Retail,Crédito automotor,Montevideo,Email
+AC-00375,319740.0,148,5,88,665,33000.0,5,0,0,0.477,5,Pyme,Tarjeta de crédito,Montevideo,SMS
+AC-00376,29490.0,27,1,23,617,38400.0,10,2,1,0.362,2,Pyme,Préstamo personal,Colonia,Llamada
+AC-00377,23110.0,54,1,176,640,18000.0,4,5,2,0.745,2,Retail,Préstamo personal,Montevideo,SMS
+AC-00378,27280.0,168,5,104,558,21200.0,6,1,2,0.183,4,Retail,Financiación retail,Montevideo,WhatsApp
+AC-00379,28630.0,118,3,132,385,41400.0,7,1,2,0.479,5,Retail,Cuenta corriente,Montevideo,Llamada
+AC-00380,18130.0,62,3,149,514,17900.0,6,5,0,0.203,9,Retail,Financiación retail,Salto,WhatsApp
+AC-00381,17210.0,140,4,98,356,32400.0,1,0,0,0.394,2,Retail,Cuenta corriente,Montevideo,WhatsApp
+AC-00382,32050.0,31,1,132,547,20000.0,2,5,2,0.659,4,Retail,Tarjeta de crédito,Cerro Largo,WhatsApp
+AC-00383,49500.0,145,5,27,726,44400.0,7,4,1,0.358,6,Retail,Tarjeta de crédito,Rivera,WhatsApp
+AC-00384,3860.0,53,2,170,879,28800.0,1,2,0,0.758,8,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00385,26520.0,35,1,127,718,26000.0,0,1,3,0.824,4,Retail,Préstamo personal,Canelones,WhatsApp
+AC-00386,125620.0,70,2,147,676,19700.0,2,1,1,0.692,2,Pyme,Tarjeta de crédito,Montevideo,SMS
+AC-00387,189210.0,46,1,159,614,44100.0,6,0,0,0.669,5,Corporativo,Financiación retail,Montevideo,WhatsApp
+AC-00388,20960.0,161,6,79,320,29300.0,5,3,1,0.563,10,Retail,Préstamo personal,Treinta y Tres,WhatsApp
+AC-00389,12260.0,198,6,63,577,18900.0,5,4,1,0.444,3,Retail,Préstamo personal,Canelones,WhatsApp
+AC-00390,13120.0,44,2,175,598,15600.0,8,5,2,0.646,6,Retail,Financiación retail,Montevideo,WhatsApp
+AC-00391,38980.0,10,1,20,411,16100.0,4,2,1,0.514,4,Retail,Tarjeta de crédito,Treinta y Tres,WhatsApp
+AC-00392,655660.0,63,3,10,596,41600.0,6,0,2,0.565,1,Corporativo,Tarjeta de crédito,Canelones,Llamada
+AC-00393,449040.0,80,2,31,370,33700.0,6,1,1,0.99,6,Corporativo,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00394,4970.0,10,1,9,527,109400.0,7,4,2,0.949,3,Retail,Tarjeta de crédito,Montevideo,Llamada
+AC-00395,70840.0,59,2,12,691,51400.0,6,5,0,0.771,8,Retail,Tarjeta de crédito,San José,Llamada
+AC-00396,59900.0,202,7,139,552,20200.0,0,3,2,0.376,8,Pyme,Tarjeta de crédito,Montevideo,Llamada
+AC-00397,66700.0,72,3,125,624,37400.0,9,5,0,0.779,5,Retail,Financiación retail,Salto,SMS
+AC-00398,268770.0,147,5,151,722,46200.0,5,1,2,0.472,5,Pyme,Financiación retail,Montevideo,Email
+AC-00399,19220.0,20,1,174,536,30200.0,6,1,0,0.546,5,Retail,Tarjeta de crédito,Canelones,WhatsApp
+AC-00400,2455980.0,16,1,26,767,44000.0,10,4,2,0.468,3,Corporativo,Microcrédito,Montevideo,SMS
+AC-00401,18860.0,112,3,175,568,68700.0,7,3,1,0.549,6,Retail,Tarjeta de crédito,Colonia,Llamada
+AC-00402,12340.0,160,6,53,574,62400.0,8,3,5,0.351,7,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00403,249840.0,30,2,116,494,78600.0,7,2,0,0.636,1,Pyme,Préstamo personal,Canelones,SMS
+AC-00404,139110.0,56,2,7,434,114800.0,8,3,2,0.233,3,Pyme,Crédito automotor,San José,Llamada
+AC-00405,209630.0,50,1,162,624,28300.0,7,1,1,0.687,3,Pyme,Tarjeta de crédito,Tacuarembó,Email
+AC-00406,73170.0,114,4,25,507,30500.0,7,1,1,0.622,4,Retail,Crédito automotor,Montevideo,SMS
+AC-00407,16290.0,10,1,134,487,40400.0,5,1,2,0.687,1,Retail,Tarjeta de crédito,Colonia,WhatsApp
+AC-00408,43220.0,19,1,130,517,45900.0,5,4,1,0.696,6,Retail,Préstamo personal,Montevideo,Llamada
+AC-00409,318630.0,33,1,6,648,22400.0,7,4,1,0.363,7,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00410,32010.0,135,4,54,581,51900.0,2,2,1,0.443,5,Retail,Cuenta corriente,Canelones,Llamada
+AC-00411,318820.0,3,1,95,501,122000.0,7,3,2,0.956,5,Corporativo,Tarjeta de crédito,Maldonado,SMS
+AC-00412,2117060.0,70,3,168,629,47300.0,11,3,2,0.659,6,Corporativo,Cuenta corriente,Canelones,Llamada
+AC-00413,24700.0,87,3,40,287,8000.0,12,4,2,0.659,8,Retail,Préstamo personal,Montevideo,Llamada
+AC-00414,39650.0,101,4,138,679,64100.0,5,3,3,0.315,9,Retail,Microcrédito,Canelones,WhatsApp
+AC-00415,20600.0,46,1,133,706,45000.0,5,2,2,0.469,4,Retail,Tarjeta de crédito,Soriano,SMS
+AC-00416,26710.0,109,3,123,483,79400.0,9,2,1,0.4,3,Retail,Tarjeta de crédito,Montevideo,Llamada
+AC-00417,304430.0,16,1,65,550,38400.0,4,5,1,0.614,2,Pyme,Préstamo personal,Rivera,SMS
+AC-00418,18630.0,75,2,51,669,16000.0,9,4,1,0.428,2,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00419,88650.0,184,7,34,533,72300.0,4,0,2,0.791,9,Pyme,Préstamo personal,Montevideo,Llamada
+AC-00420,27630.0,22,1,64,611,66400.0,5,2,0,0.235,2,Retail,Tarjeta de crédito,Florida,WhatsApp
+AC-00421,28330.0,86,2,139,712,82700.0,5,3,1,0.835,2,Retail,Crédito automotor,Rivera,Llamada
+AC-00422,248730.0,126,5,133,694,85900.0,4,2,2,0.853,5,Pyme,Préstamo personal,Flores,Llamada
+AC-00423,22850.0,127,4,158,477,51500.0,3,2,1,0.692,2,Retail,Tarjeta de crédito,Canelones,WhatsApp
+AC-00424,58640.0,26,1,14,810,71000.0,7,5,4,0.583,7,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00425,59090.0,8,1,63,576,67500.0,5,1,1,0.422,5,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00426,57570.0,22,1,59,504,22600.0,5,3,0,0.574,4,Retail,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00427,27240.0,204,6,31,641,41500.0,4,4,3,0.508,5,Retail,Financiación retail,Montevideo,Llamada
+AC-00428,9180.0,78,3,156,514,110800.0,6,5,2,0.567,2,Retail,Tarjeta de crédito,Canelones,Email
+AC-00429,608260.0,96,3,169,847,74100.0,5,1,1,0.481,7,Corporativo,Microcrédito,San José,WhatsApp
+AC-00430,21850.0,220,7,46,631,32500.0,4,4,0,0.352,2,Retail,Préstamo personal,Montevideo,Llamada
+AC-00431,48620.0,150,5,136,599,20200.0,1,2,0,0.893,7,Pyme,Microcrédito,Canelones,SMS
+AC-00432,36980.0,15,1,31,363,27900.0,4,4,1,0.616,2,Retail,Microcrédito,Montevideo,Email
+AC-00433,11350.0,60,3,64,509,83600.0,5,3,1,0.608,3,Retail,Financiación retail,Maldonado,WhatsApp
+AC-00434,20080.0,76,3,145,471,32500.0,8,0,1,0.734,7,Retail,Préstamo personal,Canelones,WhatsApp
+AC-00435,47050.0,135,5,150,250,22400.0,4,3,2,0.487,5,Retail,Tarjeta de crédito,Paysandú,WhatsApp
+AC-00436,341270.0,56,2,86,654,18300.0,5,2,1,0.557,2,Corporativo,Crédito automotor,Canelones,Email
+AC-00437,22000.0,46,1,141,700,23500.0,9,4,1,0.479,5,Retail,Tarjeta de crédito,Montevideo,Llamada
+AC-00438,14770.0,168,6,76,618,20800.0,4,2,2,0.505,10,Retail,Crédito automotor,Montevideo,WhatsApp
+AC-00439,741850.0,120,4,156,411,76900.0,6,3,2,0.427,6,Corporativo,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00440,5410.0,17,1,18,396,72100.0,8,2,0,0.843,4,Retail,Tarjeta de crédito,Salto,SMS
+AC-00441,40470.0,24,1,128,440,34400.0,6,3,1,0.389,5,Pyme,Financiación retail,Tacuarembó,Llamada
+AC-00442,18910.0,20,1,106,551,41600.0,5,3,0,0.918,2,Retail,Préstamo personal,Montevideo,Llamada
+AC-00443,114320.0,100,3,139,614,89900.0,7,2,2,0.773,10,Pyme,Crédito automotor,Montevideo,Llamada
+AC-00444,44910.0,31,1,141,519,57600.0,4,0,0,0.809,6,Retail,Préstamo personal,Canelones,SMS
+AC-00445,841620.0,49,1,92,633,35400.0,5,4,2,0.817,7,Pyme,Tarjeta de crédito,Canelones,WhatsApp
+AC-00446,28870.0,115,4,142,472,31500.0,8,1,0,0.72,3,Retail,Microcrédito,Montevideo,WhatsApp
+AC-00447,64230.0,109,4,82,520,39200.0,12,5,2,0.272,7,Retail,Tarjeta de crédito,Rocha,SMS
+AC-00448,47740.0,69,3,82,828,21100.0,5,4,1,0.529,3,Pyme,Financiación retail,Montevideo,Llamada
+AC-00449,23990.0,80,2,53,597,124700.0,5,1,1,0.586,3,Pyme,Préstamo personal,Montevideo,WhatsApp
+AC-00450,39940.0,152,6,46,370,159400.0,3,2,2,0.384,5,Retail,Préstamo personal,Florida,SMS
+AC-00451,310680.0,60,2,39,592,105200.0,5,3,1,0.559,4,Pyme,Préstamo personal,Montevideo,Llamada
+AC-00452,15400.0,24,1,22,474,20500.0,5,1,2,0.679,2,Retail,Préstamo personal,Rivera,Email
+AC-00453,141800.0,109,4,16,626,27600.0,3,5,2,0.472,8,Pyme,Tarjeta de crédito,Canelones,Llamada
+AC-00454,194940.0,60,2,70,431,102800.0,8,1,0,0.711,4,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00455,30010.0,219,8,179,748,74700.0,4,0,5,0.476,5,Retail,Tarjeta de crédito,Montevideo,Email
+AC-00456,37170.0,194,7,127,822,71700.0,2,0,1,0.678,7,Retail,Préstamo personal,Artigas,Llamada
+AC-00457,18930.0,32,1,55,455,80800.0,3,2,0,0.256,2,Retail,Tarjeta de crédito,Artigas,WhatsApp
+AC-00458,20180.0,83,3,153,561,45800.0,6,4,0,0.37,4,Retail,Préstamo personal,Montevideo,SMS
+AC-00459,198940.0,7,1,40,547,45900.0,8,4,3,0.623,6,Pyme,Tarjeta de crédito,Colonia,WhatsApp
+AC-00460,153260.0,106,4,1,453,41000.0,5,1,0,0.482,3,Pyme,Préstamo personal,Montevideo,WhatsApp
+AC-00461,32790.0,179,5,8,438,20600.0,7,3,4,0.276,6,Retail,Financiación retail,Salto,WhatsApp
+AC-00462,1043920.0,33,1,121,677,67100.0,6,5,0,0.681,2,Pyme,Tarjeta de crédito,Durazno,WhatsApp
+AC-00463,25080.0,18,1,93,899,109700.0,6,2,1,0.802,3,Pyme,Tarjeta de crédito,Montevideo,WhatsApp
+AC-00464,17900.0,16,1,31,855,96200.0,7,2,0,0.519,3,Retail,Financiación retail,Flores,Email
+AC-00465,117140.0,45,1,105,557,43400.0,4,1,0,0.944,8,Pyme,Tarjeta de crédito,Canelones,Llamada
+AC-00466,87580.0,158,5,173,578,45400.0,4,5,0,0.6,8,Pyme,Microcrédito,Durazno,WhatsApp
+AC-00467,24610.0,31,1,41,725,38800.0,10,5,1,0.739,2,Retail,Tarjeta de crédito,Tacuarembó,Email
+AC-00468,51230.0,53,2,39,637,37900.0,10,5,0,0.487,2,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00469,89910.0,53,2,42,438,16200.0,4,3,3,0.757,5,Pyme,Crédito automotor,Durazno,WhatsApp
+AC-00470,14050.0,110,3,28,665,48100.0,5,4,2,0.414,4,Retail,Tarjeta de crédito,Florida,WhatsApp
+AC-00471,81100.0,45,1,68,563,40500.0,5,3,1,0.799,3,Pyme,Préstamo personal,Montevideo,SMS
+AC-00472,435570.0,44,2,72,465,12100.0,4,1,1,0.442,7,Pyme,Financiación retail,Maldonado,Email
+AC-00473,63300.0,117,4,165,472,28200.0,7,4,0,0.374,10,Retail,Crédito automotor,Montevideo,WhatsApp
+AC-00474,206190.0,216,8,18,678,48400.0,6,4,1,0.546,5,Pyme,Tarjeta de crédito,Paysandú,Llamada
+AC-00475,35450.0,42,2,100,478,26600.0,5,3,0,0.477,2,Pyme,Financiación retail,Montevideo,Llamada
+AC-00476,15670.0,16,1,22,443,19400.0,6,4,3,0.465,6,Retail,Financiación retail,Montevideo,WhatsApp
+AC-00477,36560.0,70,2,28,583,48700.0,4,4,1,0.657,4,Retail,Crédito automotor,Montevideo,Email
+AC-00478,170510.0,208,7,159,589,22000.0,5,1,1,0.396,9,Corporativo,Tarjeta de crédito,Lavalleja,Llamada
+AC-00479,24100.0,63,2,49,669,33500.0,3,1,1,0.331,7,Retail,Tarjeta de crédito,Maldonado,Llamada
+AC-00480,28010.0,63,3,9,635,42900.0,5,1,2,0.704,2,Retail,Préstamo personal,Montevideo,WhatsApp
+AC-00481,422960.0,27,1,50,528,51100.0,7,0,0,0.673,3,Corporativo,Cuenta corriente,Montevideo,SMS
+AC-00482,21260.0,65,2,77,471,59400.0,7,1,2,0.569,4,Retail,Financiación retail,Montevideo,Llamada
+AC-00483,22530.0,114,4,65,524,60100.0,5,2,3,0.466,5,Retail,Financiación retail,Montevideo,Llamada
+AC-00484,89540.0,131,4,141,663,36800.0,4,1,2,0.672,7,Retail,Microcrédito,Montevideo,SMS
+AC-00485,216670.0,36,2,103,802,27200.0,7,1,2,0.517,4,Pyme,Préstamo personal,Montevideo,WhatsApp
+AC-00486,993610.0,167,5,152,527,101100.0,5,4,0,0.444,3,Corporativo,Tarjeta de crédito,Montevideo,Llamada
+AC-00487,8320.0,130,4,109,527,93300.0,3,4,1,0.366,8,Retail,Cuenta corriente,Montevideo,WhatsApp
+AC-00488,31910.0,59,2,109,828,48600.0,5,0,1,0.766,1,Retail,Tarjeta de crédito,San José,WhatsApp
+AC-00489,99530.0,23,1,23,557,32200.0,7,2,2,0.837,1,Retail,Tarjeta de crédito,Montevideo,Email
+AC-00490,17910.0,129,5,72,517,26600.0,3,0,1,0.513,4,Retail,Préstamo personal,Montevideo,Email
+AC-00491,72820.0,48,1,51,560,64300.0,8,3,1,0.426,2,Pyme,Microcrédito,Flores,WhatsApp
+AC-00492,355950.0,81,2,144,561,28300.0,2,3,3,0.56,5,Pyme,Tarjeta de crédito,San José,Llamada
+AC-00493,46590.0,76,2,93,774,60100.0,5,5,2,0.338,4,Retail,Préstamo personal,Salto,WhatsApp
+AC-00494,1370910.0,192,6,7,612,87800.0,4,0,2,0.815,4,Corporativo,Cuenta corriente,Canelones,WhatsApp
+AC-00495,65820.0,139,4,49,520,104000.0,4,3,3,0.459,1,Retail,Financiación retail,Montevideo,Llamada
+AC-00496,23630.0,35,2,162,659,16700.0,9,2,0,0.507,3,Retail,Tarjeta de crédito,Montevideo,Email
+AC-00497,5260.0,98,3,20,640,21700.0,4,4,2,0.545,2,Retail,Crédito automotor,Salto,WhatsApp
+AC-00498,159290.0,14,1,161,460,59600.0,5,0,1,0.313,6,Pyme,Préstamo personal,Canelones,Llamada
+AC-00499,61840.0,89,2,162,441,24400.0,5,5,1,0.573,8,Retail,Financiación retail,Montevideo,WhatsApp
+AC-00500,49700.0,9,1,54,692,64400.0,3,0,3,0.601,1,Retail,Microcrédito,Montevideo,WhatsApp

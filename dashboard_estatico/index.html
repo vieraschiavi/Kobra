@@ -29,6 +29,8 @@
 <script src="xlsx.full.min.js"></script>
 <script src="kobra_data.js"></script>
 <script src="copiloto.js"></script>
+<script src="scoring.js"></script>
+<script src="modelo_web.js"></script>
 <!-- Voz premium pre-renderizada (opcional): si el paquete se armó con
      ELEVENLABS_API_KEY configurada, data/generar_audio_demo_voz.py generó
      estos MP3 con la MISMA voz del producto real (la del video de marketing),
@@ -38,33 +40,21 @@
 <script src="guiones.js"></script>
 <script src="audio_demo/manifest.js"></script>
 <script>
-/* Gate de demo: full por 3 días para cada usuario registrado (registro en la landing).
-   Cliente-side (localStorage). La versión de producción emite un token de prueba real (ver docs/BACKEND_VENTA.md). */
+/* Demo PUBLICA: se entra sin registro y sin vencimiento.
+   Antes esto era una pantalla completa que tapaba todo hasta registrarse. El
+   costo era el que se ve desde afuera: nadie podia verificar el scoring, asi
+   que el producto quedaba como una promesa. Un demo con datos 100% sinteticos
+   no tiene nada que proteger — lo que capta un lead es que el gerente vea
+   correr su propio CSV, no un formulario delante de la puerta.
+   Queda una cinta discreta, que no bloquea. */
 (function(){
-  var TRIAL_MS=3*24*60*60*1000;
-  function reg(){try{return JSON.parse(localStorage.getItem('kobra_reg')||'null')}catch(e){return null}}
   function run(){
-    var r=reg(), ok=!!(r&&r.ts&&(Date.now()-r.ts)<TRIAL_MS);
-    if(ok){
-      var left=Math.max(1,Math.ceil((TRIAL_MS-(Date.now()-r.ts))/86400000));
-      var rib=document.createElement('div');
-      rib.textContent='Demo · quedan '+left+' día'+(left===1?'':'s');
-      rib.style.cssText='position:absolute;top:10px;right:12px;z-index:20;background:#FDCB6E;color:#1c1305;'
-        +'font:700 12px/1 "Segoe UI",system-ui,sans-serif;padding:7px 12px;border-radius:20px;box-shadow:0 6px 18px rgba(0,0,0,.35);white-space:nowrap';
-      document.body.appendChild(rib); return;
-    }
-    var expired=!!(r&&r.ts);
-    var ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(8,17,36,.94);'
-      +'display:flex;align-items:center;justify-content:center;padding:24px;font-family:"Segoe UI",system-ui,sans-serif';
-    ov.innerHTML='<div style="max-width:420px;text-align:center;background:#101a2b;border:1px solid #24344c;'
-      +'border-radius:18px;padding:34px;color:#eaf1fb;box-shadow:0 30px 80px rgba(0,0,0,.5)">'
-      +'<div style="font:800 12px/1 system-ui;letter-spacing:.14em;text-transform:uppercase;color:#FDCB6E;margin-bottom:12px">Demo · 3 días</div>'
-      +'<div style="font:800 22px/1.25 system-ui;margin-bottom:10px">'+(expired?'Tu demo de 3 días venció':'Registrate para probar la demo completa')+'</div>'
-      +'<div style="color:#9db0c8;font-size:14.5px;margin-bottom:20px">'+(expired?'Volvé a registrarte para seguir probando MV Kobra AI, o comprá un plan.':'Es gratis y dura 3 días. Sin tarjeta.')+'</div>'
-      +'<a href="/" style="display:inline-block;background:#FDCB6E;color:#1c1305;font-weight:800;font-size:14.5px;text-decoration:none;padding:12px 22px;border-radius:10px">'+(expired?'Registrarme de nuevo':'Ir a registrarme')+'</a></div>';
-    document.body.appendChild(ov);
-    document.documentElement.style.overflow='hidden'; document.body.style.overflow='hidden';
+    var rib=document.createElement('a');
+    rib.href='/'; rib.textContent='Demo publica · datos sinteticos · ver planes';
+    rib.style.cssText='position:absolute;top:10px;right:12px;z-index:20;background:#FDCB6E;color:#1c1305;'
+      +'font:700 12px/1 "Segoe UI",system-ui,sans-serif;padding:7px 12px;border-radius:20px;'
+      +'box-shadow:0 6px 18px rgba(0,0,0,.35);white-space:nowrap;text-decoration:none';
+    document.body.appendChild(rib);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run); else run();
 })();
@@ -143,6 +133,25 @@
 <div class="grid2">
   <div class="card"><h2>Recupero esperado por segmento (UYU)</h2><canvas id="chartSeg"></canvas></div>
   <div class="card"><h2>Recupero esperado por estrategia (UYU)</h2><canvas id="chartEst"></canvas></div>
+</div>
+
+<div class="card" id="miCartera">
+  <h2>🧪 Probalo con tu cartera</h2>
+  <p class="sub" style="margin-bottom:12px">
+    Subí un CSV anonimizado —500 cuentas alcanzan— y mirá el scoring corriendo sobre
+    <b>tus</b> números. <b>El archivo no sale de tu navegador</b>: se lee y se scorea acá,
+    no se sube a ningún servidor. Es el mismo modelo que ves arriba, no una versión de
+    demostración: los coeficientes salen del <code>.joblib</code> entrenado.
+  </p>
+  <div class="toolbar" style="flex-wrap:wrap;gap:10px">
+    <label class="btn" style="cursor:pointer;display:inline-block">
+      📁 Elegir CSV
+      <input type="file" id="csvCartera" accept=".csv,text/csv" style="display:none">
+    </label>
+    <a class="btn alt" href="ejemplo_500_cuentas.csv" download>⬇ Bajar un CSV de ejemplo (500 cuentas)</a>
+    <span class="sub" id="csvInfo"></span>
+  </div>
+  <div id="csvResultado" style="display:none;margin-top:14px"></div>
 </div>
 
 <div class="card">
@@ -727,6 +736,140 @@ function exportResultadosPDF(){
   w.document.write(html); w.document.close();
   setTimeout(function(){try{w.focus();w.print();}catch(e){}},350);
 }
+</script>
+<script>
+// ---- "Subí tu CSV y mirá tu scoring" -------------------------------------
+// Todo pasa en el navegador: el archivo del visitante nunca se manda a ningún
+// servidor. Es la condición para que un gerente de cobranzas se anime a probar
+// con datos suyos, aunque estén anonimizados.
+(function(){
+  var MODELO = null;
+  var entrada = document.getElementById('csvCartera');
+  var info = document.getElementById('csvInfo');
+  var caja = document.getElementById('csvResultado');
+  if(!entrada) return;
+
+  function aviso(html, clase){
+    caja.style.display='block';
+    caja.innerHTML='<div class="'+(clase||'sub')+'">'+html+'</div>';
+  }
+
+  function cargarModelo(){
+    if(MODELO) return Promise.resolve(MODELO);
+    // `modelo_web.js` viene por <script src>, que es lo único que funciona
+    // cuando el ZIP de la demo se abre con doble clic: sobre `file://` el
+    // navegador bloquea el fetch de un archivo local. El fetch queda de
+    // reserva por si alguien sirve la carpeta sin el .js.
+    if(window.KOBRA_MODELO){ MODELO = window.KOBRA_MODELO; return Promise.resolve(MODELO); }
+    return fetch('modelo_web.json').then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    }).then(function(j){ MODELO=j; return j; });
+  }
+
+  entrada.addEventListener('change', function(){
+    var f = entrada.files[0];
+    if(!f) return;
+    // 20 MB es holgado para una cartera de cientos de miles de filas en CSV, y
+    // frena que alguien arrastre un archivo equivocado y cuelgue la pestaña.
+    if(f.size > 20*1024*1024){
+      aviso('Ese archivo pesa '+Math.round(f.size/1048576)+' MB. Probá con una '
+        +'muestra de unas miles de filas: para ver el scoring alcanza.', 'sub');
+      return;
+    }
+    info.textContent = 'Leyendo '+esc(f.name)+'…';
+    var lector = new FileReader();
+    lector.onerror = function(){ info.textContent=''; aviso('No pude leer el archivo.'); };
+    lector.onload = function(){
+      cargarModelo().then(function(bundle){
+        procesar(String(lector.result||''), bundle, f.name);
+      }).catch(function(e){
+        info.textContent='';
+        aviso('No pude cargar el modelo ('+esc(e.message||e)+'). Recargá la página.');
+      });
+    };
+    lector.readAsText(f);
+  });
+
+  function procesar(texto, bundle, nombre){
+    info.textContent = '';
+    var K = window.KobraScoring;
+    var csv = K.parsearCSV(texto);
+    if(!csv.filas.length){
+      aviso('El archivo no tiene filas de datos. ¿Le quedó solo el encabezado?');
+      return;
+    }
+    var rev = K.revisarColumnas(bundle, csv.columnas);
+    if(rev.faltan.length){
+      aviso('<b>Le faltan '+rev.faltan.length+' columna(s) al archivo.</b><br>'
+        +'El modelo necesita: <code>'+esc(rev.pedidas.join(', '))+'</code>.<br>'
+        +'No encontré: <code>'+esc(rev.faltan.join(', '))+'</code>.<br>'
+        +'Bajá el CSV de ejemplo de arriba para ver el formato exacto — '
+        +'los nombres no distinguen mayúsculas.');
+      return;
+    }
+    var filas = K.normalizar(csv.filas, rev.mapa);
+    var t0 = performance.now();
+    var probs = K.scorear(bundle, filas);
+    var ms = Math.round(performance.now()-t0);
+    pintar(csv, filas, probs, ms, nombre);
+  }
+
+  function pintar(csv, filas, probs, ms, nombre){
+    var n = probs.length;
+    var media = probs.reduce(function(a,b){return a+b;},0)/n;
+    var alta = probs.filter(function(p){return p>=0.65;}).length;
+    var baja = probs.filter(function(p){return p<0.35;}).length;
+
+    // Valor esperado de recupero: la cuenta que le importa a un gerente.
+    var deuda = 0, esperado = 0;
+    for(var i=0;i<n;i++){
+      var m = parseFloat(String(filas[i].monto_deuda||'').replace(',','.'))||0;
+      deuda += m; esperado += m*probs[i];
+    }
+    var fmt = function(x){ return '$' + Math.round(x).toLocaleString('es-UY'); };
+
+    // Top 15 por valor esperado, que es como prioriza el producto.
+    var idx = probs.map(function(p,i){return i;}).sort(function(a,b){
+      var va=(parseFloat(filas[a].monto_deuda)||0)*probs[a];
+      var vb=(parseFloat(filas[b].monto_deuda)||0)*probs[b];
+      return vb-va;
+    }).slice(0,15);
+
+    var html = '<div class="kpis" style="margin-bottom:14px">'
+      +'<div class="kpi"><div class="v">'+n.toLocaleString('es-UY')+'</div><div class="l">Cuentas scoreadas</div></div>'
+      +'<div class="kpi"><div class="v">'+Math.round(media*100)+'%</div><div class="l">ProbPago promedio</div></div>'
+      +'<div class="kpi"><div class="v">'+fmt(esperado)+'</div><div class="l">Recupero esperado</div></div>'
+      +'<div class="kpi"><div class="v">'+alta+' / '+baja+'</div><div class="l">Alta / baja propensión</div></div>'
+      +'</div>'
+      +'<p class="sub" style="margin-bottom:10px">'+esc(nombre)+' · '+n.toLocaleString('es-UY')
+      +' filas en '+ms+' ms, en tu navegador. Cartera '+fmt(deuda)+'.</p>'
+      +'<h3>Top 15 por valor esperado de recupero</h3>'
+      +'<div class="tablewrap"><table><thead><tr><th>#</th><th>Cuenta</th>'
+      +'<th>Monto</th><th>ProbPago</th><th>Recupero esperado</th><th>Propensión</th>'
+      +'</tr></thead><tbody>';
+    for(var k=0;k<idx.length;k++){
+      var j = idx[k], p = probs[j];
+      var m = parseFloat(String(filas[j].monto_deuda||'').replace(',','.'))||0;
+      var seg = p>=0.65?'Alta':(p>=0.35?'Media':'Baja');
+      // `csv.filas[j]` es la fila CRUDA del archivo del visitante: el id de
+      // cuenta puede traer cualquier cosa, incluido HTML. Va escapado.
+      var id = csv.filas[j].id_cuenta || csv.filas[j].id_deudor || ('#'+(j+1));
+      html += '<tr><td class="tnum">'+(k+1)+'</td><td>'+esc(id)+'</td>'
+        +'<td class="tnum">'+fmt(m)+'</td>'
+        +'<td class="tnum">'+Math.round(p*100)+'%</td>'
+        +'<td class="tnum">'+fmt(m*p)+'</td>'
+        +'<td><span class="pill '+seg+'">'+seg+'</span></td></tr>';
+    }
+    html += '</tbody></table></div>'
+      +'<p class="sub" style="margin-top:10px">El modelo está entrenado con datos '
+      +'<b>sintéticos</b>: esto muestra la mecánica del scoring y la priorización. '
+      +'El desempeño real se mide reentrenando con tu histórico de pagos.</p>';
+    caja.style.display='block';
+    caja.innerHTML = html;
+    caja.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+})();
 </script>
 </body>
 </html>
