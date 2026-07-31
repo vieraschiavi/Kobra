@@ -21,6 +21,7 @@ function Drawer({ id, onClose }) {
         <button className="btn ghost close" onClick={onClose}>✕</button>
         <h2>{id}</h2>
         {error && <div className="empty">{error}</div>}
+        {!d && !error && <div className="empty">{t("common.cargando")}</div>}
         {d && (
           <>
             <span className={"pill " + (d.segmento_propension || "").toLowerCase()}>
@@ -165,6 +166,7 @@ export default function Cartera() {
       )}
 
       {error && <div className="empty">{error}</div>}
+      {!datos && !error && <div className="empty">{t("common.cargando")}</div>}
       {datos && datos.total === 0 && <div className="empty">{t("cartera.toolbar.sin_resultados")}</div>}
       {datos && (
         <>

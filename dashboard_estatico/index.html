@@ -93,7 +93,7 @@
   .kpi .l{color:var(--muted);font-size:.78rem;margin-top:4px;}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;}
-  .card h3{font-size:1rem;margin-bottom:10px;color:var(--txt);}
+  .card h2,.card h3{font-size:1rem;margin-bottom:10px;color:var(--txt);font-weight:700}
   canvas{max-height:300px;}
   .toolbar{display:flex;gap:10px;align-items:center;margin:6px 0 12px;}
   button{background:var(--green);color:#08110d;border:none;border-radius:9px;
@@ -137,16 +137,16 @@
 <div class="kpis" id="kpis"></div>
 
 <div class="grid2">
-  <div class="card"><h3>Cartera vs. recupero esperado por tramo de mora (M$U)</h3><canvas id="chartTramo"></canvas></div>
-  <div class="card"><h3>Distribución por propensión de pago</h3><canvas id="chartProp"></canvas></div>
+  <div class="card"><h2>Cartera vs. recupero esperado por tramo de mora (M$U)</h2><canvas id="chartTramo"></canvas></div>
+  <div class="card"><h2>Distribución por propensión de pago</h2><canvas id="chartProp"></canvas></div>
 </div>
 <div class="grid2">
-  <div class="card"><h3>Recupero esperado por segmento (UYU)</h3><canvas id="chartSeg"></canvas></div>
-  <div class="card"><h3>Recupero esperado por estrategia (UYU)</h3><canvas id="chartEst"></canvas></div>
+  <div class="card"><h2>Recupero esperado por segmento (UYU)</h2><canvas id="chartSeg"></canvas></div>
+  <div class="card"><h2>Recupero esperado por estrategia (UYU)</h2><canvas id="chartEst"></canvas></div>
 </div>
 
 <div class="card">
-  <h3>Cartera priorizada</h3>
+  <h2>Cartera priorizada</h2>
   <div class="toolbar">
     <button onclick="exportCSV()">📄 Exportar CSV</button>
     <button class="alt" onclick="exportXLSX()">📊 Exportar Excel</button>
@@ -156,7 +156,7 @@
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h3>📞 Gestor IA por voz</h3>
+  <h2>📞 Gestor IA por voz</h2>
   <p class="sub" style="margin-bottom:10px;">Así llama y negocia MV Kobra AI por teléfono, con voz sintetizada en vivo (subí el volumen).</p>
   <div class="toolbar"><button onclick="reproducirLlamada()">▶ Reproducir llamada de ejemplo (con voz)</button>
     <button class="alt" onclick="detenerLlamada()">⏹ Detener</button>
@@ -165,7 +165,7 @@
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h3>💬 Negociador por WhatsApp</h3>
+  <h2>💬 Negociador por WhatsApp</h2>
   <p class="sub" style="margin-bottom:10px;">El mismo agente cierra por chat, manda el link de pago y registra todo solo.</p>
   <div class="toolbar"><button onclick="reproducirWhatsApp()">▶ Reproducir conversación de ejemplo</button>
     <span class="sub" id="wspInfo"></span></div>
@@ -173,9 +173,9 @@
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h3>🎧 Copiloto de Negociación</h3>
-  <p class="sub" style="margin-bottom:10px;">Pegá una conversación (WhatsApp o transcripción). Analizala <b>offline</b> en tu navegador, o con <b>IA en vivo</b> (motor neuronal real).</p>
-  <textarea id="convText" style="width:100%;height:150px;background:#0b0e16;color:var(--txt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.85rem;"></textarea>
+  <h2>🎧 Copiloto de Negociación</h2>
+  <p class="sub" id="convHint" style="margin-bottom:10px;">Pegá una conversación (WhatsApp o transcripción). Analizala <b>offline</b> en tu navegador, o con <b>IA en vivo</b> (motor neuronal real).</p>
+  <textarea id="convText" aria-labelledby="convHint" style="width:100%;height:150px;background:#0b0e16;color:var(--txt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.85rem;"></textarea>
   <div class="toolbar"><button onclick="analizarCopiloto()">⚡ Analizar offline</button>
     <button class="alt" onclick="analizarIA()">🤖 Analizar con IA en vivo</button>
     <span class="sub" id="copInfo"></span></div>
@@ -183,7 +183,7 @@
   <div id="copResult" style="display:none;">
     <div class="kpis cop-kpis" id="copKpis" style="grid-template-columns:repeat(4,1fr);"></div>
     <div class="grid2">
-      <div><h4 style="color:var(--muted);font-size:.85rem;margin-bottom:8px;">Sentimiento del cliente turno a turno</h4><canvas id="copSpark" style="max-height:180px;"></canvas>
+      <div><h3 style="color:var(--muted);font-size:.85rem;margin-bottom:8px;">Sentimiento del cliente turno a turno</h3><canvas id="copSpark" style="max-height:180px;"></canvas>
         <div style="margin-top:8px;"><b class="sub">Emociones:</b> <span id="copEmos"></span></div>
         <div style="margin-top:4px;"><b class="sub">Técnicas del gestor:</b> <span id="copTecs"></span></div>
       </div>
@@ -250,10 +250,10 @@ function renderAI(a){
 </script>
 
 <div class="card" style="margin-top:16px;">
-  <h3>📤 Resultados enviados a tu ERP</h3>
+  <h2>📤 Resultados enviados a tu ERP</h2>
   <p class="sub" style="margin-bottom:10px;">Cada gestión cerrada (voz, WhatsApp o copiloto) se sincroniza sola a tu ERP o base de datos — por API REST, SQL o archivo. Así se ve del otro lado:</p>
   <div class="kpis" id="erpKpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px"></div>
-  <h4 style="margin-bottom:10px;color:var(--muted);font-size:.9rem">Evolución de recupero (últimos 30 días)</h4>
+  <h3 style="margin-bottom:10px;color:var(--muted);font-size:.9rem">Evolución de recupero (últimos 30 días)</h3>
   <canvas id="chartEvol" style="max-height:220px;margin-bottom:18px"></canvas>
   <div class="toolbar">
     <button onclick="exportResultadosCSV()">📄 CSV</button>
@@ -290,13 +290,14 @@ const fc=document.getElementById('filters');
 FILTERS.forEach(f=>{
   const opts=f.opts||uniq(f.k);
   const div=document.createElement('div');
-  div.innerHTML=`<label>${f.label}</label><select id="f_${f.k}">
+  div.innerHTML=`<label for="f_${f.k}">${esc(f.label)}</label><select id="f_${f.k}">
     <option value="">Todos</option>${opts.map(o=>`<option>${o}</option>`).join('')}</select>`;
   fc.appendChild(div);
 });
 const pmDiv=document.createElement('div');
-pmDiv.innerHTML=`<label>ProbPago mínima: <span id="pmVal">0%</span></label>
-  <input type="range" id="f_prob" min="0" max="100" value="0">`;
+pmDiv.innerHTML=`<label for="f_prob">ProbPago mínima: <span id="pmVal">0%</span></label>
+  <input type="range" id="f_prob" min="0" max="100" value="0"
+         aria-label="ProbPago mínima, en porcentaje">`;
 fc.appendChild(pmDiv);
 fc.addEventListener('input',render);
 
