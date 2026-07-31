@@ -12,6 +12,12 @@ de la copia de un cliente.
   activación ni contraseña — entra como Administrador automáticamente.
 - **Acceso completo**: todas las empresas (tenants), todas las pantallas,
   todas las funciones de admin.
+
+Verificado levantando la misma app dos veces, owner y cliente, y golpeando
+cada endpoint: **el owner llega a los 27/27**, la entrada directa responde 200
+y la licencia informa `plan: owner` sin días. La copia de un cliente sin
+licencia llega a 3/27 y esa misma entrada le devuelve 404. No queda ninguna
+puerta cerrada del lado del dueño (`tests/test_owner_sin_restricciones.py`).
 - Lo activa la variable de entorno `KOBRA_OWNER=1` sobre el modo standalone.
   El server escucha **solo en 127.0.0.1** (tu propia máquina) — el endpoint
   de entrada directa devuelve 404 en cualquier otro modo, así que la copia
@@ -25,7 +31,40 @@ de la copia de un cliente.
 
 ## Cómo usarla
 
-### A) Sin instalar NADA a mano → doble clic en `MVKobraAI_Owner_desde_codigo.bat`
+### 0) Descargarla lista desde GitHub (lo más rápido)
+
+La edición Owner se publica como release **de este repositorio privado**:
+
+```
+https://github.com/vieraschiavi/Kobra/releases   →   MVKobraAI_Owner_vX.Y.Z.zip
+```
+
+Descomprimís y tenés dos opciones:
+
+| Archivo | Qué hace |
+|---|---|
+| `INSTALAR.bat` | Deja el programa **instalado**: icono propio, acceso en el Escritorio, entrada en el Menú Inicio y desinstalador en «Agregar o quitar programas». No pide administrador. |
+| `INICIAR_OWNER.bat` | Lo abre sin instalar nada. |
+
+Al desinstalar, tus datos **no** se borran salvo que lo pidas expresamente.
+
+Para generar el ZIP vos mismo (o publicar una versión nueva):
+
+```
+python packaging/build_release.py --edicion Owner     # queda en dist/
+```
+
+Y para publicarlo: Actions → **Release Owner** → Run workflow, o taguear
+`owner-vX.Y.Z`.
+
+> **Nunca en el repo público de descargas.** `mv-kobra-ai-releases` es público y
+> es donde va el instalador de clientes. Esta edición arranca sin licencia y sin
+> vencimiento: publicarla ahí sería regalar el producto completo. Por eso el
+> workflow escribe solo en las releases de este repo privado y con
+> `make_latest: false`, para no robarle el enlace `latest` al instalador de
+> clientes.
+
+### A) Desde el código, sin instalar NADA a mano → doble clic en `MVKobraAI_Owner_desde_codigo.bat`
 **Esta es la vía recomendada si no tenés el instalador.** El .bat prepara
 todo solo, sin que instales nada previo:
 1. Si falta Python 3.11+, lo **descarga del sitio oficial e instala en
@@ -38,7 +77,11 @@ todo solo, sin que instales nada previo:
 4. Instala las dependencias (`requirements.txt`).
 5. Usa la interfaz **ya compilada** que viene en `owner/ui_dist/` — **no
    necesita Node**.
-6. Arranca en modo owner y abre en una **ventana de app** (limpia, sin barra
+6. **Deja el programa instalado**: icono propio, acceso directo en el
+   Escritorio, entrada en el Menú Inicio y desinstalador en «Agregar o quitar
+   programas». Todo en tu perfil de usuario y en `HKCU`, así que no pide
+   permisos de administrador.
+7. Arranca en modo owner y abre en una **ventana de app** (limpia, sin barra
    de navegador, se ve como app de escritorio — usa Chrome o Edge, sin sumar
    el peso de Electron).
 
