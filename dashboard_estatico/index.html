@@ -218,22 +218,34 @@ function analizarIA(){
    })
    .catch(function(e){ if(info) info.textContent=''; renderAI({_error:'Sin conexión con la IA: '+e}); });
 }
-function chip(t,c){return '<span style="display:inline-block;background:'+(c||'rgba(0,200,150,.16)')+';color:#eaf1fb;padding:3px 10px;border-radius:12px;font-size:.75rem;margin:2px 4px 2px 0">'+t+'</span>';}
+// Escape para todo lo que venga de la API, del dataset o del cliente antes de
+// entrar a innerHTML. El HTML de esta pagina es propio y estatico; lo que NO es
+// propio son los valores: el analisis del modelo, los mensajes de error y las
+// filas de la cartera — que en una instalacion real es un CSV que sube el
+// cliente. Un nombre de deudor con "<img onerror=...>" ejecutaria en el
+// dashboard de quien lo abra.
+function esc(v){
+  if(v===null||v===undefined) return '';
+  return String(v).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function chip(t,c){return '<span style="display:inline-block;background:'+esc(c||'rgba(0,200,150,.16)')+';color:#eaf1fb;padding:3px 10px;border-radius:12px;font-size:.75rem;margin:2px 4px 2px 0">'+esc(t)+'</span>';}
 function renderAI(a){
   var box=document.getElementById('copAI'); if(!box) return; box.style.display='block';
-  if(a._error){ box.innerHTML='<b style="color:var(--yellow)">⚠️ '+a._error+'</b>'; return; }
-  if(a._raw && !a.sentimiento){ box.innerHTML='<b style="color:var(--green)">🤖 IA:</b><div style="margin-top:8px;white-space:pre-wrap;font-size:.85rem">'+String(a._raw).replace(/[<>]/g,'')+'</div>'; return; }
+  if(a._error){ box.innerHTML='<b style="color:var(--yellow)">⚠️ '+esc(a._error)+'</b>'; return; }
+  if(a._raw && !a.sentimiento){ box.innerHTML='<b style="color:var(--green)">🤖 IA:</b><div style="margin-top:8px;white-space:pre-wrap;font-size:.85rem">'+esc(a._raw)+'</div>'; return; }
   var temp=Math.max(0,Math.min(100,parseInt(a.temperatura,10)||0));
   var sc=a.sentimiento==='Positivo'?'var(--green)':a.sentimiento==='Negativo'?'var(--red)':'var(--yellow)';
   var tecs=(a.tecnicas||[]).map(function(t){return chip(t)}).join('')||'<span class="sub">—</span>';
   box.innerHTML=
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><b style="color:var(--green)">🤖 Análisis de IA (en vivo)</b>'
-    +'<span class="pill" style="background:rgba(0,200,150,.16);color:'+sc+'">'+(a.sentimiento||'—')+'</span></div>'
+    +'<span class="pill" style="background:rgba(0,200,150,.16);color:'+sc+'">'+esc(a.sentimiento||'—')+'</span></div>'
     +'<div class="sub" style="margin-bottom:4px">Temperatura del cliente</div>'
     +'<div style="height:9px;background:#1a1f2e;border-radius:6px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:'+temp+'%;background:'+sc+'"></div></div>'
     +'<div style="margin-bottom:8px"><b class="sub">Técnicas detectadas:</b><br>'+tecs+'</div>'
-    +'<div style="margin-bottom:8px"><b class="sub">Próxima jugada:</b> '+(a.proxima_jugada||'—')+'</div>'
-    +'<div style="background:#101a2b;border:1px solid var(--border);border-radius:10px;padding:10px 12px"><b class="sub" style="color:var(--green)">Guion sugerido:</b><br>'+(a.guion||'—')+'</div>';
+    +'<div style="margin-bottom:8px"><b class="sub">Próxima jugada:</b> '+esc(a.proxima_jugada||'—')+'</div>'
+    +'<div style="background:#101a2b;border:1px solid var(--border);border-radius:10px;padding:10px 12px"><b class="sub" style="color:var(--green)">Guion sugerido:</b><br>'+esc(a.guion||'—')+'</div>';
 }
 </script>
 
@@ -347,13 +359,13 @@ function render(){
     'canal_recomendado','valor_esperado_recupero'];
   const head=['#','ID','Segmento','Producto','Depto','Tramo','Monto','ProbPago','Prop.','Estrategia','Desc.','Canal','Recupero esp.'];
   const sorted=[...rows].sort((a,b)=>a.prioridad-b.prioridad).slice(0,300);
-  let html='<thead><tr>'+head.map(h=>`<th>${h}</th>`).join('')+'</tr></thead><tbody>';
+  let html='<thead><tr>'+head.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>';
   sorted.forEach(r=>{html+='<tr>'+cols.map(c=>{
-    if(c==='monto_deuda'||c==='valor_esperado_recupero')return `<td>${fmt(r[c])}</td>`;
+    if(c==='monto_deuda'||c==='valor_esperado_recupero')return `<td>${esc(fmt(r[c]))}</td>`;
     if(c==='probpago')return `<td>${Math.round(r[c]*100)}%</td>`;
     if(c==='descuento_recomendado')return `<td>${Math.round(r[c]*100)}%</td>`;
-    if(c==='segmento_propension')return `<td><span class="pill ${r[c]}">${r[c]}</span></td>`;
-    return `<td>${r[c]}</td>`;}).join('')+'</tr>';});
+    if(c==='segmento_propension')return `<td><span class="pill ${esc(r[c])}">${esc(r[c])}</span></td>`;
+    return `<td>${esc(r[c])}</td>`;}).join('')+'</tr>';});
   document.getElementById('tabla').innerHTML=html+'</tbody>';
   document.getElementById('rowInfo').textContent=`${fmt(rows.length)} registros filtrados · mostrando top 300 por prioridad`;
   window._filtered=rows;
@@ -450,6 +462,11 @@ var _G = ((typeof window!=='undefined' && window.GUIONES) || {})[IDIOMA]
       || ((typeof window!=='undefined' && window.GUIONES) || {}).es || {};
 var CALL_SCRIPT = _G.llamada || [];
 var TXT = _G.ui || {};
+// `text` NO se escapa a proposito: sale de guiones.js, que es contenido propio
+// y estatico del sitio (los guiones de la demo en los tres idiomas). No hay
+// ninguna via por la que un dato de usuario, de la API o del dataset llegue
+// hasta aca. Si algun dia esta funcion se usa para pintar una conversacion
+// real, el texto tiene que pasar por esc().
 function chatBubble(who,text,styleOut,styleIn,labelOut,labelIn){
   var b=document.createElement('div');
   var out=who==='ia';

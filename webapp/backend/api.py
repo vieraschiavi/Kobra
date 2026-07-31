@@ -34,7 +34,8 @@ import time
 from datetime import datetime, timezone
 
 import pandas as pd
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Response, UploadFile
+from fastapi import (Depends, FastAPI, File, Header, HTTPException, Request,
+                     Response, UploadFile)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -49,6 +50,7 @@ from kobra import ayuda as kayuda                  # noqa: E402
 from kobra import cartera_manual as kcartera       # noqa: E402
 from kobra import config as kconfig                # noqa: E402
 from kobra import informe_ejecutivo as kinforme    # noqa: E402
+from kobra import limitador as klimite             # noqa: E402
 from kobra import llm as kllm                      # noqa: E402
 from kobra import paises as kpaises                # noqa: E402
 from kobra import registro as kregistro            # noqa: E402
@@ -429,6 +431,57 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                    allow_headers=["*"])
 
 
+# ---------------------------------------------------------------------------
+# Cabeceras de seguridad
+# ---------------------------------------------------------------------------
+# La API devuelve JSON, CSV, XLSX y PDF con datos de deudores. Sin estas
+# cabeceras el navegador queda libre de adivinar el tipo de un archivo subido
+# por el cliente (`X-Content-Type-Options`) y de mandar la URL completa —con el
+# id del deudor adentro— a cualquier sitio externo al que se navegue después
+# (`Referrer-Policy`). La CSP acá es la de una API: no ejecuta nada.
+CABECERAS_SEGURIDAD = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    "Cross-Origin-Resource-Policy": "same-site",
+}
+
+
+@app.middleware("http")
+async def _cabeceras_seguridad(request: Request, call_next):
+    respuesta = await call_next(request)
+    for k, v in CABECERAS_SEGURIDAD.items():
+        respuesta.headers.setdefault(k, v)
+    return respuesta
+
+
+# ---------------------------------------------------------------------------
+# Límite de intentos en la puerta pública
+# ---------------------------------------------------------------------------
+# Estos tres endpoints son los únicos que aceptan un secreto sin tener sesión
+# —contraseña de admin y token de licencia—, así que son los únicos que se
+# pueden probar a fuerza bruta. Cada uno lleva su propio cubo: gastar los
+# intentos de licencia no puede dejar afuera a quien está intentando entrar.
+_LIMITE_LOGIN = klimite.Limitador()
+_LIMITE_LICENCIA = klimite.Limitador()
+_LIMITE_SETUP = klimite.Limitador()
+
+
+def _frenar(limitador: klimite.Limitador, request: Request, accion: str) -> str:
+    """Consume un intento o corta con 429. Devuelve la clave, para poder
+    perdonar el intento si resultó correcto."""
+    clave = f"{accion}:{klimite.ip_de(request)}"
+    try:
+        limitador.intentar(clave)
+    except klimite.LimiteIntentos as e:
+        raise HTTPException(
+            429,
+            f"Demasiados intentos. Esperá {e.espera_seg} segundos y probá de nuevo.",
+            headers={"Retry-After": str(e.espera_seg)})
+    return clave
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True, "servicio": "mv-kobra-api"}
@@ -470,13 +523,14 @@ class SetupIn(BaseModel):
 
 
 @app.post("/api/auth/setup")
-def auth_setup(datos: SetupIn):
+def auth_setup(datos: SetupIn, request: Request):
     """Primer arranque: crea la contraseña de administrador desde la propia
     webapp (antes había que abrir el dashboard Streamlit, imposible en hosting).
     Solo funciona si TODAVÍA no hay admin — si ya existe, devuelve 409 para no
     permitir reset sin autenticación. Deja la sesión iniciada.
 
     No existe en la copia instalada de un cliente: ahí se entra por licencia."""
+    _frenar(_LIMITE_SETUP, request, "setup")
     _sin_puerta_por_password()
     if kauth.configurado():
         raise HTTPException(409, "El administrador ya está configurado. Iniciá sesión.")
@@ -489,7 +543,11 @@ def auth_setup(datos: SetupIn):
 
 
 @app.post("/api/auth/login")
-def auth_login(datos: LoginIn):
+def auth_login(datos: LoginIn, request: Request):
+    # El freno va ANTES de verificar: si se comprobara primero la contraseña,
+    # el atacante ya habría conseguido lo que buscaba (saber si acertó) y el
+    # límite solo le ahorraría trabajo al servidor, no se lo negaría a él.
+    clave = _frenar(_LIMITE_LOGIN, request, "login")
     _sin_puerta_por_password()
     if not kauth.configurado():
         raise HTTPException(409, "Todavía no hay contraseña de administrador creada — "
@@ -501,6 +559,9 @@ def auth_login(datos: LoginIn):
             break
     if not rol:
         raise HTTPException(401, "Contraseña incorrecta.")
+    # Acertó: se le devuelve el intento. El límite castiga el tanteo, no al
+    # usuario que se equivocó una vez y después entró bien.
+    _LIMITE_LOGIN.perdonar(clave)
     return {"token": _emitir_token(rol, datos.empresa), "rol": rol,
             "empresa": datos.empresa}
 
@@ -546,7 +607,10 @@ def licencia_owner_login():
 
 
 @app.post("/api/licencia/activar")
-def licencia_activar(datos: LicenciaIn):
+def licencia_activar(datos: LicenciaIn, request: Request):
+    # Un token de licencia es un secreto que se puede tantear: sin freno, un
+    # script prueba candidatos hasta dar con uno vigente.
+    clave = _frenar(_LIMITE_LICENCIA, request, "licencia")
     if not MODO_STANDALONE:
         raise HTTPException(404, "Este endpoint es solo para la versión standalone.")
     r = klicencias.licencia_activa(datos.token)
@@ -555,6 +619,7 @@ def licencia_activar(datos: LicenciaIn):
                   if r["error"] == "licencia_expirada" else
                   "Licencia inválida — revisá que la copiaste completa.")
         raise HTTPException(400, mensaje)
+    _LIMITE_LICENCIA.perdonar(clave)
     kconfig.guardar_extra(_CLAVE_LICENCIA, datos.token)
     estado = _estado_licencia(datos.token)
     return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
