@@ -84,8 +84,13 @@ def _rdp(puntos, epsilon: float):
         if largo == 0:
             dist = np.hypot(*(tramo - a).T)
         else:
-            # Distancia punto-recta por producto cruzado.
-            dist = np.abs(np.cross(seg, tramo - a)) / largo
+            # Distancia punto-recta por producto cruzado (componente z del
+            # cruz 3D con z=0, que es exactamente esta resta cruzada — se
+            # escribe así, sin pasar por `np.cross`, porque NumPy 2.0 deprecó
+            # `cross` sobre vectores 2D y pide vectores 3D; acá no hace falta
+            # cargar una tercera coordenada que siempre es cero).
+            d = tramo - a
+            dist = np.abs(seg[0] * d[:, 1] - seg[1] * d[:, 0]) / largo
         k = int(np.argmax(dist))
         if dist[k] > epsilon:
             corte = ini + 1 + k

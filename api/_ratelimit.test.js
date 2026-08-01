@@ -63,6 +63,13 @@ test("ipDe cae a x-real-ip si no hay x-forwarded-for", () => {
   assert.equal(ipDe({ headers: { "x-real-ip": "203.0.113.7" } }), "203.0.113.7");
 });
 
+test("ipDe no explota si req.headers falta", () => {
+  // Se cayó en un test de otro endpoint que armaba el req a mano sin
+  // `headers`: en Vercel real siempre está, pero que un `req` incompleto
+  // tire un TypeError sin responder nada es peor que devolver "desconocido".
+  assert.equal(ipDe({}), "desconocido");
+});
+
 test("las fichas se recargan con el tiempo", async () => {
   const clave = "recarga-test";
   for (let i = 0; i < 2; i++) permitir(clave, 2, 0.1); // 2 fichas, ventana 100 ms

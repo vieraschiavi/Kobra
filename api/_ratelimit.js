@@ -18,9 +18,10 @@
 const cubos = new Map(); // clave -> {fichas, visto}
 
 function ipDe(req) {
-  const xff = req.headers["x-forwarded-for"];
+  const headers = req.headers || {};
+  const xff = headers["x-forwarded-for"];
   if (xff) return String(xff).split(",")[0].trim();
-  return req.headers["x-real-ip"] || (req.socket && req.socket.remoteAddress) || "desconocido";
+  return headers["x-real-ip"] || (req.socket && req.socket.remoteAddress) || "desconocido";
 }
 
 function purgar(ahora, ventanaSeg) {

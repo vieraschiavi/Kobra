@@ -23,6 +23,7 @@ Ejecutar:
 import os
 import sys
 import tempfile
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
@@ -48,13 +49,6 @@ from realtime import connectors  # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
-app = FastAPI(title="MV Kobra AI · Copiloto en Vivo")
-# Red de seguridad general. El tope de concurrencia (`kconc`) limita cuántas
-# sesiones están abiertas A LA VEZ; esto limita cuántas peticiones llegan por
-# IP EN EL TIEMPO — son cosas distintas, y sin esta un atacante que abre y
-# cierra rápido nunca toca el tope de concurrencia. Cubre HTTP y los
-# WebSockets (/ws, /ws_audio, /twilio) por igual: ver LimitadorGeneral.
-app.add_middleware(klimite.LimitadorGeneral)
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -78,10 +72,27 @@ def _ampliar_threadpool(minimo: int) -> None:
         pass   # sin anyio o fuera de un loop: queda el default
 
 
-@app.on_event("startup")
-async def _preparar_capacidad():
+async def _preparar_capacidad() -> None:
     # +8 hilos de holgura para las subidas de audio y el resto de los endpoints.
     _ampliar_threadpool(kconc.MAX_SIMULTANEAS + 8)
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    # `@app.on_event("startup")` está deprecado en FastAPI a favor de esto
+    # (un context manager: lo de antes del `yield` corre al arrancar, lo de
+    # después al apagar — acá no hay nada que limpiar al apagar).
+    await _preparar_capacidad()
+    yield
+
+
+app = FastAPI(title="MV Kobra AI · Copiloto en Vivo", lifespan=_lifespan)
+# Red de seguridad general. El tope de concurrencia (`kconc`) limita cuántas
+# sesiones están abiertas A LA VEZ; esto limita cuántas peticiones llegan por
+# IP EN EL TIEMPO — son cosas distintas, y sin esta un atacante que abre y
+# cierra rápido nunca toca el tope de concurrencia. Cubre HTTP y los
+# WebSockets (/ws, /ws_audio, /twilio) por igual: ver LimitadorGeneral.
+app.add_middleware(klimite.LimitadorGeneral)
 
 
 @app.get("/")
