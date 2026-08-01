@@ -246,3 +246,94 @@ def test_cupo_concurrente_no_deja_pasar_de_mas(entorno):
 
     assert resultados.count("permitido") == cupo
     assert uso.gestiones_mes(cliente) == cupo
+
+
+# --- El camino real del webhook: pago aprobado / rechazado / plan inválido -
+# Antes, `test_webhook_ignora_eventos_no_payment` y
+# `test_webhook_sin_mp_token_falla_controlado` solo probaban los cortocircuitos
+# PREVIOS a consultar MercadoPago. El camino real —pago aprobado de verdad
+# emite licencia, uno rechazado NO— nunca corría en un test.
+class _RespuestaFalsaMP:
+    def __init__(self, ok, cuerpo):
+        self.ok = ok
+        self._cuerpo = cuerpo
+
+    def json(self):
+        return self._cuerpo
+
+
+def test_webhook_pago_aprobado_emite_licencia_y_token(entorno, monkeypatch):
+    app_mod, licencias, uso, descargas = entorno
+    monkeypatch.setenv("MP_ACCESS_TOKEN", "TEST-token")
+    monkeypatch.setattr(
+        app_mod.requests, "get",
+        lambda *a, **k: _RespuestaFalsaMP(True, {
+            "status": "approved",
+            "metadata": {"plan": "pro", "email": "compra@mail.com"},
+        }))
+    client = TestClient(app_mod.app)
+    r = client.post("/webhooks/mercadopago", json={"type": "payment", "data": {"id": "999"}})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert body["plan"] == "pro"
+    assert body["licencia"], "un pago aprobado tiene que emitir una licencia"
+    assert body["token_descarga"], "y un token de descarga de un solo uso"
+    # la licencia emitida tiene que ser una de verdad, no un string cualquiera
+    r2 = licencias.licencia_activa(body["licencia"])
+    assert r2["ok"] is True
+    assert r2["claims"]["plan"] == "pro"
+
+
+@pytest.mark.parametrize("estado", ["pending", "rejected", "in_process"])
+def test_webhook_pago_no_aprobado_no_emite_nada(entorno, monkeypatch, estado):
+    """El caso simétrico al de arriba: si MercadoPago dice que el pago NO
+    está aprobado, no puede salir ninguna licencia — regalar el producto es
+    el peor bug posible acá."""
+    app_mod, licencias, uso, descargas = entorno
+    monkeypatch.setenv("MP_ACCESS_TOKEN", "TEST-token")
+    monkeypatch.setattr(
+        app_mod.requests, "get",
+        lambda *a, **k: _RespuestaFalsaMP(True, {
+            "status": estado, "metadata": {"plan": "pro"}}))
+    client = TestClient(app_mod.app)
+    r = client.post("/webhooks/mercadopago", json={"type": "payment", "data": {"id": "888"}})
+    assert r.status_code == 200
+    body = r.json()
+    assert "licencia" not in body
+    assert body["estado"] == estado
+
+
+def test_webhook_mercadopago_responde_error_http(entorno, monkeypatch):
+    app_mod, licencias, uso, descargas = entorno
+    monkeypatch.setenv("MP_ACCESS_TOKEN", "TEST-token")
+    monkeypatch.setattr(app_mod.requests, "get", lambda *a, **k: _RespuestaFalsaMP(False, {}))
+    client = TestClient(app_mod.app)
+    r = client.post("/webhooks/mercadopago", json={"type": "payment", "data": {"id": "777"}})
+    assert r.status_code == 502
+
+
+def test_webhook_plan_desconocido_cae_a_starter(entorno, monkeypatch):
+    """Si `metadata.plan` trae algo que no está en `licencias.PLANES` (un bug
+    del lado de checkout, o alguien mandando un webhook a mano), emitir
+    starter es más seguro que reventar o inventar un plan."""
+    app_mod, licencias, uso, descargas = entorno
+    monkeypatch.setenv("MP_ACCESS_TOKEN", "TEST-token")
+    monkeypatch.setattr(
+        app_mod.requests, "get",
+        lambda *a, **k: _RespuestaFalsaMP(True, {
+            "status": "approved", "metadata": {"plan": "plan-que-no-existe"}}))
+    client = TestClient(app_mod.app)
+    r = client.post("/webhooks/mercadopago", json={"type": "payment", "data": {"id": "666"}})
+    assert r.status_code == 200
+    assert r.json()["plan"] == "starter"
+
+
+def test_emitir_licencia_con_plan_invalido_da_400(entorno):
+    app_mod, licencias, uso, descargas = entorno
+    token = app_mod._admin_token()
+    client = TestClient(app_mod.app)
+    r = client.post("/licencias/emitir",
+                    json={"cliente_id": "x@mail.com", "plan": "plan-inventado"},
+                    headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 400

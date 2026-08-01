@@ -127,3 +127,69 @@ def intentos_por_worker(workers: int = 1) -> dict:
     """El límite es POR PROCESO: con N workers el techo real se multiplica."""
     return {"por_worker": INTENTOS, "workers": max(int(workers), 1),
             "total": INTENTOS * max(int(workers), 1), "ventana_seg": VENTANA_SEG}
+
+
+# Defaults para el freno GENERAL (no el de la puerta de entrada de arriba):
+# cualquier request, no solo login/licencia. 120 cada 60 s por IP y por ruta
+# es holgado para un usuario real —incluido el polling del dashboard— y corto
+# para un script.
+PETICIONES = max(int(os.getenv("KOBRA_RATE_PETICIONES", "120")), 1)
+PETICIONES_VENTANA_SEG = max(int(os.getenv("KOBRA_RATE_VENTANA_SEG", "60")), 1)
+
+
+class LimitadorGeneral:
+    """Middleware ASGI puro — cubre HTTP y WebSocket por igual.
+
+    `@app.middleware("http")` de Starlette/FastAPI NO envuelve el handshake de
+    WebSocket: un decorador puesto así dejaría `/ws`, `/ws_audio` y `/twilio`
+    —los endpoints de voz en vivo, exactamente donde más importa— completamente
+    afuera del freno. Por eso esto es un middleware ASGI real, agregado con
+    `app.add_middleware(LimitadorGeneral)`, no un decorador de ruta HTTP.
+
+    Es la RED DE SEGURIDAD general: cubre todo endpoint público sin necesidad
+    de acordarse de agregarlo ruta por ruta. Los límites más estrictos que ya
+    existen (`_frenar()` en login/licencia/setup, o el de `/voz/llamar`) se
+    mantienen aparte — éste es más laxo a propósito, para no molestar a un uso
+    normal, y actúa como piso para todo lo que a alguien se le olvide frenar
+    a mano.
+    """
+
+    def __init__(self, app, permitidos: int | None = None,
+                 ventana_seg: int | None = None, exentas: tuple = ()):
+        self.app = app
+        self.limitador = Limitador(
+            PETICIONES if permitidos is None else permitidos,
+            PETICIONES_VENTANA_SEG if ventana_seg is None else ventana_seg)
+        # Salud/capacidad: los pega un monitor de uptime cada pocos segundos
+        # desde SIEMPRE la misma IP (el propio orquestador). Frenarlos apaga
+        # las alertas justo cuando algo anda mal.
+        self.exentas = set(exentas) | {"/health", "/api/health", "/salud", "/capacidad"}
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+        path = scope.get("path", "")
+        if path in self.exentas:
+            await self.app(scope, receive, send)
+            return
+
+        from starlette.requests import HTTPConnection
+        conexion = HTTPConnection(scope)
+        clave = f"general:{ip_de(conexion)}:{path}"
+        try:
+            self.limitador.intentar(clave)
+        except LimiteIntentos as e:
+            if scope["type"] == "websocket":
+                # 1013 = "Try Again Later" (RFC 6455 / IANA): lo más parecido
+                # a un 429 que tiene el protocolo de WebSocket.
+                await send({"type": "websocket.close", "code": 1013,
+                            "reason": f"demasiadas conexiones, reintentar en {e.espera_seg}s"})
+            else:
+                from starlette.responses import JSONResponse
+                respuesta = JSONResponse(
+                    {"detail": f"Demasiadas peticiones. Esperá {e.espera_seg} segundos y probá de nuevo."},
+                    status_code=429, headers={"Retry-After": str(e.espera_seg)})
+                await respuesta(scope, receive, send)
+            return
+        await self.app(scope, receive, send)

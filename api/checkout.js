@@ -9,6 +9,7 @@
 // navega él mismo a la URL de pago que devolvemos.
 
 const { checkBotId } = require("botid/server");
+const { limitar } = require("./_ratelimit");
 
 const PLANS = {
   basico:  { title: "MV Kobra AI · Básico (mensual)",    price: 99.0 },
@@ -25,6 +26,9 @@ const TASA_UYU = Number(process.env.MP_TASA_UYU) || 40; // mismo valor de refere
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
+  // 10 por minuto por IP: de sobra para alguien probando planes, corto para
+  // un script golpeando la API de MercadoPago a través de este endpoint.
+  if (!limitar(req, res, "checkout", 10, 60)) return;
 
   const verification = await checkBotId({ advancedOptions: { headers: req.headers } });
   if (verification.isBot) { res.status(403).json({ error: "bot" }); return; }

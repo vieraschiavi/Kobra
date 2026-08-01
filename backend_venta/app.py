@@ -33,10 +33,16 @@ from fastapi.responses import FileResponse
 from backend_venta import descargas, licencias, uso
 from kobra import auditoria as kauditoria
 from kobra import config as kconfig
+from kobra import limitador as klimite
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 app = FastAPI(title="MV Kobra AI · Backend de venta", version="1.0.0")
+# Red de seguridad general: `requerir_licencia`/`requerir_admin` no tenían
+# ningún freno de intentos —a diferencia del login de webapp/backend/api.py—,
+# así que se podía tantear el token Bearer sin límite. Esto cubre eso y todo
+# el resto (webhook de MercadoPago, gateways medidos) de una sola vez.
+app.add_middleware(klimite.LimitadorGeneral)
 
 
 # ---------------------------------------------------------------------------

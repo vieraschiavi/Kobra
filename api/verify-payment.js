@@ -3,8 +3,14 @@
 // Si el pago está aprobado, emite automáticamente la licencia MV Kobra AI (firmada).
 
 const { sign } = require("./_license");
+const { limitar } = require("./_ratelimit");
 
 module.exports = async (req, res) => {
+  // Sin esto se podía tantear payment_id a la velocidad que diera la red: es
+  // un endpoint público, sin bot-check, que consulta la API de MercadoPago.
+  // 20 por minuto alcanza para el polling normal de /descarga tras pagar.
+  if (!limitar(req, res, "verify-payment", 20, 60)) return;
+
   const paymentId = String((req.query && req.query.payment_id) || "").trim();
   if (!paymentId || !/^[0-9]+$/.test(paymentId)) {
     res.status(400).json({ approved: false, error: "payment_id inválido" });

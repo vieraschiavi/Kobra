@@ -450,6 +450,9 @@ app = FastAPI(title="MV Kobra AI · API", version="1.0",
               default_response_class=JSONLimpia)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                    allow_headers=["*"])
+# Red de seguridad general: cubre TODO endpoint público (48+ en este archivo),
+# no solo login/licencia/setup, que ya tienen su freno más estricto aparte.
+app.add_middleware(klimite.LimitadorGeneral)
 
 
 # ---------------------------------------------------------------------------

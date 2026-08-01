@@ -151,8 +151,8 @@ En una máquina limpia, dos comandos y listo:
 
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q tests/                            # 416 tests
-ruff check .                                          # linter
+python -m pytest -q tests/                            # ~560 tests
+ruff check .                                           # linter
 ```
 
 `requirements-dev.txt` trae lo que hace falta **además** para testear (`pytest`,
@@ -163,6 +163,21 @@ correr la suite.
 Los tests que necesitan `ffmpeg` (regeneración del audio de la demo) se saltean
 solos si no está: es una dependencia de **sistema**, no de pip, y su ausencia no
 puede romper la suite entera.
+
+### Tests de las funciones serverless (`api/*.js`)
+
+La parte del dinero que corre en Vercel —checkout, verificación de pago,
+firma de licencia— tiene su propia suite, sin dependencias nuevas:
+
+```bash
+npm install    # una vez, para tener `botid` (bot-check) disponible
+npm test       # node --test, viene con Node 18+
+```
+
+No usa Jest ni Vitest a propósito: agregar un test runner de terceros para
+esto sería exactamente el tipo de dependencia extra que este proyecto evita
+cuando alcanza con lo que ya trae el lenguaje (ver el docstring de
+`kobra/limitador.py`).
 
 ### 🪟 Instalador standalone para Windows (programa, sin instalar Python)
 

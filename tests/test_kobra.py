@@ -400,7 +400,15 @@ def test_g711_codecs_bit_exactos():
     assert np.max(np.abs(ulaw_to_float(lin_a_ulaw(xs)) - xs)) < 0.04
     assert np.max(np.abs(alaw_to_float(lin_a_alaw(xs)) - xs)) < 0.04
     try:
-        import audioop  # referencia (no existe en 3.13+)
+        # `audioop` es solo el oráculo para probar que la reimplementación
+        # propia es bit-exacta — no se usa en el código que se distribuye,
+        # así que se acepta que esté deprecada (y desaparezca en 3.13+, de ahí
+        # el `except ImportError`) en vez de instalar `audioop-lts` para un
+        # test. Se silencia el warning puntual, no todos los de este archivo.
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            import audioop
         pcm = (np.clip(np.arange(-32768, 32768, dtype=np.int32), -32767, 32767)
                .astype(np.int16).tobytes())
         assert lin_a_ulaw(xs) == audioop.lin2ulaw(pcm, 2)
@@ -441,7 +449,10 @@ def test_stream_decoders():
     u = connectors.ulaw_to_float(bytes(range(256)))
     assert u.shape[0] == 256 and -1.0 <= u.min() and u.max() <= 1.0
     try:
-        import audioop
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            import audioop
         ref = (np.frombuffer(audioop.ulaw2lin(bytes(range(256)), 2), dtype=np.int16)
                .astype(np.float32) / 32768.0)
         assert np.array_equal(u, ref)          # bit-exacto vs. audioop

@@ -23,6 +23,7 @@ Ejecutar:
 import os
 import sys
 import tempfile
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
@@ -43,11 +44,11 @@ from kobra import (
 )
 from kobra import concurrencia as kconc  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
+from kobra import limitador as klimite  # noqa: E402
 from realtime import connectors  # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
-app = FastAPI(title="MV Kobra AI · Copiloto en Vivo")
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -71,10 +72,27 @@ def _ampliar_threadpool(minimo: int) -> None:
         pass   # sin anyio o fuera de un loop: queda el default
 
 
-@app.on_event("startup")
-async def _preparar_capacidad():
+async def _preparar_capacidad() -> None:
     # +8 hilos de holgura para las subidas de audio y el resto de los endpoints.
     _ampliar_threadpool(kconc.MAX_SIMULTANEAS + 8)
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    # `@app.on_event("startup")` está deprecado en FastAPI a favor de esto
+    # (un context manager: lo de antes del `yield` corre al arrancar, lo de
+    # después al apagar — acá no hay nada que limpiar al apagar).
+    await _preparar_capacidad()
+    yield
+
+
+app = FastAPI(title="MV Kobra AI · Copiloto en Vivo", lifespan=_lifespan)
+# Red de seguridad general. El tope de concurrencia (`kconc`) limita cuántas
+# sesiones están abiertas A LA VEZ; esto limita cuántas peticiones llegan por
+# IP EN EL TIEMPO — son cosas distintas, y sin esta un atacante que abre y
+# cierra rápido nunca toca el tope de concurrencia. Cubre HTTP y los
+# WebSockets (/ws, /ws_audio, /twilio) por igual: ver LimitadorGeneral.
+app.add_middleware(klimite.LimitadorGeneral)
 
 
 @app.get("/")
@@ -625,9 +643,24 @@ def voz_audio(token: str):
     return Response(content=audio, media_type="audio/mpeg")
 
 
+# Éste es el endpoint más caro de frenar mal: dispara una llamada telefónica
+# REAL, a cualquier número que mande el cliente, sin autenticación. El freno
+# general (120 cada 60 s) alcanza para tráfico normal pero es demasiado laxo
+# para algo que cuesta plata por cada intento y que alguien podría usar para
+# hostigar un número —5 cada 10 minutos por IP es holgado para un uso legítimo
+# (marcar, cortar, reintentar) y corto para un abuso.
+_LIMITE_LLAMADA = klimite.Limitador(permitidos=5, ventana_seg=600)
+
+
 @app.post("/voz/llamar")
 async def voz_llamar(request: Request):
     """Dispara una llamada saliente real vía la API de Twilio."""
+    try:
+        _LIMITE_LLAMADA.intentar(f"voz_llamar:{klimite.ip_de(request)}")
+    except klimite.LimiteIntentos as e:
+        return JSONResponse(
+            {"error": f"Demasiadas llamadas iniciadas. Esperá {e.espera_seg} segundos."},
+            status_code=429, headers={"Retry-After": str(e.espera_seg)})
     form = dict(await request.form())
     sid = os.getenv("TWILIO_ACCOUNT_SID")
     token = os.getenv("TWILIO_AUTH_TOKEN")

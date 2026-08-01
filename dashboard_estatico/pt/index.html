@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="pt">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MV Kobra AI · Cobranzas Inteligentes</title>
-<link rel="icon" type="image/png" href="mv_icon.png">
+<title>MV Kobra AI · Cobranças Inteligentes</title>
+<link rel="icon" type="image/png" href="/demo/mv_icon.png">
 <!-- Previsualización al compartir el link de la demo. El favicon va relativo
      porque esta página también se abre con doble clic desde el paquete
      offline; las de Open Graph van absolutas porque solo las lee un scraper
      cuando la página está publicada. -->
-<meta name="description" content="Demo interactiva de MV Kobra AI: cartera priorizada por probabilidad de pago, agente negociador y copiloto de calidad. Datos 100% sintéticos.">
-<link rel="canonical" href="https://mvkobranzaia.com/demo/">
+<meta name="description" content="Demo interativa da MV Kobra AI: carteira priorizada por probabilidade de pagamento, agente negociador e copiloto de qualidade. Dados 100% sintéticos.">
+<link rel="canonical" href="https://mvkobranzaia.com/demo/pt/">
 <!-- Variantes de idioma con URL propia (marketing/generar_paginas_idioma.py).
      Bloque IDÉNTICO en las tres versiones — ver el mismo comentario en
      landing/index.html. -->
@@ -20,32 +20,32 @@
 <link rel="alternate" hreflang="x-default" href="https://mvkobranzaia.com/demo/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MV Kobra AI">
-<meta property="og:locale" content="es_UY">
-<meta property="og:url" content="https://mvkobranzaia.com/demo/">
-<meta property="og:title" content="MV Kobra AI · Demo interactiva">
-<meta property="og:description" content="Cartera priorizada por probabilidad de pago, agente negociador y copiloto de calidad. Datos 100% sintéticos.">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:url" content="https://mvkobranzaia.com/demo/pt/">
+<meta property="og:title" content="MV Kobra AI · Demo interativa">
+<meta property="og:description" content="Carteira priorizada por probabilidade de pagamento, agente negociador e copiloto de qualidade. Dados 100% sintéticos.">
 <meta property="og:image" content="https://mvkobranzaia.com/landing/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="MV Kobra AI · Demo interactiva">
-<meta name="twitter:description" content="Cartera priorizada por probabilidad de pago, agente negociador y copiloto de calidad. Datos 100% sintéticos.">
+<meta name="twitter:title" content="MV Kobra AI · Demo interativa">
+<meta name="twitter:description" content="Carteira priorizada por probabilidade de pagamento, agente negociador e copiloto de qualidade. Dados 100% sintéticos.">
 <meta name="twitter:image" content="https://mvkobranzaia.com/landing/og.png">
-<script src="botid-init.js" defer></script>
-<script src="chart.umd.min.js"></script>
-<script src="xlsx.full.min.js"></script>
-<script src="kobra_data.js"></script>
-<script src="copiloto.js"></script>
-<script src="scoring.js"></script>
-<script src="modelo_web.js"></script>
+<script src="/demo/botid-init.js" defer></script>
+<script src="/demo/chart.umd.min.js"></script>
+<script src="/demo/xlsx.full.min.js"></script>
+<script src="/demo/kobra_data.js"></script>
+<script src="/demo/copiloto.js"></script>
+<script src="/demo/scoring.js"></script>
+<script src="/demo/modelo_web.js"></script>
 <!-- Voz premium pre-renderizada (opcional): si el paquete se armó con
      ELEVENLABS_API_KEY configurada, data/generar_audio_demo_voz.py generó
      estos MP3 con la MISMA voz del producto real (la del video de marketing),
      y la etiqueta de abajo los carga. Si el archivo no existe (build sin esa
      key), simplemente no carga nada y el demo sigue con la voz del
      navegador — nunca rompe. -->
-<script src="guiones.js"></script>
-<script src="audio_demo/manifest.js"></script>
+<script src="/demo/guiones.js"></script>
+<script src="/demo/audio_demo/manifest.js"></script>
 <script>
 /* Demo PUBLICA: se entra sin registro y sin vencimiento.
    Antes esto era una pantalla completa que tapaba todo hasta registrarse. El
@@ -117,7 +117,7 @@
 <body>
 <header>
   <div>
-    <h1><img src="mv_icon.png" alt="MV Kobra AI" style="height:46px;vertical-align:-10px;margin-right:10px;">MV Kobra AI <span class="badge" data-i18n="badge">Cobranzas Inteligentes</span></h1>
+    <h1><img src="/demo/mv_icon.png" alt="MV Kobra AI" style="height:46px;vertical-align:-10px;margin-right:10px;">MV Kobra AI <span class="badge" data-i18n="badge">Cobranzas Inteligentes</span></h1>
     <div class="sub" data-i18n="header_sub">ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero</div>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
@@ -155,7 +155,7 @@
       <span data-i18n="mc_elegir">📁 Elegir CSV</span>
       <input type="file" id="csvCartera" accept=".csv,text/csv" style="display:none">
     </label>
-    <a class="btn alt" href="ejemplo_500_cuentas.csv" download data-i18n="mc_bajar">⬇ Bajar un CSV de ejemplo (500 cuentas)</a>
+    <a class="btn alt" href="/demo/ejemplo_500_cuentas.csv" download data-i18n="mc_bajar">⬇ Bajar un CSV de ejemplo (500 cuentas)</a>
     <span class="sub" id="csvInfo"></span>
   </div>
   <div id="csvResultado" style="display:none;margin-top:14px"></div>
@@ -586,7 +586,7 @@ var AUDIO_MANIFEST_POR_INDICE = {};
 var _audioActual = null;
 function playPremium(archivo, cb){
   try{
-    var a = new Audio('audio_demo/'+IDIOMA+'/'+archivo);
+    var a = new Audio('/demo/audio_demo/'+IDIOMA+'/'+archivo);
     _audioActual = a;
     var done=false; function fin(){ if(done)return; done=true; cb && cb(); }
     a.addEventListener('ended', fin);
@@ -801,7 +801,7 @@ function exportResultadosPDF(){
     // navegador bloquea el fetch de un archivo local. El fetch queda de
     // reserva por si alguien sirve la carpeta sin el .js.
     if(window.KOBRA_MODELO){ MODELO = window.KOBRA_MODELO; return Promise.resolve(MODELO); }
-    return fetch('modelo_web.json').then(function(r){
+    return fetch('/demo/modelo_web.json').then(function(r){
       if(!r.ok) throw new Error('HTTP '+r.status);
       return r.json();
     }).then(function(j){ MODELO=j; return j; });
