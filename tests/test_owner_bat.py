@@ -89,6 +89,30 @@ def test_avisa_antes_de_empezar_si_no_entran_las_dependencias(bat):
 
 
 # --- 3) Lo que hace que «elegí otro disco» funcione de verdad --------------
+def test_python_se_instala_en_el_disco_elegido_y_no_en_localappdata(bat):
+    """El defecto que sobrevivió a la primera ronda de arreglos: la descarga y
+    el venv ya iban al disco elegido, pero el instalador oficial de Python
+    (python-3.11.9-amd64.exe) por defecto SIEMPRE pone el intérprete en
+    `%LocalAppData%\\Programs\\Python\\Python311` — que vive en C: — sin
+    importar qué disco haya elegido el usuario para todo lo demás. Con C:
+    justo de espacio (el motivo original de este .bat), instalar el
+    intérprete ahí podía volver a fallar por lo mismo que se vino a arreglar."""
+    assert 'set "PYDIR=!DESTINO!\\python311"' in bat
+    assert 'TargetDir="!PYDIR!"' in bat
+    codigo = "\n".join(ln for ln in bat.splitlines() if not ln.strip().lower().startswith("rem"))
+    assert "%LocalAppData%\\Programs\\Python" not in codigo, \
+        "sigue habiendo una linea de codigo (no comentario) que asume C:"
+    assert 'if exist "!PYDIR!\\python.exe" set "PYEXE=!PYDIR!\\python.exe"' in bat
+
+
+def test_no_pisa_el_path_del_usuario_con_una_ruta_borrable(bat):
+    """PrependPath=1 agregaría al PATH una ruta dentro de la carpeta elegida:
+    si el usuario la borra o la mueve, el PATH del usuario queda con una
+    entrada rota. El .bat no lo necesita — ya guarda la ruta exacta a PYEXE."""
+    assert "PrependPath=0" in bat
+    assert "PrependPath=1" not in bat
+
+
 def test_manda_el_temporal_de_pip_al_disco_elegido(bat):
     """La pieza central. pip descomprime en el temporal del sistema aunque se
     le pase --no-cache-dir: verificado observando la instalación, crea ahí

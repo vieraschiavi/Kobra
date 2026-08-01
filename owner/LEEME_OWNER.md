@@ -74,7 +74,10 @@ todo solo, sin que instales nada previo:
    entra.
 3. Si falta Python 3.11+, lo **descarga del sitio oficial e instala en
    silencio** usando PowerShell (incluido en todo Windows — **no depende de
-   winget**). El instalador se baja **al disco que elegiste**, no a `%TEMP%`.
+   winget**). Se baja **y se instala** al disco que elegiste — no a `%TEMP%`
+   ni a `%LocalAppData%`, que es donde el instalador de python.org lo pondría
+   por defecto (siempre en `C:`, aunque hayas elegido otro disco para todo lo
+   demás).
 4. Crea un entorno virtual propio en esa carpeta (no toca tu Python).
 5. Instala las dependencias (`requirements.txt`). Usa la interfaz **ya
    compilada** de `owner/ui_dist/` — **no necesita Node**.
