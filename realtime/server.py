@@ -43,11 +43,18 @@ from kobra import (
 )
 from kobra import concurrencia as kconc  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
+from kobra import limitador as klimite  # noqa: E402
 from realtime import connectors  # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
 app = FastAPI(title="MV Kobra AI · Copiloto en Vivo")
+# Red de seguridad general. El tope de concurrencia (`kconc`) limita cuántas
+# sesiones están abiertas A LA VEZ; esto limita cuántas peticiones llegan por
+# IP EN EL TIEMPO — son cosas distintas, y sin esta un atacante que abre y
+# cierra rápido nunca toca el tope de concurrencia. Cubre HTTP y los
+# WebSockets (/ws, /ws_audio, /twilio) por igual: ver LimitadorGeneral.
+app.add_middleware(klimite.LimitadorGeneral)
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -625,9 +632,24 @@ def voz_audio(token: str):
     return Response(content=audio, media_type="audio/mpeg")
 
 
+# Éste es el endpoint más caro de frenar mal: dispara una llamada telefónica
+# REAL, a cualquier número que mande el cliente, sin autenticación. El freno
+# general (120 cada 60 s) alcanza para tráfico normal pero es demasiado laxo
+# para algo que cuesta plata por cada intento y que alguien podría usar para
+# hostigar un número —5 cada 10 minutos por IP es holgado para un uso legítimo
+# (marcar, cortar, reintentar) y corto para un abuso.
+_LIMITE_LLAMADA = klimite.Limitador(permitidos=5, ventana_seg=600)
+
+
 @app.post("/voz/llamar")
 async def voz_llamar(request: Request):
     """Dispara una llamada saliente real vía la API de Twilio."""
+    try:
+        _LIMITE_LLAMADA.intentar(f"voz_llamar:{klimite.ip_de(request)}")
+    except klimite.LimiteIntentos as e:
+        return JSONResponse(
+            {"error": f"Demasiadas llamadas iniciadas. Esperá {e.espera_seg} segundos."},
+            status_code=429, headers={"Retry-After": str(e.espera_seg)})
     form = dict(await request.form())
     sid = os.getenv("TWILIO_ACCOUNT_SID")
     token = os.getenv("TWILIO_AUTH_TOKEN")

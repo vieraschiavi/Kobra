@@ -108,6 +108,23 @@ def test_el_demo_escapa_las_filas_de_la_cartera(campo):
     assert campo in _leer("dashboard_estatico/index.html"), f"sin escapar: {campo}"
 
 
+@pytest.mark.parametrize("campo,motivo", [
+    ("esc(s[0])", "el título de una sugerencia del copiloto offline"),
+    ("esc(s[1])", "el cuerpo de una sugerencia del copiloto offline"),
+    ("esc(cop.proxima_frase)", "la próxima frase que arma el copiloto offline"),
+])
+def test_el_copiloto_offline_escapa_lo_que_llegue_por_estrategia(campo, motivo):
+    """Hoy `analizarCopiloto()` llama a `KobraCopiloto.analizar(txt)` con un solo
+    argumento: `estrategia` siempre es `undefined` y esta rama nunca corre en
+    la demo actual. Pero `copiloto.js` ya acepta ese tercer argumento y lo
+    concatena en el texto de la sugerencia — el día que alguien lo conecte con
+    la estrategia recomendada del dataset (dato real, en una instalación con
+    cliente), sin este escape sería una inyección silenciosa. Se escapa en el
+    punto de inserción al DOM, no en el motor, por las dudas de que el motor
+    cambie de forma."""
+    assert campo in _leer("dashboard_estatico/index.html"), f"sin escapar: {motivo}"
+
+
 def test_el_mensaje_de_pago_fallido_se_escapa():
     """Hoy solo se lo llama con literales, pero el día que alguien le pase
     `d.error` de la API sería una inyección silenciosa."""
@@ -187,6 +204,22 @@ def test_ningun_payload_ejecuta_en_un_navegador_real(tmp_path):
                  "(p) => renderAI({sentimiento:p, temperatura:50, tecnicas:[p],"
                  " proxima_jugada:p, guion:p})"),
                 ("dashboard_estatico/index.html", "(p) => renderAI({_error: p})"),
+                # `estrategia` no viaja por la llamada real de hoy (ver el test
+                # estático de arriba), así que se simula el día que sí viaje:
+                # se reemplaza `KobraCopiloto.analizar` por una versión que
+                # devuelve el payload directo en `sugerencias`/`proxima_frase`
+                # y se dispara el render REAL de la página (`analizarCopiloto`),
+                # no una copia del código.
+                ("dashboard_estatico/index.html",
+                 """(p) => {
+                   window.KobraCopiloto.analizar = () => ({
+                     turnos: [], sents: [], calidad: {score_total: 0}, tecnicas: {},
+                     copiloto: {clima: 0, clima_etiqueta: 'neutro', emociones_cliente: [],
+                                sugerencias: [[p, p]], proxima_frase: p}
+                   });
+                   document.getElementById('convText').value = 'x';
+                   analizarCopiloto();
+                 }"""),
             ]
             for pagina, inyectar in casos:
                 await pag.goto(f"http://127.0.0.1:{puerto}/{pagina}",

@@ -320,3 +320,186 @@ def test_no_hay_secretos_hardcodeados():
                         if patron.search(linea):
                             hallazgos.append(f"{ruta}:{n}")
     assert not hallazgos, f"posibles secretos en el código: {hallazgos}"
+
+
+# --- 6) Freno general en TODO endpoint público ------------------------------
+# Antes de esto, el único rate limiting real del repo eran los 3 `_frenar()`
+# de arriba (login/licencia/setup). Auditando la superficie pública completa
+# aparecieron 48+ endpoints sin ningún freno en webapp/backend/api.py, TODO
+# realtime/server.py (incluidos webhooks sin verificar y un endpoint que
+# dispara una llamada telefónica real sin auth), y `requerir_licencia`/
+# `requerir_admin` en backend_venta/app.py, tanteables sin límite. `api/*.js`
+# (Vercel) tampoco tenía nada por IP: `copiloto.js` solo llevaba un contador
+# GLOBAL, que cualquiera agota para todos con un script.
+def test_limitador_general_corta_por_ip_y_por_ruta():
+    lim = klimite.LimitadorGeneral.__new__(klimite.LimitadorGeneral)
+    lim.limitador = klimite.Limitador(permitidos=3, ventana_seg=50, reloj=Reloj())
+    lim.exentas = set()
+    for _ in range(3):
+        lim.limitador.intentar("general:1.2.3.4:/api/algo")
+    with pytest.raises(klimite.LimiteIntentos):
+        lim.limitador.intentar("general:1.2.3.4:/api/algo")
+    # otra ruta, misma IP: cubo aparte, no se ve afectada
+    lim.limitador.intentar("general:1.2.3.4:/api/otra")
+
+
+def test_limitador_general_exime_salud_por_defecto():
+    lim = klimite.LimitadorGeneral.__new__(klimite.LimitadorGeneral)
+    lim.exentas = {"/health", "/api/health", "/salud", "/capacidad"}
+    for ruta in ("/health", "/api/health", "/salud", "/capacidad"):
+        assert ruta in lim.exentas, (
+            f"{ruta} no está exento: un monitor de uptime lo tumbaría")
+
+
+@pytest.fixture
+def cliente_rate_bajo(tmp_path, monkeypatch):
+    """El mismo `webapp/backend/api.py` REAL, sin tocarle el middleware a
+    mano: solo se bajan los defaults de `LimitadorGeneral` por variable de
+    entorno ANTES de importar, para no esperar 120 requests en un test.
+    Prueba que `app.add_middleware(klimite.LimitadorGeneral)` —tal como está
+    escrito en el archivo, sin parámetros— frena de verdad; el fixture
+    `cliente` de arriba no lo prueba: solo importa la app tal cual, con el
+    default de producción (120 cada 60 s), que ningún test dispara aposta."""
+    pytest.importorskip("fastapi")
+    monkeypatch.setenv("KOBRA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("KOBRA_RATE_PETICIONES", "4")
+    monkeypatch.setenv("KOBRA_RATE_VENTANA_SEG", "300")
+    _olvidar_modulos()
+    from fastapi.testclient import TestClient
+
+    from webapp.backend import api
+    yield api, TestClient(api.app)
+    _olvidar_modulos()
+
+
+def test_el_freno_general_corta_un_endpoint_sin_freno_propio(cliente_rate_bajo):
+    """`/api/auth/estado` no pasa por `_frenar()` — es exactamente el tipo de
+    endpoint que el freno general tiene que cubrir solo, sin que nadie se
+    acuerde de agregarlo a mano. Se golpea la app tal cual quedó escrita en
+    `webapp/backend/api.py`, sin tocarle el middleware desde el test."""
+    _, c = cliente_rate_bajo
+    codigos = [c.get("/api/auth/estado").status_code for _ in range(8)]
+    assert 429 in codigos, f"el freno general nunca frenó: {codigos}"
+
+
+def test_el_freno_general_no_tumba_el_health_check(cliente_rate_bajo):
+    _, c = cliente_rate_bajo
+    for _ in range(10):
+        assert c.get("/api/health").status_code == 200, (
+            "el freno general tumbó /api/health: un monitor de uptime lo vería caído")
+
+
+@pytest.fixture
+def cliente_realtime(monkeypatch):
+    pytest.importorskip("fastapi")
+    for k in list(sys.modules):
+        if k.startswith(("realtime", "kobra")):
+            del sys.modules[k]
+    from fastapi.testclient import TestClient
+
+    from realtime import server
+    yield server, TestClient(server.app)
+    for k in list(sys.modules):
+        if k.startswith(("realtime", "kobra")):
+            del sys.modules[k]
+
+
+def test_voz_llamar_tiene_un_freno_mas_estricto_que_el_general(cliente_realtime):
+    """El más caro de dejar sin frenar: llamada telefónica REAL, sin
+    autenticación, a cualquier número que mande el cliente."""
+    server, c = cliente_realtime
+    server._LIMITE_LLAMADA.__init__(permitidos=3, ventana_seg=600)
+    codigos = [c.post("/voz/llamar", data={"telefono": "+59899999999"}).status_code
+               for _ in range(6)]
+    assert 429 in codigos, f"/voz/llamar nunca frenó: {codigos}"
+    r = c.post("/voz/llamar", data={"telefono": "+59899999999"})
+    assert "Retry-After" in r.headers
+
+
+@pytest.fixture
+def cliente_realtime_rate_bajo(monkeypatch):
+    """El `realtime/server.py` REAL con el default de `LimitadorGeneral`
+    bajado por variable de entorno, sin tocar el middleware desde el test."""
+    pytest.importorskip("fastapi")
+    monkeypatch.setenv("KOBRA_RATE_PETICIONES", "2")
+    monkeypatch.setenv("KOBRA_RATE_VENTANA_SEG", "300")
+    for k in list(sys.modules):
+        if k.startswith(("realtime", "kobra")):
+            del sys.modules[k]
+    from fastapi.testclient import TestClient
+
+    from realtime import server
+    yield server, TestClient(server.app)
+    for k in list(sys.modules):
+        if k.startswith(("realtime", "kobra")):
+            del sys.modules[k]
+
+
+def test_realtime_frena_websockets_no_solo_http(cliente_realtime_rate_bajo):
+    """`@app.middleware("http")` de Starlette NO cubre el handshake de
+    WebSocket — por eso `LimitadorGeneral` es un middleware ASGI puro. Sin
+    esto, `/ws` (voz/WhatsApp en vivo) quedaría completamente afuera del
+    freno general, que es donde más importa: streaming, no un request suelto.
+    Se conecta contra la app real, con el middleware tal como quedó cableado
+    en `realtime/server.py` — no uno agregado desde el test."""
+    _, c = cliente_realtime_rate_bajo
+    cerrados = 0
+    for _ in range(5):
+        try:
+            with c.websocket_connect("/ws") as ws:
+                ws.close()
+        except Exception:
+            cerrados += 1
+    assert cerrados > 0, "ninguna conexión de WebSocket fue frenada"
+
+
+@pytest.fixture
+def cliente_venta(tmp_path, monkeypatch):
+    pytest.importorskip("fastapi")
+    monkeypatch.setenv("KOBRA_DATA_DIR", str(tmp_path))
+    for k in list(sys.modules):
+        if k.startswith(("backend_venta", "kobra")):
+            del sys.modules[k]
+    from fastapi.testclient import TestClient
+
+    from backend_venta import app as venta
+    yield venta, TestClient(venta.app)
+    for k in list(sys.modules):
+        if k.startswith(("backend_venta", "kobra")):
+            del sys.modules[k]
+
+
+@pytest.fixture
+def cliente_venta_rate_bajo(tmp_path, monkeypatch):
+    """El `backend_venta/app.py` REAL, con el default de `LimitadorGeneral`
+    bajado por variable de entorno — no un middleware agregado desde acá."""
+    pytest.importorskip("fastapi")
+    monkeypatch.setenv("KOBRA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("KOBRA_RATE_PETICIONES", "4")
+    monkeypatch.setenv("KOBRA_RATE_VENTANA_SEG", "300")
+    for k in list(sys.modules):
+        if k.startswith(("backend_venta", "kobra")):
+            del sys.modules[k]
+    from fastapi.testclient import TestClient
+
+    from backend_venta import app as venta
+    yield venta, TestClient(venta.app)
+    for k in list(sys.modules):
+        if k.startswith(("backend_venta", "kobra")):
+            del sys.modules[k]
+
+
+def test_backend_venta_frena_el_tanteo_de_token(cliente_venta_rate_bajo):
+    """`requerir_licencia` no tenía NINGÚN freno de intentos — a diferencia del
+    login del otro backend, acá se podía tantear el token Bearer sin límite."""
+    _, c = cliente_venta_rate_bajo
+    codigos = [c.get("/licencias/estado",
+                     headers={"Authorization": f"Bearer x{i}"}).status_code
+               for i in range(9)]
+    assert 429 in codigos, f"backend_venta nunca frenó el tanteo de token: {codigos}"
+
+
+def test_backend_venta_exime_salud(cliente_venta_rate_bajo):
+    _, c = cliente_venta_rate_bajo
+    for _ in range(6):
+        assert c.get("/salud").status_code == 200

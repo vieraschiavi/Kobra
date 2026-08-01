@@ -468,8 +468,16 @@ function analizarCopiloto(){
   const tec = Object.keys(r.tecnicas).filter(k=>r.tecnicas[k]);
   document.getElementById('copTecs').innerHTML = tec.length
     ? tec.map(t=>`<span class="pill" style="background:rgba(108,92,231,.2);color:#b3a9f7;">${t}</span>`).join(' ') : '—';
-  let tips = cop.sugerencias.map(s=>`<div style="background:#141b2d;border-left:4px solid var(--green);border-radius:8px;padding:11px 13px;margin:8px 0;font-size:.88rem;"><b style="color:var(--green);">${s[0]}</b><br>${s[1]}</div>`).join('');
-  tips += `<h4 style="color:var(--muted);font-size:.85rem;margin:10px 0 6px;">${esc(T('c_proxima'))}</h4><div style="background:#14261f;border:1px dashed var(--green);border-radius:10px;padding:12px;font-size:.92rem;">${cop.proxima_frase}</div>`;
+  // `s[0]`/`s[1]` y `proxima_frase` hoy SIEMPRE salen del diccionario fijo de
+  // copiloto.js (nunca del texto que pega el visitante) porque esta llamada no
+  // pasa `estrategia` — pero la función sí la acepta, y esa rama concatena la
+  // estrategia dentro del texto sin escapar. El día que alguien conecte
+  // `analizarCopiloto()` con la estrategia recomendada del dataset (un campo
+  // que en una instalación real puede traer cualquier cosa), esto se vuelve
+  // una inyección silenciosa si no está escapado ACÁ, en el punto de entrada
+  // al DOM — que es donde tiene que estar, no en el motor.
+  let tips = cop.sugerencias.map(s=>`<div style="background:#141b2d;border-left:4px solid var(--green);border-radius:8px;padding:11px 13px;margin:8px 0;font-size:.88rem;"><b style="color:var(--green);">${esc(s[0])}</b><br>${esc(s[1])}</div>`).join('');
+  tips += `<h4 style="color:var(--muted);font-size:.85rem;margin:10px 0 6px;">${esc(T('c_proxima'))}</h4><div style="background:#14261f;border:1px dashed var(--green);border-radius:10px;padding:12px;font-size:.92rem;">${esc(cop.proxima_frase)}</div>`;
   document.getElementById('copTips').innerHTML = tips;
   document.getElementById('copInfo').textContent = T('c_turnos',{n:r.turnos.length});
 

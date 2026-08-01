@@ -7,6 +7,7 @@
 // Para AMPLIAR el límite: subir "ai_limit" en el Edge Config (o pedírmelo).
 
 const { checkBotId } = require("botid/server");
+const { limitar } = require("./_ratelimit");
 
 const MODEL = "claude-haiku-4-5-20251001";
 const MAX_INPUT = 4000;
@@ -55,6 +56,12 @@ async function notifyOwner(limit) {
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
+  // El TOPE GLOBAL de abajo (ai_count/ai_limit) protege el costo total, pero
+  // es compartido: un solo actor puede agotarlo para todos los usuarios
+  // reales con un script simple, sin que `checkBotId` lo frene (no es un bot,
+  // son muchos POST legítimos en apariencia). Esto agrega el freno que
+  // faltaba, por IP, independiente del cupo global.
+  if (!limitar(req, res, "copiloto", 5, 60)) return;
 
   // Acepta pedidos desde el propio host (sirve para *.vercel.app y para
   // cualquier dominio propio que se agregue después, sin tocar código),
