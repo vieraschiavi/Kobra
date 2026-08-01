@@ -667,10 +667,19 @@ window.IDIOMA_DEMO = (function () {
   try {
     url = normalizar(new URLSearchParams(window.location.search).get('lang'));
   } catch (e) { /* URLSearchParams falta en navegadores muy viejos */ }
+  // /demo/en/ o /demo/pt/ como PATH: existen para que el preview social (que
+  // no ejecuta este script) tenga metatags propios — ver
+  // marketing/generar_paginas_idioma.py. Pesa más que lo guardado en
+  // localStorage: llegar caminando el sitio a /demo/en/ es una señal más
+  // fuerte que una preferencia vieja de una visita anterior.
+  var ruta = null;
+  try {
+    ruta = normalizar((window.location.pathname.match(/^\/demo\/(en|pt)\//) || [])[1]);
+  } catch (e) {}
   var guardado = null;
   try { guardado = normalizar(window.localStorage.getItem('kobra_lang')); } catch (e) {}
   var navegador = normalizar(navigator && navigator.language);
-  return url || guardado || navegador || 'es';
+  return url || ruta || guardado || navegador || 'es';
 })();
 
 // Traductor de la interfaz. Vive acá y no en index.html porque `guiones.js` se

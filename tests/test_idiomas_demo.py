@@ -61,7 +61,9 @@ def test_el_demo_resuelve_el_idioma_con_prioridad_util():
              js.index("kobra_lang"),
              js.index("navigator")]
     assert orden == sorted(orden), "cambió el orden de prioridad del idioma"
-    assert "return url || guardado || navegador || 'es';" in js
+    # `ruta` (agregado para /demo/en/ y /demo/pt/) pesa más que lo guardado
+    # pero menos que un ?lang= explícito — mismo criterio que la landing.
+    assert "return url || ruta || guardado || navegador || 'es';" in js
 
 
 def test_las_etiquetas_de_la_llamada_salen_del_guion():

@@ -273,9 +273,11 @@ def test_la_landing_tambien_respeta_el_lang_de_la_url():
     html = open(LANDING, encoding="utf-8").read()
     assert "URLSearchParams(location.search).get('lang')" in html, (
         "la landing volvió a ignorar ?lang= de la URL")
-    assert "var lang=langURL||langGuardado||langNav||'es';" in html, (
-        "cambió la prioridad del idioma en la landing; tiene que ser la misma "
-        "que la del demo: URL > guardado > navegador > castellano")
+    # langRuta (agregado para /en/ y /pt/, ver marketing/generar_paginas_idioma.py)
+    # pesa más que lo guardado pero menos que un ?lang= explícito.
+    assert "var lang=langURL||langRuta||langGuardado||langNav||'es';" in html, (
+        "cambió la prioridad del idioma en la landing; tiene que ser "
+        "URL > ruta (/en//pt/) > guardado > navegador > castellano")
 
 
 def test_la_landing_le_pasa_el_idioma_al_demo():
