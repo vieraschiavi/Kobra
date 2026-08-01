@@ -33,7 +33,11 @@ param(
     # Owner: sin licencia ni vencimiento. Para una edición de cliente va $false.
     [switch]$Owner,
     # Carpeta de datos del usuario. Por defecto, dentro de la instalación.
-    [string]$Datos = ""
+    [string]$Datos = "",
+    # Archivo Python que arranca el programa. La app de escritorio usa
+    # kobra_launcher.py (FastAPI embebido); la edición Producción sirve el
+    # dashboard con Streamlit y pasa kobra_streamlit.py.
+    [string]$Lanzador = "kobra_launcher.py"
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,12 +53,12 @@ New-Item -ItemType Directory -Force -Path $Destino, $Datos | Out-Null
 # que el acceso directo quede apuntando a un archivo que no existe — que es un
 # fallo silencioso: el .lnk se crea igual y no abre nada al hacer clic.
 $Launcher = $null
-foreach ($cand in @((Join-Path $Codigo "kobra_launcher.py"),
-                    (Join-Path $Codigo "packaging\kobra_launcher.py"))) {
+foreach ($cand in @((Join-Path $Codigo $Lanzador),
+                    (Join-Path $Codigo (Join-Path "packaging" $Lanzador)))) {
     if (Test-Path -LiteralPath $cand) { $Launcher = $cand; break }
 }
 if (-not $Launcher) {
-    throw "No encontre kobra_launcher.py en '$Codigo' (ni en packaging\). Revisa -Codigo."
+    throw "No encontre $Lanzador en '$Codigo' (ni en packaging\). Revisa -Codigo."
 }
 if (-not (Test-Path -LiteralPath $Python)) {
     throw "No existe el ejecutable de Python indicado: '$Python'."

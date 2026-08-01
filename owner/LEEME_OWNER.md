@@ -67,23 +67,33 @@ Y para publicarlo: Actions → **Release Owner** → Run workflow, o taguear
 ### A) Desde el código, sin instalar NADA a mano → doble clic en `MVKobraAI_Owner_desde_codigo.bat`
 **Esta es la vía recomendada si no tenés el instalador.** El .bat prepara
 todo solo, sin que instales nada previo:
-1. Si falta Python 3.11+, lo **descarga del sitio oficial e instala en
+1. **Te pregunta dónde instalar** (Enter usa la sugerida; podés escribir
+   cualquier ruta, por ejemplo `D:\MVKobraAI`). Ahí van Python, el entorno y
+   tus datos. La elección se recuerda: la próxima vez alcanza con dar Enter.
+2. **Mide el espacio libre de esa carpeta** y frena antes de empezar si no
+   entra.
+3. Si falta Python 3.11+, lo **descarga del sitio oficial e instala en
    silencio** usando PowerShell (incluido en todo Windows — **no depende de
-   winget**).
-2. **Te pregunta dónde instalar** (Enter usa la sugerida; podés escribir
-   cualquier ruta, por ejemplo `D:\MVKobraAI`). Ahí van el entorno y tus
-   datos. La elección se recuerda: la próxima vez alcanza con dar Enter.
-3. Crea un entorno virtual propio en esa carpeta (no toca tu Python).
-4. Instala las dependencias (`requirements.txt`).
-5. Usa la interfaz **ya compilada** que viene en `owner/ui_dist/` — **no
-   necesita Node**.
+   winget**). El instalador se baja **al disco que elegiste**, no a `%TEMP%`.
+4. Crea un entorno virtual propio en esa carpeta (no toca tu Python).
+5. Instala las dependencias (`requirements.txt`). Usa la interfaz **ya
+   compilada** de `owner/ui_dist/` — **no necesita Node**.
 6. **Deja el programa instalado**: icono propio, acceso directo en el
    Escritorio, entrada en el Menú Inicio y desinstalador en «Agregar o quitar
    programas». Todo en tu perfil de usuario y en `HKCU`, así que no pide
    permisos de administrador.
 7. Arranca en modo owner y abre en una **ventana de app** (limpia, sin barra
    de navegador, se ve como app de escritorio — usa Chrome o Edge, sin sumar
-   el peso de Electron).
+   el peso de Electron). El puerto se elige **libre**: si otra aplicación ya
+   usa el habitual, se pasa al siguiente en vez de pisarla.
+
+> **Los pasos 1 y 2 van antes del 3 a propósito.** Antes Python se descargaba
+> primero, a `%TEMP%` (que vive en `C:`). Con `C:` lleno la descarga fallaba
+> por espacio y el .bat lo reportaba como **«No pude descargar Python (¿sin
+> internet?)»** — a veces justo después de un «Espacio en disco insuficiente»,
+> dos mensajes que se contradecían. Ahora primero elegís el disco, se mide, y
+> todo lo que se baja va ahí; si aun así falla, se imprime el error real de
+> PowerShell y se nombran las dos causas posibles.
 
 El código del programa se queda donde está el .bat; lo que se mueve a la
 carpeta elegida es lo que pesa: el entorno (~2 GB), los datos y los archivos

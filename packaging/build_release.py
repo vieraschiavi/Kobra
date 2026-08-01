@@ -93,6 +93,27 @@ def _write(path, content=None, crlf=False, **kw):
         f.write(content)
 
 
+def _ascii(texto):
+    """Transliterá a ASCII el texto que va DENTRO de un .bat.
+
+    Un .bat no se interpreta en UTF-8: cmd.exe lo lee en la code page de la
+    consola (850/437 en un Windows en español). El archivo se escribe en UTF-8
+    porque lo necesita el resto del contenido, así que la única forma de que la
+    barra de título y los `echo` se lean bien es que ese texto sea ASCII de
+    entrada — «Owner (dueño del producto · sin límites)» salía como
+    «due├▒o ┬╖ sin l├¡mites».
+
+    Se aplica a los títulos de edición, que es el único texto del .bat que no
+    escribimos a mano acá (viene de EDICIONES y lleva ñ, tildes y «·»).
+    """
+    import unicodedata
+    for viejo, nuevo in {"·": "-", "—": "-", "–": "-", "…": "...",
+                         "“": '"', "”": '"', "‘": "'", "’": "'"}.items():
+        texto = texto.replace(viejo, nuevo)
+    return (unicodedata.normalize("NFKD", texto)
+            .encode("ascii", "ignore").decode("ascii"))
+
+
 def _copy(src_rel, dst):
     src = os.path.join(ROOT, src_rel)
     if os.path.isdir(src):
@@ -121,6 +142,235 @@ def _sha256(path):
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Bloques de batch compartidos por los instaladores
+# ---------------------------------------------------------------------------
+# Los instaladores que genera este script (INSTALAR.bat de cada edición e
+# INSTALAR_Y_EJECUTAR.bat de producción) tienen que hacer lo mismo antes de
+# escribir un solo byte: preguntar la carpeta, limpiar lo que el usuario tipeó,
+# comprobar que se puede escribir ahí y medir el espacio de ESE disco.
+#
+# Se emiten desde acá en vez de copiarse a mano en cada string porque son las
+# mismas decisiones que ya estaban peleadas en
+# `owner/MVKobraAI_Owner_desde_codigo.bat` a golpe de bugs reportados desde
+# instalaciones reales: medir el disco equivocado, no dejar elegir carpeta,
+# romperse con una barra final, o descargar a `%TEMP%` (C:) y culpar a la red
+# cuando lo que faltaba era espacio. Duplicarlas es garantizar que se arreglen
+# en un lado y no en el otro.
+#
+# Todos los bloques asumen `setlocal enabledelayedexpansion` y dejan definidas
+# `!DESTINO!`, `!DATOS!` y `!TRABAJO!`.
+
+def _bat_elegir_carpeta(paso, total, memoria):
+    """Pregunta la carpeta, la sanea, la crea y verifica que se pueda escribir.
+
+    `memoria` es el nombre del archivo donde se recuerda la elección, para que
+    la segunda vez alcance con dar Enter. Va en %LocalAppData% y no en la
+    carpeta elegida: si estuviera adentro, no habría dónde leerlo antes de
+    saber cuál es.
+    """
+    return f"""\
+set "MEMORIA=%LocalAppData%\\MV Kobra AI\\{memoria}"
+set "SUGERIDO=%LocalAppData%\\MV Kobra AI"
+if exist "!MEMORIA!" (
+  for /f "usebackq delims=" %%D in ("!MEMORIA!") do if not "%%D"=="" set "SUGERIDO=%%D"
+)
+
+echo [{paso}/{total}] Carpeta de instalacion
+echo       Ahi van el entorno de Python y tus datos ^(hacen falta ~3 GB^).
+echo.
+echo       Enter = usar:  !SUGERIDO!
+set "DESTINO="
+set /p "DESTINO=      O escribi otra ruta (ej. D:\\MVKobraAI): "
+if "!DESTINO!"=="" set "DESTINO=!SUGERIDO!"
+rem Sacar comillas si el usuario arrastro la carpeta a la ventana.
+set "DESTINO=!DESTINO:"=!"
+rem Sacar la barra final: "D:\\Kobra\\" rompe cualquier ruta que se le concatene.
+if "!DESTINO:~-1!"=="\\" set "DESTINO=!DESTINO:~0,-1!"
+
+mkdir "!DESTINO!" >nul 2>nul
+if not exist "!DESTINO!\\" (
+  echo.
+  echo   No pude crear ni abrir esa carpeta:
+  echo     !DESTINO!
+  echo   Revisa que la ruta sea valida y que tengas permiso de escritura.
+  echo.
+  pause & exit /b 1
+)
+rem Prueba de escritura real: una carpeta puede existir y ser de solo lectura.
+echo ok> "!DESTINO!\\.kobra_prueba" 2>nul
+if not exist "!DESTINO!\\.kobra_prueba" (
+  echo.
+  echo   Esa carpeta existe pero no puedo escribir en ella:
+  echo     !DESTINO!
+  echo   Elegi otra ^(o ejecuta como administrador si es del sistema^).
+  echo.
+  pause & exit /b 1
+)
+del "!DESTINO!\\.kobra_prueba" >nul 2>nul
+
+set "VENV=!DESTINO!\\entorno"
+set "DATOS=!DESTINO!\\datos"
+set "TRABAJO=!DESTINO!\\temp"
+mkdir "!DATOS!" >nul 2>nul
+mkdir "!TRABAJO!" >nul 2>nul
+mkdir "%LocalAppData%\\MV Kobra AI" >nul 2>nul
+>"!MEMORIA!" echo !DESTINO!
+echo       Instalando en: !DESTINO!
+"""
+
+
+def _bat_espacio(paso, total, gb=3):
+    """Mide el disco de la carpeta ELEGIDA y frena si no entra."""
+    return f"""\
+echo.
+echo [{paso}/{total}] Espacio en disco
+call :libres "!DESTINO!" LIBRE_DESTINO
+if "!LIBRE_DESTINO!"=="?" (
+  echo       No pude medir el espacio libre. Sigo igual.
+) else (
+  echo       Disponible en !DESTINO!: ~!LIBRE_DESTINO! GB
+  if !LIBRE_DESTINO! LSS {gb} (
+    echo.
+    echo   ^(!^) Muy poco espacio ^(~!LIBRE_DESTINO! GB^). Hacen falta unos {gb} GB
+    echo   para descargar e instalar las dependencias.
+    echo   Volve a ejecutar y elegi una carpeta en un disco con mas lugar
+    echo   ^(ej. D:\\MVKobraAI^).
+    echo.
+    pause & exit /b 1
+  )
+)
+"""
+
+
+def _bat_sub_libres():
+    """Subrutina `:libres` — va al final del .bat, después de `exit /b 0`.
+
+    PowerShell y no `dir`: el parseo de `dir` depende del idioma de Windows y
+    del separador de miles. DriveInfo devuelve los bytes del volumen real de la
+    ruta (sirve también con unidades de red y con subst).
+    """
+    return """\
+rem =========================================================================
+rem  :libres <ruta> <variable>  -> GB libres en el volumen de <ruta>, o "?"
+rem  La ruta viaja por variable de entorno y no incrustada en el comando: asi
+rem  no hay que escapar comillas, espacios ni parentesis de "C:\\Program Files".
+rem =========================================================================
+:libres
+set "%~2=?"
+set "KOBRA_RUTA_MEDIR=%~1"
+set "KOBRA_RESP_MEDIR=%~1\\.kobra_libres.txt"
+del "!KOBRA_RESP_MEDIR!" >nul 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $p = (Get-Item -LiteralPath $env:KOBRA_RUTA_MEDIR).FullName; $d = New-Object System.IO.DriveInfo $p; [math]::Floor($d.AvailableFreeSpace/1GB) | Set-Content -LiteralPath $env:KOBRA_RESP_MEDIR } catch { }" >nul 2>nul
+if exist "!KOBRA_RESP_MEDIR!" (
+  for /f "usebackq delims= " %%G in ("!KOBRA_RESP_MEDIR!") do if not "%%G"=="" set "%~2=%%G"
+)
+del "!KOBRA_RESP_MEDIR!" >nul 2>nul
+set "KOBRA_RUTA_MEDIR="
+set "KOBRA_RESP_MEDIR="
+exit /b 0
+"""
+
+
+def _bat_python(paso, total):
+    """Busca Python; si no está, lo descarga AL DISCO ELEGIDO e instala.
+
+    Al disco elegido y no a `%TEMP%`: con C: lleno, bajar a `%TEMP%` falla con
+    un error de red engañoso ("¿sin internet?") cuando lo que falta es espacio.
+    """
+    return f"""\
+echo.
+set "PYEXE="
+where python >nul 2>nul && set "PYEXE=python"
+if not "!PYEXE!"=="" (
+  echo [{paso}/{total}] Python: OK
+) else (
+  echo [{paso}/{total}] Python no encontrado. Descargando e instalando Python 3.11...
+  echo       ^(usa PowerShell, incluido en Windows - no requiere winget^)
+  set "PYINST=!TRABAJO!\\python311_kobra.exe"
+  set "KOBRA_PY_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
+  set "KOBRA_PY_DEST=!PYINST!"
+  set "KOBRA_PY_ERR=!TRABAJO!\\python_descarga_error.txt"
+  del "!KOBRA_PY_ERR!" >nul 2>nul
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "try {{ Invoke-WebRequest -Uri $env:KOBRA_PY_URL -OutFile $env:KOBRA_PY_DEST -UseBasicParsing }} catch {{ $_.Exception.Message ^| Set-Content -LiteralPath $env:KOBRA_PY_ERR }}"
+  if not exist "!PYINST!" (
+    echo.
+    echo   No pude descargar Python. Motivo exacto:
+    if exist "!KOBRA_PY_ERR!" (type "!KOBRA_PY_ERR!") else (echo     ^(sin detalle^))
+    echo.
+    echo   Si habla de ESPACIO: libera lugar, o volve a ejecutar y elegi una
+    echo   carpeta en un disco con mas lugar.
+    echo   Si habla de RED: revisa la conexion, o instala Python a mano desde
+    echo   https://www.python.org/downloads/ marcando "Add Python to PATH".
+    echo.
+    pause & exit /b 1
+  )
+  echo       Instalando Python en silencio ^(solo para tu usuario, sin admin^)...
+  "!PYINST!" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1
+  rem El PATH nuevo no aplica a esta consola: buscar el python recien puesto.
+  for %%P in (
+    "%LocalAppData%\\Programs\\Python\\Python311\\python.exe"
+    "%ProgramFiles%\\Python311\\python.exe"
+  ) do if exist "%%~P" set "PYEXE=%%~P"
+  del "!PYINST!" >nul 2>nul
+  if "!PYEXE!"=="" (
+    echo.
+    echo   Python quedo instalado. Cerra esta ventana y volve a ejecutar el
+    echo   .bat una vez mas para que Windows lo tome. ^(solo la 1a vez^)
+    echo.
+    pause & exit /b 0
+  )
+)
+"""
+
+
+def _bat_entorno_y_deps(paso_venv, paso_deps, total, req="!CODIGO!\\requirements.txt"):
+    """Crea el venv en la carpeta elegida e instala dependencias ahí.
+
+    TEMP/TMP/TMPDIR: pip descomprime en el temporal del sistema aunque se le
+    pase --no-cache-dir. Si ese temporal queda en C:, elegir D: no cambia nada
+    y el ENOSPC vuelve igual. Se ponen las tres porque `tempfile` de Python las
+    mira en orden TMPDIR -> TEMP -> TMP y basta con que una apunte al disco
+    lleno.
+    """
+    return f"""\
+echo.
+if not exist "!VENV!\\Scripts\\python.exe" (
+  echo [{paso_venv}/{total}] Creando entorno propio...
+  "!PYEXE!" -m venv "!VENV!"
+) else (
+  echo [{paso_venv}/{total}] Entorno propio: OK
+)
+set "VPY=!VENV!\\Scripts\\python.exe"
+if not exist "!VPY!" (
+  echo.
+  echo   No se pudo crear el entorno en !VENV!.
+  echo   Proba elegir otra carpeta al volver a ejecutar.
+  echo.
+  pause & exit /b 1
+)
+
+echo.
+echo [{paso_deps}/{total}] Instalando dependencias ^(la 1a vez tarda unos minutos^)...
+set "TEMP=!TRABAJO!"
+set "TMP=!TRABAJO!"
+set "TMPDIR=!TRABAJO!"
+"!VPY!" -m pip install --no-cache-dir --upgrade pip >nul 2>nul
+"!VPY!" -m pip install --no-cache-dir -r "{req}"
+if not !errorlevel!==0 (
+  echo.
+  echo   Fallo la instalacion de dependencias.
+  echo   Si dice "No space left on device": volve a ejecutar y elegi una
+  echo   carpeta en un disco con mas lugar - todo (descarga incluida) va al
+  echo   disco que elegis, asi que con eso alcanza.
+  echo   Si es otro error, revisa tu conexion y reintenta: lo que ya se
+  echo   instalo no se vuelve a bajar.
+  echo.
+  pause & exit /b 1
+)
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -285,6 +535,11 @@ PROD_ITEMS = [
     "requirements.txt", "run.sh", "Dockerfile", "docker-compose.yml",
     "docker-entrypoint.sh", ".dockerignore", "README.md",
     "MANUAL_PUESTA_EN_MARCHA.md", ".github",
+    # Instalación real en Windows (icono, Menú Inicio, desinstalador). Faltaban
+    # acá: producción traía un .bat que levantaba Streamlit y nada más, así que
+    # era la única edición que no quedaba "instalada" en ningún lado.
+    "packaging/instalar_windows.ps1", "packaging/desinstalar_windows.ps1",
+    "electron/build/icon.ico",
 ]
 
 
@@ -298,34 +553,101 @@ def build_prod(tmp):
     _copy("presentation/MVKobraAI_Presentacion_Gerencial.pptx",
           os.path.join(stage, "presentacion", "MVKobraAI_Presentacion_Gerencial.pptx"))
 
-    # Lanzador Windows: Docker si existe; si no, Python local
-    _write(os.path.join(stage, "INSTALAR_Y_EJECUTAR.bat"),
-           "@echo off\r\n"
-           "title MV Kobra AI - Instalador\r\n"
-           "cd /d \"%~dp0kobra_software\"\r\n"
-           "where docker >nul 2>nul\r\n"
-           "if %errorlevel%==0 (\r\n"
-           "  echo [MV Kobra AI] Docker detectado. Levantando dashboard y servicio de audio...\r\n"
-           "  docker compose up --build -d\r\n"
-           "  echo.\r\n"
-           "  echo   Dashboard:  http://localhost:8501\r\n"
-           "  echo   Realtime :  http://localhost:8000\r\n"
-           "  start \"\" http://localhost:8501\r\n"
-           "  pause\r\n"
-           "  exit /b\r\n"
-           ")\r\n"
-           "where python >nul 2>nul\r\n"
-           "if %errorlevel%==0 (\r\n"
-           "  echo [MV Kobra AI] Docker no encontrado. Instalando con Python local...\r\n"
-           "  python -m pip install -r requirements.txt\r\n"
-           "  python data\\generate_dataset.py --n 12000 --seed 42\r\n"
-           "  python -m kobra.pipeline\r\n"
-           "  start \"\" http://localhost:8501\r\n"
-           "  python -m streamlit run app\\app.py\r\n"
-           "  exit /b\r\n"
-           ")\r\n"
-           "echo [MV Kobra AI] Instale Docker Desktop (recomendado) o Python 3.11+ y reintente.\r\n"
-           "pause\r\n")
+    # El lanzador de Streamlit va en la RAÍZ de kobra_software, igual que
+    # kobra_launcher.py en las otras ediciones: es el destino del acceso directo.
+    _copy("packaging/kobra_streamlit.py", os.path.join(stage, "kobra_software",
+                                                       "kobra_streamlit.py"))
+
+    # INSTALAR_Y_EJECUTAR.bat — antes levantaba Streamlit y nada más: no
+    # preguntaba carpeta, no medía disco, no dejaba icono en ningún lado y
+    # usaba el 8501 fijo (si otra app lo tenía, fallaba o se corría sin avisar).
+    # Ahora la instalación normal es la de siempre del resto de las ediciones, y
+    # Docker queda como opción explícita para servidor.
+    N = 6
+    _write(os.path.join(stage, "INSTALAR_Y_EJECUTAR.bat"), crlf=True, content=(
+        "@echo off\n"
+        "setlocal enabledelayedexpansion\n"
+        "title MV Kobra AI - Instalador\n"
+        "cd /d \"%~dp0\"\n"
+        "set \"CODIGO=%CD%\\kobra_software\"\n"
+        "\n"
+        "echo ============================================================\n"
+        "echo   MV Kobra AI - Produccion\n"
+        "echo ============================================================\n"
+        "echo.\n"
+        "echo   Como queres instalarlo?\n"
+        "echo     [1] Normal (recomendado): elegis la carpeta y queda con\n"
+        "echo         icono en el Escritorio y en el Menu Inicio.\n"
+        "echo     [2] Con Docker (servidor): dashboard + copiloto en contenedores.\n"
+        "echo.\n"
+        "set \"MODO=1\"\n"
+        "set /p \"MODO=  Opcion [1]: \"\n"
+        "if \"!MODO!\"==\"2\" goto :docker\n"
+        "\n"
+        + _bat_elegir_carpeta(1, N, "destino_produccion.txt")
+        + _bat_espacio(2, N)
+        + _bat_python(3, N)
+        + _bat_entorno_y_deps(4, 5, N)
+        + "\n"
+        "echo.\n"
+        f"echo [6/{N}] Dejando el programa instalado ^(icono, Menu Inicio, desinstalador^)...\n"
+        "set \"PYW=!VENV!\\Scripts\\pythonw.exe\"\n"
+        "if not exist \"!PYW!\" set \"PYW=!VPY!\"\n"
+        "powershell -NoProfile -ExecutionPolicy Bypass -File "
+        "\"!CODIGO!\\packaging\\instalar_windows.ps1\" -Destino \"!DESTINO!\" "
+        "-Codigo \"!CODIGO!\" -Python \"!PYW!\" -Datos \"!DATOS!\" "
+        f"-Version \"{VERSION}\" -Lanzador \"kobra_streamlit.py\"\n"
+        "if errorlevel 1 (\n"
+        "  echo.\n"
+        "  echo   Fallo la instalacion de los accesos. El programa igual arranca\n"
+        "  echo   volviendo a ejecutar este .bat.\n"
+        ")\n"
+        "\n"
+        "echo.\n"
+        "echo   Preparando datos sinteticos y modelo ^(solo la 1a vez^)...\n"
+        "set \"KOBRA_DATA_DIR=!DATOS!\"\n"
+        "\"!VPY!\" \"!CODIGO!\\data\\generate_dataset.py\" --n 12000 --seed 42\n"
+        "\"!VPY!\" -m kobra.pipeline\n"
+        "\n"
+        "echo.\n"
+        "echo   Iniciando el dashboard...\n"
+        "rem kobra_streamlit.py y no `streamlit run`: elige un puerto libre en\n"
+        "rem vez de asumir el 8501, que suele estar tomado por otra cosa.\n"
+        "\"!VPY!\" \"!CODIGO!\\kobra_streamlit.py\"\n"
+        "pause\n"
+        "exit /b 0\n"
+        "\n"
+        ":docker\n"
+        "cd /d \"!CODIGO!\"\n"
+        "where docker >nul 2>nul\n"
+        "if not %errorlevel%==0 (\n"
+        "  echo.\n"
+        "  echo   No encontre Docker. Instala Docker Desktop, o volve a ejecutar\n"
+        "  echo   y elegi la opcion [1].\n"
+        "  echo.\n"
+        "  pause & exit /b 1\n"
+        ")\n"
+        "echo   Levantando dashboard y servicio de audio en contenedores...\n"
+        "rem Docker publica 8501 y 8000 fijos (docker-compose.yml). Si otra app\n"
+        "rem los tiene, `docker compose up` falla con un error claro de puerto\n"
+        "rem ocupado - preferible a arrancar encima de la otra aplicacion.\n"
+        "docker compose up --build -d\n"
+        "if not %errorlevel%==0 (\n"
+        "  echo.\n"
+        "  echo   No pude levantar los contenedores. Si el error habla de un\n"
+        "  echo   puerto ocupado ^(8501 o 8000^), libera ese puerto o usa la\n"
+        "  echo   opcion [1], que elige un puerto libre sola.\n"
+        "  echo.\n"
+        "  pause & exit /b 1\n"
+        ")\n"
+        "echo.\n"
+        "echo   Dashboard:  http://localhost:8501\n"
+        "echo   Realtime :  http://localhost:8000\n"
+        "start \"\" http://localhost:8501\n"
+        "pause\n"
+        "exit /b 0\n"
+        "\n"
+        + _bat_sub_libres()))
     _write(os.path.join(stage, "instalar_y_ejecutar.sh"),
            "#!/usr/bin/env bash\n"
            "set -e\n"
@@ -456,14 +778,27 @@ def build_edicion(tmp, key):
     _write(os.path.join(soft, "edicion.json"), _json.dumps(ed, ensure_ascii=False, indent=2))
 
     # Lanzadores (Windows + Unix): corren el launcher standalone.
+    # Ojo con los saltos de línea: `_write(crlf=True)` ya convierte \n -> \r\n.
+    # Escribirlos acá como \r\n dejaba \r\r\n en el archivo (doble CR).
+    # Si el usuario ya instaló con INSTALAR.bat, hay un entorno propio con las
+    # dependencias: usarlo antes que el Python del sistema, que puede no
+    # tenerlas y hace fallar el arranque con un ImportError.
     _write(os.path.join(stage, f"INICIAR_{key.upper()}.bat"), crlf=True, content=(
-        "@echo off\r\n"
-        f"title MV Kobra AI - {titulo}\r\n"
-        "cd /d \"%~dp0kobra_software\"\r\n"
-        "where python >nul 2>nul && (python kobra_launcher.py & goto :eof)\r\n"
-        "where py >nul 2>nul && (py kobra_launcher.py & goto :eof)\r\n"
-        "echo Instala Python 3.11+ desde https://www.python.org y volve a ejecutar.\r\n"
-        "pause\r\n"))
+        "@echo off\n"
+        "setlocal enabledelayedexpansion\n"
+        f"title MV Kobra AI - {_ascii(titulo)}\n"
+        "cd /d \"%~dp0kobra_software\"\n"
+        f"set \"MEMORIA=%LocalAppData%\\MV Kobra AI\\destino_{key.lower()}.txt\"\n"
+        "if exist \"!MEMORIA!\" (\n"
+        "  for /f \"usebackq delims=\" %%D in (\"!MEMORIA!\") do "
+        "if exist \"%%D\\entorno\\Scripts\\python.exe\" "
+        "(\"%%D\\entorno\\Scripts\\python.exe\" kobra_launcher.py & goto :eof)\n"
+        ")\n"
+        "where python >nul 2>nul && (python kobra_launcher.py & goto :eof)\n"
+        "where py >nul 2>nul && (py kobra_launcher.py & goto :eof)\n"
+        "echo Instala Python 3.11+ desde https://www.python.org y volve a ejecutar,\n"
+        "echo o usa INSTALAR.bat que lo baja y prepara todo solo.\n"
+        "pause\n"))
     _write(os.path.join(stage, f"iniciar_{key.lower()}.sh"),
            "#!/usr/bin/env bash\ncd \"$(dirname \"$0\")/kobra_software\"\n"
            "python3 kobra_launcher.py\n")
@@ -477,38 +812,54 @@ def build_edicion(tmp, key):
     flag_owner = " -Owner" if owner else ""
     # El titulo va en ASCII: un .bat corre en la code page de la consola
     # (850/437), no en UTF-8, y "dueño ·" saldria como mojibake en la barra.
+    #
+    # Antes este .bat apuntaba los accesos directos al pythonw del SISTEMA, sin
+    # crear entorno ni instalar dependencias: el icono quedaba creado pero al
+    # hacer clic el programa moría con ImportError si ese Python no tenía
+    # uvicorn/fastapi. Ahora arma un entorno propio en la carpeta elegida, deja
+    # las dependencias adentro y recién entonces crea los accesos apuntando a
+    # ESE pythonw — el mismo camino que el .bat de owner.
+    N = 6
     _write(os.path.join(stage, "INSTALAR.bat"), crlf=True, content=(
-        "@echo off\r\n"
-        "setlocal\r\n"
-        f"title MV Kobra AI - Instalar ({key})\r\n"
-        "cd /d \"%~dp0\"\r\n"
-        "set \"CODIGO=%CD%\\kobra_software\"\r\n"
-        "\r\n"
-        "rem pythonw.exe del Python del sistema (sin ventana de consola).\r\n"
-        "set \"PYW=\"\r\n"
-        "for /f \"delims=\" %%P in ('where pythonw 2^>nul') do if not defined PYW set \"PYW=%%P\"\r\n"
-        "if not defined PYW for /f \"delims=\" %%P in ('where python 2^>nul') do "
-        "if not defined PYW set \"PYW=%%~dpPpythonw.exe\"\r\n"
-        "if not defined PYW (\r\n"
-        "  echo   No encontre Python. Instala Python 3.11+ desde\r\n"
-        "  echo   https://www.python.org/downloads/ marcando \"Add Python to PATH\"\r\n"
-        "  echo   y volve a ejecutar este INSTALAR.bat.\r\n"
-        "  pause & exit /b 1\r\n"
-        ")\r\n"
-        "\r\n"
-        "set \"DESTINO=%LocalAppData%\\MV Kobra AI\"\r\n"
-        "set /p \"DESTINO=  Carpeta de instalacion [%DESTINO%]: \"\r\n"
-        "set \"DESTINO=%DESTINO:\"=%\"\r\n"
-        "\r\n"
+        "@echo off\n"
+        "setlocal enabledelayedexpansion\n"
+        f"title MV Kobra AI - Instalar ({key})\n"
+        "cd /d \"%~dp0\"\n"
+        "set \"CODIGO=%CD%\\kobra_software\"\n"
+        "\n"
+        "echo ============================================================\n"
+        f"echo   MV Kobra AI - {_ascii(titulo)}\n"
+        "echo   Elegis la carpeta y queda instalado con icono propio.\n"
+        "echo ============================================================\n"
+        "echo.\n"
+        "\n"
+        + _bat_elegir_carpeta(1, N, f"destino_{key.lower()}.txt")
+        + _bat_espacio(2, N)
+        + _bat_python(3, N)
+        + _bat_entorno_y_deps(4, 5, N)
+        + "\n"
+        "echo.\n"
+        f"echo [6/{N}] Dejando el programa instalado ^(icono, Menu Inicio, desinstalador^)...\n"
+        "rem pythonw y no python: `w` es la variante sin consola, para que abrir\n"
+        "rem el programa no levante una ventana negra atras.\n"
+        "set \"PYW=!VENV!\\Scripts\\pythonw.exe\"\n"
+        "if not exist \"!PYW!\" set \"PYW=!VPY!\"\n"
         "powershell -NoProfile -ExecutionPolicy Bypass -File "
-        "\"%CODIGO%\\packaging\\instalar_windows.ps1\" -Destino \"%DESTINO%\" "
-        f"-Codigo \"%CODIGO%\" -Python \"%PYW%\" -Version \"{VERSION}\"{flag_owner}\r\n"
-        "if errorlevel 1 (\r\n"
-        "  echo.\r\n"
-        "  echo   Fallo la instalacion de los accesos. El programa igual se puede\r\n"
-        f"  echo   abrir con INICIAR_{key.upper()}.bat.\r\n"
-        ")\r\n"
-        "pause\r\n"))
+        "\"!CODIGO!\\packaging\\instalar_windows.ps1\" -Destino \"!DESTINO!\" "
+        "-Codigo \"!CODIGO!\" -Python \"!PYW!\" -Datos \"!DATOS!\" "
+        f"-Version \"{VERSION}\"{flag_owner}\n"
+        "if errorlevel 1 (\n"
+        "  echo.\n"
+        "  echo   Fallo la instalacion de los accesos. El programa igual se puede\n"
+        f"  echo   abrir con INICIAR_{key.upper()}.bat.\n"
+        ")\n"
+        "echo.\n"
+        "echo   Listo. Buscalo como \"MV Kobra AI\" en el Menu Inicio o en el Escritorio.\n"
+        "echo.\n"
+        "pause\n"
+        "exit /b 0\n"
+        "\n"
+        + _bat_sub_libres()))
 
     limite = ("Sin límite de tiempo (edición del dueño)." if owner
               else f"Evaluación por {dias} días." if plan == "trial"

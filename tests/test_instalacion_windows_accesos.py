@@ -115,14 +115,22 @@ def test_el_acceso_apunta_a_wscript_y_no_al_vbs_suelto(instalar):
 def test_verifica_que_el_launcher_exista_antes_de_crear_el_acceso(instalar):
     """Un .lnk a un archivo inexistente se crea igual y falla en silencio: al
     hacer clic no pasa nada y no hay ningún error que leer."""
-    assert "No encontre kobra_launcher.py" in instalar
+    assert re.search(r'throw "No encontre \$Lanzador en', instalar)
 
 
 def test_encuentra_el_launcher_en_los_dos_layouts(instalar):
     """El repo lo tiene en `packaging\\` y el ZIP lo copia a la raíz de
     `kobra_software\\`. Los dos son válidos."""
-    assert '(Join-Path $Codigo "kobra_launcher.py")' in instalar
-    assert '(Join-Path $Codigo "packaging\\kobra_launcher.py")' in instalar
+    assert '(Join-Path $Codigo $Lanzador)' in instalar
+    assert '(Join-Path $Codigo (Join-Path "packaging" $Lanzador))' in instalar
+
+
+def test_el_lanzador_es_parametrizable_pero_con_el_de_siempre_por_defecto(instalar):
+    """La app de escritorio arranca con FastAPI (`kobra_launcher.py`) y la
+    edición Producción sirve el dashboard con Streamlit
+    (`kobra_streamlit.py`). Un solo instalador tiene que poder apuntar a
+    cualquiera de los dos, sin que quien no pase nada cambie de comportamiento."""
+    assert '[string]$Lanzador = "kobra_launcher.py"' in instalar
 
 
 def test_verifica_que_el_python_indicado_exista(instalar):

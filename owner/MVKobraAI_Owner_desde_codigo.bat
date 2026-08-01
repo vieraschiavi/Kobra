@@ -11,57 +11,33 @@ echo   No necesitas instalar ni configurar nada a mano.
 echo ============================================================
 echo.
 
-rem --- 1) Python: usar el del sistema, o el venv ya armado, o instalarlo ----
-set "PYEXE="
-where python >nul 2>nul && set "PYEXE=python"
+rem =========================================================================
+rem  ORDEN DE LOS PASOS: primero la carpeta, despues el disco, y RECIEN AHI
+rem  se descarga nada.
+rem
+rem  Antes Python se bajaba en el paso 1, a %TEMP% — que vive en C:. Con C:
+rem  lleno la descarga fallaba y el script culpaba a la red ("sin internet?"),
+rem  cuando el problema era espacio. El usuario veia "Espacio en disco
+rem  insuficiente" y acto seguido "no pude descargar Python (sin internet?)":
+rem  dos mensajes que se contradicen y ninguno accionable.
+rem
+rem  Ahora la carpeta se elige antes que nada, el espacio se mide sobre ESA
+rem  carpeta, y todo lo que se descarga (instalador de Python incluido) va al
+rem  disco elegido. Asi "elegi otro disco" resuelve de verdad.
+rem =========================================================================
 
-if "!PYEXE!"=="" (
-  echo [1/7] Python no encontrado. Descargando e instalando Python 3.11...
-  echo       (usa PowerShell, incluido en Windows - no requiere winget)
-  set "PYINST=%TEMP%\python311_kobra.exe"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "try { Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile '%TEMP%\python311_kobra.exe' -UseBasicParsing; exit 0 } catch { Write-Host $_; exit 1 }"
-  if not !errorlevel!==0 (
-    echo.
-    echo   No pude descargar Python automaticamente ^(sin internet?^).
-    echo   Instalalo a mano desde https://www.python.org/downloads/
-    echo   marcando "Add Python to PATH", y volve a ejecutar este .bat.
-    echo.
-    pause & exit /b 1
-  )
-  echo       Instalando Python en silencio ^(solo para tu usuario, sin admin^)...
-  "!PYINST!" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1
-  rem El PATH nuevo no aplica a esta consola: buscar el python recien puesto.
-  for %%P in (
-    "%LocalAppData%\Programs\Python\Python311\python.exe"
-    "%ProgramFiles%\Python311\python.exe"
-  ) do if exist "%%~P" set "PYEXE=%%~P"
-  del "!PYINST!" >nul 2>nul
-  if "!PYEXE!"=="" (
-    echo.
-    echo   Python quedo instalado. Cerra esta ventana y volve a hacer doble
-    echo   clic en el .bat una vez mas para que Windows lo tome. ^(solo la 1a vez^)
-    echo.
-    pause & exit /b 0
-  )
-) else (
-  echo [1/7] Python: OK
-)
-
-rem --- 2) Donde instalar (el usuario elige) ---------------------------------
-rem     Antes se instalaba siempre al lado del codigo, sin preguntar. Aca van
-rem     el entorno (~2 GB) y los datos, asi que la carpeta la elige el usuario
-rem     — igual que el instalador .exe. La eleccion se recuerda: la 2a vez
-rem     alcanza con dar Enter.
+rem --- 1) Donde instalar (el usuario elige) ---------------------------------
+rem     Aca van el entorno (~2 GB), los datos y los temporales, asi que la
+rem     carpeta la elige el usuario — igual que el instalador .exe. La
+rem     eleccion se recuerda: la 2a vez alcanza con dar Enter.
 set "MEMORIA=%LocalAppData%\MV Kobra AI\owner_destino.txt"
 set "SUGERIDO=%LocalAppData%\MV Kobra AI"
 if exist "!MEMORIA!" (
   for /f "usebackq delims=" %%D in ("!MEMORIA!") do if not "%%D"=="" set "SUGERIDO=%%D"
 )
 
-echo.
-echo [2/7] Carpeta de instalacion
-echo       Ahi van el entorno de Python y tus datos ^(hacen falta ~3 GB^).
+echo [1/7] Carpeta de instalacion
+echo       Ahi van Python, el entorno y tus datos ^(hacen falta ~3 GB^).
 echo       El codigo del programa se queda donde esta: %CODIGO%
 echo.
 echo       Enter = usar:  !SUGERIDO!
@@ -103,16 +79,14 @@ mkdir "%LocalAppData%\MV Kobra AI" >nul 2>nul
 >"!MEMORIA!" echo !DESTINO!
 echo       Instalando en: !DESTINO!
 
-rem --- 3) Espacio en disco: hay que mirar DOS lugares -----------------------
-rem     El bug que motivo esto: el chequeo miraba solo el disco del codigo y
-rem     decia "~523 GB libres", pero pip descomprime cada wheel en %TEMP% —
-rem     que vive en C: — y ahi no habia lugar. Resultado: el chequeo daba OK y
-rem     la instalacion moria con "[Errno 28] No space left on device" a mitad
-rem     de bajar plotly. Ahora se mide el disco de destino Y se manda el temp
-rem     de pip al mismo disco elegido, que es el que el usuario sabe que tiene
-rem     lugar. Asi el numero que se muestra es el numero que importa.
+rem --- 2) Espacio en disco (sobre la carpeta elegida, antes de bajar nada) --
+rem     El chequeo viejo miraba el disco del codigo y anunciaba, por ejemplo,
+rem     "~523 GB libres" — pero pip descomprime cada wheel en %TEMP%, que vive
+rem     en C:. Con C: lleno el chequeo daba OK y la instalacion moria igual con
+rem     "[Errno 28] No space left on device" a mitad de bajar plotly. Se mide
+rem     el disco de DESTINO y mas abajo se manda ahi todo lo que se descarga.
 echo.
-echo [3/7] Espacio en disco
+echo [2/7] Espacio en disco
 call :libres "!DESTINO!" LIBRE_DESTINO
 if "!LIBRE_DESTINO!"=="?" (
   echo       No pude medir el espacio libre. Sigo igual.
@@ -120,12 +94,60 @@ if "!LIBRE_DESTINO!"=="?" (
   echo       Disponible en !DESTINO!: ~!LIBRE_DESTINO! GB
   if !LIBRE_DESTINO! LSS 3 (
     echo.
-    echo   ^(!^) Muy poco espacio ^(~!LIBRE_DESTINO! GB^). Las dependencias
-    echo   necesitan unos 3 GB para descargarse e instalarse.
+    echo   ^(!^) Muy poco espacio ^(~!LIBRE_DESTINO! GB^). Python, el entorno y
+    echo   las dependencias necesitan unos 3 GB para descargarse e instalarse.
     echo   Volve a ejecutar el .bat y elegi una carpeta en un disco con
     echo   mas lugar ^(ej. D:\MVKobraAI^).
     echo.
     pause & exit /b 1
+  )
+)
+
+rem --- 3) Python: el del sistema, o descargarlo AL DISCO ELEGIDO ------------
+set "PYEXE="
+where python >nul 2>nul && set "PYEXE=python"
+
+if not "!PYEXE!"=="" (
+  echo.
+  echo [3/7] Python: OK
+) else (
+  echo.
+  echo [3/7] Python no encontrado. Descargando e instalando Python 3.11...
+  echo       ^(usa PowerShell, incluido en Windows - no requiere winget^)
+  rem El instalador baja a !TRABAJO! y no a %TEMP%: si C: esta lleno, bajarlo
+  rem a %TEMP% falla con un mensaje de red que no tiene nada que ver.
+  set "PYINST=!TRABAJO!\python311_kobra.exe"
+  set "KOBRA_PY_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
+  set "KOBRA_PY_DEST=!PYINST!"
+  set "KOBRA_PY_ERR=!TRABAJO!\python_descarga_error.txt"
+  del "!KOBRA_PY_ERR!" >nul 2>nul
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri $env:KOBRA_PY_URL -OutFile $env:KOBRA_PY_DEST -UseBasicParsing } catch { $_.Exception.Message ^| Set-Content -LiteralPath $env:KOBRA_PY_ERR }"
+  if not exist "!PYINST!" (
+    echo.
+    echo   No pude descargar Python. Motivo exacto:
+    if exist "!KOBRA_PY_ERR!" (type "!KOBRA_PY_ERR!") else (echo     ^(sin detalle^))
+    echo.
+    echo   Si habla de ESPACIO: libera lugar, o volve a ejecutar el .bat y
+    echo   elegi una carpeta en un disco con mas lugar.
+    echo   Si habla de RED: revisa la conexion, o instala Python a mano desde
+    echo   https://www.python.org/downloads/ marcando "Add Python to PATH".
+    echo.
+    pause & exit /b 1
+  )
+  echo       Instalando Python en silencio ^(solo para tu usuario, sin admin^)...
+  "!PYINST!" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1
+  rem El PATH nuevo no aplica a esta consola: buscar el python recien puesto.
+  for %%P in (
+    "%LocalAppData%\Programs\Python\Python311\python.exe"
+    "%ProgramFiles%\Python311\python.exe"
+  ) do if exist "%%~P" set "PYEXE=%%~P"
+  del "!PYINST!" >nul 2>nul
+  if "!PYEXE!"=="" (
+    echo.
+    echo   Python quedo instalado. Cerra esta ventana y volve a hacer doble
+    echo   clic en el .bat una vez mas para que Windows lo tome. ^(solo la 1a vez^)
+    echo.
+    pause & exit /b 0
   )
 )
 
@@ -134,12 +156,15 @@ if not exist "!VENV!\Scripts\python.exe" (
   echo.
   echo [4/7] Creando entorno propio...
   "!PYEXE!" -m venv "!VENV!"
+) else (
+  echo.
+  echo [4/7] Entorno propio: OK
 )
 set "VPY=!VENV!\Scripts\python.exe"
 if not exist "!VPY!" (
   echo.
   echo   No se pudo crear el entorno en !VENV!.
-  echo   Probá elegir otra carpeta al volver a ejecutar el .bat.
+  echo   Proba elegir otra carpeta al volver a ejecutar el .bat.
   echo.
   pause & exit /b 1
 )
@@ -147,7 +172,7 @@ if not exist "!VPY!" (
 rem --- 5) Dependencias (idempotente: la 2a vez es casi instantanea) ---------
 rem     --no-cache-dir: no guarda una copia extra de cada .whl descargado.
 rem     TEMP/TMP: pip descomprime en el temp del sistema aunque no cachee, asi
-rem     que se lo apunta al disco elegido (ver el comentario del paso 3).
+rem     que se lo apunta al disco elegido (ver el comentario del paso 2).
 echo.
 echo [5/7] Instalando dependencias ^(la 1a vez tarda unos minutos^)...
 set "TEMP=!TRABAJO!"
