@@ -26,20 +26,23 @@ def _base_dir() -> str:
 
 
 def _puerto_libre() -> int:
-    """Elige un puerto libre para no chocar con otros programas. Prueba unos
-    puertos propios de MV Kobra AI y, si están ocupados, pide uno efímero al
-    sistema operativo."""
-    for p in (8531, 8542, 8553, 8564, 8575):
+    """Elige un puerto libre para no chocar con otros programas.
+
+    La lógica vive en `kobra/red.py` (la comparten este lanzador y el de la
+    edición Producción). Si por lo que sea el paquete `kobra` todavía no
+    resuelve, se cae a un puerto efímero: es preferible una URL fea a arrancar
+    encima de otra aplicación.
+    """
+    base = _base_dir()
+    if base not in sys.path:
+        sys.path.insert(0, base)
+    try:
+        from kobra import red as kred
+        return kred.puerto_libre(kred.PUERTOS_APP)
+    except ImportError:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                s.bind(("127.0.0.1", p))
-                return p
-            except OSError:
-                continue
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
 
 
 def _abrir_ventana_app(url: str) -> bool:
