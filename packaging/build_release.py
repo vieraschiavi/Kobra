@@ -308,12 +308,21 @@ if not "!PYEXE!"=="" (
     pause & exit /b 1
   )
   echo       Instalando Python en silencio ^(solo para tu usuario, sin admin^)...
-  "!PYINST!" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1
-  rem El PATH nuevo no aplica a esta consola: buscar el python recien puesto.
-  for %%P in (
-    "%LocalAppData%\\Programs\\Python\\Python311\\python.exe"
-    "%ProgramFiles%\\Python311\\python.exe"
-  ) do if exist "%%~P" set "PYEXE=%%~P"
+  rem TargetDir: sin esto, el instalador oficial de python.org SIEMPRE pone el
+  rem interprete en %LocalAppData%\\Programs\\Python\\Python311 - que vive en
+  rem C: - sin importar que disco se haya elegido para todo lo demas. Con C:
+  rem justo de espacio (el motivo original de este instalador), instalar ahi
+  rem podia volver a fallar por lo mismo que se vino a arreglar. TargetDir es
+  rem una propiedad documentada del instalador y funciona con o sin
+  rem InstallAllUsers.
+  set "PYDIR=!DESTINO!\\python311"
+  "!PYINST!" /quiet InstallAllUsers=0 PrependPath=0 Include_launcher=0 TargetDir="!PYDIR!"
+  rem PrependPath=0 e Include_launcher=0 a proposito: PrependPath tocaria el
+  rem PATH del usuario con una ruta que vive dentro de la carpeta elegida (si
+  rem el usuario la borra despues, el PATH queda roto) y el lanzador py.exe se
+  rem registra fuera de TargetDir de cualquier forma. Ninguno de los dos hace
+  rem falta: ya se guarda la ruta exacta a PYEXE.
+  if exist "!PYDIR!\\python.exe" set "PYEXE=!PYDIR!\\python.exe"
   del "!PYINST!" >nul 2>nul
   if "!PYEXE!"=="" (
     echo.

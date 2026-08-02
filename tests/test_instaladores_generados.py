@@ -112,6 +112,19 @@ def test_python_se_descarga_al_disco_elegido_y_no_a_temp(instalar):
     assert "%TEMP%\\python" not in instalar
 
 
+def test_python_se_instala_en_el_disco_elegido_y_no_en_localappdata(instalar):
+    """La descarga y el venv ya iban al disco elegido, pero el instalador
+    oficial de python.org por defecto SIEMPRE pone el intérprete en
+    `%LocalAppData%\\Programs\\Python\\Python311` (C:), sin importar qué disco
+    haya elegido el usuario para todo lo demás. TargetDir lo corrige."""
+    assert 'set "PYDIR=!DESTINO!\\python311"' in instalar
+    assert 'TargetDir="!PYDIR!"' in instalar
+    codigo = "\n".join(ln for ln in instalar.splitlines() if not ln.strip().lower().startswith("rem"))
+    assert "%LocalAppData%\\Programs\\Python" not in codigo, \
+        "sigue habiendo una linea de codigo (no comentario) que asume C:"
+    assert "PrependPath=0" in instalar and "PrependPath=1" not in instalar
+
+
 def test_si_falla_la_descarga_muestra_el_motivo_real(instalar):
     """«¿sin internet?» ante un disco lleno mandó al usuario a revisar la
     conexión durante toda una tarde. Ahora se imprime el error de PowerShell y
