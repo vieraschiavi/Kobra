@@ -31,7 +31,32 @@ puerta cerrada del lado del dueño (`tests/test_owner_sin_restricciones.py`).
 
 ## Cómo usarla
 
-### 0) Descargarla lista desde GitHub (lo más rápido)
+### 0) El instalador de Windows (`MVKobraAI_Setup.exe`) — lo más profesional
+
+Es la vía recomendada y la que ve un cliente. **Asistente gráfico**, no consola:
+
+```
+https://github.com/vieraschiavi/Kobra/releases/latest   →   MVKobraAI_Setup.exe
+```
+
+| Trae | Detalle |
+|---|---|
+| Asistente en español/portugués/inglés | Selector de idioma, licencia, barra lateral con la marca |
+| **Elección de carpeta y disco** | Página con botón **Examinar**: podés instalarlo en `D:\` |
+| Iconos | Página propia con checkboxes: Escritorio y/o Menú Inicio |
+| Desinstalador | Registrado en «Agregar o quitar programas» |
+| Sin dependencias | **No necesita Python**: el motor va empaquetado con PyInstaller |
+
+Lo construye solo el workflow `build-windows-installer` (Electron + NSIS vía
+electron-builder) en cada push a `main` y en cada tag `vX.Y.Z`.
+
+> Doble clic en `MVKobraAI_Owner.bat` abre el programa si ya está instalado; si
+> no, ofrece **este** instalador como opción 1 y deja la instalación por
+> consola como opción 2. Antes caía a la consola sin preguntar, y esa vía
+> —preguntas por texto, descarga de Python, minutos de `pip`— terminaba siendo
+> la cara del producto existiendo este asistente.
+
+### 1) El ZIP de la edición Owner (para correr desde el código)
 
 La edición Owner se publica como release **de este repositorio privado**:
 
