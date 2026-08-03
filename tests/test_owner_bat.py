@@ -169,3 +169,64 @@ def test_cada_salida_por_error_deja_leer_el_mensaje(bat):
     for linea in bat.splitlines():
         if "exit /b 1" in linea:
             assert "pause" in linea, f"salida sin pause: {linea.strip()}"
+
+
+# --- 5) La puerta de entrada: instalador grafico antes que la consola -------
+# `MVKobraAI_Owner.bat` es lo que el usuario hace doble clic. Si el programa no
+# está instalado, antes caía EN SILENCIO al instalador de consola de arriba —
+# y esa vía (preguntas por texto, descarga de Python, minutos de pip) terminaba
+# siendo la cara del producto, existiendo un instalador de Windows publicado en
+# Releases: asistente gráfico, elección de carpeta y disco, iconos y
+# desinstalador. Reportado como «verificar que tenga instalador tipo windows
+# mas profesional».
+ENTRADA = os.path.join(ROOT, "owner", "MVKobraAI_Owner.bat")
+
+
+@pytest.fixture(scope="module")
+def entrada():
+    with open(ENTRADA, encoding="utf-8", errors="replace") as f:
+        return f.read()
+
+
+def test_ofrece_el_instalador_de_windows(entrada):
+    assert "MVKobraAI_Setup.exe" in entrada
+    assert "releases/latest" in entrada
+
+
+def test_el_instalador_es_la_opcion_por_defecto(entrada):
+    """Enter (sin escribir nada) tiene que llevar al .exe, no a la consola."""
+    assert 'set "OPCION=1"' in entrada
+    assert 'if "!OPCION!"=="2"' in entrada, \
+        "la consola dejó de ser la opción 2 (explícita) del menú"
+
+
+def test_la_consola_sigue_disponible_como_alternativa(entrada):
+    """Sin conexión para bajar 267 MB, instalar desde el código es la salida."""
+    assert "MVKobraAI_Owner_desde_codigo.bat" in entrada
+
+
+def test_no_cae_a_la_consola_sin_preguntar(entrada):
+    """La regresión concreta: un `call` al .bat de consola que no esté dentro
+    del bloque de la opción 2 vuelve a saltearse la elección del usuario."""
+    for linea in entrada.splitlines():
+        if "call " in linea and "desde_codigo" in linea:
+            assert linea.startswith("  "), \
+                f"call fuera del bloque de la opcion 2: {linea.strip()}"
+
+
+def test_nombra_la_eleccion_de_disco(entrada):
+    """Es la razón por la que el usuario fue a buscar otro instalador."""
+    assert "Examinar" in entrada and "D:" in entrada
+
+
+def test_sigue_arrancando_el_programa_si_ya_esta_instalado(entrada):
+    """El menú es para cuando NO está instalado: si está, tiene que abrirlo
+    directo, como siempre."""
+    assert entrada.index("APP_USER") < entrada.index("URL_INSTALADOR")
+    assert "start \"\" \"%APP_USER%\"" in entrada
+
+
+def test_la_entrada_no_tiene_caracteres_no_ascii(entrada):
+    """Un .bat se lee en la code page de la consola (850/437), no en UTF-8."""
+    malos = [c for c in entrada if ord(c) > 127]
+    assert not malos, f"{len(malos)} caracteres no-ASCII -> mojibake: {set(malos)}"
