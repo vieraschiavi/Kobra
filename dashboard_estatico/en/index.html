@@ -465,16 +465,21 @@ function analizarCopiloto(){
   const cop = r.copiloto;
   document.getElementById('copResult').style.display='block';
   const emoji = {positivo:'🟢',neutro:'🟡',negativo:'🔴'}[cop.clima_etiqueta];
+  // `clima_etiqueta`, las emociones y las claves de `tecnicas` vienen del
+  // objeto de respuesta (diccionario fijo de copiloto.js, o la API). Hoy son
+  // vocabulario cerrado, pero van escapadas igual: es la regla del archivo, no
+  // una excepción que haya que volver a razonar cada vez que se toque esto.
+  // Antes la línea de emociones (copEmos) escapaba y estas tres no.
   const K=[[Math.round(r.calidad.score_total)+'/100',T('c_k_calidad')],
-    [emoji+' '+(T('clima_'+cop.clima_etiqueta)||cop.clima_etiqueta),T('c_k_clima')],
-    [emoLabel(cop.emociones_cliente[0]),T('c_k_emocion')],
+    [emoji+' '+esc(T('clima_'+cop.clima_etiqueta)||cop.clima_etiqueta),T('c_k_clima')],
+    [esc(emoLabel(cop.emociones_cliente[0])),T('c_k_emocion')],
     [Object.values(r.tecnicas).filter(Boolean).length,T('c_k_tecnicas')]];
   document.getElementById('copKpis').innerHTML=K.map(k=>`<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
   document.getElementById('copEmos').innerHTML = cop.emociones_cliente.length
     ? cop.emociones_cliente.map(e=>`<span class="pill Baja">${esc(emoLabel(e))}</span>`).join(' ') : '—';
   const tec = Object.keys(r.tecnicas).filter(k=>r.tecnicas[k]);
   document.getElementById('copTecs').innerHTML = tec.length
-    ? tec.map(t=>`<span class="pill" style="background:rgba(108,92,231,.2);color:#b3a9f7;">${t}</span>`).join(' ') : '—';
+    ? tec.map(t=>`<span class="pill" style="background:rgba(108,92,231,.2);color:#b3a9f7;">${esc(t)}</span>`).join(' ') : '—';
   // `s[0]`/`s[1]` y `proxima_frase` hoy SIEMPRE salen del diccionario fijo de
   // copiloto.js (nunca del texto que pega el visitante) porque esta llamada no
   // pasa `estrategia` — pero la función sí la acepta, y esa rama concatena la
