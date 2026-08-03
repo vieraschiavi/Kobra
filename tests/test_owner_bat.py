@@ -25,6 +25,17 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BAT = os.path.join(ROOT, "owner", "MVKobraAI_Owner_desde_codigo.bat")
 
 
+def _codigo_bat(texto):
+    """El .bat sin sus lineas `rem`.
+
+    Varios de estos gates son busquedas de texto, y los comentarios de este
+    archivo citan a proposito los mensajes viejos para explicar por que se
+    cambiaron. Sin descartarlos, el comentario que documenta un arreglo hace
+    fallar el test que verifica ese mismo arreglo."""
+    return "\n".join(ln for ln in texto.splitlines()
+                     if not ln.strip().lower().startswith("rem"))
+
+
 @pytest.fixture(scope="module")
 def bat():
     with open(BAT, encoding="utf-8", errors="replace") as f:
@@ -99,10 +110,19 @@ def test_python_se_instala_en_el_disco_elegido_y_no_en_localappdata(bat):
     intérprete ahí podía volver a fallar por lo mismo que se vino a arreglar."""
     assert 'set "PYDIR=!DESTINO!\\python311"' in bat
     assert 'TargetDir="!PYDIR!"' in bat
-    codigo = "\n".join(ln for ln in bat.splitlines() if not ln.strip().lower().startswith("rem"))
-    assert "%LocalAppData%\\Programs\\Python" not in codigo, \
-        "sigue habiendo una linea de codigo (no comentario) que asume C:"
-    assert 'if exist "!PYDIR!\\python.exe" set "PYEXE=!PYDIR!\\python.exe"' in bat
+    # Lo que no puede pasar es que se INSTALE en C:. Buscar ahi despues, como
+    # respaldo por si el instalador ignoro TargetDir, es correcto: no escribe
+    # nada nuevo, solo mira. Por eso el gate es sobre la linea que invoca al
+    # instalador, no sobre cualquier mencion de LocalAppData.
+    invoca = [ln for ln in _codigo_bat(bat).splitlines() if "/quiet" in ln]
+    assert invoca, "no encontre la invocacion al instalador de Python"
+    for ln in invoca:
+        assert "%LocalAppData%" not in ln, f"instala en C: pese a TargetDir: {ln.strip()}"
+    # Y que PYDIR sea el PRIMER lugar donde se busca el intérprete: si el
+    # instalador respetó TargetDir, es el que hay que usar.
+    codigo = _codigo_bat(bat)
+    assert codigo.index('"!PYDIR!\\python.exe"') < \
+        codigo.index('"%LocalAppData%\\Programs\\Python\\Python311\\python.exe"')
 
 
 def test_no_pisa_el_path_del_usuario_con_una_ruta_borrable(bat):
@@ -166,7 +186,7 @@ def test_los_pasos_estan_numerados_sin_saltos(bat):
 
 def test_cada_salida_por_error_deja_leer_el_mensaje(bat):
     """Sin `pause`, la ventana se cierra sola y el usuario no ve el error."""
-    for linea in bat.splitlines():
+    for linea in _codigo_bat(bat).splitlines():
         if "exit /b 1" in linea:
             assert "pause" in linea, f"salida sin pause: {linea.strip()}"
 
@@ -230,3 +250,47 @@ def test_la_entrada_no_tiene_caracteres_no_ascii(entrada):
     """Un .bat se lee en la code page de la consola (850/437), no en UTF-8."""
     malos = [c for c in entrada if ord(c) > 127]
     assert not malos, f"{len(malos)} caracteres no-ASCII -> mojibake: {set(malos)}"
+
+
+# --- 6) El bootstrap de Python no puede mentir sobre el resultado -----------
+# Reportado como «instala todo vacío D:\MVKobraAI». Al pasar a PrependPath=0
+# (para no ensuciar el PATH con una ruta dentro de la carpeta elegida) quedó sin
+# actualizar el camino de fallo: si tras instalar no encontraba python.exe donde
+# lo pidió, imprimía «volvé a hacer doble clic para que Windows lo tome» y salía
+# con exit /b 0 (ÉXITO). Con PrependPath=0 Windows nunca lo iba a tomar: el
+# usuario reabría, se re-descargaba, se re-instalaba y volvía a salir por ahí.
+# Un bucle que reportaba éxito y dejaba la carpeta elegida con datos\ y temp\ y
+# nada más.
+def test_el_fallo_de_python_no_sale_como_exito(bat):
+    """`exit /b 0` en el camino de error es lo que hacía que el .bat pareciera
+    haber funcionado con la carpeta vacía."""
+    assert "pause & exit /b 0" not in bat, \
+        "hay una salida de ERROR marcada como exito (exit /b 0)"
+
+
+def test_no_promete_que_windows_va_a_tomar_python_solo(bat):
+    """Con PrependPath=0 Python no entra al PATH: pedir que reabra la ventana
+    'para que Windows lo tome' manda al usuario a un bucle infinito."""
+    assert "PrependPath=0" in bat, "cambió el modo de instalación de Python"
+    codigo = _codigo_bat(bat)
+    for frase in ("para que Windows lo tome", "una vez mas para que Windows"):
+        assert frase not in codigo, f"sigue prometiendo lo imposible: {frase!r}"
+
+
+def test_busca_el_interprete_en_mas_de_un_lugar(bat):
+    """Si el instalador ignora TargetDir, mirar solo ahí deja PYEXE vacío."""
+    assert "!PYDIR!\\python.exe" in bat
+    assert "%LocalAppData%\\Programs\\Python\\Python311\\python.exe" in bat
+
+
+def test_comprueba_que_el_interprete_realmente_arranca(bat):
+    """Una instalación a medias deja el .exe pero el intérprete no corre."""
+    assert '"!PYEXE!" --version' in bat
+
+
+def test_muestra_el_codigo_de_salida_del_instalador(bat):
+    """Sin el exit code no hay forma de saber si fue permisos, espacio o una
+    cancelación del usuario."""
+    assert 'set "PYRC=!errorlevel!"' in bat
+    assert "!PYRC!" in bat
+    assert "1603" in bat, "no explica los codigos de error tipicos"

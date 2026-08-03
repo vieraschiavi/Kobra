@@ -30,6 +30,17 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 
+def _codigo_bat(texto):
+    """El .bat sin sus lineas `rem`.
+
+    Varios gates son busquedas de texto, y los comentarios del generador citan
+    a proposito los mensajes viejos para explicar por que se cambiaron. Sin
+    descartarlos, el comentario que documenta un arreglo hace fallar el test
+    que verifica ese mismo arreglo."""
+    return "\n".join(ln for ln in texto.splitlines()
+                     if not ln.strip().lower().startswith("rem"))
+
+
 def _load(nombre, rel):
     """packaging/ choca con el paquete pip homónimo: se carga por ruta."""
     spec = importlib.util.spec_from_file_location(nombre, os.path.join(ROOT, rel))
@@ -119,9 +130,16 @@ def test_python_se_instala_en_el_disco_elegido_y_no_en_localappdata(instalar):
     haya elegido el usuario para todo lo demás. TargetDir lo corrige."""
     assert 'set "PYDIR=!DESTINO!\\python311"' in instalar
     assert 'TargetDir="!PYDIR!"' in instalar
-    codigo = "\n".join(ln for ln in instalar.splitlines() if not ln.strip().lower().startswith("rem"))
-    assert "%LocalAppData%\\Programs\\Python" not in codigo, \
-        "sigue habiendo una linea de codigo (no comentario) que asume C:"
+    codigo = _codigo_bat(instalar)
+    # Lo que no puede pasar es que se INSTALE en C:. Buscarlo ahi despues, como
+    # respaldo por si el instalador ignoro TargetDir, es correcto: no escribe
+    # nada, solo mira. Por eso el gate va sobre la linea que lo invoca.
+    invoca = [ln for ln in codigo.splitlines() if "/quiet" in ln]
+    assert invoca, "no encontre la invocacion al instalador de Python"
+    for ln in invoca:
+        assert "%LocalAppData%" not in ln, f"instala en C: pese a TargetDir: {ln.strip()}"
+    assert codigo.index('"!PYDIR!\\python.exe"') < \
+        codigo.index('"%LocalAppData%\\Programs\\Python\\Python311\\python.exe"')
     assert "PrependPath=0" in instalar and "PrependPath=1" not in instalar
 
 
@@ -242,7 +260,7 @@ def test_los_pasos_estan_numerados_sin_saltos(instalar):
 
 def test_cada_salida_por_error_deja_leer_el_mensaje(instalar):
     """Sin `pause`, la ventana se cierra sola y el usuario no ve el error."""
-    for linea in instalar.splitlines():
+    for linea in _codigo_bat(instalar).splitlines():
         if "exit /b 1" in linea:
             assert "pause" in linea, f"salida sin pause: {linea.strip()}"
 
@@ -310,3 +328,34 @@ def test_el_zip_de_produccion_lleva_lo_necesario_para_instalar():
                 "packaging/desinstalar_windows.ps1",
                 "electron/build/icon.ico"):
         assert req in br.PROD_ITEMS, f"falta {req} en PROD_ITEMS"
+
+
+# --- 7) El bootstrap de Python no puede reportar exito cuando fallo ---------
+# Reportado como «instala todo vacío D:\MVKobraAI», con la carpeta conteniendo
+# solo `datos\` y `temp\`. Al pasar a PrependPath=0 quedó sin actualizar el
+# camino de fallo: si tras instalar no encontraba python.exe donde lo pidió,
+# imprimía «volvé a ejecutar para que Windows lo tome» y salía con exit /b 0
+# (ÉXITO). Con PrependPath=0 Windows nunca lo iba a tomar, así que reabrir
+# repetía el ciclo: descargar, instalar, salir. Nunca se llegaba a crear el
+# entorno ni a instalar la app.
+def test_el_fallo_de_python_no_sale_como_exito(instalar):
+    assert "pause & exit /b 0" not in _codigo_bat(instalar), \
+        "hay una salida de ERROR marcada como exito (exit /b 0)"
+
+
+def test_no_promete_que_windows_va_a_tomar_python_solo(instalar):
+    codigo = _codigo_bat(instalar)
+    for frase in ("para que Windows lo tome", "una vez mas para que Windows"):
+        assert frase not in codigo, f"sigue prometiendo lo imposible: {frase!r}"
+
+
+def test_comprueba_que_el_interprete_realmente_arranca(instalar):
+    """Una instalación a medias deja el .exe pero el intérprete no corre."""
+    assert '"!PYEXE!" --version' in instalar
+
+
+def test_muestra_el_codigo_de_salida_del_instalador(instalar):
+    """Sin el exit code no hay forma de distinguir permisos, espacio o una
+    cancelación del usuario."""
+    assert 'set "PYRC=!errorlevel!"' in instalar
+    assert "1603" in instalar

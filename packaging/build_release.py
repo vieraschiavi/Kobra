@@ -317,19 +317,50 @@ if not "!PYEXE!"=="" (
   rem InstallAllUsers.
   set "PYDIR=!DESTINO!\\python311"
   "!PYINST!" /quiet InstallAllUsers=0 PrependPath=0 Include_launcher=0 TargetDir="!PYDIR!"
+  set "PYRC=!errorlevel!"
   rem PrependPath=0 e Include_launcher=0 a proposito: PrependPath tocaria el
   rem PATH del usuario con una ruta que vive dentro de la carpeta elegida (si
   rem el usuario la borra despues, el PATH queda roto) y el lanzador py.exe se
   rem registra fuera de TargetDir de cualquier forma. Ninguno de los dos hace
   rem falta: ya se guarda la ruta exacta a PYEXE.
-  if exist "!PYDIR!\\python.exe" set "PYEXE=!PYDIR!\\python.exe"
   del "!PYINST!" >nul 2>nul
-  if "!PYEXE!"=="" (
+  rem Buscar el interprete: primero donde lo pedimos, y si el instalador
+  rem ignoro TargetDir, en las rutas por defecto. Antes solo se miraba PYDIR.
+  for %%P in (
+    "!PYDIR!\\python.exe"
+    "%LocalAppData%\\Programs\\Python\\Python311\\python.exe"
+    "%ProgramFiles%\\Python311\\python.exe"
+  ) do if not defined PYEXE if exist "%%~P" set "PYEXE=%%~P"
+  rem Que exista el .exe no alcanza: una instalacion a medias deja el archivo
+  rem pero el interprete no arranca. Se comprueba corriendolo.
+  if defined PYEXE (
+    "!PYEXE!" --version >nul 2>nul
+    if not !errorlevel!==0 set "PYEXE="
+  )
+  if not defined PYEXE (
     echo.
-    echo   Python quedo instalado. Cerra esta ventana y volve a ejecutar el
-    echo   .bat una vez mas para que Windows lo tome. ^(solo la 1a vez^)
+    echo   Python no quedo usable. Codigo de salida del instalador: !PYRC!
+    echo     0    = OK          1602 = lo cancelaste
+    echo     1603 = error fatal ^(permisos o espacio^)
+    echo     3010 = pide reiniciar Windows
     echo.
-    pause & exit /b 0
+    echo   Busque el interprete en:
+    echo     !PYDIR!\\python.exe
+    echo     %LocalAppData%\\Programs\\Python\\Python311\\python.exe
+    echo     %ProgramFiles%\\Python311\\python.exe
+    echo.
+    echo   Que hacer:
+    echo     - Reintenta eligiendo otra carpeta ^(por ejemplo C:\\MVKobraAI^).
+    echo     - O instala Python 3.11 a mano desde
+    echo       https://www.python.org/downloads/ marcando "Add Python to PATH",
+    echo       y volve a ejecutar: lo detecta solo.
+    echo.
+    rem exit /b 1 y NO /b 0: antes salia como si todo hubiera ido bien y pedia
+    rem "volve a ejecutar para que Windows lo tome" - imposible, porque con
+    rem PrependPath=0 Python nunca entra al PATH. El usuario reabria, se
+    rem re-descargaba, se re-instalaba y volvia a salir por aca: un bucle que
+    rem dejaba la carpeta elegida vacia (solo datos\\ y temp\\).
+    pause & exit /b 1
   )
 )
 """
