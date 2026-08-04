@@ -52,6 +52,7 @@ from kobra import config as kconfig  # noqa: E402
 from kobra import informe_ejecutivo as kinforme  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
 from kobra import llm as kllm  # noqa: E402
+from kobra import owner as kowner  # noqa: E402
 from kobra import paises as kpaises  # noqa: E402
 from kobra import rutas as krutas  # noqa: E402
 from kobra import seguimiento as kseg  # noqa: E402
@@ -79,6 +80,26 @@ MODO_STANDALONE = os.getenv("KOBRA_MODO_STANDALONE", "").lower() in ("1", "true"
 # no se setea nunca y no cambia nada.
 MODO_OWNER = os.getenv("KOBRA_OWNER", "").lower() in ("1", "true", "si", "sí")
 _CLAVE_LICENCIA = "LICENCIA_TOKEN"
+# Marca persistida cuando el dueño desbloquea con su credencial (ver
+# kobra/owner.py). Sin esto, el desbloqueo duraría solo hasta cerrar la app.
+_CLAVE_OWNER = "KOBRA_OWNER_ACTIVADO"
+
+
+def _es_owner() -> bool:
+    """¿Corre como la copia del dueño?
+
+    Dos vías, y las dos tienen que valer en caliente:
+      * `KOBRA_OWNER=1` — lo exporta el launcher cuando el paquete es la
+        edición Owner (decisión de build).
+      * la credencial `mail|codigo` activada desde la propia app, que queda
+        guardada en la config del usuario. Esta es la que permite tener una
+        copia 100% operativa a partir del instalador PÚBLICO, sin un build
+        aparte.
+
+    Se consulta en cada llamada y no una vez al importar: si fuera una
+    constante, desbloquear owner no surtiría efecto hasta reiniciar la app.
+    """
+    return MODO_OWNER or bool(kconfig.leer_extra(_CLAVE_OWNER))
 
 
 # ---------------------------------------------------------------------------
@@ -523,7 +544,7 @@ def _sin_puerta_por_password():
     creando una clave y entrando para siempre — el límite de días dejaría de
     existir. En modo hosted (multi-tenant) y en la copia del owner, la
     contraseña sigue siendo la puerta normal."""
-    if MODO_STANDALONE and not MODO_OWNER:
+    if MODO_STANDALONE and not _es_owner():
         raise HTTPException(404, "No encontrado.")
 
 
@@ -533,7 +554,7 @@ def auth_estado():
     formulario de primer arranque (crear la contraseña de admin) o el de
     ingreso normal. En la copia de un cliente (standalone) no aplica: ahí se
     entra con licencia, así que informa que la puerta es esa."""
-    if MODO_STANDALONE and not MODO_OWNER:
+    if MODO_STANDALONE and not _es_owner():
         return {"configurado": True, "gestor_configurado": False,
                 "por_licencia": True}
     return {"configurado": kauth.configurado(),
@@ -612,7 +633,7 @@ def licencia_estado():
     saber si hay sesión. En modo hosted no hace nada (standalone=False)."""
     if not MODO_STANDALONE:
         return {"standalone": False}
-    if MODO_OWNER:
+    if _es_owner():
         return {"standalone": True, "activa": True, "owner": True,
                 "plan": "owner", "trial": False, "dias_restantes": None}
     return {"standalone": True, **_estado_licencia(kconfig.leer_extra(_CLAVE_LICENCIA))}
@@ -624,7 +645,7 @@ def licencia_owner_login():
     licencia ni contraseña. Solo existe cuando el launcher local corre con
     KOBRA_OWNER=1 (server en 127.0.0.1); en hosted o en la copia de un
     cliente devuelve 404 como si el endpoint no existiera."""
-    if not (MODO_STANDALONE and MODO_OWNER):
+    if not (MODO_STANDALONE and _es_owner()):
         raise HTTPException(404, "No encontrado.")
     return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
             "empresa": EMPRESA_DEFAULT}
@@ -637,6 +658,22 @@ def licencia_activar(datos: LicenciaIn, request: Request):
     clave = _frenar(_LIMITE_LICENCIA, request, "licencia")
     if not MODO_STANDALONE:
         raise HTTPException(404, "Este endpoint es solo para la versión standalone.")
+
+    # Credencial del dueño (`mail|codigo`, ver kobra/owner.py) antes que la
+    # licencia: es el mismo campo a propósito, así el desbloqueo funciona en
+    # CUALQUIER build —incluido el instalador público— sin agregar una
+    # pantalla que un cliente no debería ver siquiera.
+    #
+    # Va DESPUÉS del freno por IP y no antes: el código es la única barrera
+    # entre un cliente y el producto completo, así que tantearlo tiene que
+    # costar lo mismo que tantear una licencia.
+    if kowner.verificar(datos.token):
+        kconfig.guardar_extra(_CLAVE_OWNER, "1")
+        _LIMITE_LICENCIA.perdonar(clave)
+        return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
+                "empresa": EMPRESA_DEFAULT, "owner": True, "plan": "owner",
+                "activa": True, "trial": False, "dias_restantes": None}
+
     r = klicencias.licencia_activa(datos.token)
     if not r["ok"]:
         mensaje = ("Tu licencia venció — comprá un plan en mvkobranzaia.com para seguir usando MV Kobra AI."

@@ -29,6 +29,57 @@ puerta cerrada del lado del dueño (`tests/test_owner_sin_restricciones.py`).
 > deudores reales (Ley 18.331 y equivalentes), y es un argumento de venta.
 > Sacarlo te expondría a vos, no a nadie más.
 
+## Desbloquear owner desde el instalador PÚBLICO
+
+Además de la vía por build (el ZIP Owner con `KOBRA_OWNER=1`), se puede tener
+una copia 100% operativa **partiendo del `MVKobraAI_Setup.exe` público**, sin
+armar nada aparte:
+
+1. Instalá el `.exe` normal desde Releases.
+2. En la pantalla que pide la licencia, escribí:
+
+   ```
+   tu-mail@ejemplo.com|TU-CODIGO-DE-25-CARACTERES
+   ```
+
+3. Listo: queda desbloqueado **para siempre en esa PC** (se persiste en tu
+   config de usuario). No hay que volver a escribirlo.
+
+Es el mismo campo donde un cliente pega su licencia, a propósito: así no hay
+una pantalla de "modo dueño" que un cliente pueda ver o buscar.
+
+### Por qué mail **y** código, y no solo el mail
+
+El instalador que baja un cliente y el que usás vos son **el mismo binario**.
+Si alcanzara con escribir el mail, cualquiera que lo conozca —y está en los
+commits de este repo, además de ser un Gmail real— se quedaría con el producto
+completo gratis, y los planes pagos dejarían de tener sentido. El mail
+identifica; el código autentica.
+
+### Qué hay en el repo y qué no
+
+| Dato | ¿Está en el repo? | Por qué |
+|---|---|---|
+| El mail | Sí, en claro | No es un secreto, es un identificador |
+| `scrypt(codigo, sal)` y la sal | Sí | Publicarlos no permite derivar el código |
+| **El código en claro** | **NUNCA** | Es la única barrera real. Va en tu gestor de contraseñas |
+
+El código tiene ~125 bits de entropía (25 caracteres de un alfabeto de 32, sin
+los ambiguos `O/0` e `I/1/l`) y se verifica con **scrypt**, que es caro en
+tiempo y memoria a propósito: tantear candidatos contra el hash publicado no es
+viable. Además el endpoint está **frenado por IP**, igual que la activación de
+licencias, así que probar códigos cuesta lo mismo que probar licencias.
+
+Para rotarlo:
+
+```
+python -m kobra.owner --nuevo-codigo     # imprime CODIGO, _SAL y _HASH
+```
+
+Pegá `_SAL` y `_HASH` en `kobra/owner.py`, guardá el código aparte y **no lo
+commitees** — hay un test que falla si aparece algo con esa forma en el repo
+(`tests/test_owner_desbloqueo.py`).
+
 ## Cómo usarla
 
 ### 0) El instalador de Windows (`MVKobraAI_Setup.exe`) — lo más profesional
