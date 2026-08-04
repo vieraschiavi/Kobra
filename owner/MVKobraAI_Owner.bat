@@ -25,6 +25,33 @@ if exist "%EXE_PF86%" ( start "" "%EXE_PF86%" & exit /b )
 if exist "%EXE_USER%" ( start "" "%EXE_USER%" & exit /b )
 
 rem =========================================================================
+rem  Las rutas de arriba son las POR DEFECTO. El asistente deja elegir la
+rem  carpeta con el boton Examinar, asi que una instalacion en D:\MVKobraAI
+rem  -exactamente lo que recomendamos cuando C: esta justo de espacio- no
+rem  aparece en ninguna de ellas. Buscarla solo ahi hacia que el .bat diera
+rem  el programa por NO instalado y ofreciera descargarlo de nuevo: abria el
+rem  navegador en vez de abrir el programa que ya estaba en la maquina.
+rem
+rem  El instalador registra donde quedo (InstallLocation en la clave de
+rem  desinstalacion, la misma que usa "Agregar o quitar programas"), asi que
+rem  se lo preguntamos al registro en vez de adivinar.
+rem =========================================================================
+call :buscar_instalado APP_REG
+if defined APP_REG ( start "" "!APP_REG!" & exit /b )
+
+rem Y la carpeta que eligio el usuario en el instalador por consola, que la
+rem deja anotada para no volver a preguntar.
+for %%M in ("owner" "produccion" "pro" "starter" "basico") do (
+  set "MEM=%LocalAppData%\MV Kobra AI\destino_%%~M.txt"
+  if exist "!MEM!" (
+    for /f "usebackq delims=" %%D in ("!MEM!") do (
+      if exist "%%D\MV Kobra AI.exe" ( start "" "%%D\MV Kobra AI.exe" & exit /b )
+      if exist "%%D\MVKobraAI.exe"   ( start "" "%%D\MVKobraAI.exe"   & exit /b )
+    )
+  )
+)
+
+rem =========================================================================
 rem  No esta instalado. Antes se caia EN SILENCIO al instalador de consola
 rem  (MVKobraAI_Owner_desde_codigo.bat), y esa via -preguntas por texto,
 rem  descarga de Python, minutos de pip- terminaba siendo la que veia el
@@ -69,4 +96,28 @@ echo   Si no se abrio solo, entra a:
 echo   !URL_INSTALADOR!
 echo.
 pause
+exit /b 0
+
+rem =========================================================================
+rem  :buscar_instalado <variable>  -> ruta del .exe instalado, o vacio
+rem
+rem  Le pregunta al REGISTRO donde quedo instalado en vez de adivinar rutas:
+rem  el asistente deja elegir la carpeta, asi que las rutas por defecto no
+rem  alcanzan. Mira las tres ramas de "Agregar o quitar programas" (usuario,
+rem  maquina, y 32-bit en Windows de 64) y se queda con InstallLocation.
+rem
+rem  La respuesta pasa por un archivo y no por `for /f (`...`)`: el comando de
+rem  PowerShell lleva comillas, comodines y parentesis, y meterlo dentro de un
+rem  `for /f` deja el resultado a merced del parser de cmd.
+rem =========================================================================
+:buscar_instalado
+set "%~1="
+set "KOBRA_RESP_APP=%TEMP%\kobra_app_instalada.txt"
+del "!KOBRA_RESP_APP!" >nul 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $r=@('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'); foreach($p in (Get-ItemProperty $r | Where-Object { $_.DisplayName -like 'MV Kobra AI*' -and $_.InstallLocation } | Select-Object -ExpandProperty InstallLocation)){ foreach($n in @('MV Kobra AI.exe','MVKobraAI.exe')){ $f=Join-Path $p $n; if(Test-Path -LiteralPath $f){ Set-Content -LiteralPath $env:KOBRA_RESP_APP -Value $f; exit } } }" >nul 2>nul
+if exist "!KOBRA_RESP_APP!" (
+  for /f "usebackq delims=" %%A in ("!KOBRA_RESP_APP!") do if not "%%A"=="" set "%~1=%%A"
+)
+del "!KOBRA_RESP_APP!" >nul 2>nul
+set "KOBRA_RESP_APP="
 exit /b 0
