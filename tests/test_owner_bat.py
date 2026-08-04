@@ -294,3 +294,51 @@ def test_muestra_el_codigo_de_salida_del_instalador(bat):
     assert 'set "PYRC=!errorlevel!"' in bat
     assert "!PYRC!" in bat
     assert "1603" in bat, "no explica los codigos de error tipicos"
+
+
+# --- 7) Encontrar el programa instalado, lo hayas puesto donde lo hayas puesto
+# Reportado como «no funciona instalador exe que ejecute el programa (no quiero
+# que abra la web sino que ejecute el programa)». El .bat buscaba el .exe solo
+# en las rutas POR DEFECTO (%LocalAppData%\Programs y Program Files). Pero el
+# asistente deja elegir la carpeta con Examinar, y le habíamos recomendado
+# instalar en D:\MVKobraAI porque C: estaba justo de espacio. Con el programa
+# en D:, el .bat lo daba por NO instalado y ofrecía descargarlo: abría el
+# navegador en vez de abrir el programa que ya estaba en la máquina.
+def test_busca_donde_quedo_instalado_y_no_solo_en_las_rutas_por_defecto(entrada):
+    """El instalador anota InstallLocation en la clave de desinstalación (la
+    misma de «Agregar o quitar programas»): preguntarle al registro cubre
+    cualquier carpeta que haya elegido el usuario."""
+    assert ":buscar_instalado" in entrada
+    assert "InstallLocation" in entrada
+
+
+def test_mira_las_tres_ramas_de_desinstalacion(entrada):
+    """Por usuario (HKCU), por máquina (HKLM) y la de 32-bit en Windows de 64:
+    según cómo se haya instalado, la clave cae en una u otra."""
+    for rama in ("HKCU:", "HKLM:", "WOW6432Node"):
+        assert rama in entrada, f"no mira {rama}"
+
+
+def test_busca_los_dos_nombres_de_ejecutable(entrada):
+    """Electron lo llama «MV Kobra AI.exe»; las instalaciones viejas de Inno
+    Setup, «MVKobraAI.exe»."""
+    assert "MV Kobra AI.exe" in entrada and "MVKobraAI.exe" in entrada
+
+
+def test_abre_el_navegador_recien_cuando_de_verdad_no_esta_instalado(entrada):
+    """El orden es el arreglo: toda la búsqueda tiene que ir ANTES de ofrecer
+    la descarga. Si el `start` de la URL quedara primero, volvería el bug."""
+    codigo = _codigo_bat(entrada)
+    assert codigo.index("call :buscar_instalado") < codigo.index("URL_INSTALADOR")
+
+
+def test_tambien_mira_la_carpeta_que_eligio_el_instalador_de_consola(entrada):
+    """La vía por consola anota su destino para no volver a preguntar; si se
+    instaló por ahí, el programa está en esa carpeta y no en el registro."""
+    assert "destino_%%~M.txt" in entrada
+
+
+def test_la_subrutina_no_deja_basura_en_el_disco(entrada):
+    """Escribe la respuesta en un archivo temporal (para no pelear con el
+    parser de cmd) y lo borra siempre."""
+    assert entrada.count('del "!KOBRA_RESP_APP!"') >= 2
