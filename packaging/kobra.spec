@@ -66,15 +66,24 @@ _readme = os.path.join(ROOT, "README.md")
 if os.path.isfile(_readme):
     datas.append((_readme, "."))
 
+# Todos los módulos de `kobra/`, enumerados del paquete y NO a mano.
+#
+# Esta lista estaba escrita a mano y se desfasó: quedaron afuera 9 módulos, y
+# entre ellos `kobra.owner` y `kobra.limitador`, que `webapp/backend/api.py`
+# importa al arrancar. Si PyInstaller no los empaqueta, el backend no levanta,
+# la app se queda en el splash hasta el timeout y el usuario ve un instalador
+# que "no funciona" — sin ninguna pista de por qué.
+#
+# Enumerarlos evita que agregar un módulo nuevo rompa el instalador dos
+# semanas después, que es justo lo que pasó. `tests/test_empaquetado.py`
+# verifica que la enumeración cubra el paquete entero.
+_KOBRA_DIR = os.path.join(ROOT, "kobra")
+hiddenimports += ["kobra"] + sorted(
+    f"kobra.{f[:-3]}" for f in os.listdir(_KOBRA_DIR)
+    if f.endswith(".py") and f != "__init__.py"
+)
+
 hiddenimports += [
-    "kobra", "kobra.probpago", "kobra.negociador", "kobra.copiloto",
-    "kobra.analitica", "kobra.cumplimiento", "kobra.explicabilidad",
-    "kobra.roi", "kobra.cartera_manual", "kobra.registro", "kobra.config",
-    "kobra.gestor_ia", "kobra.pipeline", "kobra.voz", "kobra.train",
-    "kobra.consulta_bd", "kobra.seguimiento", "kobra.voz_tts", "kobra.campana",
-    "kobra.twilio_setup", "kobra.ayuda", "kobra.originacion",
-    "kobra.autenticacion", "kobra.informe_ejecutivo", "kobra.paises", "kobra.llm",
-    "kobra.rutas", "kobra.backup", "kobra.auditoria",
     "realtime.mi_cartera", "realtime.voicebot", "sklearn.utils._typedefs",
     "sklearn.neighbors._partition_nodes", "sklearn.utils._heap",
     # App completa (React + FastAPI) que sirve kobra_launcher.py — reemplaza
