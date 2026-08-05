@@ -43,19 +43,43 @@ Un **programa de escritorio de verdad**, no una página web ni una consola:
 Queda registrado en **«Agregar o quitar programas»** con su desinstalador.
 Al desinstalar, tus datos **no** se borran salvo que lo pidas expresamente.
 
-## Es el mismo instalador para todos
+## Dos instaladores, y para qué sirve cada uno
 
-No hay una versión "owner" aparte: **el dueño y el comprador instalan
-exactamente el mismo binario**. Lo que cambia es cómo se desbloquea.
+| Instalador | Dónde | Quién lo usa | Cómo entra |
+|---|---|---|---|
+| `MVKobraAI_Setup.exe` | [Releases](https://github.com/vieraschiavi/Kobra/releases/latest) (y el repo público de descargas) | Clientes **y el dueño** | Cliente: token de licencia. Dueño: su credencial `mail\|código` |
+| `MVKobraAI_Setup_OWNER.exe` | Release `owner-vX.Y.Z`, **solo en este repo privado** | Solo el dueño | Entra directo, sin licencia ni activación |
 
-| Quién | Qué escribe en la pantalla de activación |
-|---|---|
-| Cliente | El token de licencia que recibió al comprar |
-| Dueño | Su credencial `mail\|código` (ver `owner/LEEME_OWNER.md`) |
+**Conviven en la misma PC.** Tienen `appId`, nombre, carpeta y accesos
+distintos, así que instalar uno no pisa al otro. Eso es a propósito: te deja
+tener tu copia de trabajo y, al lado, una copia de cliente para ver
+exactamente qué recibe quien paga.
 
-Esto no es una comodidad: es lo que garantiza que lo que probás vos sea
-**bit a bit** lo que recibe quien paga. Si fueran dos builds distintos, un bug
-podría aparecer solo del lado del cliente.
+### Cuál usar
+
+- **Para trabajar**: el `_OWNER.exe`. Abre y ya está, sin escribir nada.
+- **Para probar qué ve un comprador**: el normal, con un token de licencia de
+  prueba. Es el mismo binario que se publica, así que lo que ves es lo que
+  recibe el cliente — bit a bit.
+
+> **El `_OWNER.exe` no se redistribuye.** Arranca sin licencia y sin
+> vencimiento: quien lo tenga usa el producto completo sin pagar. Por eso se
+> publica únicamente en las releases de este repositorio **privado**, con tag
+> `owner-vX.Y.Z` y nunca marcado como `latest` — el enlace
+> `/releases/latest/download/` tiene que seguir sirviendo el instalador de
+> clientes.
+
+### Cómo se construye
+
+`Actions → Release Owner → Run workflow` (o taguear `owner-vX.Y.Z`). El job
+`instalador` usa el mismo pipeline que el de clientes y, antes de publicar,
+verifica dos cosas que fallarían en silencio:
+
+1. Que `edicion.json` con `owner: true` **entró al bundle**. Si no viajó, el
+   instalador "Owner" pediría licencia como el de un cliente: el mismo
+   producto con otro nombre.
+2. Que el motor **arranca en modo owner** — no alcanza con que responda 200:
+   `/api/licencia/estado` tiene que devolver `owner: true`.
 
 ## Cómo se construye y se verifica
 

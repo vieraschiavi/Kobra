@@ -1,0 +1,76 @@
+# MV Kobra AI · Instalador de la edición OWNER
+# ==============================================
+# Mismo pipeline que el instalador de clientes (PyInstaller + Electron + NSIS),
+# con dos diferencias que importan:
+#
+# 1. IDENTIDAD PROPIA (`appId`, `productName`, carpeta, accesos). Sin esto,
+#    instalar el Owner PISARÍA la copia de cliente: mismo appId significa misma
+#    entrada en "Agregar o quitar programas", misma carpeta y mismos accesos
+#    directos. Con identidad separada, las dos conviven en la misma máquina —
+#    que es justamente lo que hace falta para probar qué ve un comprador sin
+#    perder la copia propia.
+#
+# 2. El bundle lleva `edicion.json` con `owner: true`, que
+#    `kobra_launcher.py::_activar_edicion` lee al arrancar: entra directo, sin
+#    licencia ni activación.
+#
+# Se usa con:  npx electron-builder --win nsis --config electron-builder.owner.yml
+#
+# NUNCA se publica en `mv-kobra-ai-releases` (el repo público de descargas de
+# clientes): esta edición arranca sin licencia y sin vencimiento, así que
+# publicarla ahí equivale a regalar el producto. Va solo a las releases de
+# `vieraschiavi/Kobra`, que es privado.
+appId: com.mvkobraai.desktop.owner
+productName: MV Kobra AI Owner
+artifactName: MVKobraAI_Setup_OWNER.exe
+
+directories:
+  output: dist_installer_owner
+  buildResources: build
+
+files:
+  - main.js
+  - preload.js
+  - splash.html
+
+extraResources:
+  - from: ../dist/MVKobraAI
+    to: backend
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+  publisherName: MV Kobra AI
+  legalTrademarks: MV Kobra AI
+
+nsis:
+  include: build/installer.nsh
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  # Nombres distintos del de cliente: si fueran iguales, el acceso directo del
+  # Escritorio y la entrada del Menú Inicio se pisarían entre las dos copias.
+  shortcutName: MV Kobra AI Owner
+  uninstallDisplayName: MV Kobra AI Owner
+  deleteAppDataOnUninstall: false
+  installerLanguages:
+    - es_ES
+    - pt_BR
+    - en_US
+  multiLanguageInstaller: true
+  license: build/license_es.txt
+  allowElevation: true
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/installerSidebar.bmp
+  installerHeader: build/installerHeader.bmp
+  menuCategory: MV Kobra AI
+  runAfterFinish: true
+  displayLanguageSelector: true
+  warningsAsErrors: false
+
+copyright: © MV Kobra AI. Todos los derechos reservados.
