@@ -13,7 +13,9 @@
       "cv_auc_std": 0.0049,
       "test_auc_roc": 0.8742,
       "test_auc_pr": 0.9075,
-      "test_brier": 0.1417
+      "test_brier": 0.1417,
+      "test_ks": 0.5839,
+      "test_ece": 0.0169
     },
     {
       "modelo": "GradientBoosting",
@@ -21,7 +23,19 @@
       "cv_auc_std": 0.0055,
       "test_auc_roc": 0.8705,
       "test_auc_pr": 0.9045,
-      "test_brier": 0.1441
+      "test_brier": 0.1441,
+      "test_ks": 0.5737,
+      "test_ece": 0.0172
+    },
+    {
+      "modelo": "EnsembleV13",
+      "cv_auc_mean": 0.8647,
+      "cv_auc_std": 0.0058,
+      "test_auc_roc": 0.8699,
+      "test_auc_pr": 0.9032,
+      "test_brier": 0.1441,
+      "test_ks": 0.58,
+      "test_ece": 0.0256
     },
     {
       "modelo": "HistGradientBoosting",
@@ -29,7 +43,9 @@
       "cv_auc_std": 0.0055,
       "test_auc_roc": 0.8678,
       "test_auc_pr": 0.9015,
-      "test_brier": 0.1455
+      "test_brier": 0.1455,
+      "test_ks": 0.5722,
+      "test_ece": 0.0209
     },
     {
       "modelo": "RandomForest",
@@ -37,7 +53,9 @@
       "cv_auc_std": 0.004,
       "test_auc_roc": 0.8614,
       "test_auc_pr": 0.8979,
-      "test_brier": 0.1575
+      "test_brier": 0.1575,
+      "test_ks": 0.5659,
+      "test_ece": 0.0817
     }
   ],
   "n_muestras": 12000,
