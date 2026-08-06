@@ -330,12 +330,17 @@ _SENALES_CLIENTE = [
 ]
 
 
-def asignar_roles_por_contenido(turnos: list) -> list:
-    """Corrige la etiqueta Gestor/Cliente de cada turno usando el CONTENIDO de
-    lo que dijo cada hablante (la diarización etiqueta por tono y a menudo lo
-    invierte). Agrupa por hablante crudo, puntúa señales de gestor de cobranza,
-    y renombra al hablante con más señales como 'Gestor'. Devuelve los turnos
-    con 'hablante' corregido — si no hay señales claras, respeta el original."""
+def _mapa_roles_por_contenido(turnos: list) -> dict | None:
+    """Calcula el mapeo hablante_crudo → 'Gestor'/'Cliente' según el CONTENIDO
+    de lo que dijo cada hablante (la diarización etiqueta por tono y a menudo
+    lo invierte). Agrupa por hablante crudo, puntúa señales de gestor de
+    cobranza, y el que tiene más señales pasa a 'Gestor'.
+
+    Devuelve `None` si no hay señales claras (un solo hablante, o ningún grupo
+    con puntaje positivo) — en ese caso no hay que tocar nada, para no
+    empeorar por las dudas. Es la pieza compartida entre
+    `asignar_roles_por_contenido` (turnos de texto) y `copiloto_desde_audio`
+    (que necesita el MISMO mapeo para el resumen acústico, ver `_remapear_voz`)."""
     import unicodedata
     from collections import defaultdict
 
@@ -347,7 +352,7 @@ def asignar_roles_por_contenido(turnos: list) -> list:
     for t in turnos or []:
         por_hab[t.get("hablante", "")].append(_n(t.get("texto", "")))
     if len(por_hab) < 2:
-        return list(turnos or [])
+        return None
 
     puntajes = {}
     for hab, textos in por_hab.items():
@@ -356,11 +361,51 @@ def asignar_roles_por_contenido(turnos: list) -> list:
         cl = sum(blob.count(s) for s in _SENALES_CLIENTE)
         puntajes[hab] = g - cl
     gestor_hab = max(puntajes, key=puntajes.get)
-    # Si nadie tiene señal de gestor, no tocamos nada (no empeorar por las dudas).
     if puntajes[gestor_hab] <= 0:
+        return None
+    return {hab: ("Gestor" if hab == gestor_hab else "Cliente") for hab in por_hab}
+
+
+def asignar_roles_por_contenido(turnos: list) -> list:
+    """Corrige la etiqueta Gestor/Cliente de cada turno usando `_mapa_roles_por_contenido`.
+    Devuelve los turnos con 'hablante' corregido — si no hay señales claras,
+    respeta el original."""
+    mapa = _mapa_roles_por_contenido(turnos)
+    if mapa is None:
         return list(turnos or [])
-    return [{**t, "hablante": "Gestor" if t.get("hablante") == gestor_hab else "Cliente"}
+    return [{**t, "hablante": mapa.get(t.get("hablante"), t.get("hablante"))}
             for t in (turnos or [])]
+
+
+def _remapear_voz(resultado: dict, mapa: dict) -> dict:
+    """Aplica el MISMO mapeo hablante_crudo → rol corregido al resumen acústico
+    de `analizar_llamada` (timeline + resumen_por_hablante), para que el chart
+    de emoción de voz y las tarjetas de 'emoción dominante' coincidan con la
+    transcripción ya corregida por contenido — si no, el usuario ve un rol en
+    la tabla de texto y el rol contrario en el gráfico de arriba."""
+    timeline = [{**seg, "hablante": mapa.get(seg["hablante"], seg["hablante"])}
+                for seg in resultado["timeline"]]
+    resumen = {}
+    for hab, datos in resultado["resumen_por_hablante"].items():
+        nuevo = mapa.get(hab, hab)
+        if nuevo not in resumen:
+            resumen[nuevo] = dict(datos)
+            continue
+        # Dos hablantes crudos mapean al mismo rol corregido (no debería pasar
+        # con los 2 clusters de `diarizar`, pero no perder datos si pasa):
+        # fusionar ponderando por cantidad de segmentos.
+        a, b = resumen[nuevo], datos
+        n = a["segmentos"] + b["segmentos"]
+        resumen[nuevo] = {
+            "segmentos": n,
+            "arousal_prom": round((a["arousal_prom"] * a["segmentos"]
+                                   + b["arousal_prom"] * b["segmentos"]) / n, 3),
+            "valencia_prom": round((a["valencia_prom"] * a["segmentos"]
+                                    + b["valencia_prom"] * b["segmentos"]) / n, 3),
+            "emocion_dominante": a["emocion_dominante"] if a["segmentos"] >= b["segmentos"]
+            else b["emocion_dominante"],
+        }
+    return {**resultado, "timeline": timeline, "resumen_por_hablante": resumen}
 
 
 def _whisper_segmentos(path: str, idioma: str = "es"):
@@ -450,6 +495,19 @@ def copiloto_desde_audio(path, transcript_turnos=None, probpago=None,
     y, sr, canales = cargar_audio(path)
     mono_full = y.mean(axis=1)
     trans, modo = transcribir_llamada(path, transcript_turnos, etiqueta_canal, idioma)
+    voz_resultado = analizar_llamada(path, etiqueta_canal)
+
+    # La diarización mono es por tono (F0) y a menudo confunde Gestor/Cliente
+    # (ver `diarizar`); se corrige por CONTENIDO con el texto ya transcripto y
+    # se propaga el MISMO mapeo al resumen acústico, para que la tabla de
+    # transcripción y el gráfico/tarjetas de emoción de voz no se contradigan.
+    # Estéreo no se toca: el canal ya separa a los hablantes exacto.
+    if canales < 2:
+        mapa = _mapa_roles_por_contenido(trans)
+        if mapa:
+            trans = [{**t, "hablante": mapa.get(t.get("hablante"), t.get("hablante"))}
+                     for t in trans]
+            voz_resultado = _remapear_voz(voz_resultado, mapa)
 
     turnos_fusion = []
     for t in trans:
@@ -479,7 +537,7 @@ def copiloto_desde_audio(path, transcript_turnos=None, probpago=None,
            if texto else None)
     return {
         "modo_transcripcion": modo,
-        "voz": analizar_llamada(path, etiqueta_canal),
+        "voz": voz_resultado,
         "turnos": turnos_fusion,
         "copiloto": cop["copiloto"] if cop else None,
         "calidad": cop["calidad"] if cop else None,
