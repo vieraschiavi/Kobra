@@ -53,3 +53,8 @@ electron/dist_installer/
 .kobra_venv/
 .kobra_node/
 .kobra_node_tmp/
+
+# Marca de edicion que escribe el workflow release_owner.yml antes de correr
+# PyInstaller. Si quedara commiteada, el instalador de CLIENTES se armaria como
+# Owner: entraria sin licencia y regalaria el producto.
+/edicion.json

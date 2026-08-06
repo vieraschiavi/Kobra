@@ -66,6 +66,16 @@ _readme = os.path.join(ROOT, "README.md")
 if os.path.isfile(_readme):
     datas.append((_readme, "."))
 
+# edicion.json: si está, `kobra_launcher.py::_activar_edicion` la lee al
+# arrancar y aplica la edición (owner sin licencia, o un plan con su token).
+# El build de CLIENTES no la genera, así que este bloque no hace nada ahí; el
+# workflow `release_owner.yml` la escribe antes de correr PyInstaller para
+# armar el instalador del dueño. Va a la raíz del bundle porque es donde
+# `_base_dir()` (o sea `sys._MEIPASS`) la busca.
+_edicion = os.path.join(ROOT, "edicion.json")
+if os.path.isfile(_edicion):
+    datas.append((_edicion, "."))
+
 # Todos los módulos de `kobra/`, enumerados del paquete y NO a mano.
 #
 # Esta lista estaba escrita a mano y se desfasó: quedaron afuera 9 módulos, y

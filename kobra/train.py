@@ -10,6 +10,31 @@ Modelos comparados:
     - Random Forest
     - Gradient Boosting
     - HistGradientBoosting (rápido, maneja no linealidades)
+    - Ensemble v13 (promedio de dos boosting con configuraciones distintas —
+      motor adaptado del ProbPago v13 walk-forward; ver nota abajo)
+
+Nota sobre el motor v13 (evaluado el 2026-08-05):
+    Se pidió reemplazar la metodología por el motor v13 "si es mejor". Se
+    corrió el backtest con ESTE mismo protocolo (mismos folds, misma semilla,
+    mismo holdout) y sobre la cartera sintética el resultado fue:
+
+        LogisticRegression  CV-AUC 0.8728 · holdout 0.8744 · Brier 0.1417
+        Ensemble v13        CV-AUC 0.8647 · holdout 0.8690 · Brier 0.1444
+        Segmentado v13      CV-AUC 0.8626 (OOF) → rechazado por su propio
+                            umbral de ganancia (gain_threshold=0.005)
+
+    No es sorpresa: el generador sintético produce `pago` desde un score
+    latente LINEAL con enlace logístico, así que la Regresión Logística es
+    prácticamente la familia óptima para estos datos. En una cartera real con
+    no-linealidades, el boosting suele ganar — por eso el motor v13 queda como
+    CANDIDATO: si con los datos de un cliente gana la validación cruzada, la
+    selección lo elige sola, sin tocar código. La segmentación por modelo
+    (automl_segmentado) quedó afuera: perdió por -0.0102 contra el global.
+
+    Ojo: si algún día un modelo de árboles gana la selección, el scoring del
+    demo web deja de poder exportarse (`kobra.exportar_modelo_web` se planta
+    a propósito: solo reimplementa modelos lineales en JS). Ese es el aviso
+    para decidir entre servir el scoring desde backend o destilar el modelo.
 
 Salidas:
     - outputs/probpago_model.joblib      (mejor modelo, listo para producción)
@@ -22,6 +47,7 @@ import json
 import os
 import sys
 
+import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
@@ -29,6 +55,7 @@ from sklearn.ensemble import (
     GradientBoostingClassifier,
     HistGradientBoostingClassifier,
     RandomForestClassifier,
+    VotingClassifier,
 )
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
@@ -80,7 +107,69 @@ def _modelos():
                 max_depth=4, learning_rate=0.07, max_iter=300,
                 l2_regularization=1.0, random_state=42)),
         ]),
+        # Motor del ProbPago v13: promedio en probabilidad de dos boosting con
+        # configuraciones deliberadamente distintas (una flexible, una muy
+        # regularizada). Son las dos configs del v13 original con su fallback
+        # sin LightGBM (HistGradientBoosting), que es exactamente como corre
+        # ese motor cuando LightGBM no está instalado — y acá no lo está a
+        # propósito: agregarlo engordaría el instalador de Windows para un
+        # candidato que hoy no gana.
+        "EnsembleV13": Pipeline([
+            ("pre", _preprocessor()),
+            ("clf", VotingClassifier([
+                ("hgb_a", HistGradientBoostingClassifier(
+                    max_leaf_nodes=31, learning_rate=0.05, max_iter=350,
+                    l2_regularization=5.0, early_stopping=True,
+                    random_state=42)),
+                ("hgb_b", HistGradientBoostingClassifier(
+                    max_leaf_nodes=15, learning_rate=0.03, max_iter=450,
+                    l2_regularization=20.0, early_stopping=True,
+                    random_state=42)),
+            ], voting="soft", n_jobs=-1)),
+        ]),
     }
+
+
+def _ks(y, p):
+    """Kolmogorov-Smirnov: separación máxima entre las distribuciones
+    acumuladas de pagadores y no pagadores. Métrica clásica de scoring de
+    crédito (viene de la suite del ProbPago v13): mide poder de ordenamiento
+    sin depender de un umbral.
+
+    Se acumula POR UMBRAL ÚNICO y no fila a fila. La versión fila a fila (la
+    del v13 original) tiene un defecto con empates: como el sort es estable,
+    un modelo que da la MISMA probabilidad a todos conserva el orden de
+    llegada y puede reportar KS=1.0 — separación perfecta para un modelo que
+    no separa nada. Lo atrapó el test del caso degenerado. Con scores
+    continuos ambas versiones coinciden (los grupos son de una fila)."""
+    d = (pd.DataFrame({"y": np.asarray(y), "p": np.asarray(p)})
+         .groupby("p", sort=True)["y"].agg(pos="sum", n="count"))
+    tot1 = max(int(d["pos"].sum()), 1)
+    tot0 = max(int((d["n"] - d["pos"]).sum()), 1)
+    c1 = d["pos"].cumsum() / tot1
+    c0 = (d["n"] - d["pos"]).cumsum() / tot0
+    return float(np.abs(c1 - c0).max())
+
+
+def _ece(y, p, bins=10):
+    """Expected Calibration Error: cuánto se aparta la probabilidad dicha de
+    la frecuencia observada, promediado por decil. Complementa al Brier: un
+    modelo puede ordenar bien (AUC alto) y aun así decir '80%' donde paga el
+    60% — eso es lo que castiga el ECE.
+
+    El caso degenerado importa: con probabilidad CONSTANTE, `qcut` colapsa
+    los deciles y la suma quedaba vacía -> ECE 0.0 para el modelo del ejemplo
+    de arriba, que es exactamente el que hay que castigar. Si no hay deciles
+    válidos, el ECE es la distancia entre la media dicha y la observada."""
+    y, p = np.asarray(y), np.asarray(p)
+    q = pd.qcut(pd.Series(p), bins, duplicates="drop", labels=False)
+    niveles = pd.Series(q).dropna().unique()
+    if len(niveles) == 0:
+        return float(abs(y.mean() - p.mean()))
+    return float(sum(
+        (q == b).sum() / len(p)
+        * abs(y[(q == b).values].mean() - p[(q == b).values].mean())
+        for b in niveles))
 
 
 def entrenar(df: pd.DataFrame = None, guardar=True):
@@ -105,6 +194,8 @@ def entrenar(df: pd.DataFrame = None, guardar=True):
             "test_auc_roc": round(float(roc_auc_score(y_te, p)), 4),
             "test_auc_pr": round(float(average_precision_score(y_te, p)), 4),
             "test_brier": round(float(brier_score_loss(y_te, p)), 4),
+            "test_ks": round(_ks(y_te, p), 4),
+            "test_ece": round(_ece(y_te, p), 4),
         })
         print(f"  {nombre:22s} CV-AUC={cv_auc.mean():.4f}±{cv_auc.std():.4f} "
               f"Test-AUC={resultados[-1]['test_auc_roc']:.4f}")

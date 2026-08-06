@@ -37,6 +37,7 @@ _MODEL_DISPLAY = {
     "RandomForest": "Random Forest",
     "GradientBoosting": "Gradient Boosting",
     "HistGradientBoosting": "HistGradientBoosting",
+    "EnsembleV13": "Ensemble Boosting (motor v13)",
 }
 
 NUM_FEATURES = [
