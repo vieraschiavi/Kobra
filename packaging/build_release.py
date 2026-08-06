@@ -20,7 +20,7 @@ import os
 import shutil
 import zipfile
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIST = os.path.join(ROOT, "dist")
 

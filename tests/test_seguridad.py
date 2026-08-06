@@ -208,6 +208,38 @@ def test_las_descargas_tambien_llevan_las_cabeceras(cliente):
     assert r.headers.get("X-Content-Type-Options") == "nosniff"
 
 
+def test_la_ui_no_recibe_la_csp_de_la_api(cliente):
+    """El bug del instalador Owner v1.3.0: el mismo proceso sirve la API y la
+    app React compilada, y la CSP `default-src 'none'` (correcta para JSON)
+    también salía en el index.html — el navegador se negaba a cargar el JS/CSS
+    de la propia app y la ventana quedaba con el título puesto y la pantalla
+    NEGRA. El smoke test del workflow solo pegaba a la API, así que se publicó
+    igual. La CSP tiene que depender de qué se sirve: estricta en `/api/*`,
+    y una que permita los recursos locales de la app en el resto."""
+    _, c = cliente
+    csp_ui = c.get("/").headers.get("Content-Security-Policy", "")
+    assert "default-src 'none'" not in csp_ui, (
+        "la UI recibe la CSP de la API: el navegador bloquea el JS/CSS de la "
+        "propia app y la pantalla queda negra (bug del instalador Owner v1.3.0)")
+    assert "script-src 'self'" in csp_ui
+    csp_api = c.get("/api/health").headers["Content-Security-Policy"]
+    assert "default-src 'none'" in csp_api, "la API perdió su CSP estricta"
+
+
+def test_la_csp_de_la_ui_sigue_sin_permitir_scripts_externos(cliente):
+    """Relajar la CSP para que la app cargue NO es abrirla: todo el JS del
+    build de Vite es local, así que scripts externos e inline siguen
+    bloqueados — que es la protección real contra XSS."""
+    _, c = cliente
+    csp = c.get("/").headers.get("Content-Security-Policy", "")
+    m = re.search(r"script-src ([^;]+)", csp)
+    assert m, "la CSP de la UI no define script-src"
+    fuentes = m.group(1).split()
+    prohibidas = [f for f in fuentes
+                  if f.startswith(("http://", "https://", "*")) or "unsafe" in f]
+    assert not prohibidas, f"la CSP de la UI admite scripts peligrosos: {prohibidas}"
+
+
 @pytest.fixture(scope="module")
 def vercel():
     with open(os.path.join(ROOT, "vercel.json"), encoding="utf-8") as f:

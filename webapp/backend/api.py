@@ -483,14 +483,28 @@ app.add_middleware(klimite.LimitadorGeneral)
 # cabeceras el navegador queda libre de adivinar el tipo de un archivo subido
 # por el cliente (`X-Content-Type-Options`) y de mandar la URL completa —con el
 # id del deudor adentro— a cualquier sitio externo al que se navegue después
-# (`Referrer-Policy`). La CSP acá es la de una API: no ejecuta nada.
+# (`Referrer-Policy`).
 CABECERAS_SEGURIDAD = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "X-Frame-Options": "DENY",
-    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
     "Cross-Origin-Resource-Policy": "same-site",
 }
+# La CSP depende de QUÉ se está sirviendo. `/api/*` es una API: no ejecuta
+# nada, así que `default-src 'none'`. Pero este MISMO proceso también sirve la
+# app React compilada (el mount de StaticFiles al final del archivo) — y con
+# `'none'` el navegador se niega a cargar el JS/CSS de la propia app: la
+# ventana queda con el título puesto y la pantalla NEGRA. Así salió el
+# instalador Owner v1.3.0 — el smoke test del workflow solo pegaba a la API,
+# nunca miró si la interfaz renderizaba. Para la UI: todo local (`'self'`,
+# Vite no usa CDN), `data:`/`blob:` para gráficos e íconos embebidos, y
+# `'unsafe-inline'` solo en estilos (React pone estilos inline; scripts
+# inline siguen bloqueados, que es lo que importa contra XSS).
+CSP_API = "default-src 'none'; frame-ancestors 'none'"
+CSP_UI = ("default-src 'self'; script-src 'self'; "
+          "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+          "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
+          "frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
 
 
 @app.middleware("http")
@@ -498,6 +512,8 @@ async def _cabeceras_seguridad(request: Request, call_next):
     respuesta = await call_next(request)
     for k, v in CABECERAS_SEGURIDAD.items():
         respuesta.headers.setdefault(k, v)
+    csp = CSP_API if request.url.path.startswith("/api") else CSP_UI
+    respuesta.headers.setdefault("Content-Security-Policy", csp)
     return respuesta
 
 

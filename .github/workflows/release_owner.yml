@@ -95,8 +95,17 @@ jobs:
             **Edición Owner — copia del dueño.** Sin licencia, sin trial y sin
             vencimiento. Acceso completo a todas las empresas y pantallas.
 
-            ### Cómo usarla en Windows
-            1. Descargá y descomprimí el ZIP.
+            ### ⬇️ Qué descargar
+            - **`MVKobraAI_Owner_Instalador_v*.zip`** ← **este es el programa.**
+              Adentro está `MVKobraAI_Setup_OWNER.exe`: el instalador de la app
+              de escritorio (Electron + React, sin Streamlit). Descomprimí,
+              ejecutá el `.exe` y seguí el asistente. No necesita Python.
+            - `MVKobraAI_Owner_v*.zip` — edición para correr desde el CÓDIGO
+              FUENTE con Python. **No contiene ningún `.exe`.** Solo si querés
+              tocar el código.
+
+            ### Cómo usar la edición de código fuente (opcional)
+            1. Descargá y descomprimí `MVKobraAI_Owner_v*.zip`.
             2. `INSTALAR.bat` → deja el programa instalado con icono propio,
                acceso en el Escritorio, entrada en el Menú Inicio y
                desinstalador en «Agregar o quitar programas». No pide permisos
@@ -213,6 +222,31 @@ jobs:
               }
             } catch { Start-Sleep -Seconds 2 }
           }
+          # La API sana NO alcanza: la v1.3.0 salio con la API perfecta y la
+          # PANTALLA NEGRA — la CSP de la API en el index.html hacia que el
+          # navegador se negara a cargar el JS/CSS de la propia app. Aca se
+          # verifica lo que el usuario ve: el index se sirve, referencia un
+          # bundle JS, ese bundle responde 200, y la CSP no lo bloquea.
+          if ($ok) {
+            try {
+              $ui = Invoke-WebRequest -Uri "http://127.0.0.1:8542/" -UseBasicParsing -TimeoutSec 5
+              $csp = [string]$ui.Headers["Content-Security-Policy"]
+              if ($csp -match "default-src 'none'") {
+                Write-Error "la UI sale con la CSP de la API (pantalla negra): $csp"; $ok = $false
+              }
+              $js = [regex]::Match($ui.Content, 'src="(/assets/[^"]+\.js)"').Groups[1].Value
+              if (-not $js) {
+                Write-Error "el index.html no referencia ningun bundle JS"; $ok = $false
+              } else {
+                $rjs = Invoke-WebRequest -Uri ("http://127.0.0.1:8542" + $js) -UseBasicParsing -TimeoutSec 5
+                if ($rjs.StatusCode -ne 200) {
+                  Write-Error "el bundle JS no se sirve: $js -> $($rjs.StatusCode)"; $ok = $false
+                } else {
+                  Write-Host "UI OK: index + $js servidos y CSP compatible"
+                }
+              }
+            } catch { Write-Error "la interfaz no se pudo verificar: $_"; $ok = $false }
+          }
           if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
           if (-not $ok) {
             Write-Host "--- stdout ---"; Get-Content motor_out.log -EA SilentlyContinue
@@ -243,12 +277,42 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
+      - name: Empaquetar el instalador dentro de un ZIP
+        # Pedido del dueño: que el .exe venga ADENTRO de un ZIP en la release
+        # (un solo archivo para descargar, con instrucciones al lado), en vez
+        # de tener que distinguirlo del ZIP de código fuente en la lista de
+        # assets — que es justo la confusión que ya pasó.
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.KVER }}"
+          $leeme = @(
+            "MV Kobra AI - Edicion Owner v$ver (instalador de escritorio)",
+            "=============================================================",
+            "",
+            "1) Ejecuta MVKobraAI_Setup_OWNER.exe",
+            "2) Segui el asistente (no pide permisos de administrador).",
+            "3) Abri 'MV Kobra AI (Owner)' desde el Escritorio o el Menu Inicio.",
+            "",
+            "El instalador ya incluye todo: no necesita Python ni Node.",
+            "Es la app de escritorio (Electron + React), no usa Streamlit.",
+            "",
+            "NO REDISTRIBUIR: esta edicion no valida licencia."
+          ) -join "`r`n"
+          Set-Content -Path dist/LEEME_INSTALADOR.txt -Value $leeme -Encoding utf8
+          Compress-Archive -Force `
+            -Path dist/MVKobraAI_Setup_OWNER.exe, dist/LEEME_INSTALADOR.txt `
+            -DestinationPath "dist/MVKobraAI_Owner_Instalador_v$ver.zip"
+          Get-Item "dist/MVKobraAI_Owner_Instalador_v$ver.zip" |
+            ForEach-Object { Write-Host "ZIP: $($_.Name) $([math]::Round($_.Length/1MB)) MB" }
+
       - name: Publicar en la release Owner (repo privado)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: owner-v${{ inputs.version || steps.ver.outputs.KVER }}
           name: MV Kobra AI · Owner v${{ inputs.version || steps.ver.outputs.KVER }}
-          files: dist/MVKobraAI_Setup_OWNER.exe
+          files: |
+            dist/MVKobraAI_Owner_Instalador_v${{ steps.ver.outputs.KVER }}.zip
+            dist/MVKobraAI_Setup_OWNER.exe
           # Nunca `latest`: ese enlace tiene que seguir sirviendo el instalador
           # de clientes.
           make_latest: false
