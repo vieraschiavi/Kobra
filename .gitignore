@@ -58,3 +58,9 @@ electron/dist_installer/
 # PyInstaller. Si quedara commiteada, el instalador de CLIENTES se armaria como
 # Owner: entraria sin licencia y regalaria el producto.
 /edicion.json
+data/pagos_portal.csv
+data/imputaciones_erp.jsonl
+data/portal_config.json
+data/tenants/*/pagos_portal.csv
+data/tenants/*/imputaciones_erp.jsonl
+data/tenants/*/portal_config.json

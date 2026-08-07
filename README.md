@@ -299,6 +299,31 @@ quita:
 - **Guion** parametrizado listo para enviar (sin nombres reales).
 - **Prioridad** operativa por valor esperado (UYU).
 
+## 💳 Portal de cobros centralizado (`kobra/portal_pagos.py`)
+
+El deudor paga solo, sin hablar con nadie. La empresa genera para cada deudor
+un **link de pago**, su **código QR** y un **usuario + código de 6 dígitos**
+(pestaña *Portal de cobros* de la webapp, solo admin), y lo comparte por
+WhatsApp, mail o impreso en la factura. Al entrar (`/#/pagar`), el deudor ve
+su **listado de facturas pendientes** (derivado determinístico de la deuda, o
+el desglose real si la cartera lo trae) y paga **total o parcial** por:
+
+- **Transferencia bancaria**: recibe los datos de cuenta configurados por la
+  empresa y una **referencia** (`KP-…`); al declarar la transferencia el pago
+  queda `informado` (pendiente de conciliar).
+- **MercadoPago** (si la empresa lo habilita): usa el link de pago
+  preconfigurado de la cuenta de la empresa — en demo, un checkout simulado
+  que no cobra de verdad.
+
+Cada pago confirmado queda **imputado** para el ERP/CRM de la empresa por dos
+vías complementarias: un **webhook saliente** (POST del asiento JSON a la URL
+configurada, con reintentos) y un **pull por API**
+(`GET /api/erp/imputaciones`, cabecera `X-API-Key`, con parámetro `desde`
+para sincronización incremental) — cualquier ERP/CRM se integra sin
+desarrollo del lado de Kobra. Seguridad: token HMAC firmado en el link/QR,
+código de acceso con freno anti fuerza bruta (429), y el monto nunca puede
+superar el saldo pendiente. Tests: `tests/test_portal_pagos.py`.
+
 ## 🎧 Copiloto de Negociación en Vivo
 
 Asiste al gestor **durante** la negociación telefónica o por WhatsApp
