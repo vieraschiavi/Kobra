@@ -1,0 +1,18 @@
+{
+  "name": "mv-kobra-ai-desktop",
+  "version": "1.0.0",
+  "description": "MV Kobra AI — app de escritorio (Electron, sin Streamlit)",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "prep:cliente": "node scripts/prep-edition.js cliente",
+    "prep:owner": "node scripts/prep-edition.js owner",
+    "dist:cliente": "npm run prep:cliente && electron-builder --win nsis --config electron-builder.yml",
+    "dist:owner": "npm run prep:owner && electron-builder --win nsis --config electron-builder.yml"
+  },
+  "devDependencies": {
+    "electron": "^31.7.0",
+    "electron-builder": "^24.13.3"
+  }
+}

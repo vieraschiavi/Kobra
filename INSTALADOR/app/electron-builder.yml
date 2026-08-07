@@ -1,0 +1,39 @@
+appId: com.mvsoftware.kobra.desktop
+productName: MV Kobra AI
+copyright: MV Software
+
+directories:
+  output: dist
+
+files:
+  - main.js
+  - preload.js
+  - license.js
+  - renderer/**/*
+  - build/icon.png
+  - "!pyapi/**"          # el motor Python va compilado como .exe, no como fuente
+  - "!scripts/**"
+  - "!*.md"
+
+extraResources:
+  - from: resources/build-config.json
+    to: build-config.json
+  - from: resources/kobra-api
+    to: kobra-api
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: "MV-Kobra-AI-${env.KOBRA_ARTIFACT_SUFFIX}-Setup-${version}.${ext}"
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: MV Kobra AI
+  uninstallDisplayName: MV Kobra AI (desinstalar)
+  deleteAppDataOnUninstall: false

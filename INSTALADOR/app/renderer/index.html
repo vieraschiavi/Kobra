@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>MV Kobra AI</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="mk">MV</span> Kobra AI</div>
+    <div class="nav-item active" data-view="vision">📊 Visión general</div>
+    <div class="nav-item" data-view="negociador">🤖 Agente Negociador</div>
+    <div class="nav-item" data-view="config">⚙️ Configuración</div>
+    <div class="sidebar-foot">
+      <span id="edicion-badge" class="badge demo"><span class="dot"></span> —</span>
+    </div>
+  </aside>
+  <main>
+    <section id="view-vision" class="view active">
+      <h1>Visión general</h1>
+      <p class="sub">Modelo ProbPago sobre la cartera conectada. Prioridad por valor esperado de recupero.</p>
+      <div id="vision-content" class="loading">Cargando…</div>
+    </section>
+
+    <section id="view-negociador" class="view">
+      <h1>Agente Negociador</h1>
+      <p class="sub">Estrategia recomendada por deudor, priorizada por valor esperado.</p>
+      <div id="negociador-content" class="loading">Cargando…</div>
+    </section>
+
+    <section id="view-config" class="view">
+      <h1>Configuración</h1>
+      <p class="sub">Estado de la licencia de esta instalación.</p>
+      <div id="config-content" class="loading">Cargando…</div>
+    </section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
