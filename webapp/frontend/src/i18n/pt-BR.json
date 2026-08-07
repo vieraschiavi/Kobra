@@ -18,11 +18,12 @@
       "asistente": "Assistente de IA",
       "roi": "Calculadora de ROI",
       "configuracion": "Configurações",
-      "calidad": "Qualidade de atendimento"
+      "calidad": "Qualidade de atendimento",
+      "portal_cobros": "Portal de cobranças"
     },
     "sidebar": {
-      "rol_admin": "🛡️ Administrador",
-      "rol_gestor": "👤 Operador",
+      "rol_admin": "Administrador",
+      "rol_gestor": "Operador",
       "cerrar_sesion": "Sair"
     }
   },
@@ -48,7 +49,7 @@
   "dashboard": {
     "titulo": "Visão geral",
     "subtitulo": "Sua carteira completa, priorizada pelo modelo ProbPago — os mesmos números do pipeline, em tempo real.",
-    "boton_informe": "📄 Relatório executivo (PDF)",
+    "boton_informe": "Relatório executivo (PDF)",
     "kpi": {
       "deudores": "Devedores",
       "cartera_label": "Carteira ({{moneda}})",
@@ -178,7 +179,7 @@
   "agenda": {
     "titulo": "Agenda de hoje",
     "subtitulo": "Promessas e acordos de pagamento <b>vencidos sem pagamento registrado</b> — os casos que já perderam uma data combinada e que convém retomar primeiro. O contato real continua passando pela verificação de compliance.",
-    "vacio_sin_pendientes": "🎉 Não há promessas vencidas pendentes.",
+    "vacio_sin_pendientes": "Não há promessas vencidas pendentes.",
     "tabla": {
       "col_id_deudor": "ID devedor",
       "col_resultado": "Resultado",
@@ -227,7 +228,7 @@
     "subtitulo": "As chaves são salvas de forma criptografada no servidor (keyring do sistema ou arquivo criptografado, como no dashboard clássico) e são carregadas automaticamente a cada inicialização. Deixe em branco o que não quiser alterar.",
     "nota": {
       "ingresar_clave": "Informe pelo menos uma chave.",
-      "guardadas_prefijo": "✅ Salvas: ",
+      "guardadas_prefijo": "Salvas: ",
       "error_prefijo": "Erro: "
     },
     "tabla": {
@@ -236,26 +237,26 @@
       "col_nuevo_valor": "Novo valor"
     },
     "estado": {
-      "configurada": "🟢 configurada",
-      "sin_configurar": "⚪ não configurada"
+      "configurada": "configurada",
+      "sin_configurar": "não configurada"
     },
-    "boton_guardar": "💾 Salvar chaves"
+    "boton_guardar": "Salvar chaves"
   },
   "tour": {
     "paso1": {
-      "titulo": "👋 Bem-vindo à MV Kobra AI",
+      "titulo": "Bem-vindo à MV Kobra AI",
       "texto": "Sua cobrança priorizada por IA: o modelo ProbPago calcula a probabilidade de pagamento de cada devedor e o Agente Negociador escolhe a estratégia e o canal. Este tour te situa em 4 passos."
     },
     "paso2": {
-      "titulo": "📋 Carteira priorizada",
+      "titulo": "Carteira priorizada",
       "texto": "A lista já vem ordenada pelo valor esperado de recuperação. Filtre por segmento/faixa/propensão e clique em qualquer linha para ver o briefing completo do devedor, com roteiro sugerido."
     },
     "paso3": {
-      "titulo": "📅 Agenda e operadores",
+      "titulo": "Agenda e operadores",
       "texto": "Na Agenda estão as promessas vencidas que convém retomar hoje. Em Operadores, o ranking da sua equipe por qualidade e conversão — com dados reais assim que você registrar atendimentos."
     },
     "paso4": {
-      "titulo": "🤖 Assistente de IA",
+      "titulo": "Assistente de IA",
       "texto": "Qualquer dúvida sobre o programa, pergunte ao Assistente: ele responde com a documentação real do produto, em português. E em Configurações você cadastra suas chaves uma única vez."
     },
     "boton_saltar": "Pular",
@@ -277,7 +278,7 @@
       "costo_placeholder": "ex.: plano Pro × 12 meses, na sua moeda",
       "mejora": "Melhora estimada da recuperação (premissa editável)"
     },
-    "supuesto": "⚠ A melhora é uma premissa para simular, não uma promessa: o número honesto sai de um piloto medindo com vs. sem a ferramenta na sua carteira real.",
+    "supuesto": "A melhora é uma premissa para simular, não uma promessa: o número honesto sai de um piloto medindo com vs. sem a ferramenta na sua carteira real.",
     "res": {
       "recupero_hoy": "Recuperação atual estimada",
       "por_anio": "por ano",
@@ -292,26 +293,26 @@
     }
   },
   "informe_email": {
-    "titulo": "📬 Relatório semanal por e-mail",
+    "titulo": "Relatório semanal por e-mail",
     "subtitulo": "Toda segunda-feira de manhã, o Relatório Executivo em PDF chega sozinho à caixa que você escolher (usa seu SMTP corporativo, já configurado nas chaves). Requer o serviço de tempo real rodando 24/7, como a campanha automática.",
     "activo": "Envio semanal ativo",
     "destino_placeholder": "e-mail de destino (ex.: gerencia@suaempresa.com)",
-    "guardar": "💾 Salvar",
-    "enviar_ahora": "✉️ Enviar agora (teste)",
-    "guardado": "✅ Salvo.",
-    "enviado": "✅ Relatório enviado para ",
-    "smtp_falta": "⚠ Falta configurar o SMTP corporativo (chaves SMTP_*) para o envio funcionar."
+    "guardar": "Salvar",
+    "enviar_ahora": "Enviar agora (teste)",
+    "guardado": "Salvo.",
+    "enviado": "Relatório enviado para ",
+    "smtp_falta": "Falta configurar o SMTP corporativo (chaves SMTP_*) para o envio funcionar."
   },
   "alta_tenant": {
-    "titulo": "🏢 Criar empresa de demonstração",
+    "titulo": "Criar empresa de demonstração",
     "subtitulo": "Cria uma empresa nova com uma amostra de dados sintéticos, pronta para entrar (mesma senha + o nome da empresa no login). Ideal para dar um teste isolado a um prospect.",
     "placeholder": "nome da empresa (ex.: acme)",
-    "boton": "➕ Criar empresa demo"
+    "boton": "Criar empresa demo"
   },
   "analizar_voz": {
-    "titulo": "🎙️ Analisar gravação da ligação (voz)",
-    "subtitulo": "Envie um .wav ou .mp3 real: diarização (quem fala), emoção acústica por prosódia (tom, energia, ritmo) — detecta a tensão do cliente na voz, além das palavras.",
-    "boton": "🔎 Analisar gravação",
+    "titulo": "Analisar gravação da ligação (voz)",
+    "subtitulo": "Envie um.wav ou.mp3 real: diarização (quem fala), emoção acústica por prosódia (tom, energia, ritmo) — detecta a tensão do cliente na voz, além das palavras.",
+    "boton": "Analisar gravação",
     "analizando": "Analisando…",
     "canales": "canal(is)",
     "segmentos": "segmentos",
@@ -320,38 +321,38 @@
       "tiempo": "Tempo",
       "emocion": "Emoção"
     },
-    "copiloto_ok": "✅ Transcrição disponível (Whisper) — o Copiloto avaliou a qualidade da ligação e detectou técnicas de negociação.",
-    "sin_transcripcion": "ℹ️ Apenas diarização + emoção acústica (sem texto): configure OPENAI_API_KEY para transcrever com Whisper e somar a avaliação do Copiloto."
+    "copiloto_ok": "Transcrição disponível (Whisper) — o Copiloto avaliou a qualidade da ligação e detectou técnicas de negociação.",
+    "sin_transcripcion": "Apenas diarização + emoção acústica (sem texto): configure OPENAI_API_KEY para transcrever com Whisper e somar a avaliação do Copiloto."
   },
   "importar_cartera": {
-    "titulo": "📤 Carregar sua carteira real",
+    "titulo": "Carregar sua carteira real",
     "subtitulo": "Envie um CSV ou Excel com seus devedores e substitua na hora os dados de demonstração em todo o painel. Adapta-se sozinho aos nomes das colunas: havendo várias de valor, escolhe a de dívida (Dívida, Saldo Vencido, Capital) em vez de um pagamento ou cobrança; entende MontoDeuda, Nome Cliente, Celular… e valores formatados (R$ 1.234.567).",
     "modo_titulo": "Dados que o programa mostra:",
-    "demo_on": "🟡 DEMO (dados de exemplo)",
-    "demo_off": "🟢 MINHA CARTEIRA (dados reais)",
+    "demo_on": "DEMO (dados de exemplo)",
+    "demo_off": "MINHA CARTEIRA (dados reais)",
     "sin_real_aun": "— envie um arquivo abaixo para ativar",
-    "fuente_archivo": "📄 Arquivo (CSV/Excel)",
-    "fuente_sql": "🗄️ Banco de dados (SQL)",
+    "fuente_archivo": "Arquivo (CSV/Excel)",
+    "fuente_sql": "Banco de dados (SQL)",
     "sql_ayuda": "Conecte seu banco (Postgres, MySQL, SQL Server, SQLite, Oracle…) e traga toda a sua carteira sem limite de tamanho. Somente leitura: qualquer consulta que não seja SELECT é rejeitada. A consulta deve retornar ao menos uma coluna de dívida (deuda/monto/monto_deuda), e opcional nome, telefone, dias_mora, etc.",
     "sql_url_placeholder": "postgresql://usuario:senha@host:5432/basededados",
     "sql_consulta_placeholder": "SELECT nome, telefone, monto_deuda, dias_mora FROM carteira",
-    "sql_boton": "🔌 Conectar, trazer e analisar",
-    "origen_real": "✅ Mostrando sua carteira real: {{archivo}} · {{deudores}} devedores.",
-    "origen_demo": "ℹ️ Você ainda está vendo dados de demonstração (sintéticos).",
-    "boton": "⬆️ Importar e analisar",
+    "sql_boton": "Conectar, trazer e analisar",
+    "origen_real": "Mostrando sua carteira real: {{archivo}} · {{deudores}} devedores.",
+    "origen_demo": "Você ainda está vendo dados de demonstração (sintéticos).",
+    "boton": "⬆ Importar e analisar",
     "subiendo": "Analisando…",
-    "banner_demo": "ℹ️ Você está vendo dados de DEMONSTRAÇÃO (sintéticos). Para ver sua carteira real: Configurações → Carregar sua carteira real → botão «MINHA CARTEIRA»."
+    "banner_demo": "Você está vendo dados de DEMONSTRAÇÃO (sintéticos). Para ver sua carteira real: Configurações → Carregar sua carteira real → botão «MINHA CARTEIRA»."
   },
   "proveedor_ia": {
-    "titulo": "🧠 Provedor de IA",
+    "titulo": "Provedor de IA",
     "subtitulo": "Com qual conta corporativa própria raciocinam o Assistente, o Copiloto e o Agente IA. Cadastre a chave correspondente acima, na tabela de chaves.",
     "nombre": {
       "anthropic": "Claude (Anthropic)",
       "gemini": "Gemini (Google)",
       "openai": "ChatGPT (OpenAI)"
     },
-    "sin_clave": "⚠ falta a chave",
-    "guardado": "✅ Salvo."
+    "sin_clave": "falta a chave",
+    "guardado": "Salvo."
   },
   "activacion": {
     "subtitulo": "Cole a licença que você recebeu na compra (ou do trial de 3 dias) para ativar sua cópia da MV Kobra AI.",
@@ -360,13 +361,13 @@
     "boton_activar": "Ativar",
     "boton_activando": "Ativando…",
     "link_comprar": "Ver planos em mvkobranzaia.com",
-    "banner_trial": "🕐 Versão de teste — faltam {{dias}} dias."
+    "banner_trial": "Versão de teste — faltam {{dias}} dias."
   },
   "gestor_demo": {
-    "titulo": "🤖 Testar o Agente de IA (demo ao vivo)",
+    "titulo": "Testar o Agente de IA (demo ao vivo)",
     "subtitulo": "Mostre a um cliente como o agente negocia sozinho uma cobrança. Usa um devedor de exemplo (Martín Viera: 3 parcelas em atraso, salário R$ 120.000). Escolha o canal e veja a negociação completa com as conclusões.",
-    "por_voz": "📞 Negociar por VOZ",
-    "por_whatsapp": "💬 Negociar por WHATSAPP",
+    "por_voz": "Negociar por VOZ",
+    "por_whatsapp": "Negociar por WHATSAPP",
     "negociando": "O Agente de IA está negociando…",
     "deuda": "Dívida",
     "desc_max": "Desc. máx",
@@ -383,7 +384,7 @@
     "emociones": "Emoções detectadas",
     "tecnicas": "Técnicas usadas",
     "turnos": "Turnos",
-    "nota_twilio": "ℹ️ Esta é a mesma lógica de negociação que roda em produção. O Twilio apenas transporta a voz ou o WhatsApp real (precisa de credenciais e número); a oferta, o tratamento de objeções e o fechamento são estes."
+    "nota_twilio": "Esta é a mesma lógica de negociação que roda em produção. O Twilio apenas transporta a voz ou o WhatsApp real (precisa de credenciais e número); a oferta, o tratamento de objeções e o fechamento são estes."
   },
   "calidad": {
     "titulo": "Qualidade de atendimento",
@@ -401,11 +402,11 @@
     "gestor": "Operador",
     "tipo": "Tipo",
     "calidad": "Qualidade",
-    "evaluar_titulo": "🎧 Avaliar um atendimento",
+    "evaluar_titulo": "Avaliar um atendimento",
     "evaluar_sub": "Cole a transcrição de uma ligação ou o chat do WhatsApp e obtenha a nota de qualidade com o detalhe por critério. O núcleo funciona sem chaves; com um provedor de IA configurado, recalibra como um supervisor real.",
     "canal_llamada": "Ligação",
     "evaluar_placeholder": "Operador: Olá, bom dia, falo da cobrança…\nCliente: Sim, sou eu…",
-    "evaluar_boton": "✅ Avaliar qualidade",
+    "evaluar_boton": "Avaliar qualidade",
     "evaluando": "Avaliando…",
     "ref_humano": "Ref. supervisor",
     "modo_local": "offline",
@@ -416,9 +417,9 @@
     "todos_meses": "Todos os meses",
     "filtro_gestor": "Operador",
     "todos_gestores": "Todos os operadores",
-    "tab_dashboard": "📊 Painéis",
-    "tab_evaluar": "📝 Avaliar texto",
-    "tab_audio": "🎙️ Áudio / ligações",
+    "tab_dashboard": "Painéis",
+    "tab_evaluar": "Avaliar texto",
+    "tab_audio": "Áudio / ligações",
     "brecha": "Diferença",
     "perfil_titulo": "Perfil por item de negociação: IA vs Humano",
     "perfil_sub": "Nota estimada por critério da rubrica. Mostra em quais itens da negociação o Agente IA leva vantagem e onde os operadores humanos têm mais a melhorar.",
@@ -426,32 +427,32 @@
     "oportunidades_humano": "Oportunidades de melhoria (humano)",
     "evolucion_titulo": "Evolução da qualidade ao longo do tempo",
     "evolucion_sub": "Qualidade média mensal por tipo de operador.",
-    "mejora_titulo": "💡 Como a cobrança melhoraria melhorando a qualidade",
+    "mejora_titulo": "Como a cobrança melhoraria melhorando a qualidade",
     "mejora_sub": "Se os operadores humanos alcançassem a qualidade e a eficácia do Agente IA, a recuperação adicional estimada seria:",
     "mejora_calidad": "Diferença de qualidade",
     "mejora_conversion": "Diferença de conversão",
     "mejora_recupero_prom": "Recuperação média por atendimento",
     "mejora_recupero_adicional": "Recuperação adicional potencial",
     "mejora_nota": "Estimativa ilustrativa a partir da diferença real observada entre os dois grupos (dados sintéticos de demonstração).",
-    "audio_titulo": "🎙️ Carregar e avaliar uma ligação (MP3/WAV)",
+    "audio_titulo": "Carregar e avaliar uma ligação (MP3/WAV)",
     "audio_sub": "Envie uma gravação real: é transcrita por interlocutor e avaliada com a rubrica de 14 critérios. Você pode ouvir a ligação enquanto revisa a nota.",
-    "audio_boton": "🎧 Transcrever e avaliar",
+    "audio_boton": "Transcrever e avaliar",
     "audio_procesando": "Processando áudio…",
     "audio_escuchar": "Ouvir a ligação",
     "audio_transcripcion": "Transcrição",
     "audio_sin_texto": "O áudio foi processado, mas não há transcrição de texto (configure OPENAI_API_KEY para Whisper, ou cole a transcrição em “Avaliar texto”).",
-    "fuentes_titulo": "🔌 Fontes de gravações",
+    "fuentes_titulo": "Fontes de gravações",
     "fuente_manual": "Envio manual (.wav/.mp3)",
     "fuente_avaya": "Central Avaya / gravador por API",
     "estado_activo": "Ativo",
     "estado_sin_config": "Requer configuração",
     "avaya_sin_config": "Para conectar a central Avaya (ou qualquer gravador por API) configure as credenciais do cliente (KOBRA_AVAYA_HOST, KOBRA_AVAYA_USER, KOBRA_AVAYA_PASS). Enquanto isso, envie as gravações manualmente.",
     "avaya_conectado": "Conector ativo: as gravações do PBX são importadas e avaliadas automaticamente.",
-    "tab_fichas": "📁 Fichas de operadores",
+    "tab_fichas": "Fichas de operadores",
     "audio_gestor": "Operador",
     "audio_gestor_ph": "Nome do operador (para acumular)",
     "audio_fecha": "Data",
-    "audio_guardado": "✔ Salvo na ficha de",
+    "audio_guardado": "Salvo na ficha de",
     "audio_guardar_hint": "Informe o nome do operador e a data para acumular esta avaliação na ficha dele.",
     "fichas_titulo": "Fichas de operadores · qualidade por áudio",
     "fichas_sub": "Avaliações de ligações acumuladas. Identifique a qualidade de cada operador por data e sua evolução ao longo do tempo.",
@@ -499,6 +500,124 @@
       "col_audios": "Áudios",
       "col_calidad": "Qualidade",
       "col_vs": "vs. média"
+    }
+  },
+  "portal": {
+    "header": {
+      "titulo": "Portal de pagamentos",
+      "seguro": "Conexão segura"
+    },
+    "footer": "Pagamentos processados pela plataforma de cobrança do seu credor.",
+    "entrar_con_codigo": "Entrar com usuário e código",
+    "login": {
+      "titulo": "Acesso à sua conta",
+      "subtitulo": "Informe o usuário e o código de 6 dígitos enviado pela empresa.",
+      "usuario": "Usuário",
+      "usuario_ph": "Ex.: KB-100000",
+      "codigo": "Código de acesso",
+      "entrar": "Ver minha dívida"
+    },
+    "resumen": {
+      "titular": "Conta {{id}}",
+      "saldo_pendiente": "Saldo pendente de pagamento"
+    },
+    "facturas": {
+      "titulo": "Detalhe das faturas pendentes",
+      "col_numero": "Fatura",
+      "col_concepto": "Descrição",
+      "col_vencimiento": "Vencimento",
+      "col_monto": "Valor"
+    },
+    "pagar": {
+      "titulo": "Realizar um pagamento",
+      "total": "Pagar o total ({{monto}})",
+      "parcial": "Pagamento parcial",
+      "monto_ph": "Valor a pagar",
+      "transferencia": "Transferência bancária",
+      "transferencia_det": "Receba os dados da conta e uma referência de pagamento",
+      "mercadopago": "MercadoPago",
+      "mercadopago_det": "Pague online com o meio que preferir",
+      "boton": "Continuar com o pagamento de {{monto}}"
+    },
+    "pagoref": {
+      "titulo_transferencia": "Dados para sua transferência",
+      "titulo_mp": "Conclua seu pagamento no MercadoPago",
+      "referencia": "Referência",
+      "monto": "Valor",
+      "banco": "Banco",
+      "titular": "Titular",
+      "cuenta": "Conta",
+      "nota": "Observação",
+      "instruccion_transferencia": "Inclua a referência na descrição da transferência para que o pagamento seja registrado automaticamente.",
+      "instruccion_mp": "Uma janela do MercadoPago foi aberta para concluir o pagamento.",
+      "abrir_mp": "Abrir novamente",
+      "ya_transferi": "Já fiz a transferência",
+      "ya_pague": "Já concluí o pagamento",
+      "volver": "Voltar"
+    },
+    "exito": {
+      "titulo": "Pagamento registrado",
+      "detalle": "Registramos seu pagamento de {{monto}} com a referência {{referencia}}.",
+      "aprobado": "O pagamento foi aprovado e registrado no sistema da empresa.",
+      "informado": "Seu aviso de transferência foi registrado; a empresa fará a conciliação quando o valor for creditado.",
+      "saldo_restante": "Saldo restante: {{saldo}}",
+      "otro_pago": "Fazer outro pagamento",
+      "deuda_saldada": "Sua dívida foi totalmente quitada. Obrigado."
+    },
+    "historial": {
+      "titulo": "Pagamentos realizados",
+      "estado_pendiente": "Pendente",
+      "estado_informado": "Transferência informada",
+      "estado_aprobado": "Aprovado"
+    }
+  },
+  "portal_admin": {
+    "titulo": "Portal de cobranças",
+    "subtitulo": "Cobre de forma centralizada: cada devedor recebe um link, um QR ou um usuário com código, paga total ou parcial (transferência ou MercadoPago) e o pagamento é registrado no seu ERP/CRM automaticamente.",
+    "copiar": "Copiar",
+    "copiado": "Copiado",
+    "config": {
+      "titulo": "Meios de pagamento e integração",
+      "subtitulo": "O que você configurar aqui é o que o devedor vê ao entrar para pagar.",
+      "transferencia": "Transferência bancária",
+      "banco": "Banco",
+      "titular": "Titular da conta",
+      "cuenta": "Número da conta",
+      "nota": "Observação para o pagador (opcional)",
+      "mercadopago": "MercadoPago",
+      "mp_link": "Link de pagamento da sua conta MercadoPago (opcional)",
+      "mp_ayuda": "Sem link, a demo usa um checkout simulado. Com seu link real, a cobrança entra direto na sua conta.",
+      "erp": "Integração ERP / CRM",
+      "webhook": "URL do webhook (recebe cada pagamento registrado)",
+      "api_key": "API key própria (opcional; se vazia, uma é gerada)",
+      "erp_ayuda": "Cada pagamento é enviado por webhook e também pode ser consultado por API (pull incremental). Exemplo:",
+      "guardar": "Salvar configuração",
+      "guardado": "Configuração salva."
+    },
+    "acceso": {
+      "titulo": "Acesso de um devedor",
+      "subtitulo": "Gere o link de pagamento, o QR e as credenciais para compartilhar por WhatsApp, e-mail ou impressos na fatura.",
+      "id_ph": "ID do devedor (ex. KB-100000)",
+      "generar": "Gerar acesso",
+      "link": "Link de pagamento",
+      "usuario": "Usuário",
+      "codigo": "Código",
+      "ayuda_qr": "O QR aponta para o mesmo link: imprima na fatura ou compartilhe pelo WhatsApp."
+    },
+    "pagos": {
+      "titulo": "Pagamentos recebidos pelo portal ({{total}})",
+      "vacio": "Ainda não entraram pagamentos pelo portal.",
+      "col_ref": "Referência",
+      "col_deudor": "Devedor",
+      "col_monto": "Valor",
+      "col_metodo": "Meio",
+      "col_tipo": "Tipo",
+      "col_estado": "Status",
+      "col_fecha": "Data (UTC)",
+      "metodo_transferencia": "Transferência",
+      "metodo_mercadopago": "MercadoPago",
+      "tipo_total": "Total",
+      "tipo_parcial": "Parcial"
     }
   }
 }

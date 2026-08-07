@@ -4,11 +4,45 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/mv_icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MV Kobra AI · Plataforma</title>
-    <script type="module" crossorigin src="/assets/index-BYpzRCYj.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-D8dMDBGV.css">
+    <title>MV Kobra AI · Plataforma de Cobranzas Inteligentes</title>
+
+    <!-- La app vive detrás del login, pero el link igual se comparte: por mail
+         a un colega, en el chat del equipo, dentro de una propuesta comercial.
+         Sin estas etiquetas se pega como una URL pelada, sin imagen ni
+         explicación de qué es. La imagen tiene que ser una URL ABSOLUTA:
+         ningún scraper resuelve las relativas. -->
+    <meta name="description" content="Plataforma de cobranzas con IA: predice qué deudores van a pagar, prioriza la cartera por valor esperado de recupero y negocia por voz y WhatsApp, con control de calidad de cada gestión." />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MV Kobra AI" />
+    <meta property="og:title" content="MV Kobra AI · Plataforma de Cobranzas Inteligentes" />
+    <meta property="og:description" content="Predice qué deudores van a pagar, prioriza la cartera por valor esperado de recupero y negocia por voz y WhatsApp." />
+    <meta property="og:image" content="https://mvkobranzaia.com/landing/og-mvkobraai.png" />
+    <meta property="og:image:alt" content="MV Kobra AI · Cobranzas Inteligentes" />
+    <meta property="og:url" content="https://mvkobranzaia.com/" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MV Kobra AI · Plataforma de Cobranzas Inteligentes" />
+    <meta name="twitter:description" content="Predice qué deudores van a pagar, prioriza la cartera por valor esperado de recupero y negocia por voz y WhatsApp." />
+    <meta name="twitter:image" content="https://mvkobranzaia.com/landing/og-mvkobraai.png" />
+
+    <meta name="theme-color" content="#0E1117" />
+    <script type="module" crossorigin src="/assets/index-BKc8EYU-.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CLWvthZ9.css">
   </head>
   <body>
     <div id="root"></div>
+    <!-- Sin JavaScript la app no renderiza nada y el usuario se queda mirando
+         una pantalla en blanco, sin ninguna pista de qué pasó. El estándar
+         pide que nada quede en blanco sin explicación. -->
+    <noscript>
+      <div style="max-width:34rem;margin:15vh auto;padding:0 1.5rem;font-family:system-ui,sans-serif;color:#e9edf5;text-align:center">
+        <h1 style="font-size:1.25rem;margin-bottom:.75rem">MV Kobra AI necesita JavaScript</h1>
+        <p style="color:#93a0b5;line-height:1.6">
+          Activá JavaScript en tu navegador para usar la plataforma. Si estás en
+          una red corporativa que lo bloquea, avisale a tu área de sistemas.
+        </p>
+      </div>
+    </noscript>
   </body>
 </html>

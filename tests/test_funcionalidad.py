@@ -137,9 +137,18 @@ def test_el_token_vencido_dice_que_hacer(cliente):
 def test_el_nucleo_no_importa_ninguna_pasarela_de_pago():
     """El dashboard, el scoring y el negociador tienen que funcionar aunque no
     haya checkout configurado: si el motor dependiera de la pasarela, una
-    instalación sin pagos no serviría para nada."""
+    instalación sin pagos no serviría para nada.
+
+    Nota (portal de cobros): el portal MENCIONA MercadoPago porque arma el
+    link de pago preconfigurado de la empresa — pero no importa ningún SDK ni
+    lo necesita para funcionar (viene deshabilitado por default, ver el test
+    de abajo). Por eso este chequeo mira los IMPORT, que es lo que crearía la
+    dependencia, y no la palabra."""
     import re
     sospechosos = ("mercadopago", "stripe", "paypal", "dlocal")
+    patron = re.compile(
+        rf"^\s*(import\s+({'|'.join(sospechosos)})\b"
+        rf"|from\s+({'|'.join(sospechosos)})\b)", re.I)
     hallazgos = []
     for base in ("kobra", "webapp/backend", "realtime"):
         for root, _, files in os.walk(os.path.join(ROOT, base)):
@@ -151,11 +160,23 @@ def test_el_nucleo_no_importa_ninguna_pasarela_de_pago():
                 ruta = os.path.join(root, f)
                 with open(ruta, encoding="utf-8", errors="replace") as fh:
                     for n, linea in enumerate(fh, 1):
-                        if linea.lstrip().startswith("#"):
-                            continue
-                        if any(re.search(rf"\b{s}\b", linea, re.I) for s in sospechosos):
+                        if patron.search(linea):
                             hallazgos.append(f"{ruta}:{n}")
-    assert not hallazgos, f"el núcleo referencia una pasarela de pago: {hallazgos}"
+    assert not hallazgos, f"el núcleo importa una pasarela de pago: {hallazgos}"
+
+
+def test_mercadopago_del_portal_es_opcional_y_arranca_apagado():
+    """La garantía positiva que acompaña al test de arriba: sin configurar
+    nada, MercadoPago está deshabilitado y el portal funciona igual (solo
+    transferencia). Habilitarlo es una decisión de la empresa, no un
+    requisito del producto."""
+    import tempfile
+
+    from kobra import portal_pagos as kportal
+    with tempfile.TemporaryDirectory() as d:
+        cfg = kportal.cargar_config(d)
+        assert cfg["mercadopago"]["habilitado"] is False
+        assert cfg["transferencia"]["habilitado"] is True
 
 
 def test_el_pipeline_completo_corre_sin_ninguna_api_key(monkeypatch):

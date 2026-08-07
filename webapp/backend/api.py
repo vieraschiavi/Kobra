@@ -25,6 +25,7 @@ Correr:  python -m uvicorn webapp.backend.api:app --port 8800
 """
 from __future__ import annotations
 
+import hmac
 import io
 import json
 import os
@@ -1826,6 +1827,198 @@ def gestor_ia_demo(datos: GestorDemoIn, u: Usuario = Depends(usuario_actual)):
             "turnos": e.get("turnos"),
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Portal de cobros centralizado
+# ---------------------------------------------------------------------------
+# El deudor paga solo: entra por link/QR (token HMAC) o con usuario+código,
+# ve sus facturas y paga total o parcial por transferencia o MercadoPago.
+# Cada pago queda imputado en la cola ERP (webhook saliente + pull por API).
+# Dominio en kobra/portal_pagos.py; acá solo la capa HTTP.
+from kobra import portal_pagos as kportal  # noqa: E402
+
+# El código de acceso es de 6 dígitos: SIN freno se prueba entero en horas.
+_LIMITE_PORTAL = klimite.Limitador()
+
+
+def _dir_portal(empresa: str) -> str:
+    """Los archivos del portal viven junto a los datos del tenant."""
+    return os.path.dirname(_datos_de(empresa)["gestiones"])
+
+
+def _fila_deudor(empresa: str, id_deudor: str) -> dict:
+    f = _scored(empresa)
+    fila = f[f["id_deudor"] == id_deudor]
+    if fila.empty:
+        raise HTTPException(404, "No encontramos esa deuda. Verificá el acceso.")
+    return {k: (None if pd.isna(v) else (v.item() if hasattr(v, "item") else v))
+            for k, v in fila.iloc[0].items()}
+
+
+def _deudor_desde_token(t: str) -> tuple[str, str]:
+    par = kportal.validar_token(_secreto(), t or "")
+    if par is None:
+        raise HTTPException(401, "El link de pago no es válido o venció. "
+                                 "Pedile a la empresa uno nuevo.")
+    return par
+
+
+@app.get("/api/portal/config")
+def portal_config(u: Usuario = Depends(solo_admin)):
+    cfg = kportal.cargar_config(_dir_portal(u.empresa))
+    # La API key efectiva se muestra para poder configurar el ERP; si la
+    # empresa no definió una, es la derivada del secreto (nunca queda vacía).
+    return {**cfg, "erp_api_key_efectiva":
+            kportal.api_key_erp(_dir_portal(u.empresa), _secreto())}
+
+
+class PortalConfigIn(BaseModel):
+    transferencia: dict | None = None
+    mercadopago: dict | None = None
+    erp: dict | None = None
+
+
+@app.post("/api/portal/config")
+def portal_config_guardar(datos: PortalConfigIn, u: Usuario = Depends(solo_admin)):
+    cfg = kportal.guardar_config(_dir_portal(u.empresa), datos.model_dump(exclude_none=True))
+    return {**cfg, "erp_api_key_efectiva":
+            kportal.api_key_erp(_dir_portal(u.empresa), _secreto())}
+
+
+@app.get("/api/portal/acceso/{id_deudor}")
+def portal_acceso(id_deudor: str, u: Usuario = Depends(usuario_actual)):
+    """Credenciales de acceso del deudor, para compartir por WhatsApp/mail o
+    imprimir el QR: link con token firmado + usuario y código."""
+    _fila_deudor(u.empresa, id_deudor)          # 404 si no existe
+    token = kportal.token_portal(_secreto(), u.empresa, id_deudor)
+    return {
+        "id_deudor": id_deudor,
+        "token": token,
+        "ruta": f"/#/pagar?t={token}",
+        "usuario": id_deudor,
+        "codigo": kportal.codigo_acceso(_secreto(), u.empresa, id_deudor),
+    }
+
+
+@app.get("/api/portal/pagos")
+def portal_pagos_recibidos(u: Usuario = Depends(usuario_actual)):
+    pagos = kportal.listar_pagos(_dir_portal(u.empresa))
+    pagos.sort(key=lambda p: p.get("creado", ""), reverse=True)
+    return {"pagos": pagos[:500], "total": len(pagos)}
+
+
+class PortalLoginIn(BaseModel):
+    usuario: str
+    codigo: str
+    empresa: str = EMPRESA_DEFAULT
+
+
+@app.post("/api/portal/public/login")
+def portal_public_login(datos: PortalLoginIn, request: Request):
+    clave = _frenar(_LIMITE_PORTAL, request, "portal")
+    id_deudor = datos.usuario.strip().upper()
+    esperado = kportal.codigo_acceso(_secreto(), datos.empresa, id_deudor)
+    if not hmac.compare_digest(esperado, datos.codigo.strip()):
+        raise HTTPException(401, "Usuario o código incorrectos.")
+    _LIMITE_PORTAL.perdonar(clave)
+    _fila_deudor(datos.empresa, id_deudor)      # 404 si el id no existe
+    return {"token": kportal.token_portal(_secreto(), datos.empresa, id_deudor)}
+
+
+@app.get("/api/portal/public/estado")
+def portal_public_estado(t: str):
+    empresa, id_deudor = _deudor_desde_token(t)
+    fila = _fila_deudor(empresa, id_deudor)
+    d = _dir_portal(empresa)
+    cfg = kportal.cargar_config(d)
+    pais = kpaises.obtener(_pais_de(empresa))
+    total = float(fila.get("monto_deuda") or 0)
+    return {
+        "id_deudor": id_deudor,
+        "saldo": kportal.saldo_pendiente(d, id_deudor, total),
+        "total": round(total, 2),
+        "facturas": kportal.facturas_de(fila),
+        "pagos": [{k: p[k] for k in ("referencia", "monto", "metodo", "estado", "creado")}
+                  for p in kportal.listar_pagos(d, id_deudor)],
+        "metodos": {
+            "transferencia": {k: v for k, v in cfg["transferencia"].items()
+                              if k != "habilitado"} if cfg["transferencia"]["habilitado"] else None,
+            "mercadopago": bool(cfg["mercadopago"]["habilitado"]),
+        },
+        "moneda": {"simbolo": pais.simbolo, "locale": pais.locale},
+    }
+
+
+class PortalPagoIn(BaseModel):
+    t: str
+    monto: float
+    metodo: str
+
+
+@app.post("/api/portal/public/pagar")
+def portal_public_pagar(datos: PortalPagoIn):
+    empresa, id_deudor = _deudor_desde_token(datos.t)
+    fila = _fila_deudor(empresa, id_deudor)
+    d = _dir_portal(empresa)
+    cfg = kportal.cargar_config(d)
+    if datos.metodo == "transferencia" and not cfg["transferencia"]["habilitado"]:
+        raise HTTPException(400, "La empresa no habilitó pagos por transferencia.")
+    if datos.metodo == "mercadopago" and not cfg["mercadopago"]["habilitado"]:
+        raise HTTPException(400, "La empresa no habilitó MercadoPago.")
+    try:
+        pago = kportal.crear_pago(d, empresa, id_deudor, datos.monto,
+                                  datos.metodo, float(fila.get("monto_deuda") or 0))
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    out = {"referencia": pago["referencia"], "monto": pago["monto"],
+           "tipo": pago["tipo"], "metodo": pago["metodo"]}
+    if datos.metodo == "transferencia":
+        out["transferencia"] = {k: v for k, v in cfg["transferencia"].items()
+                                if k != "habilitado"}
+    else:
+        out["url_pago"] = kportal.link_mercadopago(cfg, pago["referencia"],
+                                                   pago["monto"])
+    return out
+
+
+class PortalConfirmarIn(BaseModel):
+    t: str
+    referencia: str
+
+
+@app.post("/api/portal/public/confirmar")
+def portal_public_confirmar(datos: PortalConfirmarIn):
+    """El deudor declara la transferencia hecha (→ `informado`, pendiente de
+    conciliar) o vuelve de MercadoPago (→ `aprobado`). En ambos casos el pago
+    queda IMPUTADO: cola ERP + webhook si la empresa lo configuró."""
+    empresa, id_deudor = _deudor_desde_token(datos.t)
+    d = _dir_portal(empresa)
+    pago = next((p for p in kportal.listar_pagos(d, id_deudor)
+                 if p["referencia"] == datos.referencia), None)
+    if pago is None:
+        raise HTTPException(404, "No existe ese pago para esta deuda.")
+    cfg = kportal.cargar_config(d)
+    estado = "aprobado" if pago["metodo"] == "mercadopago" else "informado"
+    registro = kportal.confirmar_pago(d, datos.referencia, estado,
+                                      webhook_url=cfg["erp"]["webhook_url"])
+    return {"referencia": registro["referencia"], "estado": registro["estado"],
+            "monto": registro["monto"]}
+
+
+@app.get("/api/erp/imputaciones")
+def erp_imputaciones(request: Request, desde: str = "",
+                     empresa: str = EMPRESA_DEFAULT):
+    """Pull para el ERP/CRM: pagos imputados, opcionalmente incrementales
+    (`desde` = último `imputado_en` ya sincronizado, exclusivo). Autenticado
+    por API key (cabecera X-API-Key) — la que muestra la pantalla Portal de
+    cobros o la que la empresa configuró."""
+    esperada = kportal.api_key_erp(_dir_portal(empresa), _secreto())
+    recibida = request.headers.get("X-API-Key", "")
+    if not hmac.compare_digest(esperada, recibida):
+        raise HTTPException(401, "API key inválida (cabecera X-API-Key).")
+    imps = kportal.listar_imputaciones(_dir_portal(empresa), desde=desde)
+    return {"imputaciones": imps, "total": len(imps)}
 
 
 # --- Frontend compilado, si existe ------------------------------------------

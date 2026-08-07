@@ -188,3 +188,133 @@ tfoot .fila-total td {
   border-top: 2px solid var(--border);
   background: rgba(255,255,255,.03);
 }
+
+/* ---- Portal de cobros: página pública del deudor ---- */
+.portal-fondo {
+  min-height: 100vh; display: flex; flex-direction: column;
+  background:
+    radial-gradient(1200px 500px at 50% -180px, rgba(124,194,66,.08), transparent),
+    var(--navy-950);
+}
+.portal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 26px; border-bottom: 1px solid var(--line);
+}
+.portal-marca { font-weight: 800; letter-spacing: .01em; font-size: 15px; }
+.portal-seguro {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--green-deep); font-size: 12px; font-weight: 700;
+}
+.portal-main {
+  flex: 1; width: 100%; max-width: 640px; margin: 0 auto;
+  padding: 30px 18px 50px; display: flex; flex-direction: column; gap: 16px;
+}
+.portal-card {
+  background: var(--navy-900); border: 1px solid var(--line);
+  border-radius: 16px; padding: 24px 26px;
+}
+.portal-card h2 { margin: 0 0 6px; font-size: 18px; }
+.portal-card h3 { margin: 0 0 14px; font-size: 14.5px; }
+.portal-muted { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+.portal-error {
+  margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px;
+  background: rgba(255,118,117,.12); color: var(--red);
+  border: 1px solid rgba(255,118,117,.3);
+}
+.portal-btn { margin-top: 16px; width: 100%; padding: 12px; font-size: 14.5px; }
+.portal-login { max-width: 420px; margin: 40px auto 0; width: 100%; }
+.portal-login label {
+  display: block; margin-top: 14px; font-size: 13px; font-weight: 700;
+  color: var(--muted);
+}
+.portal-login input {
+  display: block; width: 100%; margin-top: 6px; padding: 11px 12px;
+  background: var(--navy-800); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 10px; font: inherit; font-size: 14.5px;
+}
+.portal-icono {
+  width: 44px; height: 44px; border-radius: 12px; margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--navy-800); border: 1px solid var(--line); color: var(--green);
+}
+.portal-icono.ok { color: var(--green-deep); }
+.portal-resumen h1 { margin: 6px 0 2px; font-size: 34px; letter-spacing: -.02em; }
+.portal-tabla { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.portal-tabla th {
+  text-align: left; color: var(--faint); font-size: 11.5px;
+  text-transform: uppercase; letter-spacing: .06em; padding: 4px 8px 8px 0;
+}
+.portal-tabla th.tnum { text-align: right; }
+.portal-tabla td { padding: 8px 8px 8px 0; border-top: 1px solid var(--line); }
+.portal-tabla td.tnum:last-child, .portal-tabla th:last-child { text-align: right; }
+.portal-tipo { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.portal-tipo label {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  font-size: 13.5px; font-weight: 600; color: var(--muted);
+}
+.portal-tipo label.on { color: var(--ink); border-color: var(--green); }
+.portal-monto {
+  width: 160px; padding: 10px 12px; background: var(--navy-800);
+  border: 1px solid var(--line); color: var(--ink); border-radius: 10px;
+  font: inherit;
+}
+.portal-metodos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 14px; }
+.portal-metodo {
+  display: flex; gap: 12px; align-items: center; text-align: left;
+  padding: 14px; border-radius: 12px; cursor: pointer; font: inherit;
+  background: var(--navy-800); border: 1px solid var(--line); color: var(--ink);
+}
+.portal-metodo.on { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.portal-metodo b { display: block; font-size: 13.5px; }
+.portal-metodo small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.portal-metodo-ico { color: var(--green); flex: none; }
+.portal-ref {
+  display: flex; align-items: center; gap: 10px; padding: 8px 0;
+  border-bottom: 1px solid var(--line); font-size: 13.5px;
+}
+.portal-ref span { color: var(--muted); min-width: 110px; display: flex; align-items: center; gap: 6px; }
+.portal-ref b { flex: 1; overflow-wrap: anywhere; }
+.portal-datos-banco { margin-top: 12px; }
+.portal-acciones { display: flex; gap: 10px; margin-top: 18px; }
+.portal-acciones .portal-btn { margin-top: 0; }
+.portal-link { color: var(--green-deep); font-weight: 700; }
+.portal-exito { text-align: center; }
+.portal-exito .portal-icono { margin: 0 auto 14px; }
+.portal-saldo-restante { font-weight: 700; margin-top: 14px; }
+.portal-saldo-cero { color: var(--green-deep); font-weight: 800; margin-top: 14px; }
+.portal-footer {
+  text-align: center; color: var(--faint); font-size: 12px;
+  padding: 18px; border-top: 1px solid var(--line);
+}
+
+/* ---- Portal de cobros: página admin ---- */
+.portal-cfg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.portal-cfg-grid fieldset {
+  border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+  display: flex; flex-direction: column; gap: 8px; margin: 0; min-width: 0;
+}
+.portal-cfg-grid legend { font-size: 13px; font-weight: 700; padding: 0 6px; }
+.portal-cfg-grid legend label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.portal-cfg-grid input[type="text"], .portal-cfg-grid input:not([type]) {
+  padding: 9px 11px; background: var(--navy-800); border: 1px solid var(--line);
+  color: var(--ink); border-radius: 9px; font: inherit; font-size: 13px; width: 100%;
+}
+.portal-ayuda { color: var(--muted); font-size: 12px; margin: 2px 0 0; display: flex; gap: 6px; align-items: center; }
+.portal-apikey {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+  background: var(--navy-800); border: 1px solid var(--line); border-radius: 9px;
+  padding: 7px 10px;
+}
+.portal-apikey code { font-family: var(--mono); font-size: 11.5px; overflow-wrap: anywhere; flex: 1; }
+.portal-curl {
+  background: var(--navy-950); border: 1px solid var(--line); border-radius: 9px;
+  padding: 10px 12px; font-family: var(--mono); font-size: 11px; overflow-x: auto;
+  color: var(--muted); margin: 6px 0 0;
+}
+.portal-acceso { display: flex; gap: 22px; margin-top: 16px; flex-wrap: wrap; align-items: flex-start; }
+.portal-acceso-datos { flex: 1; min-width: 260px; }
+.portal-link-texto { font-family: var(--mono); font-size: 12px; }
+.qr-caja { width: 148px; height: 148px; background: #fff; border-radius: 12px; padding: 8px; flex: none; }
+.qr-caja svg { width: 100%; height: 100%; display: block; }
+.btn.mini { padding: 4px 9px; font-size: 12px; line-height: 1; }

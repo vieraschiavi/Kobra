@@ -14,17 +14,27 @@ import Calidad from "./pages/Calidad.jsx";
 import Asistente from "./pages/Asistente.jsx";
 import Roi from "./pages/Roi.jsx";
 import Configuracion from "./pages/Configuracion.jsx";
+import PortalCobros from "./pages/PortalCobros.jsx";
+import PortalPago from "./pages/PortalPago.jsx";
+import {
+  IcoAjustes, IcoAsistente, IcoBanco, IcoCalendario, IcoCalidad, IcoEquipo,
+  IcoEscudo, IcoGlobo, IcoGrafica, IcoLista, IcoPago, IcoSalir, IcoTendencia,
+  IcoUsuario,
+} from "./icons.jsx";
 
+// Iconos SVG de línea (ver icons.jsx) en vez de emojis: consistentes entre
+// sistemas operativos y con el acabado sobrio que pide una plataforma B2B.
 const NAV = [
-  { ruta: "/", ico: "📊", clave: "app.nav.vision_general" },
-  { ruta: "/originacion", ico: "🏦", clave: "app.nav.originacion" },
-  { ruta: "/cartera", ico: "📋", clave: "app.nav.cartera" },
-  { ruta: "/agenda", ico: "📅", clave: "app.nav.agenda" },
-  { ruta: "/gestores", ico: "📇", clave: "app.nav.gestores" },
-  { ruta: "/calidad", ico: "✅", clave: "app.nav.calidad" },
-  { ruta: "/asistente", ico: "🤖", clave: "app.nav.asistente" },
-  { ruta: "/roi", ico: "📈", clave: "app.nav.roi" },
-  { ruta: "/configuracion", ico: "⚙️", clave: "app.nav.configuracion", admin: true },
+  { ruta: "/", ico: <IcoGrafica />, clave: "app.nav.vision_general" },
+  { ruta: "/originacion", ico: <IcoBanco />, clave: "app.nav.originacion" },
+  { ruta: "/cartera", ico: <IcoLista />, clave: "app.nav.cartera" },
+  { ruta: "/agenda", ico: <IcoCalendario />, clave: "app.nav.agenda" },
+  { ruta: "/gestores", ico: <IcoEquipo />, clave: "app.nav.gestores" },
+  { ruta: "/calidad", ico: <IcoCalidad />, clave: "app.nav.calidad" },
+  { ruta: "/asistente", ico: <IcoAsistente />, clave: "app.nav.asistente" },
+  { ruta: "/roi", ico: <IcoTendencia />, clave: "app.nav.roi" },
+  { ruta: "/portal-cobros", ico: <IcoPago />, clave: "app.nav.portal_cobros", admin: true },
+  { ruta: "/configuracion", ico: <IcoAjustes />, clave: "app.nav.configuracion", admin: true },
 ];
 
 function PaisSelector({ esAdmin }) {
@@ -40,14 +50,14 @@ function PaisSelector({ esAdmin }) {
   if (!esAdmin) {
     return (
       <div className="pais-chip" title={pais.nota_cumplimiento || ""}>
-        🌎 {pais.nombre} · {pais.moneda}
+        <IcoGlobo size={14} /> {pais.nombre} · {pais.moneda}
       </div>
     );
   }
 
   return (
     <div className="pais-chip" title={pais.nota_cumplimiento || ""}>
-      🌎
+      <IcoGlobo size={14} />
       <select
         disabled={guardando || !catalogo}
         value={pais.codigo}
@@ -91,10 +101,11 @@ function Sidebar({ sesion }) {
       <div className="spacer" />
       <PaisSelector esAdmin={sesion.rol === "admin"} />
       <div className="session-chip">
+        {sesion.rol === "admin" ? <IcoEscudo size={12} /> : <IcoUsuario size={12} />}{" "}
         {sesion.rol === "admin" ? t("app.sidebar.rol_admin") : t("app.sidebar.rol_gestor")} · {sesion.empresa}
       </div>
       <button className="nav-item" onClick={() => { setSesion(null); nav("/login"); }}>
-        <span className="ico">⏻</span><span className="txt">{t("app.sidebar.cerrar_sesion")}</span>
+        <span className="ico"><IcoSalir /></span><span className="txt">{t("app.sidebar.cerrar_sesion")}</span>
       </button>
     </aside>
   );
@@ -154,6 +165,11 @@ export default function App() {
   const sesion = getSesion();
   const loc = useLocation();
 
+  // Portal público de pagos: lo abre el DEUDOR desde el link/QR que le mandó
+  // la empresa. Sin login de la plataforma, sin sidebar, y antes de cualquier
+  // pantalla de licencia — el deudor no es un usuario de Kobra.
+  if (loc.pathname === "/pagar") return <PortalPago />;
+
   if (licEstado === undefined) return null;
   if (licEstado.standalone && !licEstado.activa) {
     return (
@@ -183,6 +199,7 @@ export default function App() {
           <Route path="/calidad" element={<Calidad />} />
           <Route path="/asistente" element={<Asistente />} />
           <Route path="/roi" element={<Roi />} />
+          <Route path="/portal-cobros" element={<PortalCobros />} />
           <Route path="/configuracion" element={<Configuracion />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
