@@ -8,8 +8,15 @@
 # `vieraschiavi/Kobra`, que es privado — visible solo para vos y los
 # colaboradores del repo.
 #
-# Disparo manual (Actions → Release Owner → Run workflow) o al taguear
-# `owner-vX.Y.Z`. No corre en cada push: no hace falta y consume minutos.
+# Disparos:
+#   1. AUTOMÁTICO: push a `main` que toque `kobra/__init__.py` — o sea, cada
+#      vez que se mergea un cambio de versión. El job `decidir` chequea si la
+#      release `owner-v<versión>` ya tiene el instalador publicado: si ya
+#      está, no se gasta ni un minuto de build. Así "se dispara solo cuando
+#      es necesario": subir la versión + mergear = release publicada.
+#   2. Manual (Actions → Release Owner → Run workflow) — siempre publica.
+#   3. Tag `owner-vX.Y.Z` — siempre publica (el filtro de paths no aplica a
+#      los tags, es comportamiento documentado de GitHub).
 name: Release Owner
 
 on:
@@ -20,14 +27,50 @@ on:
         required: false
         type: string
   push:
+    branches: [main]
     tags:
       - "owner-v*"
+    paths:
+      - "kobra/__init__.py"
 
 permissions:
   contents: write        # crear la release y subirle el ZIP
 
 jobs:
+  # ¿Hace falta publicar? Solo si la release de ESTA versión no tiene ya el
+  # instalador. El disparo manual y el tag saltean el chequeo (son pedidos
+  # explícitos); el push a main lo respeta para no republicar en re-runs.
+  decidir:
+    runs-on: ubuntu-latest
+    outputs:
+      publicar: ${{ steps.check.outputs.publicar }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ inputs.version }}"
+          [ -z "$V" ] && V=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' kobra/__init__.py)
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" != "push" ] || [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+            echo "Disparo explícito (manual/tag): se publica owner-v$V."
+            exit 0
+          fi
+          if gh release view "owner-v$V" --json assets -q '.assets[].name' 2>/dev/null \
+             | grep -q "MVKobraAI_Setup_OWNER.exe"; then
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+            echo "owner-v$V ya tiene el instalador publicado: nada que hacer."
+          else
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+            echo "owner-v$V no está publicada: se construye y publica."
+          fi
+
   publicar:
+    needs: decidir
+    if: needs.decidir.outputs.publicar == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -139,6 +182,8 @@ jobs:
   # Se publica solo en las releases de este repo PRIVADO. Nunca en
   # `mv-kobra-ai-releases`: esta edición arranca sin licencia ni vencimiento.
   instalador:
+    needs: decidir
+    if: needs.decidir.outputs.publicar == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
