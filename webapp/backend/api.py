@@ -502,8 +502,13 @@ CABECERAS_SEGURIDAD = {
 # `'unsafe-inline'` solo en estilos (React pone estilos inline; scripts
 # inline siguen bloqueados, que es lo que importa contra XSS).
 CSP_API = "default-src 'none'; frame-ancestors 'none'"
+# `media-src` con blob: no es opcional: la pestaña Calidad reproduce la
+# grabación subida con <audio src={URL.createObjectURL(...)}> — sin la
+# directiva, `default-src 'self'` bloquea el blob y el reproductor queda
+# GRIS con el play muerto (bug reportado en v1.3.1/1.3.2).
 CSP_UI = ("default-src 'self'; script-src 'self'; "
           "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+          "media-src 'self' data: blob:; "
           "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
           "frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
 

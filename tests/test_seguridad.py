@@ -226,6 +226,20 @@ def test_la_ui_no_recibe_la_csp_de_la_api(cliente):
     assert "default-src 'none'" in csp_api, "la API perdió su CSP estricta"
 
 
+def test_la_csp_de_la_ui_deja_reproducir_el_audio_subido(cliente):
+    """El bug del reproductor gris (v1.3.1): la pestaña Calidad reproduce la
+    grabación con <audio src=blob:...> y la CSP sin `media-src` lo bloqueaba
+    — el botón de play quedaba muerto. Reproducido con Chromium: error de
+    media code 4 + violación 'Refused to load media ... blob:'. La CSP de la
+    UI tiene que declarar media-src con blob:."""
+    _, c = cliente
+    csp = c.get("/").headers.get("Content-Security-Policy", "")
+    m = re.search(r"media-src ([^;]+)", csp)
+    assert m, ("la CSP de la UI no define media-src: el <audio> con blob: "
+               "cae en default-src 'self' y el reproductor queda gris")
+    assert "blob:" in m.group(1)
+
+
 def test_la_csp_de_la_ui_sigue_sin_permitir_scripts_externos(cliente):
     """Relajar la CSP para que la app cargue NO es abrirla: todo el JS del
     build de Vite es local, así que scripts externos e inline siguen
