@@ -279,6 +279,16 @@ Pendiente — pasos de negocio/infraestructura, no de código:
 - [ ] Desplegar `backend_venta` en un servidor real (Render/Fly/EC2/lo que uses).
 - [ ] Cargar claves reales como secretos del servidor (`ANTHROPIC_API_KEY`, `MP_ACCESS_TOKEN`, `ELEVENLABS_API_KEY`, y las de Twilio/WhatsApp cuando se conecten esos gateways).
 - [ ] `KOBRA_LICENSE_SECRET` y `KOBRA_BACKEND_ADMIN_TOKEN`: fijarlos explícitamente en producción (si no, se autogeneran una vez y quedan guardados localmente — ver el log del proceso la primera vez que arranca).
+- [ ] **El secreto de licencia tiene que ser EL MISMO en los dos lados.** Quien
+  firma la licencia es la función serverless de Vercel (`api/verify-payment.js`,
+  variable `LICENSE_SECRET`) y quien la valida es la app instalada
+  (`backend_venta/licencias.py`, variable `KOBRA_LICENSE_SECRET`). Son dos
+  nombres distintos para el mismo valor: si no coinciden, el cliente paga,
+  recibe su licencia y la app le dice «Licencia inválida». El módulo de Node
+  acepta cualquiera de los dos nombres, así que alcanza con cargar el mismo
+  string; lo que no puede pasar es que sean valores distintos.
+  `tests/test_puente_licencia.py` verifica el puente entero (Node firma →
+  PyJWT valida), incluidos formato y claims.
 - [ ] Conectar el webhook de MercadoPago a la URL pública de `/webhooks/mercadopago`.
 - [ ] Compilar el instalador `Edición Venta` y apuntar `KOBRA_INSTALADOR_PATH` a ese archivo.
 - [ ] Definir precios de excedente por canal (3–5× costo) — hoy `plan_permite_excedente()` solo dice si el plan lo permite, no calcula el cobro.

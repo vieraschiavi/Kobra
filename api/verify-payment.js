@@ -2,7 +2,7 @@
 // la descarga. Evita que alguien arme la URL de /descarga a mano sin haber pagado.
 // Si el pago está aprobado, emite automáticamente la licencia MV Kobra AI (firmada).
 
-const { sign } = require("./_license");
+const { emitirLicencia, secretoLicencia } = require("./_license");
 const { limitar } = require("./_ratelimit");
 
 module.exports = async (req, res) => {
@@ -29,14 +29,17 @@ module.exports = async (req, res) => {
     const approved = data.status === "approved";
     const plan = (data.metadata && data.metadata.plan) || null;
 
+    // La licencia se emite como JWT HS256 con el juego de claims que valida la
+    // app instalada (ver _license.js). `emitirLicencia` devuelve null si el
+    // plan que vino en la metadata del pago no existe: preferimos no entregar
+    // licencia a entregar una que la app rechace delante del cliente.
     let license = null;
-    const secret = process.env.LICENSE_SECRET;
+    const secret = secretoLicencia();
     if (approved && secret) {
-      license = sign({
+      license = emitirLicencia({
         plan: plan,
         pid: paymentId,
         email: (data.payer && data.payer.email) || null,
-        iat: Math.floor(Date.now() / 1000),
       }, secret);
     }
 
