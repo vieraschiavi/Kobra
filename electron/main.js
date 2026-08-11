@@ -82,8 +82,42 @@ function rutaBackend() {
   return { cmd: py, args: [path.join(repo, "packaging", "kobra_launcher.py")], cwd: repo };
 }
 
+// Dónde guarda sus datos el programa (cartera, gestiones, configuración).
+//
+// Por defecto `kobra/rutas.py` los pone en %LOCALAPPDATA% — o sea en C:, aunque
+// el usuario haya elegido instalar en otro disco. Quien instala en D: porque su
+// C: está justo de espacio no espera que igual se le llene con los datos.
+//
+// Regla: si la instalación NO está en el mismo disco que %LOCALAPPDATA%, los
+// datos van al lado del programa. Se respeta siempre una ruta explícita en
+// KOBRA_DATA_DIR, y NUNCA se mueve una instalación que ya tenga datos donde
+// estaban — mover datos por su cuenta sería peor que el problema.
+function dirDatosElegido() {
+  if (process.env.KOBRA_DATA_DIR) return process.env.KOBRA_DATA_DIR;
+  if (process.platform !== "win32" || !app.isPackaged) return null;
+
+  const localAppData = process.env.LOCALAPPDATA;
+  if (!localAppData) return null;
+  const estandar = path.join(localAppData, "MV Kobra AI");
+  if (fs.existsSync(estandar)) return null;   // instalación previa: no tocar
+
+  const instalacion = path.dirname(process.resourcesPath);
+  const discoInstalacion = path.parse(instalacion).root.toUpperCase();
+  const discoEstandar = path.parse(estandar).root.toUpperCase();
+  if (discoInstalacion === discoEstandar) return null;   // ya está en C:, sin cambios
+
+  const propio = path.join(instalacion, "datos");
+  try {
+    fs.mkdirSync(propio, { recursive: true });
+    return propio;
+  } catch {
+    return null;   // sin permiso: que decida rutas.py, no romper el arranque
+  }
+}
+
 function arrancarBackend(puerto) {
   const { cmd, args, cwd } = rutaBackend();
+  const datos = dirDatosElegido();
   backend = spawn(cmd, args, {
     cwd: cwd || path.dirname(cmd),
     env: {
@@ -91,6 +125,7 @@ function arrancarBackend(puerto) {
       KOBRA_APP_PORT: String(puerto),
       // Electron ES la ventana: que el launcher no abra otro navegador.
       KOBRA_SIN_NAVEGADOR: "1",
+      ...(datos ? { KOBRA_DATA_DIR: datos } : {}),
     },
     windowsHide: true,       // sin ventana de consola detrás de la app
     stdio: "ignore",
