@@ -6,24 +6,36 @@ echo   ============================================================
 echo     MV Kobra AI - Edicion OWNER
 echo     Convierte la copia YA INSTALADA en la del dueno:
 echo     sin clave, sin trial y sin vencimiento.
+echo.
+echo     Lo mas simple: copia este archivo a la carpeta donde esta
+echo     el programa y hace doble clic.
 echo   ============================================================
 echo.
 
-rem La carpeta puede venir como argumento (arrastrando la carpeta de
-rem instalacion sobre este archivo) o salir de las rutas por defecto.
 set "INTERNO="
-if not "%~1"=="" call :probar "%~1"
+
+rem 1) La carpeta donde esta ESTE archivo. Es el caso normal: se copia
+rem    el .bat junto al programa y se hace doble clic. Se contemplan
+rem    las tres alturas posibles de la instalacion.
+if not defined INTERNO call :probar "%~dp0."
+if not defined INTERNO if exist "%~dp0_internal\" set "INTERNO=%~dp0_internal"
+if not defined INTERNO if exist "%~dp0base_library.zip" set "INTERNO=%~dp0."
+
+rem 2) Una carpeta arrastrada sobre el .bat.
+if not defined INTERNO if not "%~1"=="" call :probar "%~1"
+
+rem 3) Y por ultimo las rutas donde instala el .exe por defecto.
 if not defined INTERNO call :probar "%LOCALAPPDATA%\Programs\MV Kobra AI"
 if not defined INTERNO call :probar "%LOCALAPPDATA%\Programs\MV Kobra AI Owner"
 if not defined INTERNO call :probar "%ProgramFiles%\MV Kobra AI"
 if not defined INTERNO call :probar "%ProgramFiles(x86)%\MV Kobra AI"
 
 if not defined INTERNO (
-  echo   No encontre ninguna instalacion de MV Kobra AI.
+  echo   No encontre la instalacion de MV Kobra AI.
   echo.
-  echo   Opciones:
-  echo     - Instala el programa ^(MVKobraAI_Setup.exe^) y volve a correr esto.
-  echo     - O arrastra la CARPETA de instalacion sobre este archivo.
+  echo   Copia este archivo a la carpeta donde esta el programa
+  echo   ^(la que tiene "MV Kobra AI.exe"^) y hace doble clic ahi.
+  echo   Tambien podes arrastrar esa carpeta sobre este archivo.
   echo.
   pause
   exit /b 1

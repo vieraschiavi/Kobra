@@ -176,3 +176,47 @@ def test_sin_sello_el_dashboard_sigue_pidiendo_acceso(monkeypatch, tmp_path):
     # Lo que se verifica es que el atajo de owner NO se dispare sin sello.
     assert not ked.vigencia().get("owner")
     assert kauth.render_gate() is None
+
+
+# --- Las tres ubicaciones desde donde se puede correr la herramienta --------
+@pytest.mark.parametrize("subdirs,marcador", [
+    ([os.path.join("resources", "backend", "_internal")], None),  # junto al .exe
+    (["_internal"], None),                                        # en resources\backend
+    ([], "base_library.zip"),                                     # dentro de _internal
+])
+def test_la_herramienta_funciona_copiada_al_lado_del_programa(tmp_path, owner_bat,
+                                                              subdirs, marcador):
+    """Lo más simple para el usuario es copiar el .bat a la carpeta del
+    programa y hacer doble clic. Según a qué altura lo copie, `%~dp0` cae en
+    un lugar distinto — las tres tienen que terminar en el mismo `_internal`.
+    Se reproduce la resolución del .bat y se comprueba con el código real."""
+    for d in subdirs:
+        (tmp_path / d).mkdir(parents=True, exist_ok=True)
+    if marcador:
+        (tmp_path / marcador).touch()
+
+    # Mismo orden que el .bat: resources\backend\_internal, luego _internal,
+    # luego la propia carpeta si tiene el marcador de PyInstaller.
+    if (tmp_path / "resources" / "backend" / "_internal").is_dir():
+        destino = tmp_path / "resources" / "backend" / "_internal"
+    elif (tmp_path / "_internal").is_dir():
+        destino = tmp_path / "_internal"
+    elif (tmp_path / "base_library.zip").exists():
+        destino = tmp_path
+    else:
+        pytest.fail("el .bat no resolvería esta ubicación")
+
+    sello = re.search(r'>"!INTERNO!\\edicion\.json" echo (.+)', owner_bat).group(1)
+    (destino / "edicion.json").write_bytes((sello + "\r\n").encode("ascii"))
+    assert kedicion.activar(str(destino))["owner"] is True
+
+
+def test_la_herramienta_busca_primero_su_propia_carpeta(owner_bat):
+    """`%~dp0` antes que las rutas por defecto: si el usuario la copió al lado
+    del programa, es ESA copia la que quiere convertir — no otra instalación
+    que ande dando vueltas en la máquina."""
+    pos_dp0 = owner_bat.index("%~dp0")
+    pos_default = owner_bat.index("%LOCALAPPDATA%")
+    assert pos_dp0 < pos_default
+    assert "base_library.zip" in owner_bat, \
+        "no reconoce el caso de estar copiada dentro de _internal"
