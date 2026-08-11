@@ -5,6 +5,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { sign, verify, emitirLicencia, PLANES } = require("./_license");
+const { sign, verify, secretoActivo, PLANES } = require("./_license");
 
 const CLAVE_PRUEBA = "un-secreto-de-prueba-bien-largo";
 
@@ -59,6 +60,19 @@ test("verify rechaza si se cambia el plan a uno mas caro", () => {
   c.plan = "enterprise";
   const falso = Buffer.from(JSON.stringify(c)).toString("base64url");
   assert.equal(verify(`${h}.${falso}.${s}`, CLAVE_PRUEBA), null);
+test("cupo y features salen del catálogo, no de lo que mande el cliente", () => {
+  const c = verify(sign({ plan: "basico", pid: "1" }, CLAVE_PRUEBA), CLAVE_PRUEBA);
+  assert.equal(c.cupo_mensual, PLANES.basico.cupo_mensual);
+  assert.deepEqual(c.features, PLANES.basico.features);
+});
+
+test("sin email, `sub` cae al id de pago: una licencia nunca sale sin dueño", () => {
+  const c = verify(sign({ plan: "pro", pid: "999" }, CLAVE_PRUEBA), CLAVE_PRUEBA);
+  assert.equal(c.sub, "pago:999");
+});
+
+test("un plan fuera del catálogo no se emite", () => {
+  assert.throws(() => sign({ plan: "inventado", pid: "1" }, CLAVE_PRUEBA), /plan desconocido/);
 });
 
 test("verify rechaza con el secreto equivocado", () => {
@@ -92,6 +106,21 @@ test("verify rechaza formato con otra cantidad de partes", () => {
   assert.equal(verify("soloDosPartes.aca", CLAVE_PRUEBA), null);
   assert.equal(verify("a.b.c.d", CLAVE_PRUEBA), null);
   assert.equal(verify("", CLAVE_PRUEBA), null);
+test("verify rechaza un algoritmo que no sea HS256 (alg=none)", () => {
+  // Sin este chequeo, alguien manda alg:"none" y se autofirma la licencia.
+  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ plan: "enterprise" })).toString("base64url");
+  assert.equal(verify(header + "." + payload + ".", CLAVE_PRUEBA), null);
+});
+
+test("verify rechaza una licencia vencida", () => {
+  const vencida = sign({ plan: "pro", pid: "1", dias: -1 }, CLAVE_PRUEBA);
+  assert.equal(verify(vencida, CLAVE_PRUEBA), null);
+});
+
+test("verify rechaza formato con otra cantidad de partes", () => {
+  assert.equal(verify("solo.dos", CLAVE_PRUEBA), null);
+  assert.equal(verify("a.b.c.d", CLAVE_PRUEBA), null);
 });
 
 test("verify rechaza entradas que no son string", () => {
@@ -109,6 +138,30 @@ test("verify no explota si el cuerpo decodifica a JSON invalido", () => {
   const sig = require("crypto")
     .createHmac("sha256", CLAVE_PRUEBA).update(`${h}.${basura}`).digest("base64url");
   assert.equal(verify(`${h}.${basura}.${sig}`, CLAVE_PRUEBA), null);
+test("verify no explota si el cuerpo decodifica a JSON inválido", () => {
+  const h = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const basura = "no-es-json-valido";
+  const sig = require("crypto").createHmac("sha256", CLAVE_PRUEBA)
+    .update(h + "." + basura).digest("base64url");
+  assert.equal(verify(h + "." + basura + "." + sig, CLAVE_PRUEBA), null);
+});
+
+test("secretoActivo prioriza KOBRA_LICENSE_SECRET, el nombre que usa la app", () => {
+  const previo = { k: process.env.KOBRA_LICENSE_SECRET, l: process.env.LICENSE_SECRET };
+  try {
+    process.env.KOBRA_LICENSE_SECRET = CLAVE_APP;
+    process.env.LICENSE_SECRET = CLAVE_VERCEL;
+    assert.equal(secretoActivo(), CLAVE_APP);
+
+    delete process.env.KOBRA_LICENSE_SECRET;
+    assert.equal(secretoActivo(), CLAVE_VERCEL, "debe aceptar el alias para no romper el deploy actual");
+
+    delete process.env.LICENSE_SECRET;
+    assert.equal(secretoActivo(), null);
+  } finally {
+    if (previo.k === undefined) delete process.env.KOBRA_LICENSE_SECRET; else process.env.KOBRA_LICENSE_SECRET = previo.k;
+    if (previo.l === undefined) delete process.env.LICENSE_SECRET; else process.env.LICENSE_SECRET = previo.l;
+  }
 });
 
 test("dos licencias del mismo plan en momentos distintos no son iguales", () => {

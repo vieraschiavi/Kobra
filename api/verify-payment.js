@@ -3,6 +3,7 @@
 // Si el pago está aprobado, emite automáticamente la licencia MV Kobra AI (firmada).
 
 const { emitirLicencia, secretoLicencia } = require("./_license");
+const { sign, secretoActivo } = require("./_license");
 const { limitar } = require("./_ratelimit");
 
 module.exports = async (req, res) => {
@@ -29,10 +30,6 @@ module.exports = async (req, res) => {
     const approved = data.status === "approved";
     const plan = (data.metadata && data.metadata.plan) || null;
 
-    // La licencia se emite como JWT HS256 con el juego de claims que valida la
-    // app instalada (ver _license.js). `emitirLicencia` devuelve null si el
-    // plan que vino en la metadata del pago no existe: preferimos no entregar
-    // licencia a entregar una que la app rechace delante del cliente.
     let license = null;
     const secret = secretoLicencia();
     if (approved && secret) {
@@ -41,6 +38,21 @@ module.exports = async (req, res) => {
         pid: paymentId,
         email: (data.payer && data.payer.email) || null,
       }, secret);
+    let licenseError = null;
+    const secret = secretoActivo();
+    if (approved && secret) {
+      try {
+        license = sign({
+          plan: plan,
+          pid: paymentId,
+          email: (data.payer && data.payer.email) || null,
+        }, secret);
+      } catch (e) {
+        // Plan aprobado pero desconocido para el catálogo de licencias: no
+        // podemos emitir algo que la app rechazaría. Se avisa en vez de
+        // devolver una licencia rota, que es el bug que esto viene a cerrar.
+        licenseError = "plan_no_licenciable";
+      }
     }
 
     res.status(200).json({ approved: approved, status: data.status, plan: plan, license: license });

@@ -4,7 +4,7 @@
 // camino "pago aprobado" ni "pago rechazado" corrían nunca.
 const { test, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
-const { verify, emitirLicencia, PLANES } = require("./_license");
+const { verify } = require("./_license");
 
 function req(query, headers) { return { query, headers: headers || {} }; }
 
@@ -123,6 +123,48 @@ test("el plan que llega en la metadata del pago no existe: no se emite licencia"
   // Vale mas devolver el pago sin licencia y resolverlo por soporte que
   // entregarle al cliente un token que su app va a rechazar.
   assert.equal(emitirLicencia({ plan: "gold", pid: "1" }, CLAVE_LICENCIA_PRUEBA), null);
+  // El email va en `sub`, que es la clave que lee la app instalada
+  // (`backend_venta/licencias.py`). Antes iba en `email`, una clave que del
+  // lado Python no existe — parte del mismo desajuste que rompía la licencia.
+  assert.equal(claims.sub, "cliente@ejemplo.com");
+  assert.equal(claims.edition, "venta");
+  assert.ok(claims.exp > claims.iat, "la licencia tiene que tener vencimiento");
+});
+
+test("un plan aprobado pero fuera del catálogo no emite una licencia rota", async () => {
+  // Si el checkout cobrara un plan que el catálogo de licencias no conoce,
+  // emitir igual daría un token que la app rechaza. Mejor avisar.
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
+  mockFetch(async () => ({
+    ok: true,
+    json: async () => ({ status: "approved", metadata: { plan: "plan_que_no_existe" } }),
+  }));
+  const vp = require("./verify-payment");
+  const r = res();
+  await vp(req({ payment_id: "334" }), r);
+  assert.equal(r.statusCode, 200);
+  assert.equal(r.body.approved, true);
+  assert.equal(r.body.license, null);
+  assert.equal(r.body.license_error, "plan_no_licenciable");
+});
+
+test("usa KOBRA_LICENSE_SECRET cuando está — es el nombre que lee la app", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.KOBRA_LICENSE_SECRET = CLAVE_APP_PRUEBA;
+  process.env.LICENSE_SECRET = CLAVE_VERCEL_PRUEBA;
+  mockFetch(async () => ({
+    ok: true,
+    json: async () => ({ status: "approved", metadata: { plan: "basico" }, payer: { email: "a@b.com" } }),
+  }));
+  const vp = require("./verify-payment");
+  const r = res();
+  await vp(req({ payment_id: "335" }), r);
+  assert.ok(r.body.license);
+  assert.ok(verify(r.body.license, process.env.KOBRA_LICENSE_SECRET),
+    "la licencia debería estar firmada con el secreto de la app");
+  assert.equal(verify(r.body.license, process.env.LICENSE_SECRET), null);
+  delete process.env.KOBRA_LICENSE_SECRET;
 });
 
 test("pago aprobado pero SIN LICENSE_SECRET: approved=true, license=null (no crashea)", async () => {
