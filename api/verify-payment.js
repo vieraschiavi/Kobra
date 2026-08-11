@@ -2,7 +2,7 @@
 // la descarga. Evita que alguien arme la URL de /descarga a mano sin haber pagado.
 // Si el pago está aprobado, emite automáticamente la licencia MV Kobra AI (firmada).
 
-const { sign } = require("./_license");
+const { sign, secretoActivo } = require("./_license");
 const { limitar } = require("./_ratelimit");
 
 module.exports = async (req, res) => {
@@ -30,17 +30,27 @@ module.exports = async (req, res) => {
     const plan = (data.metadata && data.metadata.plan) || null;
 
     let license = null;
-    const secret = process.env.LICENSE_SECRET;
+    let licenseError = null;
+    const secret = secretoActivo();
     if (approved && secret) {
-      license = sign({
-        plan: plan,
-        pid: paymentId,
-        email: (data.payer && data.payer.email) || null,
-        iat: Math.floor(Date.now() / 1000),
-      }, secret);
+      try {
+        license = sign({
+          plan: plan,
+          pid: paymentId,
+          email: (data.payer && data.payer.email) || null,
+        }, secret);
+      } catch (e) {
+        // Plan aprobado pero desconocido para el catálogo de licencias: no
+        // podemos emitir algo que la app rechazaría. Se avisa en vez de
+        // devolver una licencia rota, que es el bug que esto viene a cerrar.
+        licenseError = "plan_no_licenciable";
+      }
     }
 
-    res.status(200).json({ approved: approved, status: data.status, plan: plan, license: license });
+    res.status(200).json({
+      approved: approved, status: data.status, plan: plan,
+      license: license, license_error: licenseError,
+    });
   } catch (e) {
     res.status(500).json({ approved: false, error: "exception" });
   }
