@@ -31,17 +31,27 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def emitir_con_el_checkout(datos: dict, secreto: str = SECRETO) -> str:
-    """Emite una licencia con el MISMO módulo que corre en Vercel."""
+def emitir_con_el_checkout(datos: dict, secreto: str = SECRETO, ahora=None) -> str:
+    """
+    Emite una licencia con el MISMO módulo que corre en Vercel.
+
+    Se usa `emitirLicencia` a propósito, no `sign`: `sign` es el firmador JWT
+    crudo, y quien arma los claims de una compra (sub, edition, cupo_mensual,
+    features, exp) es `emitirLicencia`. Probar `sign` no probaría lo que
+    realmente recibe el cliente.
+    """
+    argumento_ahora = "" if ahora is None else f", {int(ahora)}"
     r = subprocess.run(
         [
             "node", "-e",
-            'const {sign} = require("./api/_license");'
-            'process.stdout.write(sign(JSON.parse(process.argv[1]), process.env.KOBRA_LICENSE_SECRET));',
+            'const {emitirLicencia} = require("./api/_license");'
+            'const lic = emitirLicencia(JSON.parse(process.argv[1]), '
+            f'process.env.KOBRA_LICENSE_SECRET{argumento_ahora});'
+            'process.stdout.write(lic === null ? "" : lic);',
             json.dumps(datos),
         ],
         cwd=ROOT, capture_output=True, text=True,
-        env={**os.environ, "KOBRA_LICENSE_SECRET": secreto},
+        env={**os.environ, "KOBRA_LICENSE_SECRET": secreto, "LICENSE_SECRET": secreto},
     )
     assert r.returncode == 0, f"el emisor falló: {r.stderr}"
     return r.stdout.strip()
@@ -88,6 +98,14 @@ def test_los_planes_vendidos_son_licenciables():
     assert not faltantes, f"el checkout cobra planes que no se pueden licenciar: {faltantes}"
 
 
+def test_un_plan_fuera_del_catalogo_no_emite_licencia():
+    """
+    Mejor no entregar licencia que entregar una que la app rechaza delante del
+    cliente. `emitirLicencia` devuelve null, que acá llega como cadena vacía.
+    """
+    assert emitir_con_el_checkout({"plan": "inventado", "pid": "1"}) == ""
+
+
 def test_la_app_rechaza_una_licencia_firmada_con_otro_secreto():
     lic = emitir_con_el_checkout({"plan": "pro", "pid": "1"}, secreto="un-secreto-que-no-es-el-de-la-app")
     r = licencias.licencia_activa(lic, SECRETO)
@@ -102,7 +120,12 @@ def test_la_app_rechaza_una_licencia_adulterada():
 
 
 def test_la_app_rechaza_una_licencia_vencida():
-    lic = emitir_con_el_checkout({"plan": "pro", "pid": "1", "dias": -1})
+    import time
+    # `exp` sale de iat + dias del plan, así que para tener una vencida se emite
+    # con un `ahora` lo bastante viejo como para que ya haya expirado.
+    dias = licencias.PLANES["pro"]["dias"]
+    hace_mucho = int(time.time()) - (dias + 1) * 24 * 3600
+    lic = emitir_con_el_checkout({"plan": "pro", "pid": "1"}, ahora=hace_mucho)
     r = licencias.licencia_activa(lic, SECRETO)
     assert not r["ok"]
     assert r["error"] == "licencia_expirada"
