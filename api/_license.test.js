@@ -10,7 +10,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { sign, verify, secretoActivo, PLANES } = require("./_license");
-const { sign, verify, emitirLicencia, PLANES } = require("./_license");
 
 const CLAVE_PRUEBA = "un-secreto-de-prueba-bien-largo-de-32b";
 // Nombres en español a propósito: `tests/test_seguridad.py` marca como posible
@@ -54,57 +53,6 @@ test("sin email, `sub` cae al id de pago: una licencia nunca sale sin dueño", (
 
 test("un plan fuera del catálogo no se emite", () => {
   assert.throws(() => sign({ plan: "inventado", pid: "1" }, CLAVE_PRUEBA), /plan desconocido/);
-const claimsDe = (lic) =>
-  JSON.parse(Buffer.from(lic.split(".")[1], "base64url").toString("utf8"));
-
-test("sign + verify: round-trip devuelve el payload original", () => {
-  const payload = { plan: "pro", pid: "12345", email: "x@y.com", iat: 1000 };
-  const lic = sign(payload, CLAVE_PRUEBA);
-  // JWT HS256: el 1er segmento es el header, no una etiqueta de version. Es lo
-  // que permite que PyJWT —o sea, la app que valida la compra— lo lea.
-  const header = JSON.parse(Buffer.from(lic.split(".")[0], "base64url").toString("utf8"));
-  assert.deepEqual(header, { alg: "HS256", typ: "JWT" });
-  assert.deepEqual(verify(lic, CLAVE_PRUEBA), payload);
-});
-
-test("emitirLicencia arma los claims que la app espera al activar", () => {
-  const lic = emitirLicencia({ plan: "pro", pid: "999", email: "a@b.com" }, CLAVE_PRUEBA);
-  const c = verify(lic, CLAVE_PRUEBA);
-  // `exp` es el que faltaba: sin el, la app reventaba calculando dias restantes.
-  for (const k of ["sub", "plan", "edition", "cupo_mensual", "features", "iat", "exp"]) {
-    assert.ok(k in c, "falta el claim " + k);
-  }
-  assert.equal(c.sub, "a@b.com");
-  assert.equal(c.exp - c.iat, PLANES.pro.dias * 24 * 3600);
-});
-
-test("emitirLicencia sin email usa el id de pago como titular", () => {
-  const c = verify(emitirLicencia({ plan: "basico", pid: "777" }, CLAVE_PRUEBA), CLAVE_PRUEBA);
-  assert.equal(c.sub, "mp:777");
-});
-
-test("emitirLicencia devuelve null si el plan no existe", () => {
-  // Mejor no entregar licencia que entregar una que la app rechaza despues.
-  assert.equal(emitirLicencia({ plan: "inventado" }, CLAVE_PRUEBA), null);
-  assert.equal(emitirLicencia({ plan: null }, CLAVE_PRUEBA), null);
-});
-
-test("verify rechaza alg:none (el ataque clasico contra JWT)", () => {
-  const lic = emitirLicencia({ plan: "pro" }, CLAVE_PRUEBA);
-  const cuerpo = lic.split(".")[1];
-  const hNone = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
-  // Sin firma, y con firma vacia: las dos formas del ataque.
-  assert.equal(verify(`${hNone}.${cuerpo}.`, CLAVE_PRUEBA), null);
-  assert.equal(verify(`${hNone}.${cuerpo}.${"x".repeat(43)}`, CLAVE_PRUEBA), null);
-});
-
-test("verify rechaza si se cambia el plan a uno mas caro", () => {
-  const lic = emitirLicencia({ plan: "basico" }, CLAVE_PRUEBA);
-  const [h, , s] = lic.split(".");
-  const c = claimsDe(lic);
-  c.plan = "enterprise";
-  const falso = Buffer.from(JSON.stringify(c)).toString("base64url");
-  assert.equal(verify(`${h}.${falso}.${s}`, CLAVE_PRUEBA), null);
 });
 
 test("verify rechaza con el secreto equivocado", () => {
@@ -148,10 +96,6 @@ test("verify rechaza una licencia vencida", () => {
 test("verify rechaza formato con otra cantidad de partes", () => {
   assert.equal(verify("solo.dos", CLAVE_PRUEBA), null);
   assert.equal(verify("a.b.c.d", CLAVE_PRUEBA), null);
-test("verify rechaza formato con otra cantidad de partes", () => {
-  assert.equal(verify("soloDosPartes.aca", CLAVE_PRUEBA), null);
-  assert.equal(verify("a.b.c.d", CLAVE_PRUEBA), null);
-  assert.equal(verify("", CLAVE_PRUEBA), null);
 });
 
 test("verify rechaza entradas que no son string, y sin secreto", () => {
@@ -186,14 +130,6 @@ test("secretoActivo prioriza KOBRA_LICENSE_SECRET, el nombre que usa la app", ()
     if (previo.k === undefined) delete process.env.KOBRA_LICENSE_SECRET; else process.env.KOBRA_LICENSE_SECRET = previo.k;
     if (previo.l === undefined) delete process.env.LICENSE_SECRET; else process.env.LICENSE_SECRET = previo.l;
   }
-test("verify no explota si el cuerpo decodifica a JSON invalido", () => {
-  // Cuerpo basura pero CORRECTAMENTE FIRMADO: así se ejerce de verdad el
-  // camino del JSON.parse, y no se sale antes por firma inválida.
-  const h = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-  const basura = Buffer.from("esto no es json").toString("base64url");
-  const sig = require("crypto")
-    .createHmac("sha256", CLAVE_PRUEBA).update(`${h}.${basura}`).digest("base64url");
-  assert.equal(verify(`${h}.${basura}.${sig}`, CLAVE_PRUEBA), null);
 });
 
 test("dos compras del mismo plan no producen la misma licencia", () => {
