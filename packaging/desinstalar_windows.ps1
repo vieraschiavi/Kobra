@@ -31,9 +31,23 @@ Write-Host "  Desinstalando $Nombre..."
 
 # --- 1) Accesos directos ----------------------------------------------------
 $MenuDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\MV Kobra AI"
-$Escritorio = Join-Path ([Environment]::GetFolderPath("Desktop")) "$Nombre.lnk"
+$DirEscritorio = [Environment]::GetFolderPath("Desktop")
+$Escritorio = Join-Path $DirEscritorio "$Nombre.lnk"
+# El acceso del segundo modo (dashboard Streamlit) se borra por PATRÓN y no
+# por nombre exacto: el sufijo lo elige quien instala (`-SufijoAlterno`), así
+# que buscarlo literal dejaría el .lnk huérfano, y con él la carpeta del Menú
+# Inicio sin vaciar — o sea, el programa "desinstalado" seguiría apareciendo.
+$alternos = @()
+foreach ($dir in @($DirEscritorio, $MenuDir)) {
+    if (Test-Path -LiteralPath $dir) {
+        $alternos += (Get-ChildItem -LiteralPath $dir -Filter "$Nombre - *.lnk" `
+                      -File -ErrorAction SilentlyContinue |
+                      Where-Object { $_.Name -ne "Desinstalar $Nombre.lnk" } |
+                      ForEach-Object { $_.FullName })
+    }
+}
 foreach ($ruta in @($Escritorio, (Join-Path $MenuDir "$Nombre.lnk"),
-                    (Join-Path $MenuDir "Desinstalar $Nombre.lnk"))) {
+                    (Join-Path $MenuDir "Desinstalar $Nombre.lnk")) + $alternos) {
     if (Test-Path -LiteralPath $ruta) {
         Remove-Item -LiteralPath $ruta -Force -ErrorAction SilentlyContinue
         Write-Host "    - acceso quitado: $ruta"
@@ -82,7 +96,8 @@ foreach ($sub in @("entorno", "temp")) {
         Write-Host "    - $sub borrado"
     }
 }
-foreach ($f in @("MVKobraAI.cmd", "MVKobraAI.vbs", "MVKobraAI.ico")) {
+foreach ($f in @("MVKobraAI.cmd", "MVKobraAI.vbs", "MVKobraAI.ico",
+                 "MVKobraAI_Alterno.cmd", "MVKobraAI_Alterno.vbs")) {
     $p = Join-Path $Destino $f
     if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue }
 }
