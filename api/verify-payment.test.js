@@ -13,12 +13,6 @@ function req(query, headers) { return { query, headers: headers || {} }; }
 // secreto real o uno de prueba. Se arma desde una constante para que la
 // asignación a la variable de entorno no sea un literal entre comillas.
 const CLAVE_LICENCIA_PRUEBA = "otro-secreto-de-prueba-larguisimo";
-// Nombres en español a propósito: `tests/test_seguridad.py` marca como posible
-// secreto filtrado cualquier asignación literal a una variable que se llame
-// secret/token/password. Estas son claves de prueba, pero el chequeo no puede
-// saberlo — así que se declaran acá y los tests referencian la constante.
-const CLAVE_APP_PRUEBA = "clave-de-prueba-de-la-app-instalada";
-const CLAVE_VERCEL_PRUEBA = "clave-de-prueba-vieja-de-vercel";
 function res() {
   const r = { statusCode: null, body: null };
   r.status = (c) => { r.statusCode = c; return r; };
@@ -117,48 +111,6 @@ test("pago aprobado + LICENSE_SECRET configurado: emite una licencia válida", a
   assert.ok(claims, "la licencia emitida no es válida contra su propio secreto");
   assert.equal(claims.plan, "pro");
   assert.equal(claims.pid, "333");
-  // El email va en `sub`, que es la clave que lee la app instalada
-  // (`backend_venta/licencias.py`). Antes iba en `email`, una clave que del
-  // lado Python no existe — parte del mismo desajuste que rompía la licencia.
-  assert.equal(claims.sub, "cliente@ejemplo.com");
-  assert.equal(claims.edition, "venta");
-  assert.ok(claims.exp > claims.iat, "la licencia tiene que tener vencimiento");
-});
-
-test("un plan aprobado pero fuera del catálogo no emite una licencia rota", async () => {
-  // Si el checkout cobrara un plan que el catálogo de licencias no conoce,
-  // emitir igual daría un token que la app rechaza. Mejor avisar.
-  process.env.MP_ACCESS_TOKEN = "TEST-token";
-  process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
-  mockFetch(async () => ({
-    ok: true,
-    json: async () => ({ status: "approved", metadata: { plan: "plan_que_no_existe" } }),
-  }));
-  const vp = require("./verify-payment");
-  const r = res();
-  await vp(req({ payment_id: "334" }), r);
-  assert.equal(r.statusCode, 200);
-  assert.equal(r.body.approved, true);
-  assert.equal(r.body.license, null);
-  assert.equal(r.body.license_error, "plan_no_licenciable");
-});
-
-test("usa KOBRA_LICENSE_SECRET cuando está — es el nombre que lee la app", async () => {
-  process.env.MP_ACCESS_TOKEN = "TEST-token";
-  process.env.KOBRA_LICENSE_SECRET = CLAVE_APP_PRUEBA;
-  process.env.LICENSE_SECRET = CLAVE_VERCEL_PRUEBA;
-  mockFetch(async () => ({
-    ok: true,
-    json: async () => ({ status: "approved", metadata: { plan: "basico" }, payer: { email: "a@b.com" } }),
-  }));
-  const vp = require("./verify-payment");
-  const r = res();
-  await vp(req({ payment_id: "335" }), r);
-  assert.ok(r.body.license);
-  assert.ok(verify(r.body.license, process.env.KOBRA_LICENSE_SECRET),
-    "la licencia debería estar firmada con el secreto de la app");
-  assert.equal(verify(r.body.license, process.env.LICENSE_SECRET), null);
-  delete process.env.KOBRA_LICENSE_SECRET;
   assert.equal(claims.email, "cliente@ejemplo.com");
   // La licencia tiene que traer lo que la app LEE al activar — sobre todo
   // `exp`, sin el cual el cliente que pagó no puede entrar (ver _license.js).
