@@ -95,8 +95,34 @@ def test_el_instalador_arranca_fastapi_y_no_streamlit():
         launcher = f.read()
     assert "from webapp.backend.api import app" in launcher
     assert "uvicorn.run(app" in launcher
-    assert "streamlit" not in launcher.lower(), \
-        "el launcher del instalador volvió a levantar Streamlit"
+
+    # Se mira el CÓDIGO, no el texto: buscar la palabra suelta daba falso
+    # positivo con un comentario que solo nombra la otra vía de arranque. Lo
+    # que no puede pasar es que el launcher IMPORTE o EJECUTE Streamlit.
+    import ast
+    arbol = ast.parse(launcher)
+    docstrings = set()
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef,
+                             ast.ClassDef)):
+            doc = ast.get_docstring(nodo, clean=False)
+            if doc:
+                docstrings.add(doc)
+
+    importados, literales = set(), []
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.Import):
+            importados |= {a.name for a in nodo.names}
+        elif isinstance(nodo, ast.ImportFrom):
+            importados.add(nodo.module or "")
+        elif isinstance(nodo, ast.Constant) and isinstance(nodo.value, str):
+            if nodo.value not in docstrings:
+                literales.append(nodo.value)
+
+    assert not [m for m in importados if "streamlit" in m.lower()], \
+        "el launcher del instalador volvió a importar Streamlit"
+    assert not [s for s in literales if "streamlit" in s.lower()], \
+        "el launcher del instalador volvió a invocar Streamlit"
 
 
 def test_el_puerto_lo_asigna_el_sistema_operativo():

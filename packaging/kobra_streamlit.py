@@ -18,15 +18,34 @@ import sys
 
 
 def _base_dir() -> str:
-    """Carpeta con el código (dentro del bundle o del repo)."""
-    return getattr(sys, "_MEIPASS",
-                   os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    """Carpeta raíz del programa (la que contiene `kobra/` y `app/`).
+
+    Misma lógica que `kobra_launcher.py::_base_dir`, y por el mismo motivo: en
+    el repo este archivo está en `packaging/` (la raíz es el padre) y en el ZIP
+    de una edición está en la raíz de `kobra_software/` (la raíz es su propia
+    carpeta). Subir siempre un nivel hacía que en el ZIP no se encontrara
+    `app/app.py` y el dashboard no abriera nunca. Se elige por CONTENIDO.
+    """
+    empaquetado = getattr(sys, "_MEIPASS", None)
+    if empaquetado:
+        return empaquetado
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    for candidata in (aqui, os.path.dirname(aqui)):
+        if os.path.isdir(os.path.join(candidata, "kobra")):
+            return candidata
+    return os.path.dirname(aqui)
 
 
 def main() -> int:
     base = _base_dir()
     if base not in sys.path:
         sys.path.insert(0, base)
+
+    # La edición (Demo con límite de días, Owner sin límites, o un plan) se
+    # aplica ACÁ además de en la app de escritorio. Sin esto, abrir la Demo
+    # por el dashboard salteaba su propio vencimiento — ver kobra/edicion.py.
+    from kobra import edicion as kedicion
+    kedicion.activar(base)
 
     from kobra import red as kred
 

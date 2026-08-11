@@ -113,7 +113,22 @@ st.markdown(f"""
 # ----------------------------------------------------------------------------
 from kobra import autenticacion as kauth  # noqa: E402
 from kobra import backup as kbackup  # noqa: E402
+from kobra import edicion as kedicion  # noqa: E402
 from kobra import sso_oidc as ksso  # noqa: E402
+
+# Vigencia de la edición ANTES del login: si la evaluación venció, no tiene
+# sentido pedir una contraseña para después mostrar el bloqueo. Corriendo
+# desde el repo (sin `edicion.json`) esto no bloquea nada.
+_EDICION = kedicion.vigencia()
+if not _EDICION["ok"]:
+    st.error(
+        "Tu período de evaluación de MV Kobra AI terminó.\n\n"
+        "Escribinos para activar tu licencia y seguir usando el programa con "
+        "tus datos: **mvkobranzaia.com**"
+        if _EDICION["motivo"] == "licencia_expirada" else
+        "La licencia de esta copia no es válida. Escribinos a "
+        "**mvkobranzaia.com** para regularizarla.")
+    st.stop()
 
 ROL_ACTIVO = kauth.render_gate()
 if ROL_ACTIVO is None:

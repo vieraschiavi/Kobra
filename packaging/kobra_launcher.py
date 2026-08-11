@@ -21,8 +21,30 @@ import webbrowser
 
 
 def _base_dir() -> str:
-    """Carpeta con los recursos (dentro del bundle PyInstaller o del repo)."""
-    return getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    """Carpeta raíz del programa (la que contiene `kobra/`, `app/`, `owner/`).
+
+    Hay que soportar DOS layouts, y la posición del archivo no alcanza para
+    distinguirlos:
+
+      * repo / bundle : el launcher vive en `packaging/` → la raíz es el padre.
+      * ZIP de edición: `build_release.py` lo copia a la raíz de
+        `kobra_software/` → la raíz es su PROPIA carpeta.
+
+    Subir siempre un nivel (lo que hacía antes) daba la carpeta equivocada en
+    el ZIP, y el efecto era silencioso porque los imports igual funcionaban
+    (Python agrega solo el directorio del script a `sys.path`): el server
+    levantaba, la API respondía, y lo único que fallaba era todo lo que se
+    resuelve por ruta — la UI compilada (`owner/ui_dist`) no aparecía y la app
+    devolvía 404 en `/`. Por eso se elige por CONTENIDO y no por posición.
+    """
+    empaquetado = getattr(sys, "_MEIPASS", None)
+    if empaquetado:
+        return empaquetado
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    for candidata in (aqui, os.path.dirname(aqui)):
+        if os.path.isdir(os.path.join(candidata, "kobra")):
+            return candidata
+    return os.path.dirname(aqui)
 
 
 def _puerto_libre() -> int:
@@ -92,38 +114,22 @@ def _abrir_navegador(url: str):
 
 
 def _activar_edicion(base: str):
-    """Si el paquete trae una `edicion.json` (demo con límite de días, owner o
-    un plan puntual), activa esa edición antes de levantar la app:
-      - owner  → KOBRA_OWNER=1 (sin licencia, sin vencimiento).
-      - demo/plan → siembra el secreto de firma y el token de licencia embebidos
-        en la config del usuario, así la app valida y aplica el límite de días /
-        cupo / features del plan sin que el prospecto tenga que activar nada.
-    Es idempotente: solo siembra el token la primera vez (no pisa uno activado
-    después por el usuario)."""
-    ruta = os.path.join(base, "edicion.json")
-    if not os.path.exists(ruta):
-        return
+    """Aplica la `edicion.json` del paquete (demo con límite de días, owner o
+    un plan puntual) antes de levantar la app.
+
+    La lógica vive en `kobra/edicion.py` y no acá: el dashboard Streamlit —la
+    otra vía de arranque del mismo paquete— tiene que aplicar exactamente la
+    misma edición, y con el código duplicado ya se habían separado una vez.
+    """
+    if base not in sys.path:
+        sys.path.insert(0, base)
     try:
-        import json
-        with open(ruta, encoding="utf-8") as f:
-            ed = json.load(f)
-    except (OSError, ValueError):
-        return
-    if ed.get("owner"):
-        os.environ["KOBRA_OWNER"] = "1"
-        return
-    secreto, token = ed.get("secreto"), ed.get("token")
-    if secreto:
-        os.environ.setdefault("KOBRA_LICENSE_SECRET", secreto)
-    if token:
-        try:
-            if base not in sys.path:
-                sys.path.insert(0, base)
-            from kobra import config as kconfig
-            if not kconfig.leer_extra("LICENCIA_TOKEN"):
-                kconfig.guardar_extra("LICENCIA_TOKEN", token)
-        except Exception:
-            pass
+        from kobra import edicion as kedicion
+        kedicion.activar(base)
+    except Exception:
+        # Nunca impedir el arranque por esto: sin edición aplicada la app
+        # pide licencia por su cuenta, que es el camino correcto igual.
+        pass
 
 
 def main():
