@@ -20,7 +20,7 @@ import os
 import shutil
 import zipfile
 
-VERSION = "1.3.3"
+VERSION = "1.3.4"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIST = os.path.join(ROOT, "dist")
 
@@ -764,6 +764,11 @@ _RUNTIME_ITEMS = [
     "data/generate_audio_demo.py", "data/ejemplo_whatsapp.txt",
     "outputs/kobra_scored.csv", "data/kobra_gestiones.csv",
     "owner/ui_dist", "assets/brand", "requirements.txt",
+    # Dashboard Streamlit: es la SEGUNDA vía de arranque de cada edición.
+    # Muchas empresas bloquean por política la ejecución de .exe bajados de
+    # internet, pero no un .bat que corre Python — sin `app/` acá, esa vía no
+    # existía y el cliente con la política estricta se quedaba sin producto.
+    "app",
     # Instalación real en Windows (icono, Menú Inicio, desinstalador). Sin
     # esto el paquete corría pero no quedaba "instalado" en ningún lado: para
     # abrirlo había que acordarse de dónde estaba la carpeta descomprimida.
@@ -772,6 +777,45 @@ _RUNTIME_ITEMS = [
 ]
 
 DEMO_DIAS = 14   # límite de la versión de evaluación
+
+# Las DOS vías de arranque que lleva cada edición. Existen las dos a propósito:
+# muchas empresas bloquean por política ejecutar un .exe bajado de internet,
+# pero no correr un .bat — así el cliente con TI restrictiva igual usa el
+# producto, sin pedirle nada al área de sistemas.
+#   (sufijo del archivo, script Python, qué abre)
+_MODOS = [
+    ("", "kobra_launcher.py",
+     "la app de escritorio (interfaz React)"),
+    ("_STREAMLIT", "kobra_streamlit.py",
+     "el dashboard Streamlit (misma info, sin ningun .exe)"),
+]
+
+
+def _bat_lanzador(titulo: str, key: str, script: str, que_abre: str) -> str:
+    """.bat que abre el programa con el intérprete que haya a mano.
+
+    Orden a propósito: primero el entorno que dejó INSTALAR.bat (tiene las
+    dependencias), después el Python del sistema. Al revés, quien instaló
+    arrancaría con un Python sin uvicorn/streamlit y vería un ImportError.
+    """
+    memoria = f"%LocalAppData%\\MV Kobra AI\\destino_{key.lower()}.txt"
+    return (
+        "@echo off\n"
+        "setlocal enabledelayedexpansion\n"
+        f"title MV Kobra AI - {_ascii(titulo)}\n"
+        f"rem Abre {_ascii(que_abre)}.\n"
+        "cd /d \"%~dp0kobra_software\"\n"
+        f"set \"MEMORIA={memoria}\"\n"
+        "if exist \"!MEMORIA!\" (\n"
+        "  for /f \"usebackq delims=\" %%D in (\"!MEMORIA!\") do "
+        "if exist \"%%D\\entorno\\Scripts\\python.exe\" "
+        f"(\"%%D\\entorno\\Scripts\\python.exe\" {script} & goto :eof)\n"
+        ")\n"
+        f"where python >nul 2>nul && (python {script} & goto :eof)\n"
+        f"where py >nul 2>nul && (py {script} & goto :eof)\n"
+        "echo Instala Python 3.11+ desde https://www.python.org y volve a ejecutar,\n"
+        "echo o usa INSTALAR.bat que lo baja y prepara todo solo.\n"
+        "pause\n")
 
 # edition_key → (título, dias|None, plan|None, owner)
 EDICIONES = {
@@ -801,9 +845,12 @@ def build_edicion(tmp, key):
     soft = os.path.join(stage, "kobra_software")
     for item in _RUNTIME_ITEMS:
         _copy(item, os.path.join(soft, item))
-    # El launcher va en la RAÍZ de kobra_software (el .bat corre `python
-    # kobra_launcher.py` desde ahí), no bajo packaging/.
+    # Los dos launchers van en la RAÍZ de kobra_software (los .bat corren
+    # `python <launcher>.py` desde ahí), no bajo packaging/:
+    #   kobra_launcher.py  → app de escritorio (React + FastAPI embebido)
+    #   kobra_streamlit.py → dashboard Streamlit (la vía sin .exe)
     _copy("packaging/kobra_launcher.py", os.path.join(soft, "kobra_launcher.py"))
+    _copy("packaging/kobra_streamlit.py", os.path.join(soft, "kobra_streamlit.py"))
 
     # edicion.json (lo consume packaging/kobra_launcher.py::_activar_edicion)
     ed = {"edition": key, "plan": plan, "dias": dias, "owner": owner}
@@ -823,26 +870,13 @@ def build_edicion(tmp, key):
     # Si el usuario ya instaló con INSTALAR.bat, hay un entorno propio con las
     # dependencias: usarlo antes que el Python del sistema, que puede no
     # tenerlas y hace fallar el arranque con un ImportError.
-    _write(os.path.join(stage, f"INICIAR_{key.upper()}.bat"), crlf=True, content=(
-        "@echo off\n"
-        "setlocal enabledelayedexpansion\n"
-        f"title MV Kobra AI - {_ascii(titulo)}\n"
-        "cd /d \"%~dp0kobra_software\"\n"
-        f"set \"MEMORIA=%LocalAppData%\\MV Kobra AI\\destino_{key.lower()}.txt\"\n"
-        "if exist \"!MEMORIA!\" (\n"
-        "  for /f \"usebackq delims=\" %%D in (\"!MEMORIA!\") do "
-        "if exist \"%%D\\entorno\\Scripts\\python.exe\" "
-        "(\"%%D\\entorno\\Scripts\\python.exe\" kobra_launcher.py & goto :eof)\n"
-        ")\n"
-        "where python >nul 2>nul && (python kobra_launcher.py & goto :eof)\n"
-        "where py >nul 2>nul && (py kobra_launcher.py & goto :eof)\n"
-        "echo Instala Python 3.11+ desde https://www.python.org y volve a ejecutar,\n"
-        "echo o usa INSTALAR.bat que lo baja y prepara todo solo.\n"
-        "pause\n"))
-    _write(os.path.join(stage, f"iniciar_{key.lower()}.sh"),
-           "#!/usr/bin/env bash\ncd \"$(dirname \"$0\")/kobra_software\"\n"
-           "python3 kobra_launcher.py\n")
-    os.chmod(os.path.join(stage, f"iniciar_{key.lower()}.sh"), 0o755)
+    for sufijo, script, que_abre in _MODOS:
+        _write(os.path.join(stage, f"INICIAR_{key.upper()}{sufijo}.bat"), crlf=True,
+               content=_bat_lanzador(titulo, key, script, que_abre))
+        sh = os.path.join(stage, f"iniciar_{key.lower()}{sufijo.lower()}.sh")
+        _write(sh, "#!/usr/bin/env bash\ncd \"$(dirname \"$0\")/kobra_software\"\n"
+                   f"python3 {script}\n")
+        os.chmod(sh, 0o755)
 
     # INSTALAR.bat — deja el programa instalado de verdad: icono propio, Menú
     # Inicio, Escritorio y entrada en «Agregar o quitar programas». Todo en
@@ -887,6 +921,9 @@ def build_edicion(tmp, key):
         "powershell -NoProfile -ExecutionPolicy Bypass -File "
         "\"!CODIGO!\\packaging\\instalar_windows.ps1\" -Destino \"!DESTINO!\" "
         "-Codigo \"!CODIGO!\" -Python \"!PYW!\" -Datos \"!DATOS!\" "
+        # Deja los accesos de las DOS vías: app de escritorio y dashboard
+        # Streamlit. El cliente cuyo sistemas bloquea .exe usa el segundo.
+        "-LanzadorAlterno \"kobra_streamlit.py\" "
         f"-Version \"{VERSION}\"{flag_owner}\n"
         "if errorlevel 1 (\n"
         "  echo.\n"
@@ -909,11 +946,23 @@ def build_edicion(tmp, key):
 Plataforma de Cobranzas Inteligentes
 =====================================
 
-CÓMO INICIAR (no requiere Node; solo Python 3.11+):
-  Windows : doble clic en  INICIAR_{key.upper()}.bat
-  Mac/Linux: ejecutar      ./iniciar_{key.lower()}.sh
+DOS FORMAS DE ABRIRLO — las dos hacen lo mismo, elegí la que te sirva:
 
-La app abre en el navegador (http://localhost). Corre 100% local en tu equipo.
+  1) APP DE ESCRITORIO (interfaz nueva)
+     Windows : doble clic en  INICIAR_{key.upper()}.bat
+     Mac/Linux: ejecutar      ./iniciar_{key.lower()}.sh
+
+  2) DASHBOARD STREAMLIT (sin ningún .exe)
+     Windows : doble clic en  INICIAR_{key.upper()}_STREAMLIT.bat
+     Mac/Linux: ejecutar      ./iniciar_{key.lower()}_streamlit.sh
+
+     Esta segunda vía existe para las empresas donde el área de sistemas no
+     permite ejecutar programas .exe bajados de internet. Acá no hay ningún
+     ejecutable: es un .bat que abre el dashboard en el navegador con Python.
+     Si tu empresa bloquea el instalador, usá esta y tenés el producto igual.
+
+Las dos abren en el navegador (http://localhost) y corren 100% local en tu
+equipo. Ninguna requiere Node; solo Python 3.11+.
 
 DEJARLO INSTALADO EN WINDOWS (opcional pero recomendado):
   Doble clic en  INSTALAR.bat
@@ -921,7 +970,9 @@ DEJARLO INSTALADO EN WINDOWS (opcional pero recomendado):
     · icono propio y acceso directo en el Escritorio
     · entrada en el Menú Inicio
     · desinstalador en «Agregar o quitar programas»
-  No pide permisos de administrador (todo va a tu perfil de usuario).
+  Deja los accesos de LAS DOS formas: «MV Kobra AI» (app de escritorio) y
+  «MV Kobra AI - Dashboard Streamlit». No pide permisos de administrador
+  (todo va a tu perfil de usuario).
   Al desinstalar, tus datos NO se borran salvo que lo pidas expresamente.
 
 EDICIÓN

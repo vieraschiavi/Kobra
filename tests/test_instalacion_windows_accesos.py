@@ -100,7 +100,12 @@ def test_no_pide_permisos_de_administrador(instalar):
 def test_el_acceso_directo_no_abre_una_ventana_de_consola(instalar):
     """Sin esto, cada arranque parpadea una consola negra — la señal más clara
     de «esto es un script» en vez de un programa."""
-    assert "MVKobraAI.vbs" in instalar
+    # El .vbs se arma con el slug del modo (`"$slug.vbs"`) desde que el
+    # instalador deja los accesos de las DOS vías —app de escritorio y
+    # dashboard—, así que lo que se verifica es que se cree un .vbs y que se
+    # ejecute oculto, no el nombre literal de uno de ellos.
+    assert '"$slug.vbs"' in instalar, "el instalador ya no crea un .vbs"
+    assert 'Nuevo-Lanzador "MVKobraAI"' in instalar, "cambió el slug del modo principal"
     assert "wscript.exe" in instalar
     assert ", 0, False" in instalar, "el .vbs no está arrancando oculto"
 
@@ -121,8 +126,24 @@ def test_verifica_que_el_launcher_exista_antes_de_crear_el_acceso(instalar):
 def test_encuentra_el_launcher_en_los_dos_layouts(instalar):
     """El repo lo tiene en `packaging\\` y el ZIP lo copia a la raíz de
     `kobra_software\\`. Los dos son válidos."""
-    assert '(Join-Path $Codigo $Lanzador)' in instalar
-    assert '(Join-Path $Codigo (Join-Path "packaging" $Lanzador))' in instalar
+    # La búsqueda vive en `Buscar-Lanzador`, que se usa para el lanzador
+    # principal y para el alterno (dashboard Streamlit): un solo lugar donde
+    # se resuelven los dos layouts.
+    assert 'function Buscar-Lanzador' in instalar
+    assert '(Join-Path $Codigo $archivo)' in instalar
+    assert '(Join-Path $Codigo (Join-Path "packaging" $archivo))' in instalar
+    assert '$Launcher = Buscar-Lanzador $Lanzador' in instalar
+
+
+def test_el_instalador_deja_tambien_el_acceso_del_dashboard(instalar):
+    """La vía sin .exe tiene que quedar instalada junto con la principal: es
+    la puerta de entrada del cliente cuya empresa bloquea ejecutables. Si el
+    alterno no está, se avisa y se sigue — nunca se cae la instalación entera
+    por el segundo acceso."""
+    assert '[string]$LanzadorAlterno = ""' in instalar
+    assert 'Buscar-Lanzador $LanzadorAlterno' in instalar
+    assert 'Nuevo-Lanzador "MVKobraAI_Alterno"' in instalar
+    assert "Write-Warning" in instalar
 
 
 def test_el_lanzador_es_parametrizable_pero_con_el_de_siempre_por_defecto(instalar):

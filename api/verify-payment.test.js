@@ -4,7 +4,7 @@
 // camino "pago aprobado" ni "pago rechazado" corrían nunca.
 const { test, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
-const { verify } = require("./_license");
+const { verify, emitirLicencia, PLANES } = require("./_license");
 
 function req(query, headers) { return { query, headers: headers || {} }; }
 
@@ -159,6 +159,18 @@ test("usa KOBRA_LICENSE_SECRET cuando está — es el nombre que lee la app", as
     "la licencia debería estar firmada con el secreto de la app");
   assert.equal(verify(r.body.license, process.env.LICENSE_SECRET), null);
   delete process.env.KOBRA_LICENSE_SECRET;
+  assert.equal(claims.email, "cliente@ejemplo.com");
+  // La licencia tiene que traer lo que la app LEE al activar — sobre todo
+  // `exp`, sin el cual el cliente que pagó no puede entrar (ver _license.js).
+  assert.ok(claims.exp > claims.iat, "la licencia vendida no tiene vencimiento");
+  assert.equal(claims.edition, "venta");
+  assert.deepEqual(claims.features, PLANES.pro.features);
+});
+
+test("el plan que llega en la metadata del pago no existe: no se emite licencia", () => {
+  // Vale mas devolver el pago sin licencia y resolverlo por soporte que
+  // entregarle al cliente un token que su app va a rechazar.
+  assert.equal(emitirLicencia({ plan: "gold", pid: "1" }, CLAVE_LICENCIA_PRUEBA), null);
 });
 
 test("pago aprobado pero SIN LICENSE_SECRET: approved=true, license=null (no crashea)", async () => {

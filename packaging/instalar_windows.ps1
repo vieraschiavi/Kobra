@@ -37,7 +37,13 @@ param(
     # Archivo Python que arranca el programa. La app de escritorio usa
     # kobra_launcher.py (FastAPI embebido); la edición Producción sirve el
     # dashboard con Streamlit y pasa kobra_streamlit.py.
-    [string]$Lanzador = "kobra_launcher.py"
+    [string]$Lanzador = "kobra_launcher.py",
+    # Segundo lanzador, opcional: deja un acceso directo ADEMÁS del principal.
+    # Se usa para instalar las dos vías de una sola vez — la app de escritorio
+    # y el dashboard Streamlit—, que es lo que necesita el cliente cuyo
+    # sistemas bloquea .exe pero no un script. Si no se pasa, no cambia nada.
+    [string]$LanzadorAlterno = "",
+    [string]$SufijoAlterno = "Dashboard Streamlit"
 )
 
 $ErrorActionPreference = "Stop"
@@ -52,13 +58,28 @@ New-Item -ItemType Directory -Force -Path $Destino, $Datos | Out-Null
 # ZIP de una edición lo copia a la raíz de `kobra_software\`. Buscarlo evita
 # que el acceso directo quede apuntando a un archivo que no existe — que es un
 # fallo silencioso: el .lnk se crea igual y no abre nada al hacer clic.
-$Launcher = $null
-foreach ($cand in @((Join-Path $Codigo $Lanzador),
-                    (Join-Path $Codigo (Join-Path "packaging" $Lanzador)))) {
-    if (Test-Path -LiteralPath $cand) { $Launcher = $cand; break }
+function Buscar-Lanzador([string]$archivo) {
+    foreach ($cand in @((Join-Path $Codigo $archivo),
+                        (Join-Path $Codigo (Join-Path "packaging" $archivo)))) {
+        if (Test-Path -LiteralPath $cand) { return $cand }
+    }
+    return $null
 }
+
+$Launcher = Buscar-Lanzador $Lanzador
 if (-not $Launcher) {
     throw "No encontre $Lanzador en '$Codigo' (ni en packaging\). Revisa -Codigo."
+}
+
+# El alterno NO es obligatorio: si se pidió y no está, se avisa y se sigue con
+# el principal. Cortar la instalación entera por el segundo acceso directo
+# sería peor que instalar con uno solo.
+$LauncherAlterno = $null
+if ($LanzadorAlterno) {
+    $LauncherAlterno = Buscar-Lanzador $LanzadorAlterno
+    if (-not $LauncherAlterno) {
+        Write-Warning "No encontre $LanzadorAlterno: se instala solo el acceso principal."
+    }
 }
 if (-not (Test-Path -LiteralPath $Python)) {
     throw "No existe el ejecutable de Python indicado: '$Python'."
@@ -87,45 +108,65 @@ if (-not (Test-Path -LiteralPath $Icono)) { $Icono = $Python }   # sin .ico, el 
 # que las define, y un .vbs que lo corre OCULTO: sin el .vbs, cada arranque
 # parpadea una ventana de consola negra — la señal más clara de "esto es un
 # script", no un programa.
-$Cmd = Join-Path $Destino "MVKobraAI.cmd"
-$lineas = @(
-    "@echo off",
-    "cd /d `"$Codigo`"",
-    "set `"KOBRA_DATA_DIR=$Datos`"",
-    "set `"KOBRA_UI_DIST=$UiDist`"",
-    "set KOBRA_APP_WINDOW=1"
-)
-if ($Owner) { $lineas += "set KOBRA_OWNER=1" }
-$lineas += "start `"`" `"$Python`" `"$Launcher`""
-Set-Content -LiteralPath $Cmd -Value $lineas -Encoding ASCII
+function Nuevo-Lanzador([string]$slug, [string]$destinoPy) {
+    # Devuelve la ruta del .vbs que abre ESE lanzador. Un par .cmd/.vbs por
+    # modo: comparten instalación, datos e icono, pero arrancan programas
+    # distintos (app de escritorio / dashboard Streamlit).
+    $cmd = Join-Path $Destino "$slug.cmd"
+    $lineas = @(
+        "@echo off",
+        "cd /d `"$Codigo`"",
+        "set `"KOBRA_DATA_DIR=$Datos`"",
+        "set `"KOBRA_UI_DIST=$UiDist`"",
+        "set KOBRA_APP_WINDOW=1"
+    )
+    if ($Owner) { $lineas += "set KOBRA_OWNER=1" }
+    $lineas += "start `"`" `"$Python`" `"$destinoPy`""
+    Set-Content -LiteralPath $cmd -Value $lineas -Encoding ASCII
 
-$Vbs = Join-Path $Destino "MVKobraAI.vbs"
-Set-Content -LiteralPath $Vbs -Encoding ASCII -Value @(
-    "' Arranca MV Kobra AI sin ventana de consola.",
-    "CreateObject(`"WScript.Shell`").Run `"`"`"$Cmd`"`"`", 0, False"
-)
+    $vbs = Join-Path $Destino "$slug.vbs"
+    Set-Content -LiteralPath $vbs -Encoding ASCII -Value @(
+        "' Arranca MV Kobra AI sin ventana de consola.",
+        "CreateObject(`"WScript.Shell`").Run `"`"`"$cmd`"`"`", 0, False"
+    )
+    return $vbs
+}
+
+$Vbs = Nuevo-Lanzador "MVKobraAI" $Launcher
 
 # --- Accesos directos -------------------------------------------------------
 $sh = New-Object -ComObject WScript.Shell
 
-function Nuevo-Acceso([string]$ruta) {
+function Nuevo-Acceso([string]$ruta, [string]$vbs, [string]$descripcion) {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $ruta) | Out-Null
     $lnk = $sh.CreateShortcut($ruta)
     # wscript.exe y no el .vbs directo: si el usuario tiene los .vbs asociados
     # a otro programa (o bloqueados por política), el acceso no abriría nada.
     $lnk.TargetPath       = Join-Path $env:WINDIR "System32\wscript.exe"
-    $lnk.Arguments        = "`"$Vbs`""
+    $lnk.Arguments        = "`"$vbs`""
     $lnk.WorkingDirectory = $Codigo
     $lnk.IconLocation     = "$Icono,0"
-    $lnk.Description      = "$Nombre - Plataforma de Cobranzas Inteligentes"
+    $lnk.Description      = $descripcion
     $lnk.Save()
 }
 
 $MenuDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\MV Kobra AI"
-$AccesoMenu      = Join-Path $MenuDir "$Nombre.lnk"
-$AccesoEscritorio = Join-Path ([Environment]::GetFolderPath("Desktop")) "$Nombre.lnk"
-Nuevo-Acceso $AccesoMenu
-Nuevo-Acceso $AccesoEscritorio
+$Escritorio = [Environment]::GetFolderPath("Desktop")
+$desc = "$Nombre - Plataforma de Cobranzas Inteligentes"
+Nuevo-Acceso (Join-Path $MenuDir "$Nombre.lnk") $Vbs $desc
+Nuevo-Acceso (Join-Path $Escritorio "$Nombre.lnk") $Vbs $desc
+
+# Segundo acceso (dashboard Streamlit): en el Escritorio Y en el Menú Inicio.
+# Va en los dos lados a propósito — para el cliente cuyo sistemas no deja
+# abrir .exe, ESTA es su puerta de entrada al producto, no una alternativa
+# escondida. El nombre lo deja claro y el desinstalador lo borra igual.
+$NombreAlterno = "$Nombre - $SufijoAlterno"
+if ($LauncherAlterno) {
+    $VbsAlterno = Nuevo-Lanzador "MVKobraAI_Alterno" $LauncherAlterno
+    $descAlt = "$NombreAlterno - se abre en el navegador, sin ejecutables"
+    Nuevo-Acceso (Join-Path $MenuDir "$NombreAlterno.lnk") $VbsAlterno $descAlt
+    Nuevo-Acceso (Join-Path $Escritorio "$NombreAlterno.lnk") $VbsAlterno $descAlt
+}
 
 # --- Desinstalador ----------------------------------------------------------
 $DesinstalaPs1 = Join-Path $Destino "desinstalar_windows.ps1"
