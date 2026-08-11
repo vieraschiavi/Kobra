@@ -372,6 +372,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path stage/INSTALADOR | Out-Null
           Copy-Item dist/MVKobraAI_Setup.exe        stage/INSTALADOR/
           Copy-Item dist/MVKobraAI_Setup_OWNER.exe  stage/INSTALADOR/
+          # Instalar sin tocar C:. Todo instalador NSIS se auto-descomprime en
+          # %TEMP% antes de abrir su primera pantalla; si C: esta sin espacio o
+          # el antivirus bloquea esa carpeta, falla ahi y nunca llega a
+          # preguntar donde instalar. Este .bat manda %TEMP% al mismo disco
+          # donde este guardado. Va JUNTO a los .exe para que se use sin pensar.
+          python packaging/generar_instalar_bat.py
+          Copy-Item packaging/Instalar_en_otro_disco.bat stage/INSTALADOR/
           $leeme = @(
             "MV Kobra AI v$ver - Carpeta INSTALADOR",
             "=======================================",
@@ -380,6 +387,11 @@ jobs:
             "sin Python). Los dos crean icono en el Escritorio, entrada en el",
             "Menu Inicio y desinstalador en 'Agregar o quitar programas'.",
             "Se pueden instalar los dos en la misma PC: no se pisan.",
+            "",
+            "SI TU DISCO C: ESTA LLENO O EL ANTIVIRUS BLOQUEA LA CARPETA",
+            "TEMPORAL: copia esta carpeta a otro disco y ejecuta",
+            "Instalar_en_otro_disco.bat en vez del .exe. Manda los archivos",
+            "temporales del instalador a ese mismo disco, asi C: no se usa.",
             "",
             "1) MVKobraAI_Setup.exe  ->  VERSION CLIENTE",
             "   Para entregar a clientes. Instala la DEMO completa por 3 dias.",
@@ -412,6 +424,7 @@ jobs:
           $z.Dispose()
           foreach ($req in @("INSTALADOR/MVKobraAI_Setup.exe",
                              "INSTALADOR/MVKobraAI_Setup_OWNER.exe",
+                             "INSTALADOR/Instalar_en_otro_disco.bat",
                              "LEEME.txt")) {
             if ($nombres -notcontains $req) {
               Write-Error "Al ZIP le falta $req. Contiene: $($nombres -join ', ')"; exit 1
