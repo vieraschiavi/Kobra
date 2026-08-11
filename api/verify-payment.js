@@ -2,7 +2,6 @@
 // la descarga. Evita que alguien arme la URL de /descarga a mano sin haber pagado.
 // Si el pago está aprobado, emite automáticamente la licencia MV Kobra AI (firmada).
 
-const { emitirLicencia, secretoLicencia } = require("./_license");
 const { sign, secretoActivo } = require("./_license");
 const { limitar } = require("./_ratelimit");
 
@@ -31,13 +30,6 @@ module.exports = async (req, res) => {
     const plan = (data.metadata && data.metadata.plan) || null;
 
     let license = null;
-    const secret = secretoLicencia();
-    if (approved && secret) {
-      license = emitirLicencia({
-        plan: plan,
-        pid: paymentId,
-        email: (data.payer && data.payer.email) || null,
-      }, secret);
     let licenseError = null;
     const secret = secretoActivo();
     if (approved && secret) {
@@ -55,7 +47,10 @@ module.exports = async (req, res) => {
       }
     }
 
-    res.status(200).json({ approved: approved, status: data.status, plan: plan, license: license });
+    res.status(200).json({
+      approved: approved, status: data.status, plan: plan,
+      license: license, license_error: licenseError,
+    });
   } catch (e) {
     res.status(500).json({ approved: false, error: "exception" });
   }
