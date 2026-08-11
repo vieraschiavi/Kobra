@@ -138,6 +138,18 @@ def render_gate() -> str | None:
     if not requiere_login():
         return "admin"
 
+    # Edición del dueño: entra directo, sin contraseña. La app de escritorio
+    # ya se comportaba así (`/api/licencia/owner-login`), pero el dashboard
+    # seguía pidiendo crear una clave — o sea, la MISMA copia owner abierta
+    # por una vía u otra hacía cosas distintas. El sello `edicion.json` es lo
+    # que la marca como owner; ver kobra/edicion.py.
+    try:
+        from kobra import edicion as kedicion
+        if kedicion.vigencia().get("owner"):
+            return "admin"
+    except Exception:
+        pass
+
     rol = sesion_activa()
     if rol:
         return rol
