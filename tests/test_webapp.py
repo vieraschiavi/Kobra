@@ -155,6 +155,24 @@ def test_api_cartera_filtros_paginado_y_export(cliente):
     assert csv.status_code == 200 and csv.text.count("\n") - 1 == r["total"]
 
 
+def test_api_cartera_busqueda_con_parentesis_no_revienta(cliente):
+    """`str.contains` trata el argumento como regex por default: un usuario
+    que busca algo con paréntesis desbalanceados (copiar/pegar un id raro,
+    tipear sin querer) no puede tirar un 500 — es una caja de texto libre."""
+    h = _h(_token(cliente))
+    r = cliente.get("/api/cartera", params={"busqueda": "ID(005"}, headers=h)
+    assert r.status_code == 200
+    assert r.json()["total"] == 0     # ningún id_deudor real contiene ese texto
+
+
+def test_api_cartera_busqueda_encuentra_el_texto_literal(cliente):
+    h = _h(_token(cliente))
+    primero = cliente.get("/api/cartera?tamano=1", headers=h).json()["filas"][0]["id_deudor"]
+    r = cliente.get(f"/api/cartera?busqueda={primero}", headers=h).json()
+    assert r["total"] >= 1
+    assert any(f["id_deudor"] == primero for f in r["filas"])
+
+
 def test_api_deudor_brief_y_404(cliente):
     h = _h(_token(cliente))
     primero = cliente.get("/api/cartera?tamano=1", headers=h).json()["filas"][0]["id_deudor"]

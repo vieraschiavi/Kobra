@@ -22,9 +22,17 @@ Diseño:
   (cola para el ERP). Si hay webhook configurado se hace POST al confirmar,
   con reintento simple; el pull por API (`/api/erp/imputaciones`) es la vía
   robusta para cualquier ERP/CRM sin desarrollo del lado del cliente.
-- **Demo comercial**: MercadoPago en demo no cobra de verdad — arma el link
-  preconfigurado de la empresa (o uno simulado) y aprueba el pago al volver.
-  Con credenciales reales, el mismo flujo queda listo para producción.
+- **MercadoPago sin verificar server-side, a propósito**: `link_mercadopago`
+  arma el link de pago preconfigurado de la empresa (o uno simulado en demo),
+  pero el endpoint público de confirmación NUNCA vuelve a consultar la API de
+  MercadoPago — a diferencia de `api/verify-payment.js`, que sí lo hace antes
+  de emitir una licencia. Por eso un pago por MercadoPago queda `informado`
+  (declarado, pendiente de conciliar), exactamente igual que una
+  transferencia: lo contrario —marcarlo `aprobado` solo porque el deudor dice
+  que pagó— es lo que permitía a cualquiera con su token de acceso saldar su
+  propia deuda sin pagar un peso. Conectar una verificación real (re-consultar
+  el pago contra la API de MercadoPago con el access token de la empresa
+  antes de imputar) es trabajo pendiente, no algo que ya esté resuelto acá.
 
 Sin dependencias nuevas: hmac/hashlib/csv/json de la stdlib.
 """
@@ -102,12 +110,21 @@ def guardar_config(dir_datos_tenant: str, nueva: dict) -> dict:
 
 def api_key_erp(dir_datos_tenant: str, secreto: str) -> str:
     """API key del pull ERP: si la empresa no configuró una, se deriva una
-    estable del secreto del servidor (así el endpoint nunca queda abierto)."""
+    estable del secreto del servidor Y del tenant (así el endpoint nunca
+    queda abierto, y dos tenants sin clave propia no terminan con la MISMA
+    clave — antes el mensaje HMAC era fijo, "erp-api-key", sin nada del
+    tenant adentro: cualquier admin de una empresa que nunca configuró una
+    clave propia podía usar SU PROPIA clave derivada para leer
+    `/api/erp/imputaciones?empresa=<otra>` de cualquier otra empresa que
+    tampoco hubiera configurado la suya — el caso por defecto. Meter
+    `dir_datos_tenant` en el mensaje separa las claves por tenant sin
+    necesidad de guardar nada nuevo."""
     cfg = cargar_config(dir_datos_tenant)
     propia = (cfg["erp"].get("api_key") or "").strip()
     if propia:
         return propia
-    return hmac.new(secreto.encode(), b"erp-api-key",
+    mensaje = "erp-api-key:" + os.path.abspath(dir_datos_tenant)
+    return hmac.new(secreto.encode(), mensaje.encode(),
                     hashlib.sha256).hexdigest()[:32]
 
 

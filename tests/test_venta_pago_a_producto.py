@@ -43,20 +43,29 @@ def _pagar(plan: str, email: str = "cliente@empresa.com",
            payment_id: str = "987654321") -> dict:
     """Simula un pago APROBADO en MercadoPago y devuelve la respuesta real de
     `api/verify-payment.js` — el handler que corre en Vercel. Solo se mockea
-    `fetch` (la API de MP); el resto es el código de producción."""
+    `fetch` (la API de MP); el resto es el código de producción.
+
+    Incluye `ref`/`external_reference` a propósito: son la referencia que
+    `checkout.js` genera por checkout y que `verify-payment.js` exige que
+    coincida antes de dar un pago por aprobado — sin eso, cualquiera que
+    tanteara un `payment_id` ajeno podía reclamar la licencia de otro
+    comprador (ver `api/verify-payment.test.js`, que cubre ese caso puntual).
+    Acá alcanza con que el mock las haga coincidir entre sí.
+    """
     script = """
     process.env.MP_ACCESS_TOKEN = "TEST-token";
     const [plan, email, pid] = process.argv.slice(1);
+    const ref = "c".repeat(32);
     globalThis.fetch = async () => ({
       ok: true,
       json: async () => ({ status: "approved", metadata: { plan },
-                           payer: { email } }),
+                           external_reference: ref, payer: { email } }),
     });
     const vp = require("./api/verify-payment.js");
     const res = { statusCode: null, body: null,
       status(c){this.statusCode=c;return this;},
       json(b){this.body=b;return this;}, setHeader(){} };
-    vp({ query: { payment_id: pid }, headers: {} }, res)
+    vp({ query: { payment_id: pid, ref }, headers: {} }, res)
       .then(() => process.stdout.write(JSON.stringify(res.body)));
     """
     r = subprocess.run(["node", "-e", script, plan, email, payment_id],
@@ -138,13 +147,15 @@ def test_un_pago_no_aprobado_no_entrega_licencia():
     """Que nadie entre por armar la URL de /descarga a mano."""
     script = """
     process.env.MP_ACCESS_TOKEN = "TEST-token";
+    const ref = "c".repeat(32);
     globalThis.fetch = async () => ({ ok: true,
-      json: async () => ({ status: "pending", metadata: { plan: "pro" } }) });
+      json: async () => ({ status: "pending", metadata: { plan: "pro" },
+                           external_reference: ref }) });
     const vp = require("./api/verify-payment.js");
     const res = { statusCode: null, body: null,
       status(c){this.statusCode=c;return this;},
       json(b){this.body=b;return this;}, setHeader(){} };
-    vp({ query: { payment_id: "1" }, headers: {} }, res)
+    vp({ query: { payment_id: "1", ref }, headers: {} }, res)
       .then(() => process.stdout.write(JSON.stringify(res.body)));
     """
     r = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,

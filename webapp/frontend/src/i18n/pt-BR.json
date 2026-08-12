@@ -559,7 +559,7 @@
       "titulo": "Pagamento registrado",
       "detalle": "Registramos seu pagamento de {{monto}} com a referência {{referencia}}.",
       "aprobado": "O pagamento foi aprovado e registrado no sistema da empresa.",
-      "informado": "Seu aviso de transferência foi registrado; a empresa fará a conciliação quando o valor for creditado.",
+      "informado": "Seu pagamento foi registrado; a empresa vai conciliá-lo antes de confirmar o crédito.",
       "saldo_restante": "Saldo restante: {{saldo}}",
       "otro_pago": "Fazer outro pagamento",
       "deuda_saldada": "Sua dívida foi totalmente quitada. Obrigado."

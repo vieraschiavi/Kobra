@@ -19,6 +19,11 @@ const CLAVE_LICENCIA_PRUEBA = "otro-secreto-de-prueba-larguisimo";
 // saberlo — así que se declaran acá y los tests referencian la constante.
 const CLAVE_APP_PRUEBA = "clave-de-prueba-de-la-app-instalada";
 const CLAVE_VERCEL_PRUEBA = "clave-de-prueba-vieja-de-vercel";
+// La referencia que en producción arma `checkout.js` con `crypto.randomBytes`:
+// acá basta con que tenga la forma correcta (32 hex), no que sea aleatoria.
+const REF = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const OTRA_REF = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
 function res() {
   const r = { statusCode: null, body: null };
   r.status = (c) => { r.statusCode = c; return r; };
@@ -46,7 +51,22 @@ test("payment_id ausente: 400", async () => {
 test("payment_id no numérico: 400 (evita inyectar algo raro en la URL de MP)", async () => {
   const vp = require("./verify-payment");
   const r = res();
-  await vp(req({ payment_id: "12; DROP TABLE" }), r);
+  await vp(req({ payment_id: "12; DROP TABLE", ref: REF }), r);
+  assert.equal(r.statusCode, 400);
+});
+
+test("ref ausente: 400 (sin esto, cualquiera podía tantear el payment_id de otro)", async () => {
+  const vp = require("./verify-payment");
+  const r = res();
+  await vp(req({ payment_id: "999" }), r);
+  assert.equal(r.statusCode, 400);
+  assert.equal(r.body.approved, false);
+});
+
+test("ref con forma inválida: 400", async () => {
+  const vp = require("./verify-payment");
+  const r = res();
+  await vp(req({ payment_id: "999", ref: "no-es-hex-de-32" }), r);
   assert.equal(r.statusCode, 400);
 });
 
@@ -54,7 +74,7 @@ test("sin MP_ACCESS_TOKEN: 500 no_token", async () => {
   delete process.env.MP_ACCESS_TOKEN;
   const vp = require("./verify-payment");
   const r = res();
-  await vp(req({ payment_id: "999" }), r);
+  await vp(req({ payment_id: "999", ref: REF }), r);
   assert.equal(r.statusCode, 500);
   assert.equal(r.body.error, "no_token");
 });
@@ -64,20 +84,80 @@ test("MercadoPago responde con error HTTP: 502", async () => {
   mockFetch(async () => ({ ok: false, json: async () => ({}) }));
   const vp = require("./verify-payment");
   const r = res();
-  await vp(req({ payment_id: "999" }), r);
+  await vp(req({ payment_id: "999", ref: REF }), r);
   assert.equal(r.statusCode, 502);
   assert.equal(r.body.error, "mp_error");
+});
+
+// --- El IDOR que este archivo cierra: el payment_id no alcanza por sí solo ---
+test("payment_id real y APROBADO pero con una ref distinta a la del checkout: NO aprueba, no filtra plan ni email", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
+  mockFetch(async () => ({
+    ok: true,
+    json: async () => ({
+      status: "approved", metadata: { plan: "starter" },
+      external_reference: REF,               // el pago SÍ pertenece a la ref REF...
+      payer: { email: "comprador-real@ejemplo.com" },
+    }),
+  }));
+  const vp = require("./verify-payment");
+  const r = res();
+  // ...pero quien pregunta manda OTRA_REF (tanteó el payment_id, no conoce
+  // la referencia real — esa solo la tiene el navegador del comprador).
+  await vp(req({ payment_id: "9001", ref: OTRA_REF }), r);
+  assert.equal(r.statusCode, 200);
+  assert.equal(r.body.approved, false,
+    "un payment_id ajeno no puede darse por aprobado solo por adivinar el número");
+  assert.equal(r.body.license, null, "no se puede filtrar la licencia de otro comprador");
+  assert.equal(r.body.plan, undefined, "no se puede filtrar ni el plan del pago ajeno");
+  assert.equal(JSON.stringify(r.body).includes("comprador-real"), false,
+    "el email del comprador real no puede aparecer en la respuesta");
+});
+
+test("pago aprobado con ref que SÍ coincide: aprueba normalmente", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
+  mockFetch(async () => ({
+    ok: true,
+    json: async () => ({
+      status: "approved", metadata: { plan: "starter" },
+      external_reference: REF, payer: { email: "dueno@ejemplo.com" },
+    }),
+  }));
+  const vp = require("./verify-payment");
+  const r = res();
+  await vp(req({ payment_id: "9002", ref: REF }), r);
+  assert.equal(r.body.approved, true);
+  assert.ok(r.body.license, "con la ref correcta, el dueño del pago sí tiene que recibir su licencia");
+});
+
+test("pago SIN external_reference (checkouts viejos, previos a este arreglo): no aprueba", async () => {
+  // No se puede confiar en un pago que no lleva ninguna referencia a
+  // comparar — tratarlo como no-aprobado es lo seguro, no un caso raro a
+  // ignorar.
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
+  mockFetch(async () => ({
+    ok: true,
+    json: async () => ({ status: "approved", metadata: { plan: "pro" } }),
+  }));
+  const vp = require("./verify-payment");
+  const r = res();
+  await vp(req({ payment_id: "9003", ref: REF }), r);
+  assert.equal(r.body.approved, false);
+  assert.equal(r.body.license, null);
 });
 
 test("pago pendiente: approved=false y SIN licencia (no se regala nada)", async () => {
   process.env.MP_ACCESS_TOKEN = "TEST-token";
   process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
   mockFetch(async () => ({
-    ok: true, json: async () => ({ status: "pending", metadata: { plan: "pro" } }),
+    ok: true, json: async () => ({ status: "pending", metadata: { plan: "pro" }, external_reference: REF }),
   }));
   const vp = require("./verify-payment");
   const r = res();
-  await vp(req({ payment_id: "111" }), r);
+  await vp(req({ payment_id: "111", ref: REF }), r);
   assert.equal(r.statusCode, 200);
   assert.equal(r.body.approved, false);
   assert.equal(r.body.license, null,
@@ -88,11 +168,11 @@ test("pago rechazado: approved=false y sin licencia", async () => {
   process.env.MP_ACCESS_TOKEN = "TEST-token";
   process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
   mockFetch(async () => ({
-    ok: true, json: async () => ({ status: "rejected", metadata: { plan: "pro" } }),
+    ok: true, json: async () => ({ status: "rejected", metadata: { plan: "pro" }, external_reference: REF }),
   }));
   const vp = require("./verify-payment");
   const r = res();
-  await vp(req({ payment_id: "222" }), r);
+  await vp(req({ payment_id: "222", ref: REF }), r);
   assert.equal(r.body.approved, false);
   assert.equal(r.body.license, null);
 });
@@ -103,13 +183,13 @@ test("pago aprobado + LICENSE_SECRET configurado: emite una licencia válida", a
   mockFetch(async () => ({
     ok: true,
     json: async () => ({
-      status: "approved", metadata: { plan: "pro" },
+      status: "approved", metadata: { plan: "pro" }, external_reference: REF,
       payer: { email: "cliente@ejemplo.com" },
     }),
   }));
   const vp = require("./verify-payment");
   const r = res();
-  await vp(req({ payment_id: "333" }), r);
+  await vp(req({ payment_id: "333", ref: REF }), r);
   assert.equal(r.statusCode, 200);
   assert.equal(r.body.approved, true);
   assert.ok(r.body.license, "no emitió ninguna licencia con el pago aprobado");
@@ -132,11 +212,11 @@ test("un plan aprobado pero fuera del catálogo no emite una licencia rota", asy
   process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
   mockFetch(async () => ({
     ok: true,
-    json: async () => ({ status: "approved", metadata: { plan: "plan_que_no_existe" } }),
+    json: async () => ({ status: "approved", metadata: { plan: "plan_que_no_existe" }, external_reference: REF }),
   }));
   const vp = require("./verify-payment");
   const r = res();
-  await vp(req({ payment_id: "334" }), r);
+  await vp(req({ payment_id: "334", ref: REF }), r);
   assert.equal(r.statusCode, 200);
   assert.equal(r.body.approved, true);
   assert.equal(r.body.license, null);
@@ -149,11 +229,14 @@ test("usa KOBRA_LICENSE_SECRET cuando está — es el nombre que lee la app", as
   process.env.LICENSE_SECRET = CLAVE_VERCEL_PRUEBA;
   mockFetch(async () => ({
     ok: true,
-    json: async () => ({ status: "approved", metadata: { plan: "basico" }, payer: { email: "a@b.com" } }),
+    json: async () => ({
+      status: "approved", metadata: { plan: "basico" }, external_reference: REF,
+      payer: { email: "a@b.com" },
+    }),
   }));
   const vp = require("./verify-payment");
   const r = res();
-  await vp(req({ payment_id: "335" }), r);
+  await vp(req({ payment_id: "335", ref: REF }), r);
   assert.ok(r.body.license);
   assert.ok(verify(r.body.license, process.env.KOBRA_LICENSE_SECRET),
     "la licencia debería estar firmada con el secreto de la app");
@@ -165,11 +248,11 @@ test("pago aprobado pero SIN LICENSE_SECRET: approved=true, license=null (no cra
   process.env.MP_ACCESS_TOKEN = "TEST-token";
   delete process.env.LICENSE_SECRET;
   mockFetch(async () => ({
-    ok: true, json: async () => ({ status: "approved", metadata: { plan: "pro" } }),
+    ok: true, json: async () => ({ status: "approved", metadata: { plan: "pro" }, external_reference: REF }),
   }));
   const vp = require("./verify-payment");
   const r = res();
-  await vp(req({ payment_id: "444" }), r);
+  await vp(req({ payment_id: "444", ref: REF }), r);
   assert.equal(r.body.approved, true);
   assert.equal(r.body.license, null);
 });
@@ -179,7 +262,7 @@ test("si fetch tira una excepción: 500, no un crash sin respuesta", async () =>
   mockFetch(async () => { throw new Error("timeout"); });
   const vp = require("./verify-payment");
   const r = res();
-  await vp(req({ payment_id: "555" }), r);
+  await vp(req({ payment_id: "555", ref: REF }), r);
   assert.equal(r.statusCode, 500);
   assert.equal(r.body.error, "exception");
 });
@@ -187,7 +270,7 @@ test("si fetch tira una excepción: 500, no un crash sin respuesta", async () =>
 test("el freno por IP corta después de varios intentos seguidos", async () => {
   delete process.env.MP_ACCESS_TOKEN;
   const vp = require("./verify-payment");
-  const misma = { query: { payment_id: "1" }, headers: { "x-forwarded-for": "66.66.66.66" } };
+  const misma = { query: { payment_id: "1", ref: REF }, headers: { "x-forwarded-for": "66.66.66.66" } };
   const codigos = [];
   for (let i = 0; i < 25; i++) {
     const r = res();

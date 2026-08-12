@@ -559,7 +559,7 @@
       "titulo": "Pago registrado",
       "detalle": "Registramos su pago de {{monto}} con la referencia {{referencia}}.",
       "aprobado": "El pago fue aprobado y quedó imputado en el sistema de la empresa.",
-      "informado": "Su aviso de transferencia quedó registrado; la empresa lo conciliará al acreditarse.",
+      "informado": "Tu pago quedó registrado; la empresa lo va a conciliar antes de darlo por acreditado.",
       "saldo_restante": "Saldo restante: {{saldo}}",
       "otro_pago": "Hacer otro pago",
       "deuda_saldada": "Su deuda quedó totalmente saldada. Gracias."
