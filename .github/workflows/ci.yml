@@ -48,10 +48,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Instalar dependencias de las funciones serverless
+        # `api/checkout.js` requiere `botid/server` (verificación de bots de
+        # Vercel). Sin esto, `tests/test_venta_pago_a_producto.py` —que arranca
+        # el checkout con node para comprobar que el plan cobrado es el que
+        # después se licencia— moría con MODULE_NOT_FOUND en CI y pasaba solo
+        # en las máquinas que ya tenían node_modules. O sea: el test que cuida
+        # el camino del que paga estaba, en los hechos, apagado en CI.
+        run: npm ci
+
       - name: Linter
         # Antes del test: un import roto o una variable indefinida los detecta
         # ruff en segundos, sin esperar los dos minutos de la suite.
         run: ruff check .
+
+      - name: Tests de las funciones serverless (node --test)
+        # Las 47 pruebas de `api/*.test.js` (emisión y validación de licencias,
+        # webhook de MercadoPago, rate limit) no las corría NADIE en CI: el job
+        # era solo de Python. Un cambio en el emisor de licencias podía llegar
+        # a main sin que se ejecutara una sola de sus pruebas.
+        run: npm test
 
       - name: Generar dataset (semilla fija)
         run: python data/generate_dataset.py --n 3000 --seed 42
