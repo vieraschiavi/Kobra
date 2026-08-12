@@ -64,3 +64,9 @@ data/portal_config.json
 data/tenants/*/pagos_portal.csv
 data/tenants/*/imputaciones_erp.jsonl
 data/tenants/*/portal_config.json
+
+# Contador de gestiones del plan (kobra/plan.py). Es estado LOCAL de una copia
+# instalada: se genera al correr la app o los tests desde el repo y no tiene
+# nada que hacer en el control de versiones.
+uso_plan.json
+data/cartera_entrante.csv

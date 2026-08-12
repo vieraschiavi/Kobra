@@ -211,6 +211,36 @@ Actions → build-windows-installer → (Run workflow) → artefacto "MVKobraAI_
    o   → git tag v1.3.0 && push  → Release con MVKobraAI_Setup_v1.3.0.exe
 ```
 
+### 🎚️ Qué cambia de un plan a otro — `kobra/plan.py`
+
+La licencia viaja firmada con `plan`, `cupo_mensual` y `features`, y **la app
+instalada las aplica**. Hasta la v1.3.5 leía una sola cosa —la fecha de
+vencimiento—, así que un cliente de Básico recibía exactamente el mismo
+producto que uno de Pro: la diferencia estaba emitida y firmada, pero no la
+aplicaba nadie dentro del programa.
+
+| | Trial | Básico | Starter | Pro | Enterprise |
+|---|---|---|---|---|---|
+| Gestiones/mes | 50 | 300 | sin tope¹ | 1.000 | sin tope |
+| Al llegar al tope | corta | corta | — | excedente | — |
+| white_label · sso | no | no | no | no | sí |
+
+¹ Starter es el plan "traé tus propias APIs": el consumo lo paga el cliente en
+su cuenta, así que un cupo nuestro no cubriría ningún costo.
+
+- **Qué cuenta como gestión**: una negociación del Agente IA, el análisis de una
+  llamada, la evaluación automática de un audio. **Nada** de lo que el cliente
+  hace con sus propios datos (dashboard, filtros, informes, exportaciones)
+  consume cupo, y con el cupo agotado todo eso sigue disponible — un límite
+  comercial no puede volverse un secuestro de datos.
+- **Se aplica igual por las dos vías de arranque** (app Electron/React y
+  dashboard Streamlit). Si se controlara solo en una, el cliente abre la otra y
+  el límite deja de existir — ya había pasado con el vencimiento de la Demo.
+- **Honestidad**: el contador vive en la máquina del cliente, o sea que es
+  manipulable por alguien decidido a hacerlo. Lo infalsificable es la licencia
+  (HS256). Es el odómetro de un alquiler, no una barrera de seguridad; la
+  medición facturable de verdad la lleva el gateway (`backend_venta/app.py`).
+
 ### Dashboard sin instalar nada
 Abrí `dashboard_estatico/index.html` en cualquier navegador (funciona
 offline, con librerías locales). Ideal para demos y para compartir por mail.

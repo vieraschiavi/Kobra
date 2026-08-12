@@ -1,0 +1,304 @@
+"""
+MV Kobra AI · Qué incluye realmente el plan que pagó el cliente
+==============================================================
+La licencia (`backend_venta/licencias.py`) viaja firmada con tres cosas:
+`plan`, `cupo_mensual` y `features`. Hasta acá **la app instalada leía una
+sola**: la fecha de vencimiento. O sea que un cliente de Básico (US$99, 300
+gestiones/mes en la landing) recibía exactamente el mismo producto que uno de
+Pro (US$349, 1.000 gestiones/mes) — lo único distinto entre los dos era cuándo
+se les vencía. La diferencia estaba emitida en el token y firmada, pero no la
+aplicaba nadie: el único que miraba `cupo_mensual` era `backend_venta/app.py`,
+el gateway, que no va dentro del programa que se instala el cliente.
+
+Este módulo es el que la aplica, y es el ÚNICO lugar donde se decide qué
+habilita un plan.
+
+Qué cuenta como "gestión"
+-------------------------
+Lo que la landing vende por mes: **cada acción de cobranza asistida por IA**.
+Concretamente, las tres que consumen el motor:
+
+  * una gestión generada por el Agente IA Negociador,
+  * el análisis de una llamada (copiloto de voz),
+  * la evaluación automática de un audio de gestión.
+
+NO cuenta —y esto es deliberado— nada de lo que el cliente hace con **sus
+propios datos**: mirar el dashboard, filtrar la cartera, exportar, imprimir un
+informe. Un cupo que se agota no puede dejar a una empresa sin acceso a su
+propia cartera; eso no sería un límite comercial sino un secuestro de datos.
+
+Qué pasa al llegar al tope
+--------------------------
+  * `cupo_mensual = None`  → sin tope (Enterprise, copia del dueño, o cuando
+    no hay licencia: correr desde el repo o el modo hosted no se limitan).
+  * 80 % del cupo          → aviso en la app, nada se bloquea.
+  * 100 % con "excedente"  → se deja pasar y se registra el excedente (Pro y
+    Enterprise lo tienen: pagan por lo que se pasen, no se les corta).
+  * 100 % sin "excedente"  → se rechaza esa acción con un mensaje que dice
+    cuánto es el cupo y dónde se mejora el plan (Trial, Básico, Starter).
+
+Honestidad sobre lo que esto es
+-------------------------------
+El conteo vive en la carpeta de datos del cliente, o sea que corre en su
+máquina y es manipulable por alguien decidido a hacerlo. Es un límite
+**comercial**, no una barrera de seguridad — igual que el odómetro de un
+alquiler. Lo que sí es infalsificable es la licencia: el cupo y las features
+vienen firmadas con HS256 y no se pueden editar sin el secreto.
+"""
+from __future__ import annotations
+
+import json
+import os
+import threading
+import time
+
+ARCHIVO_USO = "uso_plan.json"
+
+# Porcentaje a partir del cual la app avisa (sin bloquear nada).
+UMBRAL_AVISO = 0.8
+
+_LOCK = threading.Lock()
+
+
+class LimitePlan(Exception):
+    """Base de los dos rechazos que puede devolver este módulo."""
+
+    def __init__(self, mensaje: str, estado: dict | None = None):
+        super().__init__(mensaje)
+        self.mensaje = mensaje
+        self.estado = estado or {}
+
+
+class FeatureNoIncluida(LimitePlan):
+    """El plan contratado no incluye esa capacidad."""
+
+
+class CupoAgotado(LimitePlan):
+    """Se consumió el cupo mensual y el plan no admite excedente."""
+
+
+# ---------------------------------------------------------------------------
+# De dónde sale el plan
+# ---------------------------------------------------------------------------
+def _es_owner() -> bool:
+    from kobra import edicion as kedicion
+    return kedicion._es_owner()
+
+
+def claims() -> dict | None:
+    """Los claims de la licencia activa, o None si no hay licencia vigente.
+
+    None NO significa "bloqueado": significa que este programa no está
+    gobernado por una licencia (copia del repo, modo hosted, dueño). Inventar
+    un tope donde nadie configuró uno rompería el desarrollo y el multi-tenant.
+    """
+    try:
+        from backend_venta import licencias as klicencias
+        from kobra import config as kconfig
+        from kobra.edicion import CLAVE_TOKEN
+    except Exception:
+        return None
+    token = kconfig.leer_extra(CLAVE_TOKEN)
+    if not token:
+        return None
+    r = klicencias.licencia_activa(token)
+    return r["claims"] if r["ok"] else None
+
+
+def _cliente_id(c: dict | None) -> str:
+    return str((c or {}).get("sub") or "sin_licencia")
+
+
+def features() -> list[str] | None:
+    """Features habilitadas, o None cuando no hay plan que aplicar."""
+    if _es_owner():
+        return None
+    c = claims()
+    if c is None:
+        return None
+    feats = c.get("features")
+    return list(feats) if isinstance(feats, list) else []
+
+
+def permite(feature: str) -> bool:
+    feats = features()
+    return True if feats is None else feature in feats
+
+
+def exigir(feature: str, nombre_visible: str | None = None) -> None:
+    """Corta la acción si el plan no incluye `feature`."""
+    if permite(feature):
+        return
+    que = nombre_visible or feature
+    raise FeatureNoIncluida(
+        f"Tu plan no incluye {que}. Mejorá tu plan en mvkobranzaia.com para habilitarlo.",
+        estado(),
+    )
+
+
+def cupo() -> int | None:
+    """Gestiones por mes del plan. None = sin tope."""
+    if _es_owner():
+        return None
+    c = claims()
+    if c is None:
+        return None
+    valor = c.get("cupo_mensual")
+    if valor is None:
+        return None
+    try:
+        return max(0, int(valor))
+    except (TypeError, ValueError):
+        return None
+
+
+def admite_excedente() -> bool:
+    return permite("excedente")
+
+
+# ---------------------------------------------------------------------------
+# Contador mensual
+# ---------------------------------------------------------------------------
+def _ruta_uso() -> str:
+    from kobra import rutas as krutas
+    return os.path.join(krutas.DIR_DATOS, ARCHIVO_USO)
+
+
+def mes_actual() -> str:
+    return time.strftime("%Y-%m", time.localtime())
+
+
+def _leer_uso() -> dict:
+    try:
+        with open(_ruta_uso(), encoding="utf-8") as f:
+            datos = json.load(f)
+        return datos if isinstance(datos, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _escribir_uso(datos: dict) -> None:
+    """Escritura atómica: un corte de luz a mitad no puede dejar el contador
+    en un JSON roto (que se leería como cero y regalaría el cupo del mes)."""
+    ruta = _ruta_uso()
+    os.makedirs(os.path.dirname(ruta) or ".", exist_ok=True)
+    tmp = ruta + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(datos, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, ruta)
+
+
+def consumo(mes: str | None = None) -> int:
+    """Gestiones consumidas por ESTE cliente en el mes indicado.
+
+    El contador se guarda por cliente además de por mes: si una empresa
+    activa una licencia nueva (renovó, o cambió de plan a mitad de mes) el
+    cupo del plan nuevo arranca limpio en vez de heredar lo gastado con otro.
+    """
+    c = claims()
+    uso = _leer_uso().get(_cliente_id(c), {})
+    try:
+        return max(0, int(uso.get(mes or mes_actual(), 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def estado() -> dict:
+    """Foto del plan para la app y para la UI."""
+    if _es_owner():
+        return {"plan": "owner", "ilimitado": True, "cupo": None, "usado": 0,
+                "restante": None, "excedente": 0, "avisar": False,
+                "bloqueado": False, "features": None, "mes": mes_actual()}
+    c = claims()
+    tope = cupo()
+    usado = consumo()
+    feats = features()
+    if tope is None:
+        return {"plan": (c or {}).get("plan"), "ilimitado": True, "cupo": None,
+                "usado": usado, "restante": None, "excedente": 0,
+                "avisar": False, "bloqueado": False, "features": feats,
+                "mes": mes_actual()}
+    restante = max(0, tope - usado)
+    excedente = max(0, usado - tope)
+    return {
+        "plan": (c or {}).get("plan"),
+        "ilimitado": False,
+        "cupo": tope,
+        "usado": usado,
+        "restante": restante,
+        "excedente": excedente,
+        "avisar": tope > 0 and usado >= tope * UMBRAL_AVISO,
+        # `bloqueado` es "la próxima gestión se rechaza", no "la app se cerró":
+        # el cliente sigue entrando a su cartera, sus informes y sus exports.
+        "bloqueado": usado >= tope and not admite_excedente(),
+        "features": feats,
+        "mes": mes_actual(),
+    }
+
+
+def _rechazo_por_cupo(tope: int, c: dict | None) -> CupoAgotado:
+    return CupoAgotado(
+        f"Llegaste a las {tope} gestiones de tu plan "
+        f"{(c or {}).get('plan') or ''}".strip() +
+        " este mes. Mejorá tu plan en mvkobranzaia.com para seguir "
+        "gestionando — tu cartera, tus informes y tus exportaciones "
+        "siguen disponibles.",
+        estado(),
+    )
+
+
+def verificar_cupo() -> None:
+    """¿Entra una gestión más? Corta si no, SIN consumir nada.
+
+    Existe separada de `registrar_gestion` porque las acciones caras (analizar
+    un audio, correr una negociación entera) se cobran cuando salieron bien:
+    conviene rechazar antes de trabajar, y recién sumar cuando hay resultado.
+    Un análisis que terminó en error no le puede comer el cupo al cliente.
+    """
+    if _es_owner():
+        return
+    tope = cupo()
+    if tope is None:
+        return
+    if consumo() >= tope and not admite_excedente():
+        raise _rechazo_por_cupo(tope, claims())
+
+
+def registrar_gestion(n: int = 1) -> dict:
+    """Suma `n` gestiones al mes en curso y devuelve el estado resultante.
+
+    Lanza `CupoAgotado` ANTES de sumar si el plan ya no da para más: cobrarle
+    el consumo a alguien a quien se le está negando la acción sería el peor de
+    los dos mundos.
+    """
+    if _es_owner():
+        return estado()
+    tope = cupo()
+    if tope is None:
+        return estado()
+    with _LOCK:
+        c = claims()
+        cid = _cliente_id(c)
+        mes = mes_actual()
+        datos = _leer_uso()
+        por_cliente = datos.setdefault(cid, {})
+        try:
+            usado = max(0, int(por_cliente.get(mes, 0)))
+        except (TypeError, ValueError):
+            usado = 0
+        if usado >= tope and not admite_excedente():
+            raise _rechazo_por_cupo(tope, c)
+        por_cliente[mes] = usado + max(1, int(n))
+        # Se conservan solo los últimos 12 meses del cliente: el archivo no
+        # tiene por qué crecer para siempre, y el historial largo no lo usa
+        # nadie acá (facturación real la lleva el gateway).
+        if len(por_cliente) > 12:
+            for viejo in sorted(por_cliente)[:-12]:
+                por_cliente.pop(viejo, None)
+        try:
+            _escribir_uso(datos)
+        except OSError:
+            # Carpeta de solo lectura: no se puede contar, pero tampoco se
+            # puede dejar sin trabajar a quien pagó. Se deja pasar.
+            pass
+    return estado()

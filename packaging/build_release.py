@@ -20,7 +20,7 @@ import os
 import shutil
 import zipfile
 
-VERSION = "1.3.5"
+VERSION = "1.3.6"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIST = os.path.join(ROOT, "dist")
 
@@ -851,6 +851,20 @@ def build_edicion(tmp, key):
     #   kobra_streamlit.py → dashboard Streamlit (la vía sin .exe)
     _copy("packaging/kobra_launcher.py", os.path.join(soft, "kobra_launcher.py"))
     _copy("packaging/kobra_streamlit.py", os.path.join(soft, "kobra_streamlit.py"))
+
+    # UI compilada: si en esta máquina hay un build FRESCO de Vite
+    # (`webapp/frontend/dist` — en CI lo genera el paso "Compilar la app
+    # React"), gana sobre la copia versionada de `owner/ui_dist`. El .exe ya
+    # compilaba el frontend en cada corrida, pero estos ZIP se servían del
+    # build commiteado: cualquier cambio de interfaz que no se acordaran de
+    # recopiar a mano viajaba viejo, y el cliente que baja el ZIP veía una app
+    # distinta de la del instalador. El respaldo commiteado sigue existiendo
+    # para poder armar el paquete en una máquina sin Node.
+    fresco = os.path.join(ROOT, "webapp", "frontend", "dist")
+    if os.path.isdir(fresco) and os.path.exists(os.path.join(fresco, "index.html")):
+        destino_ui = os.path.join(soft, "owner", "ui_dist")
+        shutil.rmtree(destino_ui, ignore_errors=True)
+        shutil.copytree(fresco, destino_ui)
 
     # edicion.json (lo consume packaging/kobra_launcher.py::_activar_edicion)
     ed = {"edition": key, "plan": plan, "dias": dias, "owner": owner}

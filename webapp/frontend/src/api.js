@@ -35,6 +35,17 @@ export async function api(ruta, { metodo = "GET", cuerpo } = {}) {
   return datos;
 }
 
+// Los endpoints que consumen cupo (Agente IA, análisis de voz, evaluación de
+// audios) devuelven el estado del plan ya actualizado. Esto lo levanta a la
+// barra lateral sin que la pantalla tenga que conocer al chip ni volver a
+// preguntarle al backend por algo que acaba de contestar.
+export function avisarPlan(respuesta) {
+  if (respuesta && respuesta.plan) {
+    window.dispatchEvent(new CustomEvent("kobra:plan", { detail: respuesta.plan }));
+  }
+  return respuesta;
+}
+
 // País del tenant (LATAM) — cambia el símbolo/locale de formateo de moneda
 // en toda la webapp, y (Fase 2, Brasil) también el idioma de la interfaz
 // vía el diccionario en ./i18n.

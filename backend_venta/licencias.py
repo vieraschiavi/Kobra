@@ -35,7 +35,15 @@ PLANES = {
                    "features": ["voz", "whatsapp", "copiloto", "erp"]},
     "basico":     {"cupo_mensual": 300,  "precio": 99.0,  "dias": 30,
                    "features": ["voz", "whatsapp", "copiloto", "erp"]},
-    "starter":    {"cupo_mensual": 200,  "precio": 690.0, "dias": 365,
+    # Starter no lleva tope de gestiones A PROPÓSITO. Es el plan "traé tus
+    # propias APIs" (US$690 de licencia + soporte): el consumo lo paga el
+    # cliente en su propia cuenta de OpenAI/Twilio, así que un cupo nuestro no
+    # cubre ningún costo — solo le sacaría producto sin razón. Tenía 200, un
+    # número que nunca se aplicó porque hasta ahora la app instalada ignoraba
+    # el cupo; el día que se empezó a aplicar (kobra/plan.py) ese 200 dejaba a
+    # un cliente de US$690 con MENOS gestiones que uno de US$99. La landing
+    # nunca vendió un tope para este plan.
+    "starter":    {"cupo_mensual": None, "precio": 690.0, "dias": 365,
                    "features": ["voz", "whatsapp", "copiloto", "erp"]},
     "pro":        {"cupo_mensual": 1000, "precio": 349.0, "dias": 30,
                    "features": ["voz", "whatsapp", "copiloto", "erp", "excedente"]},

@@ -83,7 +83,7 @@ function PaisSelector({ esAdmin }) {
   );
 }
 
-function Sidebar({ sesion }) {
+function Sidebar({ sesion, plan }) {
   const nav = useNavigate();
   const loc = useLocation();
   return (
@@ -99,6 +99,7 @@ function Sidebar({ sesion }) {
         </button>
       ))}
       <div className="spacer" />
+      <PlanChip plan={plan} />
       <PaisSelector esAdmin={sesion.rol === "admin"} />
       <div className="session-chip">
         {sesion.rol === "admin" ? <IcoEscudo size={12} /> : <IcoUsuario size={12} />}{" "}
@@ -108,6 +109,43 @@ function Sidebar({ sesion }) {
         <span className="ico"><IcoSalir /></span><span className="txt">{t("app.sidebar.cerrar_sesion")}</span>
       </button>
     </aside>
+  );
+}
+
+// Consumo del plan, siempre a la vista en la barra lateral. El límite no
+// puede aparecer recién cuando ya se chocó contra él: para cuando el cliente
+// llegue a las 300 gestiones de Básico tiene que haberlo visto venir.
+function PlanChip({ plan }) {
+  if (!plan || plan.ilimitado) return null;
+  const pct = plan.cupo > 0 ? Math.min(1, plan.usado / plan.cupo) : 0;
+  const estado = plan.bloqueado ? "alto" : plan.avisar ? "medio" : "";
+  return (
+    <div className={"plan-chip " + estado}
+         title={t("plan.chip", { usado: plan.usado, cupo: plan.cupo })}>
+      <div className="plan-chip-txt">
+        {t("plan.chip", { usado: plan.usado, cupo: plan.cupo })}
+      </div>
+      <div className="plan-barra"><i style={{ width: `${Math.round(pct * 100)}%` }} /></div>
+    </div>
+  );
+}
+
+function PlanBanner({ plan }) {
+  if (!plan || plan.ilimitado) return null;
+  let texto = null;
+  if (plan.bloqueado) texto = t("plan.agotado", { cupo: plan.cupo });
+  else if (plan.excedente > 0) texto = t("plan.excedente", { excedente: plan.excedente, cupo: plan.cupo });
+  else if (plan.avisar) texto = t("plan.aviso", { usado: plan.usado, cupo: plan.cupo });
+  if (!texto) return null;
+  const rojo = plan.bloqueado;
+  return (
+    <div className="trial-banner" style={rojo ? { background: "rgba(200,54,54,.12)",
+                                                  borderColor: "rgba(200,54,54,.35)" } : undefined}>
+      {texto}{" "}
+      <a href="https://mvkobranzaia.com/#precios" target="_blank" rel="noreferrer">
+        {t("plan.link_mejorar")}
+      </a>
+    </div>
   );
 }
 
@@ -162,8 +200,23 @@ export default function App() {
     }).catch(() => setLicEstado({ standalone: false }));
   }, []);
 
+  // Consumo del plan. Se refresca solo cuando una pantalla acaba de gastar una
+  // gestión: los endpoints medidos devuelven el estado nuevo en su respuesta y
+  // la pantalla lo emite acá, así el chip no queda mostrando un número viejo
+  // ni hay que poner un polling contra el propio backend local.
+  const [plan, setPlan] = useState(null);
+  useEffect(() => {
+    const oir = (e) => { if (e.detail) setPlan(e.detail); };
+    window.addEventListener("kobra:plan", oir);
+    return () => window.removeEventListener("kobra:plan", oir);
+  }, []);
+
   const sesion = getSesion();
   const loc = useLocation();
+  useEffect(() => {
+    if (!sesion) return;
+    api("/api/plan").then(setPlan).catch(() => {});
+  }, [sesion?.token]);
 
   // Portal público de pagos: lo abre el DEUDOR desde el link/QR que le mandó
   // la empresa. Sin login de la plataforma, sin sidebar, y antes de cualquier
@@ -185,10 +238,11 @@ export default function App() {
   if (loc.pathname === "/login") return <Login />;
   return (
     <div className="layout">
-      <Sidebar sesion={sesion} />
+      <Sidebar sesion={sesion} plan={plan} />
       <main className="main">
         <Tour />
         <TrialBanner licEstado={licEstado} />
+        <PlanBanner plan={plan} />
         <DatosOrigenBanner />
         <Routes>
           <Route path="/" element={<Dashboard />} />
