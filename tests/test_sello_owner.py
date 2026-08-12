@@ -220,3 +220,90 @@ def test_la_herramienta_busca_primero_su_propia_carpeta(owner_bat):
     assert pos_dp0 < pos_default
     assert "base_library.zip" in owner_bat, \
         "no reconoce el caso de estar copiada dentro de _internal"
+
+
+# --- Después del sello, el programa entra sin ninguna traba ----------------
+def test_despues_del_sello_la_app_entra_sin_clave_y_sin_cupo(tmp_path, monkeypatch,
+                                                             owner_bat):
+    """El recorrido completo del pedido: se instaló la versión CLIENTE, se
+    ejecuta `Owner.bat` y a partir de ahí el programa tiene que entrar solo,
+    sin licencia, sin vencimiento y sin tope de gestiones.
+
+    Se reproduce el layout real de la instalación
+    (`<install>\\resources\\backend\\_internal`), se escribe el sello con el
+    MISMO texto que emite el .bat y se comprueba contra la API de verdad.
+    """
+    import importlib
+
+    interno = tmp_path / "resources" / "backend" / "_internal"
+    interno.mkdir(parents=True)
+    sello = re.search(r'>"!INTERNO!\\edicion\.json" echo (.+)', owner_bat).group(1)
+    (interno / "edicion.json").write_bytes((sello + "\r\n").encode("ascii"))
+
+    monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config"))
+    monkeypatch.setenv("KOBRA_MODO_STANDALONE", "1")
+    monkeypatch.delenv("KOBRA_OWNER", raising=False)
+    from kobra import config as kconfig
+    importlib.reload(kconfig)
+
+    # Esto es lo que hace el launcher al arrancar la copia instalada.
+    assert kedicion.activar(str(interno))["owner"] is True
+
+    from kobra import plan as kplan
+    importlib.reload(kplan)
+    from fastapi.testclient import TestClient
+
+    from webapp.backend import api
+    importlib.reload(api)
+    cliente = TestClient(api.app)
+
+    # 1) Entra sin pedir nada.
+    estado = cliente.get("/api/licencia/estado").json()
+    assert estado["owner"] is True and estado["activa"] is True
+    assert estado["dias_restantes"] is None, "una copia owner no puede vencer"
+
+    r = cliente.post("/api/licencia/owner-login", json={})
+    assert r.status_code == 200 and r.json()["rol"] == "admin"
+    cab = {"Authorization": f"Bearer {r.json()['token']}"}
+
+    # 2) Sin tope de gestiones — el cupo por plan no puede alcanzar al dueño.
+    assert cliente.get("/api/plan", headers=cab).json()["ilimitado"] is True
+    for _ in range(3):
+        assert cliente.post("/api/gestor-ia/demo", json={"canal": "WhatsApp"},
+                            headers=cab).status_code == 200
+
+    # 3) Y las features que ningún plan pago trae, también.
+    assert kplan.permite("white_label") and kplan.permite("sso")
+
+
+# --- Que se pueda bajar de GitHub sin bajar el ZIP entero -------------------
+def _workflow() -> str:
+    return _texto(os.path.join(ROOT, ".github", "workflows", "release_owner.yml"))
+
+
+def test_la_herramienta_se_publica_suelta_en_la_release():
+    """El caso real de uso: el programa YA está instalado y solo hace falta
+    sacarle las trabas. Bajar un ZIP de 270 MB para extraer un archivo de 2 KB
+    no es una opción razonable, así que `Owner.bat` va suelto entre los
+    assets."""
+    ci = _workflow()
+    assert "packaging/Owner.bat" in ci, (
+        "Owner.bat no se publica suelto en la release")
+    # Y regenerado en la corrida: si se publicara el archivo commiteado sin
+    # regenerarlo, un cambio en el generador viajaría a medias.
+    assert "python packaging/generar_owner_bat.py" in ci
+
+
+def test_la_herramienta_tambien_viaja_dentro_del_zip():
+    ci = _workflow()
+    assert "Copy-Item packaging/Owner.bat stage/INSTALADOR/" in ci
+    assert '"INSTALADOR/Owner.bat"' in ci, (
+        "el ZIP no verifica que Owner.bat esté adentro antes de publicar")
+
+
+def test_el_leeme_explica_que_va_despues_del_instalador():
+    """El orden importa: primero se instala, después se convierte. Al revés no
+    hay nada que sellar."""
+    ci = _workflow()
+    assert "Owner.bat  ->  PASAR UNA COPIA YA INSTALADA A OWNER" in ci
+    assert "DESPUES del instalador" in ci

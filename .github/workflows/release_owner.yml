@@ -149,6 +149,14 @@ jobs:
                 cliente recibe al comprar y queda la versión oficial.
               - `MVKobraAI_Setup_OWNER.exe` — **versión OWNER (solo tuya)**:
                 entra directo, sin clave ni vencimiento. No redistribuir.
+            - **`Owner.bat`** ← 2 KB, suelto. **Se ejecuta DESPUÉS del
+              instalador**, sobre la copia CLIENTE ya instalada: le saca el
+              trial, el vencimiento y la clave, sin reinstalar nada y sin
+              tocar tus datos. Doble clic y listo; si no encuentra la
+              instalación, copialo a la carpeta del programa (la que tiene
+              `MV Kobra AI.exe`) y hacé doble clic ahí. Es la vía rápida
+              cuando el programa ya está instalado y no querés bajar 270 MB
+              de nuevo.
             - `MVKobraAI_Owner_v*.zip` — edición para correr desde el CÓDIGO
               FUENTE con Python. **No contiene ningún `.exe`.** Solo si querés
               tocar el código.
@@ -379,6 +387,12 @@ jobs:
           # donde este guardado. Va JUNTO a los .exe para que se use sin pensar.
           python packaging/generar_instalar_bat.py
           Copy-Item packaging/Instalar_en_otro_disco.bat stage/INSTALADOR/
+          # Owner.bat: se ejecuta DESPUES de instalar y convierte esa copia en
+          # la del dueño (escribe el sello en _internal). Va acá y además suelto
+          # en la release, para poder bajar un solo archivo de 2 KB en vez de un
+          # ZIP de 270 MB cuando el programa ya está instalado.
+          python packaging/generar_owner_bat.py
+          Copy-Item packaging/Owner.bat stage/INSTALADOR/
           $leeme = @(
             "MV Kobra AI v$ver - Carpeta INSTALADOR",
             "=======================================",
@@ -403,6 +417,16 @@ jobs:
             "   Entra directo, SIN clave, sin trial y sin vencimiento.",
             "   NO REDISTRIBUIR: no valida licencia. Por eso esta release",
             "   vive solo en el repo privado.",
+            "",
+            "3) Owner.bat  ->  PASAR UNA COPIA YA INSTALADA A OWNER",
+            "   Se usa DESPUES del instalador, sobre la version CLIENTE que",
+            "   ya quedo instalada: le saca el trial, el vencimiento y la",
+            "   clave. No reinstala nada ni toca tus datos.",
+            "   Como: hace doble clic. Si no encuentra la instalacion,",
+            "   copialo a la carpeta del programa (la que tiene",
+            "   'MV Kobra AI.exe') y hace doble clic ahi.",
+            "   Esta tambien suelto en la release: cuando el programa ya esta",
+            "   instalado alcanza con bajar ese archivo, sin el ZIP entero.",
             ""
           ) -join "`r`n"
           Set-Content -Path stage/LEEME.txt -Value $leeme -Encoding utf8
@@ -425,6 +449,7 @@ jobs:
           foreach ($req in @("INSTALADOR/MVKobraAI_Setup.exe",
                              "INSTALADOR/MVKobraAI_Setup_OWNER.exe",
                              "INSTALADOR/Instalar_en_otro_disco.bat",
+                             "INSTALADOR/Owner.bat",
                              "LEEME.txt")) {
             if ($nombres -notcontains $req) {
               Write-Error "Al ZIP le falta $req. Contiene: $($nombres -join ', ')"; exit 1
@@ -441,6 +466,7 @@ jobs:
             dist/MVKobraAI_Instaladores_v${{ steps.ver.outputs.KVER }}.zip
             dist/MVKobraAI_Setup_OWNER.exe
             dist/MVKobraAI_Setup.exe
+            packaging/Owner.bat
           # Nunca `latest`: ese enlace tiene que seguir sirviendo el instalador
           # de clientes.
           make_latest: false
