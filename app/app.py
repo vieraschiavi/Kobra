@@ -114,6 +114,7 @@ st.markdown(f"""
 from kobra import autenticacion as kauth  # noqa: E402
 from kobra import backup as kbackup  # noqa: E402
 from kobra import edicion as kedicion  # noqa: E402
+from kobra import plan as kplan  # noqa: E402
 from kobra import sso_oidc as ksso  # noqa: E402
 
 # Vigencia de la edición ANTES del login: si la evaluación venció, no tiene
@@ -218,6 +219,21 @@ prob_min = st.sidebar.slider("ProbPago mínima", 0.0, 1.0, 0.0, 0.05)
 st.sidebar.markdown("---")
 st.sidebar.caption("Dataset sintético (Uruguay) · sin nombres de clientes · demo comercial")
 st.sidebar.markdown("---")
+# Consumo del plan, igual que el chip de la app React: el tope no puede
+# aparecer recién cuando el cliente ya se chocó contra él.
+_PLAN = kplan.estado()
+if not _PLAN["ilimitado"]:
+    st.sidebar.caption(f"Plan {_PLAN['plan'] or ''} · "
+                       f"{_PLAN['usado']} de {_PLAN['cupo']} gestiones este mes")
+    st.sidebar.progress(min(1.0, _PLAN["usado"] / _PLAN["cupo"]) if _PLAN["cupo"] else 0.0)
+    if _PLAN["bloqueado"]:
+        st.sidebar.warning("Cupo del mes agotado. Tu cartera y tus informes siguen "
+                           "disponibles; para volver a gestionar, mejorá tu plan en "
+                           "mvkobranzaia.com")
+    elif _PLAN["excedente"]:
+        st.sidebar.info(f"{_PLAN['excedente']} gestiones por encima del plan — "
+                        "se facturan como excedente.")
+    st.sidebar.markdown("---")
 _rol_txt = "🛡️ Administrador" if ROL_ACTIVO == "admin" else "👤 Gestor"
 st.sidebar.caption(f"Sesión: {_rol_txt}")
 if st.sidebar.button("Cerrar sesión", use_container_width=True):
@@ -707,10 +723,20 @@ with tab5:
             _c = copiloto.parsear_conversacion(texto_conv, nombre_gestor="Gestor")
             tt = [{"emisor": t.emisor, "texto": t.texto} for t in _c.turnos]
         try:
+            # El plan se aplica IGUAL por las dos vías de arranque. Si el cupo
+            # solo se controlara en la app React, abrir el mismo paquete por
+            # el dashboard daría gestiones infinitas — exactamente el agujero
+            # que ya había con el vencimiento de la demo (ver kobra/edicion.py).
+            kplan.exigir("voz", "el copiloto de voz")
+            kplan.verificar_cupo()
             res_audio = kvoz.copiloto_desde_audio(
                 audio_path, transcript_turnos=tt, probpago=probpago_ref,
                 estrategia=estrategia_ref, idioma=copiloto.idioma_configurado())
             va = res_audio["voz"]
+            kplan.registrar_gestion()
+        except kplan.LimitePlan as e:
+            va = res_audio = None
+            st.warning(e.mensaje)
         except Exception as e:
             va = res_audio = None
             st.error(f"No se pudo analizar el audio: {e}")

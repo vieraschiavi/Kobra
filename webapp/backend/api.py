@@ -55,6 +55,7 @@ from kobra import limitador as klimite  # noqa: E402
 from kobra import llm as kllm  # noqa: E402
 from kobra import owner as kowner  # noqa: E402
 from kobra import paises as kpaises  # noqa: E402
+from kobra import plan as kplan  # noqa: E402
 from kobra import rutas as krutas  # noqa: E402
 from kobra import seguimiento as kseg  # noqa: E402
 
@@ -478,6 +479,29 @@ app.add_middleware(klimite.LimitadorGeneral)
 
 
 # ---------------------------------------------------------------------------
+# Lo que incluye el plan contratado
+# ---------------------------------------------------------------------------
+# `kobra/plan.py` decide; acá solo se traduce a HTTP. Dos códigos distintos a
+# propósito, porque son dos problemas distintos para el que llama:
+#   403 → tu plan nunca incluyó esto (comprar otro plan).
+#   402 → tu plan lo incluye pero se te acabó el cupo del mes (esperar al mes
+#         que viene o mejorar el plan). 402 Payment Required es exactamente
+#         este caso, y deja distinguirlo de un permiso denegado.
+@app.exception_handler(kplan.FeatureNoIncluida)
+def _feature_no_incluida(request: Request, exc: kplan.FeatureNoIncluida):
+    return JSONResponse(status_code=403,
+                        content={"detail": exc.mensaje, "plan": exc.estado,
+                                 "motivo": "feature_no_incluida"})
+
+
+@app.exception_handler(kplan.CupoAgotado)
+def _cupo_agotado(request: Request, exc: kplan.CupoAgotado):
+    return JSONResponse(status_code=402,
+                        content={"detail": exc.mensaje, "plan": exc.estado,
+                                 "motivo": "cupo_agotado"})
+
+
+# ---------------------------------------------------------------------------
 # Cabeceras de seguridad
 # ---------------------------------------------------------------------------
 # La API devuelve JSON, CSV, XLSX y PDF con datos de deudores. Sin estas
@@ -659,6 +683,16 @@ def licencia_estado():
         return {"standalone": True, "activa": True, "owner": True,
                 "plan": "owner", "trial": False, "dias_restantes": None}
     return {"standalone": True, **_estado_licencia(kconfig.leer_extra(_CLAVE_LICENCIA))}
+
+
+@app.get("/api/plan")
+def plan_estado(u: Usuario = Depends(usuario_actual)):
+    """Qué incluye el plan y cuánto queda del cupo del mes.
+
+    Lo consulta la app para mostrar el chip de consumo y el aviso del 80 %.
+    Va con sesión: el consumo del mes es información del cliente, no algo
+    que tenga que poder leer cualquiera que llegue al puerto."""
+    return kplan.estado()
 
 
 @app.post("/api/licencia/owner-login")
@@ -1155,6 +1189,7 @@ async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "L
     evalúa contra la rúbrica de 14 criterios. Si no hay Whisper configurado,
     responde al toque (no procesa el audio en vano). El rol Gestor/Cliente se
     corrige por contenido, no por tono (que suele invertirlo)."""
+    kplan.exigir("voz", "la evaluación automática de audios")
     nombre = (archivo.filename or "").lower()
     if not nombre.endswith((".wav", ".mp3")):
         raise HTTPException(400, "Subí un archivo .wav o .mp3.")
@@ -1165,6 +1200,9 @@ async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "L
         return {"archivo": archivo.filename, "modo_transcripcion": "sin_whisper",
                 "turnos": [], "evaluacion": None, "aviso": _AVISO_SIN_WHISPER}
 
+    # Va acá y no arriba: sin Whisper no se procesa nada, y cobrarle una
+    # gestión a quien recibe un aviso de "falta configurar" sería un robo.
+    kplan.verificar_cupo()
     contenido = await archivo.read()
     if not contenido:
         raise HTTPException(400, "El archivo llegó vacío.")
@@ -1214,7 +1252,7 @@ async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "L
                                     archivo.filename, evaluacion)
     return {"archivo": archivo.filename, "modo_transcripcion": modo,
             "turnos": turnos, "transcripcion": transcripcion, "evaluacion": evaluacion,
-            "guardado": guardado}
+            "guardado": guardado, "plan": kplan.registrar_gestion()}
 
 
 @app.get("/api/calidad/fuentes")
@@ -1546,6 +1584,7 @@ def integracion_cartera(datos: CarteraEntranteIn, u: Usuario = Depends(solo_admi
     cartera como JSON (mismas columnas que el CSV: nombre, telefono,
     deuda/monto_deuda, dias_mora, …). Se normaliza con el mismo camino que
     la carga manual y queda en el directorio del tenant."""
+    kplan.exigir("erp", "la integración con tu ERP/core")
     if not datos.contactos:
         raise HTTPException(400, "La lista de contactos llegó vacía.")
     contactos = kcartera.desde_dataframe(pd.DataFrame(datos.contactos))
@@ -1675,6 +1714,7 @@ def cartera_importar_sql(datos: ImportarSQLIn, u: Usuario = Depends(solo_admin))
     consulta. Solo lectura: se rechaza cualquier consulta que no sea
     SELECT/WITH. Igual que el CSV, se scorea con ProbPago, se aplica la
     estrategia y se activa el modo 'real'. La URL de conexión no se loguea."""
+    kplan.exigir("erp", "la importación directa desde tu base de datos")
     try:
         contactos = kcartera.desde_base_de_datos(datos.conn_url, datos.consulta)  # limite=None
     except ValueError as e:
@@ -1709,6 +1749,8 @@ async def voz_analizar(archivo: UploadFile = File(...), id_deudor: str | None = 
     copiloto completo (calidad, técnicas, sugerencias en vivo). Si se pasa
     `id_deudor` de la cartera priorizada, usa su probpago/estrategia reales
     para contextualizar las sugerencias, igual que en Streamlit."""
+    kplan.exigir("voz", "el copiloto de voz")
+    kplan.verificar_cupo()
     nombre = (archivo.filename or "").lower()
     if not nombre.endswith((".wav", ".mp3")):
         raise HTTPException(400, "Subí un archivo .wav o .mp3.")
@@ -1748,9 +1790,13 @@ async def voz_analizar(archivo: UploadFile = File(...), id_deudor: str | None = 
         except OSError:
             pass
 
+    # El análisis salió bien: recién ahora consume cupo (ver plan.verificar_cupo).
+    plan_estado_actual = kplan.registrar_gestion()
+
     return {"archivo": archivo.filename, "voz": res["voz"],
             "modo_transcripcion": res["modo_transcripcion"], "turnos": res["turnos"],
-            "copiloto": res["copiloto"], "calidad": res["calidad"], "tecnicas": res["tecnicas"]}
+            "copiloto": res["copiloto"], "calidad": res["calidad"],
+            "tecnicas": res["tecnicas"], "plan": plan_estado_actual}
 
 
 # Deudor sintético por default de la demo del Gestor IA — el caso "Martín Viera"
@@ -1789,6 +1835,10 @@ def gestor_ia_demo(datos: GestorDemoIn, u: Usuario = Depends(usuario_actual)):
     transporta la voz/mensaje; la lógica de negociación es esta)."""
     from kobra.gestor_ia import SesionGestorIA, interpretar
     canal = "WhatsApp" if str(datos.canal).lower().startswith("w") else "Llamada"
+    kplan.exigir("whatsapp" if canal == "WhatsApp" else "voz",
+                 "el canal WhatsApp" if canal == "WhatsApp" else "el canal de voz")
+    kplan.exigir("copiloto", "el Agente IA Negociador")
+    kplan.verificar_cupo()
     bruto = pd.DataFrame([datos.deudor or _DEUDOR_DEMO_GESTOR])
     try:
         full = kcartera.importar_y_scorear(bruto.astype(str))
@@ -1831,6 +1881,7 @@ def gestor_ia_demo(datos: GestorDemoIn, u: Usuario = Depends(usuario_actual)):
             "tecnicas": e.get("tecnicas"),
             "turnos": e.get("turnos"),
         },
+        "plan": kplan.registrar_gestion(),
     }
 
 
@@ -2022,6 +2073,11 @@ def erp_imputaciones(request: Request, desde: str = "",
     recibida = request.headers.get("X-API-Key", "")
     if not hmac.compare_digest(esperada, recibida):
         raise HTTPException(401, "API key inválida (cabecera X-API-Key).")
+    # El chequeo del plan va DESPUÉS de la API key: si fuera antes, este
+    # endpoint le contestaría distinto a quien no tiene la clave según el plan
+    # del cliente, y eso es información que un desconocido no tiene por qué
+    # poder sonsacar.
+    kplan.exigir("erp", "el pull de imputaciones para tu ERP")
     imps = kportal.listar_imputaciones(_dir_portal(empresa), desde=desde)
     return {"imputaciones": imps, "total": len(imps)}
 

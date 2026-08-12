@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { api, getSesion } from "../api.js";
+import { api, avisarPlan, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
 
 const EMO_COLOR = {
@@ -16,7 +16,7 @@ function GestorIADemo() {
   const simular = async (c) => {
     setCanal(c); setCargando(true); setError(""); setRes(null);
     try {
-      setRes(await api("/api/gestor-ia/demo", { metodo: "POST", cuerpo: { canal: c } }));
+      setRes(avisarPlan(await api("/api/gestor-ia/demo", { metodo: "POST", cuerpo: { canal: c } })));
     } catch (e) { setError(e.message); }
     finally { setCargando(false); }
   };
@@ -136,7 +136,7 @@ function AnalizarVoz() {
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
-      setResultado(d);
+      setResultado(avisarPlan(d));
     } catch (e) {
       setError(e.message);
     } finally {

@@ -108,3 +108,49 @@ def test_launcher_siembra_licencia_demo_idempotente(tmp_path, monkeypatch):
     kl._activar_edicion(str(tmp_path))
     assert kconfig.leer_extra("LICENCIA_TOKEN") == "ACTIVADO_POR_USUARIO"
     monkeypatch.delenv("KOBRA_LICENSE_SECRET", raising=False)
+
+
+def test_cada_edicion_de_plan_lleva_su_cupo_firmado(tmpdist):
+    """El paquete que se descarga después de pagar tiene que traer, dentro del
+    token firmado, el cupo del plan que se compró — no el de otro y no ninguno.
+    Antes daba lo mismo (la app instalada ignoraba `cupo_mensual`); desde que
+    `kobra/plan.py` lo aplica, este número ES el producto que se entrega."""
+    from backend_venta import licencias as klic
+    for edicion, plan in (("Basico", "basico"), ("Pro", "pro"),
+                          ("Starter", "starter"), ("Enterprise", "enterprise")):
+        z = br.build_edicion(tmpdist, edicion)
+        _n, ed, _l = _leer_zip(z)
+        claims = klic.validar_licencia(ed["token"], secreto=ed["secreto"])
+        assert claims["plan"] == plan, edicion
+        assert claims["cupo_mensual"] == klic.PLANES[plan]["cupo_mensual"], edicion
+        # Y el mismo valor tiene que quedar visible en edicion.json, que es lo
+        # que mira quien audita el paquete sin decodificar el JWT.
+        assert ed["cupo_mensual"] == klic.PLANES[plan]["cupo_mensual"], edicion
+
+
+def test_el_paquete_basico_no_es_el_mismo_que_el_pro(tmpdist):
+    """La comprobación de punta a punta de lo que se vende: dos compras
+    distintas producen dos paquetes con distinto producto adentro."""
+    from backend_venta import licencias as klic
+    _n, ed_b, _l = _leer_zip(br.build_edicion(tmpdist, "Basico"))
+    _n, ed_p, _l = _leer_zip(br.build_edicion(tmpdist, "Pro"))
+    cb = klic.validar_licencia(ed_b["token"], secreto=ed_b["secreto"])
+    cp = klic.validar_licencia(ed_p["token"], secreto=ed_p["secreto"])
+    assert cb["cupo_mensual"] < cp["cupo_mensual"]
+    assert "excedente" not in cb["features"] and "excedente" in cp["features"]
+
+
+def test_el_zip_lleva_la_interfaz_recien_compilada(tmpdist):
+    """El instalador .exe compila el frontend en cada corrida; estos ZIP se
+    servían del build commiteado en `owner/ui_dist`. Si alguien tocaba la
+    interfaz y no se acordaba de recopiarlo a mano, el cliente que baja el ZIP
+    veía una app distinta de la del instalador — el mismo producto con dos
+    caras. Cuando hay build fresco de Vite, ese es el que viaja."""
+    fresco = os.path.join(ROOT, "webapp", "frontend", "dist", "index.html")
+    if not os.path.exists(fresco):
+        pytest.skip("no hay build de Vite en esta máquina (falta `npm run build`)")
+    z = br.build_edicion(tmpdist, "Demo")
+    with zipfile.ZipFile(z) as zf:
+        empaquetado = zf.read("kobra_software/owner/ui_dist/index.html").decode("utf-8")
+    with open(fresco, encoding="utf-8") as f:
+        assert empaquetado == f.read(), "el ZIP viaja con una interfaz vieja"

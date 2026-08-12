@@ -3,7 +3,7 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { api, getSesion } from "../api.js";
+import { api, avisarPlan, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
 
 const COL_IA = "#00c896";
@@ -285,8 +285,8 @@ function Evaluador() {
       <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("calidad.evaluar_sub")}</p>
       <div className="toolbar" style={{ gap: 8 }}>
         <select value={canal} onChange={(e) => setCanal(e.target.value)}>
-          <option value="Llamada">📞 {t("calidad.canal_llamada")}</option>
-          <option value="WhatsApp">💬 WhatsApp</option>
+          <option value="Llamada">{t("calidad.canal_llamada")}</option>
+          <option value="WhatsApp">WhatsApp</option>
         </select>
       </div>
       <textarea rows={7} value={texto} onChange={(e) => setTexto(e.target.value)}
@@ -370,7 +370,7 @@ function EvaluadorAudio({ onGuardado }) {
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
-      setRes(d);
+      setRes(avisarPlan(d));
       if (d.guardado && onGuardado) onGuardado();
     } catch (e) { setError(e.message.replace(/^\d+:\s*/, "")); }
     finally { setCargando(false); }
@@ -384,8 +384,8 @@ function EvaluadorAudio({ onGuardado }) {
         <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("calidad.audio_sub")}</p>
         <div className="toolbar" style={{ gap: 8, flexWrap: "wrap" }}>
           <select value={canal} onChange={(e) => setCanal(e.target.value)}>
-            <option value="Llamada">📞 {t("calidad.canal_llamada")}</option>
-            <option value="WhatsApp">💬 WhatsApp</option>
+            <option value="Llamada">{t("calidad.canal_llamada")}</option>
+            <option value="WhatsApp">WhatsApp</option>
           </select>
           <input type="text" placeholder={t("calidad.audio_gestor_ph")} value={gestor}
                  onChange={(e) => setGestor(e.target.value)} style={{ width: 200 }} />

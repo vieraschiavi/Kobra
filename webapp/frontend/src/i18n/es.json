@@ -619,5 +619,13 @@
       "tipo_total": "Total",
       "tipo_parcial": "Parcial"
     }
+  },
+  "plan": {
+    "chip": "{{usado}} de {{cupo}} gestiones",
+    "chip_ilimitado": "Gestiones sin tope",
+    "aviso": "Usaste {{usado}} de las {{cupo}} gestiones de tu plan este mes.",
+    "agotado": "Llegaste a las {{cupo}} gestiones de tu plan este mes. Tu cartera, tus informes y tus exportaciones siguen disponibles; para volver a gestionar, mejorá tu plan.",
+    "excedente": "Vas {{excedente}} gestiones por encima de las {{cupo}} de tu plan — se facturan como excedente.",
+    "link_mejorar": "Mejorar mi plan"
   }
 }

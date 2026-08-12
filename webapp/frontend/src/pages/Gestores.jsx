@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api, fmtUYU } from "../api.js";
 import { t } from "../i18n/index.js";
+import { IcoCheck } from "../icons.jsx";
 
 // Columnas curadas del ranking (en orden), con formato profesional — antes se
 // volcaba el DataFrame crudo: columna "index" sin sentido, true/false pelados,
@@ -13,7 +14,7 @@ const COLS = [
   { clave: "tasa_recupero", tKey: "gestores.tabla.recupero_pct", num: true, fmt: (v) => `${Math.round(v * 100)}%` },
   { clave: "recupero", tKey: "gestores.tabla.recuperado", num: true, fmt: (v) => fmtUYU(v) },
   { clave: "monto", tKey: "gestores.tabla.gestionado", num: true, fmt: (v) => fmtUYU(v) },
-  { clave: "usa_kobra", tKey: "gestores.tabla.usa_kobra", fmt: (v) => (String(v) === "true" ? "✅" : "—") },
+  { clave: "usa_kobra", tKey: "gestores.tabla.usa_kobra", fmt: (v) => (String(v) === "true" ? <IcoCheck size={13} /> : "—") },
 ];
 
 export default function Gestores() {

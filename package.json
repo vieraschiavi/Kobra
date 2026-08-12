@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "MV Kobra AI - landing, demo y funciones serverless (Vercel).",
   "scripts": {
-    "test": "node --test 'api/**/*.test.js'"
+    "test": "node --test api/*.test.js"
   },
   "dependencies": {
     "botid": "^1.4.5"
