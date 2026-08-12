@@ -34,9 +34,15 @@
 // los logs de la función para poder recuperarla a mano — nunca se pierde en
 // silencio, que es exactamente lo que pasaba antes.
 //
-// CONFIGURACIÓN: ninguna. `checkout.js` manda `notification_url` apuntando
-// acá en cada preferencia que crea, así que MercadoPago sabe adónde avisar
-// sin tocar nada en su panel.
+// CONFIGURACIÓN: ninguna del lado de MercadoPago — `checkout.js` manda
+// `notification_url` apuntando acá en cada preferencia que crea, así que sabe
+// adónde avisar sin tocar nada en su panel. Del lado del mail hay dos
+// variables opcionales, y el webhook funciona sin ninguna de las dos:
+//   · RESEND_API_KEY — sin ella no se manda ningún mail (la licencia igual se
+//     emite y queda en el log de la función).
+//   · RESEND_FROM    — remitente. Sin ella se usa el compartido de prueba de
+//     Resend, que entrega solo a la casilla del titular de la cuenta: el mail
+//     al comprador va a rebotar hasta que haya un dominio propio verificado.
 
 const { sign, secretoActivo } = require("./_license");
 const { limitar } = require("./_ratelimit");
@@ -60,9 +66,36 @@ function idDePago(req) {
   return /^[0-9]+$/.test(limpio) ? limpio : null;
 }
 
+/** Un envío, un destinatario. Devuelve si Resend lo aceptó. */
+async function enviarUno(clave, para, asunto, texto) {
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + clave, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: remitente(), to: [para], subject: asunto, text: texto }),
+    });
+    if (!r.ok) {
+      console.error("webhook-mp: Resend rechazó el envío a", para, r.status, await r.text());
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("webhook-mp: excepción enviando la licencia a", para, e);
+    return false;
+  }
+}
+
+/** El remitente. Por defecto el compartido de prueba de Resend, que SOLO
+ *  entrega a la casilla del titular de la cuenta. Para que le llegue al
+ *  comprador hay que verificar un dominio propio en Resend y poner acá algo
+ *  del estilo "MV Kobra AI <licencias@mvkobranzaia.com>". */
+function remitente() {
+  return process.env.RESEND_FROM || "MV Kobra AI <onboarding@resend.dev>";
+}
+
 async function enviarLicencia(email, plan, paymentId, license) {
   const clave = process.env.RESEND_API_KEY;
-  if (!clave) return false;
+  if (!clave) return { comprador: false, dueno: false };
   const cuerpo =
     "¡Gracias por tu compra!\n\n" +
     "Tu licencia de MV Kobra AI (plan " + plan + "):\n\n" +
@@ -73,28 +106,16 @@ async function enviarLicencia(email, plan, paymentId, license) {
     "Guardá este mail: es tu comprobante de activación.\n" +
     "Nº de operación: " + paymentId + "\n\n" +
     "Cualquier duda, respondé este mail.";
-  const destinatarios = [AVISOS_AL_DUENO];
-  if (email) destinatarios.unshift(email);
-  try {
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + clave, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: "MV Kobra AI <onboarding@resend.dev>",
-        to: destinatarios,
-        subject: "Tu licencia de MV Kobra AI (plan " + plan + ")",
-        text: cuerpo,
-      }),
-    });
-    if (!r.ok) {
-      console.error("webhook-mp: Resend rechazó el envío", r.status, await r.text());
-      return false;
-    }
-    return true;
-  } catch (e) {
-    console.error("webhook-mp: excepción enviando la licencia", e);
-    return false;
-  }
+  const asunto = "Tu licencia de MV Kobra AI (plan " + plan + ")";
+  // Dos envíos separados a propósito, no uno con dos destinatarios. Con el
+  // remitente compartido de prueba (`onboarding@resend.dev`) Resend entrega
+  // SOLO a la casilla del titular de la cuenta y rechaza el resto: mandados
+  // juntos, ese rechazo se llevaba puesta también la copia al dueño y nadie
+  // quedaba con la licencia en la mano. Separados, el dueño la recibe siempre
+  // y puede reenviarla mientras el dominio propio no esté verificado.
+  const dueno = await enviarUno(clave, AVISOS_AL_DUENO, asunto, cuerpo);
+  const comprador = email ? await enviarUno(clave, email, asunto, cuerpo) : false;
+  return { comprador: comprador, dueno: dueno };
 }
 
 module.exports = async (req, res) => {
@@ -159,15 +180,18 @@ module.exports = async (req, res) => {
     }
 
     const enviado = await enviarLicencia(email, plan, paymentId, license);
-    if (!enviado) {
-      // Sin mail configurado (o falló el envío) la licencia NO se pierde: queda
-      // en el log de la función, que es recuperable. Se emite igual, no se
-      // descarta.
-      console.error("webhook-mp: licencia emitida pero NO enviada por mail —",
+    if (!enviado.comprador) {
+      // Sin mail configurado, o con el remitente de prueba de Resend (que solo
+      // entrega al titular de la cuenta), o si el envío falló: la licencia NO
+      // se pierde. Queda en el log de la función, que es recuperable, y si al
+      // menos salió la copia al dueño, ya está en su casilla para reenviar.
+      console.error("webhook-mp: licencia emitida pero NO enviada al comprador —",
                     "recuperar de acá. payment_id:", paymentId, "plan:", plan,
-                    "email:", email, "license:", license);
+                    "email:", email, "copia_al_dueno:", enviado.dueno,
+                    "license:", license);
     }
-    res.status(200).json({ ok: true, license: true, enviado: enviado });
+    res.status(200).json({ ok: true, license: true,
+                           enviado: enviado.comprador, avisado_dueno: enviado.dueno });
   } catch (e) {
     console.error("webhook-mp: excepción procesando el aviso", paymentId, e);
     res.status(500).json({ error: "exception" });

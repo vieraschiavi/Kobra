@@ -116,6 +116,63 @@ test("pago aprobado: emite la licencia y se la manda por mail al comprador", asy
   assert.ok(mail.text.includes("MVKobraAI_Setup.exe"), "el mail no trae la descarga");
 });
 
+test("si el mail al comprador rebota, el dueño IGUAL recibe la licencia (modo prueba de Resend)", async () => {
+  // Con el remitente compartido `onboarding@resend.dev`, Resend entrega solo a
+  // la casilla del titular de la cuenta y rechaza cualquier otra con 403. Ese
+  // es el estado por defecto hasta verificar un dominio propio, así que es el
+  // caso que más va a correr en la vida real: no puede terminar con nadie
+  // teniendo la licencia.
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
+  process.env.RESEND_API_KEY = "re_prueba";
+  delete process.env.RESEND_FROM;
+  const recibieron = [];
+  mockFetch(async (url, opts) => {
+    if (String(url).includes("resend")) {
+      const para = JSON.parse(opts.body).to[0];
+      if (para !== "vieraschiavi@gmail.com") {
+        return { ok: false, status: 403,
+                 text: async () => "You can only send testing emails to your own email address" };
+      }
+      recibieron.push(para);
+      return { ok: true };
+    }
+    return { ok: true, json: async () => ({
+      status: "approved", metadata: { plan: "pro" },
+      payer: { email: "cliente@empresa.com" } }) };
+  });
+  const wh = require("./webhook-mercadopago");
+  const r = res();
+  await wh(req({ type: "payment", "data.id": "781" }), r);
+  assert.equal(r.body.license, true);
+  assert.equal(r.body.enviado, false, "el mail al comprador rebotó, no se puede decir que se envió");
+  assert.equal(r.body.avisado_dueno, true, "el rechazo del comprador no puede llevarse puesta la copia al dueño");
+  assert.deepEqual(recibieron, ["vieraschiavi@gmail.com"]);
+  const log = erroresLogueados.join("\n");
+  assert.ok(log.includes("781"), "el log no permite identificar el pago");
+  assert.match(log, /[\w-]+\.[\w-]+\.[\w-]+/, "el log no trae la licencia emitida");
+});
+
+test("RESEND_FROM manda el remitente: con dominio propio verificado, el mail sale desde ahí", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
+  process.env.RESEND_API_KEY = "re_prueba";
+  process.env.RESEND_FROM = "MV Kobra AI <licencias@mvkobranzaia.com>";
+  const remitentes = [];
+  mockFetch(async (url, opts) => {
+    if (String(url).includes("resend")) { remitentes.push(JSON.parse(opts.body).from); return { ok: true }; }
+    return { ok: true, json: async () => ({
+      status: "approved", metadata: { plan: "pro" },
+      payer: { email: "cliente@empresa.com" } }) };
+  });
+  const wh = require("./webhook-mercadopago");
+  const r = res();
+  await wh(req({ type: "payment", "data.id": "782" }), r);
+  assert.equal(r.body.enviado, true);
+  assert.deepEqual(remitentes, ["MV Kobra AI <licencias@mvkobranzaia.com>",
+                                "MV Kobra AI <licencias@mvkobranzaia.com>"]);
+});
+
 test("sin RESEND_API_KEY la licencia NO se pierde: queda en el log para recuperarla", async () => {
   process.env.MP_ACCESS_TOKEN = "TEST-token";
   process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
@@ -223,10 +280,11 @@ test("dos avisos del mismo pago emiten la MISMA licencia (MercadoPago reintenta)
   const wh = require("./webhook-mercadopago");
   await wh(req({ type: "payment", "data.id": "785" }), res());
   await wh(req({ type: "payment", "data.id": "785" }), res());
-  assert.equal(mails.length, 2);
+  // Dos avisos × dos envíos por aviso (dueño y comprador van por separado).
+  assert.equal(mails.length, 4);
   const tok = (t) => t.split("\n").find((l) => l.split(".").length === 3).trim();
   const a = verify(tok(mails[0]), CLAVE_LICENCIA_PRUEBA);
-  const b = verify(tok(mails[1]), CLAVE_LICENCIA_PRUEBA);
+  const b = verify(tok(mails[3]), CLAVE_LICENCIA_PRUEBA);
   // La licencia es determinística a partir del pago: reenviarla es inofensivo
   // (el cliente recibe la misma), no crea una licencia extra ni un cupo doble.
   assert.equal(a.sub, b.sub);
