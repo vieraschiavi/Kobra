@@ -369,8 +369,11 @@ function EvaluadorAudio({ onGuardado }) {
         body: fd,
       });
       const d = await r.json().catch(() => ({}));
+      // Antes del throw: si el cupo se agotó (402), la MISMA respuesta trae
+      // el plan actualizado — es el momento en que el chip más lo necesita.
+      avisarPlan(d);
       if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
-      setRes(avisarPlan(d));
+      setRes(d);
       if (d.guardado && onGuardado) onGuardado();
     } catch (e) { setError(e.message.replace(/^\d+:\s*/, "")); }
     finally { setCargando(false); }

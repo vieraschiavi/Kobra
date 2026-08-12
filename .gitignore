@@ -69,4 +69,5 @@ data/tenants/*/portal_config.json
 # instalada: se genera al correr la app o los tests desde el repo y no tiene
 # nada que hacer en el control de versiones.
 uso_plan.json
+uso_plan.json.lock
 data/cartera_entrante.csv

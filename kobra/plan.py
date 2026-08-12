@@ -52,12 +52,40 @@ import os
 import threading
 import time
 
+import portalocker
+
 ARCHIVO_USO = "uso_plan.json"
 
 # Porcentaje a partir del cual la app avisa (sin bloquear nada).
 UMBRAL_AVISO = 0.8
 
+# Un `threading.Lock` NO alcanza acá: este paquete se abre por DOS vías —
+# `app/app.py` (Streamlit) y `webapp/backend/api.py` (FastAPI) — que pueden
+# correr como procesos SEPARADOS al mismo tiempo contra el mismo
+# `uso_plan.json` (ver `tests/test_plan_diferenciado.py::
+# test_el_dashboard_streamlit_tambien_aplica_el_cupo`). Dos gestiones
+# disparadas casi juntas desde cada vía leerían el mismo `usado` antes de que
+# cualquiera escribiera, y una de las dos se perdería (lost update). El lock
+# de threading sigue sirviendo para serializar hilos del mismo proceso —
+# barato, sin tocar disco — y encima se toma `portalocker.Lock` sobre un
+# archivo `.lock` (mismo patrón que `kobra/registro.py`), que sí sincroniza
+# entre procesos y es multiplataforma (Windows incluido, que es donde corre
+# la copia instalada).
 _LOCK = threading.Lock()
+
+# Cachear los claims por un rato corto: `claims()`/`_es_owner()` terminan
+# consultando el keyring del sistema operativo (ver `kobra/config.py`), un
+# round-trip de IPC real. Sin caché, una sola request a un endpoint medido
+# (que llama `exigir` + `verificar_cupo` + `registrar_gestion`, y cada una
+# vuelve a resolver el plan) dispara esa consulta 15-20 veces — cientos de ms
+# de latencia por clic que no compran nada, porque el plan no cambia entre
+# una llamada y la siguiente a milisegundos de distancia. 2 segundos es corto
+# frente a cualquier interacción humana y no introduce staleness relevante
+# (activar/desactivar una licencia ya pasa por este mismo módulo y no depende
+# de que el caché haya expirado para funcionar la vez siguiente).
+_TTL_CACHE_SEG = 2.0
+_cache_claims: dict = {"valor": None, "vence": 0.0}
+_cache_owner: dict = {"valor": None, "vence": 0.0}
 
 
 class LimitePlan(Exception):
@@ -80,9 +108,22 @@ class CupoAgotado(LimitePlan):
 # ---------------------------------------------------------------------------
 # De dónde sale el plan
 # ---------------------------------------------------------------------------
+def invalidar_cache() -> None:
+    """Se llama al activar/cambiar una licencia u owner: sin esto, el plan
+    nuevo podría tardar hasta `_TTL_CACHE_SEG` en verse reflejado."""
+    _cache_claims["vence"] = 0.0
+    _cache_owner["vence"] = 0.0
+
+
 def _es_owner() -> bool:
+    ahora = time.monotonic()
+    if ahora < _cache_owner["vence"]:
+        return _cache_owner["valor"]
     from kobra import edicion as kedicion
-    return kedicion._es_owner()
+    valor = kedicion.es_owner()
+    _cache_owner["valor"] = valor
+    _cache_owner["vence"] = ahora + _TTL_CACHE_SEG
+    return valor
 
 
 def claims() -> dict | None:
@@ -92,6 +133,16 @@ def claims() -> dict | None:
     gobernado por una licencia (copia del repo, modo hosted, dueño). Inventar
     un tope donde nadie configuró uno rompería el desarrollo y el multi-tenant.
     """
+    ahora = time.monotonic()
+    if ahora < _cache_claims["vence"]:
+        return _cache_claims["valor"]
+    valor = _claims_sin_cache()
+    _cache_claims["valor"] = valor
+    _cache_claims["vence"] = ahora + _TTL_CACHE_SEG
+    return valor
+
+
+def _claims_sin_cache() -> dict | None:
     try:
         from backend_venta import licencias as klicencias
         from kobra import config as kconfig
@@ -203,6 +254,14 @@ def consumo(mes: str | None = None) -> int:
         return 0
 
 
+def _bloqueado(usado: int, tope: int) -> bool:
+    """¿La próxima gestión se rechaza? Única definición de la regla — antes
+    estaba reimplementada por separado en `estado()`, `verificar_cupo()` y
+    `registrar_gestion()`, y las tres podían desincronizarse si se tocaba una
+    sin acordarse de las otras dos."""
+    return usado >= tope and not admite_excedente()
+
+
 def estado() -> dict:
     """Foto del plan para la app y para la UI."""
     if _es_owner():
@@ -230,7 +289,7 @@ def estado() -> dict:
         "avisar": tope > 0 and usado >= tope * UMBRAL_AVISO,
         # `bloqueado` es "la próxima gestión se rechaza", no "la app se cerró":
         # el cliente sigue entrando a su cartera, sus informes y sus exports.
-        "bloqueado": usado >= tope and not admite_excedente(),
+        "bloqueado": _bloqueado(usado, tope),
         "features": feats,
         "mes": mes_actual(),
     }
@@ -254,18 +313,27 @@ def verificar_cupo() -> None:
     un audio, correr una negociación entera) se cobran cuando salieron bien:
     conviene rechazar antes de trabajar, y recién sumar cuando hay resultado.
     Un análisis que terminó en error no le puede comer el cupo al cliente.
+
+    Es un chequeo OPTIMISTA, no una garantía dura bajo concurrencia: no toma
+    lock ni bloquea a nadie más, así que dos llamadas casi simultáneas pueden
+    pasar las dos y disparar el trabajo caro (Whisper, LLM) antes de que
+    cualquiera llegue a `registrar_gestion` — que es quien aplica el corte
+    real y consistente sobre el contador persistido. El costo de ese trabajo
+    de más lo paga el propio cliente con su propia cuenta (OpenAI/Twilio), no
+    un tercero: coherente con que esto es un límite comercial, no una barrera
+    de seguridad (ver el docstring del módulo).
     """
     if _es_owner():
         return
     tope = cupo()
     if tope is None:
         return
-    if consumo() >= tope and not admite_excedente():
+    if _bloqueado(consumo(), tope):
         raise _rechazo_por_cupo(tope, claims())
 
 
-def registrar_gestion(n: int = 1) -> dict:
-    """Suma `n` gestiones al mes en curso y devuelve el estado resultante.
+def registrar_gestion() -> dict:
+    """Suma una gestión al mes en curso y devuelve el estado resultante.
 
     Lanza `CupoAgotado` ANTES de sumar si el plan ya no da para más: cobrarle
     el consumo a alguien a quien se le está negando la acción sería el peor de
@@ -276,7 +344,9 @@ def registrar_gestion(n: int = 1) -> dict:
     tope = cupo()
     if tope is None:
         return estado()
-    with _LOCK:
+    ruta = _ruta_uso()
+    os.makedirs(os.path.dirname(ruta) or ".", exist_ok=True)
+    with _LOCK, portalocker.Lock(ruta + ".lock", timeout=10):
         c = claims()
         cid = _cliente_id(c)
         mes = mes_actual()
@@ -286,9 +356,9 @@ def registrar_gestion(n: int = 1) -> dict:
             usado = max(0, int(por_cliente.get(mes, 0)))
         except (TypeError, ValueError):
             usado = 0
-        if usado >= tope and not admite_excedente():
+        if _bloqueado(usado, tope):
             raise _rechazo_por_cupo(tope, c)
-        por_cliente[mes] = usado + max(1, int(n))
+        por_cliente[mes] = usado + 1
         # Se conservan solo los últimos 12 meses del cliente: el archivo no
         # tiene por qué crecer para siempre, y el historial largo no lo usa
         # nadie acá (facturación real la lleva el gateway).

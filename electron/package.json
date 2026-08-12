@@ -1,7 +1,7 @@
 {
   "name": "mv-kobra-ai",
   "productName": "MV Kobra AI",
-  "version": "1.3.7",
+  "version": "1.3.8",
   "description": "MV Kobra AI · Plataforma de Cobranzas Inteligentes — predicción de pago, agente negociador y copiloto de calidad",
   "main": "main.js",
   "author": {

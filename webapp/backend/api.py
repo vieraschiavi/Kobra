@@ -725,6 +725,7 @@ def licencia_activar(datos: LicenciaIn, request: Request):
     # costar lo mismo que tantear una licencia.
     if kowner.verificar(datos.token):
         kconfig.guardar_extra(_CLAVE_OWNER, "1")
+        kplan.invalidar_cache()
         _LIMITE_LICENCIA.perdonar(clave)
         return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
                 "empresa": EMPRESA_DEFAULT, "owner": True, "plan": "owner",
@@ -738,6 +739,7 @@ def licencia_activar(datos: LicenciaIn, request: Request):
         raise HTTPException(400, mensaje)
     _LIMITE_LICENCIA.perdonar(clave)
     kconfig.guardar_extra(_CLAVE_LICENCIA, datos.token)
+    kplan.invalidar_cache()
     estado = _estado_licencia(datos.token)
     return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
             "empresa": EMPRESA_DEFAULT, **estado}

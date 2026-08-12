@@ -31,14 +31,22 @@ export async function api(ruta, { metodo = "GET", cuerpo } = {}) {
       : "Sesión vencida — iniciá sesión de nuevo.");
   }
   const datos = await r.json().catch(() => ({}));
+  // Antes del throw, no después: cuando el cupo se acaba de agotar (402), la
+  // MISMA respuesta que rechaza la gestión también trae el plan actualizado
+  // (`bloqueado: true`) — justo el momento en que el chip de la barra
+  // lateral más necesita refrescarse. Si esto fuera después del `throw`,
+  // nunca se ejecutaría en ese caso.
+  avisarPlan(datos);
   if (!r.ok) throw new Error(datos.detail || `Error ${r.status}`);
   return datos;
 }
 
 // Los endpoints que consumen cupo (Agente IA, análisis de voz, evaluación de
-// audios) devuelven el estado del plan ya actualizado. Esto lo levanta a la
-// barra lateral sin que la pantalla tenga que conocer al chip ni volver a
-// preguntarle al backend por algo que acaba de contestar.
+// audios) devuelven el estado del plan ya actualizado, tanto si salieron bien
+// como si el cupo se acaba de agotar. `api()` ya lo llama solo; los dos
+// endpoints que suben archivos usan `fetch` crudo (FormData) en vez de
+// `api()` y tienen que llamarlo a mano — VER de hacerlo antes de cualquier
+// `throw` sobre una respuesta no-ok, con el mismo cuidado que acá arriba.
 export function avisarPlan(respuesta) {
   if (respuesta && respuesta.plan) {
     window.dispatchEvent(new CustomEvent("kobra:plan", { detail: respuesta.plan }));

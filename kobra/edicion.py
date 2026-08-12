@@ -74,7 +74,9 @@ def activar(base: str) -> dict | None:
     return ed
 
 
-def _es_owner() -> bool:
+def es_owner() -> bool:
+    """¿Es la copia del dueño? Pública: la consultan otros módulos (p. ej.
+    `kobra/plan.py`, para eximir al owner del cupo de cualquier plan)."""
     if os.environ.get("KOBRA_OWNER", "").lower() in ("1", "true", "si", "sí"):
         return True
     try:
@@ -82,6 +84,11 @@ def _es_owner() -> bool:
         return bool(kconfig.leer_extra("KOBRA_OWNER_ACTIVADO"))
     except Exception:
         return False
+
+
+# Alias retrocompatible: el resto de este archivo y los tests existentes usan
+# el nombre viejo con guion bajo.
+_es_owner = es_owner
 
 
 def vigencia() -> dict:
