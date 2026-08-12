@@ -91,6 +91,38 @@ test("con token: arma la preferencia y convierte el precio a UYU", async () => {
   assert.equal(cuerpoEnviado.metadata.plan, "pro");
 });
 
+test("arma una external_reference aleatoria y la repite en back_urls (así verify-payment puede atar el pago a ESTE checkout)", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  let cuerpoEnviado = null;
+  mockFetch(async (url, opts) => {
+    cuerpoEnviado = JSON.parse(opts.body);
+    return { ok: true, json: async () => ({ init_point: "https://mp/pagar/xyz" }) };
+  });
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(req({ plan: "pro" }), r);
+  assert.equal(r.statusCode, 200);
+  const ref = cuerpoEnviado.external_reference;
+  assert.match(ref, /^[0-9a-f]{32}$/, `la referencia no parece un token aleatorio: ${ref}`);
+  assert.ok(cuerpoEnviado.back_urls.success.includes("ref=" + ref),
+    "el link de éxito no lleva la misma referencia que se mandó a MercadoPago");
+  assert.ok(cuerpoEnviado.back_urls.pending.includes("ref=" + ref),
+    "el link de pendiente no lleva la misma referencia");
+});
+
+test("dos checkouts seguidos arman referencias distintas", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  const refs = [];
+  mockFetch(async (url, opts) => {
+    refs.push(JSON.parse(opts.body).external_reference);
+    return { ok: true, json: async () => ({ init_point: "https://mp/pagar/xyz" }) };
+  });
+  const checkout = require("./checkout");
+  await checkout(req({ plan: "pro" }), res());
+  await checkout(req({ plan: "pro" }), res());
+  assert.notEqual(refs[0], refs[1], "dos checkouts distintos no pueden compartir referencia");
+});
+
 test("MercadoPago responde sin init_point: 502", async () => {
   process.env.MP_ACCESS_TOKEN = "TEST-token";
   mockFetch(async () => ({ ok: true, json: async () => ({}) }));

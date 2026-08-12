@@ -8,6 +8,7 @@
 // página completa (location.href). El cliente hace fetch acá y recién después
 // navega él mismo a la URL de pago que devolvemos.
 
+const crypto = require("crypto");
 const { checkBotId } = require("botid/server");
 const { limitar } = require("./_ratelimit");
 
@@ -50,12 +51,19 @@ module.exports = async (req, res) => {
   }
 
   try {
+    // Referencia aleatoria, única por checkout: es lo único que ata "quién
+    // volvió del pago" con "quién lo inició". Sin esto, `verify-payment.js`
+    // no tenía forma de distinguir al comprador real de cualquiera que
+    // adivinara/tanteara un `payment_id` — ver el comentario largo en
+    // verify-payment.js sobre por qué esto es imprescindible, no opcional.
+    const ref = crypto.randomBytes(16).toString("hex");
     const unitPrice = CURRENCY === "UYU" ? Math.round(p.price * TASA_UYU) : p.price;
     const pref = {
       items: [{ title: p.title, quantity: 1, unit_price: unitPrice, currency_id: CURRENCY }],
+      external_reference: ref,
       back_urls: {
-        success: base + "/descarga?status=approved&plan=" + plan,
-        pending: base + "/descarga?status=pending",
+        success: base + "/descarga?status=approved&plan=" + plan + "&ref=" + ref,
+        pending: base + "/descarga?status=pending&ref=" + ref,
         failure: base + "/#precios",
       },
       auto_return: "approved",
@@ -68,11 +76,13 @@ module.exports = async (req, res) => {
     });
     const data = await r.json();
     if (!r.ok || !data.init_point) {
+      console.error("checkout: mercadopago rechazó la preferencia", r.status, data);
       res.status(502).json({ error: "mercadopago" });
       return;
     }
     res.status(200).json({ url: data.init_point });
   } catch (e) {
+    console.error("checkout: excepción creando la preferencia", e);
     res.status(500).json({ error: "exception" });
   }
 };

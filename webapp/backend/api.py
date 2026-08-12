@@ -35,6 +35,7 @@ import time
 from datetime import datetime, timezone
 
 import pandas as pd
+import portalocker
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -275,7 +276,13 @@ def _aplicar_filtros(df: pd.DataFrame, segmento=None, tramo=None, propension=Non
     _cat("producto", producto)
     _cat("departamento", departamento)
     if busqueda and "id_deudor" in df.columns:
-        df = df[df["id_deudor"].astype(str).str.contains(busqueda, case=False, na=False)]
+        # `str.contains` trata el argumento como REGEX por default. Es una
+        # caja de búsqueda de texto libre, no un campo de regex — un usuario
+        # que pega/tipea algo con paréntesis desbalanceados (p. ej. copiar un
+        # id como "ID(005") provocaba un ValueError sin manejar → 500. Se
+        # busca el texto literal, no un patrón.
+        df = df[df["id_deudor"].astype(str).str.contains(
+            re.escape(busqueda), case=False, na=False)]
     for col, lo, hi in [("monto_deuda", monto_min, monto_max),
                         ("dias_mora", dias_min, dias_max)]:
         if col in df.columns and (lo is not None or hi is not None):
@@ -471,11 +478,22 @@ class JSONLimpia(JSONResponse):
 
 app = FastAPI(title="MV Kobra AI · API", version="1.0",
               default_response_class=JSONLimpia)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
-                   allow_headers=["*"])
+# Orden importa: Starlette envuelve con el ÚLTIMO `add_middleware` por AFUERA
+# de los anteriores, así que el que se agrega último es el que ve la request
+# primero y la respuesta última. `LimitadorGeneral` responde el 429 llamando
+# a `send()` directo, sin pasar por nada agregado ANTES que él — así que si
+# CORS se agregara antes (como estaba), un 429 salía sin cabeceras CORS: para
+# cualquier caller cross-origin (dev en otro puerto, un ERP integrado, una
+# app), el navegador lo mostraba como "Failed to fetch" genérico en vez del
+# `detail`/`Retry-After` real. Confirmado con TestClient antes del fix
+# (`Access-Control-Allow-Origin: None` en la respuesta 429) y después
+# (la cabecera aparece). `LimitadorGeneral` va primero para que CORS quede
+# más afuera y decore CUALQUIER respuesta que salga, incluida esa.
+app.add_middleware(klimite.LimitadorGeneral)
 # Red de seguridad general: cubre TODO endpoint público (48+ en este archivo),
 # no solo login/licencia/setup, que ya tienen su freno más estricto aparte.
-app.add_middleware(klimite.LimitadorGeneral)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
+                   allow_headers=["*"])
 
 
 # ---------------------------------------------------------------------------
@@ -1311,10 +1329,16 @@ def _guardar_calidad(empresa: str, gestor: str, fecha: str | None, canal: str,
                                     uuid.uuid4().hex[:12])
     ruta = _archivo_calidad(empresa)
     os.makedirs(os.path.dirname(ruta), exist_ok=True)
-    df = _leer_calidad(empresa)
-    nueva = pd.DataFrame([fila])
-    df = nueva if df is None else pd.concat([df, nueva], ignore_index=True)
-    df.to_csv(ruta, index=False)
+    # Sin lock, dos evaluaciones subidas casi juntas (dos supervisores
+    # cargando llamadas al mismo tiempo) leen el mismo CSV de N filas antes
+    # de que cualquiera escriba: las dos calculan N+1 y la segunda pisa a la
+    # primera — una evaluación desaparece sin error para nadie. Mismo patrón
+    # que ya usa `kobra/registro.py` para el mismo tipo de problema.
+    with portalocker.Lock(ruta + ".lock", timeout=10):
+        df = _leer_calidad(empresa)
+        nueva = pd.DataFrame([fila])
+        df = nueva if df is None else pd.concat([df, nueva], ignore_index=True)
+        df.to_csv(ruta, index=False)
     return {"id": fila["id"], "gestor": gestor, "fecha": fecha,
             "puntaje_total": fila["puntaje_total"], "acumuladas": int(len(df))}
 
@@ -2047,9 +2071,20 @@ class PortalConfirmarIn(BaseModel):
 
 @app.post("/api/portal/public/confirmar")
 def portal_public_confirmar(datos: PortalConfirmarIn):
-    """El deudor declara la transferencia hecha (→ `informado`, pendiente de
-    conciliar) o vuelve de MercadoPago (→ `aprobado`). En ambos casos el pago
-    queda IMPUTADO: cola ERP + webhook si la empresa lo configuró."""
+    """El deudor declara que pagó — por transferencia o por MercadoPago — y el
+    pago queda `informado`: IMPUTADO (cola ERP + webhook si la empresa lo
+    configuró) pero pendiente de conciliar.
+
+    Ninguno de los dos métodos verifica nada del lado del servidor acá: una
+    transferencia bancaria no se puede confirmar sin integrar el banco de la
+    empresa, y MercadoPago tampoco —a diferencia de `api/verify-payment.js`,
+    que sí re-consulta la API de MercadoPago antes de emitir una licencia,
+    ESTE endpoint nunca llamó a MercadoPago. Marcar el camino de MercadoPago
+    como `aprobado` (antes de este fix) afirmaba una verificación que nunca
+    ocurrió: cualquier deudor con su token de acceso podía declarar pagada su
+    propia deuda sin pagar un peso. `informado` es honesto sobre lo que
+    realmente se sabe en este punto; la empresa concilia contra su propio
+    extracto/cuenta antes de dar el cobro por bueno de verdad."""
     empresa, id_deudor = _deudor_desde_token(datos.t)
     d = _dir_portal(empresa)
     pago = next((p for p in kportal.listar_pagos(d, id_deudor)
@@ -2057,8 +2092,7 @@ def portal_public_confirmar(datos: PortalConfirmarIn):
     if pago is None:
         raise HTTPException(404, "No existe ese pago para esta deuda.")
     cfg = kportal.cargar_config(d)
-    estado = "aprobado" if pago["metodo"] == "mercadopago" else "informado"
-    registro = kportal.confirmar_pago(d, datos.referencia, estado,
+    registro = kportal.confirmar_pago(d, datos.referencia, "informado",
                                       webhook_url=cfg["erp"]["webhook_url"])
     return {"referencia": registro["referencia"], "estado": registro["estado"],
             "monto": registro["monto"]}

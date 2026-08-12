@@ -54,6 +54,10 @@ function qp(k){return new URLSearchParams(location.search).get(k);}
 var card=document.getElementById('card');
 var paymentId=qp('payment_id') || qp('collection_id');
 var status=qp('status') || qp('collection_status');
+// `ref` es el que puso checkout.js en `back_urls` (no lo manda MercadoPago):
+// ata este regreso al checkout que lo originó. Sin él, verify-payment.js
+// rechaza la verificación aunque el payment_id sea real y esté aprobado.
+var ref=qp('ref');
 
 var PLAN_NAMES={starter:'Starter',pro:'Pro · Todo incluido',enterprise:'Enterprise'};
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -98,9 +102,9 @@ function showFail(msg){
 }
 
 if(status==='pending' && !paymentId){ showPending(); }
-else if(!paymentId){ showFail(); }
+else if(!paymentId || !ref){ showFail(); }
 else {
-  fetch('/api/verify-payment?payment_id='+encodeURIComponent(paymentId))
+  fetch('/api/verify-payment?payment_id='+encodeURIComponent(paymentId)+'&ref='+encodeURIComponent(ref))
     .then(function(r){return r.json();})
     .then(function(d){
       if(d.approved){ showOk(d.plan, d.license); }

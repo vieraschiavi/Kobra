@@ -122,6 +122,22 @@ def test_link_mercadopago_preconfigurado_y_demo():
     assert "simulado" in demo
 
 
+def test_dos_tenants_sin_clave_propia_no_comparten_la_derivada(tmp_path):
+    """El agujero: la clave por defecto se derivaba solo del secreto GLOBAL
+    del servidor, igual para cualquier tenant. Un admin de la empresa A (sin
+    clave propia configurada, el caso por defecto) podía usar SU clave
+    derivada para leer /api/erp/imputaciones de la empresa B — sus montos,
+    sus deudores, sus referencias."""
+    dir_a = str(tmp_path / "tenant-a")
+    dir_b = str(tmp_path / "tenant-b")
+    ka = kportal.api_key_erp(dir_a, SECRETO)
+    kb = kportal.api_key_erp(dir_b, SECRETO)
+    assert ka != kb, "dos tenants distintos terminaron con la misma API key del ERP"
+    # Estable: la MISMA empresa, llamada dos veces, tiene que dar la MISMA
+    # clave — si no, cualquier integración con el ERP se rompería sola.
+    assert ka == kportal.api_key_erp(dir_a, SECRETO)
+
+
 def test_config_del_portal_persiste_y_completa_defaults(tmp_path):
     d = str(tmp_path)
     kportal.guardar_config(d, {"transferencia": {"banco": "BROU"},
@@ -220,9 +236,13 @@ def test_http_flujo_entero_del_portal(cliente):
                json={"t": token, "monto": 600.0, "metodo": "mercadopago"})
     assert r.status_code == 200 and "url_pago" in r.json()
     ref_mp = r.json()["referencia"]
+    # "informado" y no "aprobado": este endpoint nunca vuelve a consultar la
+    # API de MercadoPago (a diferencia de api/verify-payment.js), así que no
+    # puede afirmar una verificación que no hizo. Ver
+    # test_mercadopago_nunca_se_auto_aprueba_sin_verificar.
     r = c.post("/api/portal/public/confirmar",
                json={"t": token, "referencia": ref_mp})
-    assert r.json()["estado"] == "aprobado"
+    assert r.json()["estado"] == "informado"
 
     # 8. Saldo en cero y los pagos visibles para la empresa.
     assert c.get("/api/portal/public/estado", params={"t": token}).json()["saldo"] == 0.0
@@ -304,3 +324,31 @@ def test_http_webhook_al_erp_recibe_la_imputacion(cliente, monkeypatch):
     assert url == "https://erp.cliente.com/hook"
     assert cuerpo["referencia"] == ref and cuerpo["monto"] == 250.0
     assert cuerpo["tipo"] == "pago_portal"
+
+
+def test_mercadopago_nunca_se_auto_aprueba_sin_verificar(cliente):
+    """El agujero real: un deudor con su token de acceso legítimo (el mismo
+    que la empresa le mandó por WhatsApp/mail) podía marcar su propia deuda
+    como pagada por MercadoPago sin haber pagado un peso, porque el endpoint
+    nunca volvía a consultar la API de MercadoPago — a diferencia de
+    `api/verify-payment.js`, que sí lo hace antes de emitir una licencia."""
+    api, c, admin = cliente
+    c.post("/api/portal/config", headers=admin,
+          json={"mercadopago": {"habilitado": True}})
+    token = c.get("/api/portal/acceso/KB-1", headers=admin).json()["token"]
+
+    r = c.post("/api/portal/public/pagar",
+              json={"t": token, "monto": 1000.0, "metodo": "mercadopago"})
+    assert r.status_code == 200
+    referencia = r.json()["referencia"]
+
+    # El deudor NUNCA completó nada en MercadoPago — llama a /confirmar
+    # directo, como cualquiera que conozca este endpoint podría hacer.
+    r = c.post("/api/portal/public/confirmar", json={"t": token, "referencia": referencia})
+    assert r.status_code == 200
+    assert r.json()["estado"] != "aprobado", (
+        "un deudor no puede obtener el estado 'aprobado' —que implica pago "
+        "verificado— sin que el servidor haya verificado nada")
+    assert r.json()["estado"] == "informado", (
+        "sin verificación real, el estado tiene que ser el mismo que una "
+        "transferencia declarada: informado, pendiente de conciliar")
