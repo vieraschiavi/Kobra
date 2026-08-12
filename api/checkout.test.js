@@ -110,6 +110,21 @@ test("arma una external_reference aleatoria y la repite en back_urls (así verif
     "el link de pendiente no lleva la misma referencia");
 });
 
+test("manda notification_url al webhook: la licencia no puede depender solo del navegador", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  let cuerpoEnviado = null;
+  mockFetch(async (url, opts) => {
+    cuerpoEnviado = JSON.parse(opts.body);
+    return { ok: true, json: async () => ({ init_point: "https://mp/pagar/xyz" }) };
+  });
+  const checkout = require("./checkout");
+  await checkout(req({ plan: "pro" }), res());
+  assert.equal(cuerpoEnviado.notification_url,
+    "https://mvkobranzaia.com/api/webhook-mercadopago",
+    "sin notification_url, un comprador que cierra la pestaña deja la plata " +
+    "adentro sin que nadie se entere de que hay una licencia por entregar");
+});
+
 test("dos checkouts seguidos arman referencias distintas", async () => {
   process.env.MP_ACCESS_TOKEN = "TEST-token";
   const refs = [];

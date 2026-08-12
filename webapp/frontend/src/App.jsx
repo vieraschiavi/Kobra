@@ -8,6 +8,7 @@ import Activacion from "./pages/Activacion.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Originacion from "./pages/Originacion.jsx";
 import Cartera from "./pages/Cartera.jsx";
+import CuentasPorCobrar from "./pages/CuentasPorCobrar.jsx";
 import Agenda from "./pages/Agenda.jsx";
 import Gestores from "./pages/Gestores.jsx";
 import Calidad from "./pages/Calidad.jsx";
@@ -28,6 +29,7 @@ const NAV = [
   { ruta: "/", ico: <IcoGrafica />, clave: "app.nav.vision_general" },
   { ruta: "/originacion", ico: <IcoBanco />, clave: "app.nav.originacion" },
   { ruta: "/cartera", ico: <IcoLista />, clave: "app.nav.cartera" },
+  { ruta: "/cuentas-por-cobrar", ico: <IcoBanco />, clave: "app.nav.cxc" },
   { ruta: "/agenda", ico: <IcoCalendario />, clave: "app.nav.agenda" },
   { ruta: "/gestores", ico: <IcoEquipo />, clave: "app.nav.gestores" },
   { ruta: "/calidad", ico: <IcoCalidad />, clave: "app.nav.calidad" },
@@ -248,6 +250,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/originacion" element={<Originacion />} />
           <Route path="/cartera" element={<Cartera />} />
+          <Route path="/cuentas-por-cobrar" element={<CuentasPorCobrar />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/gestores" element={<Gestores />} />
           <Route path="/calidad" element={<Calidad />} />

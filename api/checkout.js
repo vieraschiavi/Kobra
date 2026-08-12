@@ -67,6 +67,13 @@ module.exports = async (req, res) => {
         failure: base + "/#precios",
       },
       auto_return: "approved",
+      // Aviso server-to-server: llega aunque el comprador cierre la pestaña o
+      // se quede sin señal al volver del pago. Sin esto, la licencia dependía
+      // enteramente de que su navegador ejecutara el fetch de /descarga — y si
+      // no lo hacía, la plata entraba sin dejar rastro de que había algo que
+      // entregar. Va acá, en la preferencia, para no depender de que alguien
+      // configure la URL a mano en el panel de MercadoPago.
+      notification_url: base + "/api/webhook-mercadopago",
       metadata: { plan: plan },
     };
     const r = await fetch("https://api.mercadopago.com/checkout/preferences", {

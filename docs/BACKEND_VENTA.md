@@ -271,7 +271,7 @@ Ya hecho en código (`backend_venta/`):
 - [x] Emisión/validación de licencia JWT con cupo y features por plan.
 - [x] Medición de uso por cliente/canal/mes (SQLite).
 - [x] Gateway medido de Claude (real) + TTS/ElevenLabs (real, feature `voz_premium` aparte) + Twilio/WhatsApp (circuito listo, sin proveedor conectado).
-- [x] Webhook de MercadoPago (re-verifica el pago contra la API real, no confía en el body) → emite licencia + token de descarga.
+- [x] Webhook de MercadoPago (re-verifica el pago contra la API real, no confía en el body) → emite licencia + token de descarga. **Ojo con dónde vive:** este es el de `backend_venta/app.py`, que NO está desplegado (ver la sección de pendientes). El que sí corre en producción es `api/webhook-mercadopago.js` (Vercel) — mismo criterio de no confiar en el aviso, y ese sí manda la licencia por mail.
 - [x] Tokens de descarga de un solo uso con expiración.
 - [x] Tests automatizados de todo el flujo (`tests/test_backend_venta.py`).
 
@@ -289,9 +289,9 @@ Pendiente — pasos de negocio/infraestructura, no de código:
   string; lo que no puede pasar es que sean valores distintos.
   `tests/test_puente_licencia.py` verifica el puente entero (Node firma →
   PyJWT valida), incluidos formato y claims.
-- [ ] Conectar el webhook de MercadoPago a la URL pública de `/webhooks/mercadopago`.
+- [x] ~~Conectar el webhook de MercadoPago a la URL pública~~ — **hecho y sin configuración manual**: `api/checkout.js` manda `notification_url` apuntando a `https://<dominio>/api/webhook-mercadopago` en cada preferencia que crea, así que MercadoPago sabe adónde avisar sin tocar nada en su panel. El handler (`api/webhook-mercadopago.js`) relee el pago contra la API real —nunca cree el cuerpo del aviso, que llega por una URL pública— y emite la licencia. Es lo que cubre el caso "el comprador cerró la pestaña": antes la licencia dependía enteramente de que su navegador ejecutara el fetch de `/descarga`.
 - [ ] Compilar el instalador `Edición Venta` y apuntar `KOBRA_INSTALADOR_PATH` a ese archivo.
 - [ ] Definir precios de excedente por canal (3–5× costo) — hoy `plan_permite_excedente()` solo dice si el plan lo permite, no calcula el cobro.
 - [ ] Conectar un proveedor real a `/gateway/twilio` y `/gateway/whatsapp` (hoy devuelven `501` a propósito). `/gateway/tts` ya está conectado (ElevenLabs).
 - [ ] Decidir el precio de "voz_premium" antes de habilitarla para un cliente: `kobra/voz_tts.COSTO_POR_1000_CHARS_USD` es una referencia de mercado (~US$0.17–0.20/1000 caracteres), no el costo real de tu plan de ElevenLabs — verificalo y armá el precio con margen sobre eso, no sobre la referencia.
-- [ ] Envío de email con la licencia/link de descarga tras el pago (hoy el webhook devuelve esos datos en la respuesta HTTP, no manda mail).
+- [x] ~~Envío de email con la licencia tras el pago~~ — `api/webhook-mercadopago.js` se la manda al comprador (con copia al dueño) usando `RESEND_API_KEY`, la misma variable que ya usaba `api/copiloto.js`. **Único paso manual que queda:** cargar `RESEND_API_KEY` en las variables de entorno de Vercel. Sin ella la licencia igual se emite y queda registrada en el log de la función para recuperarla a mano — nunca se pierde en silencio —, pero el comprador no la recibe solo.

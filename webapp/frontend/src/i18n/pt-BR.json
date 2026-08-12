@@ -19,7 +19,8 @@
       "roi": "Calculadora de ROI",
       "configuracion": "Configurações",
       "calidad": "Qualidade de atendimento",
-      "portal_cobros": "Portal de cobranças"
+      "portal_cobros": "Portal de cobranças",
+      "cxc": "Contas a receber"
     },
     "sidebar": {
       "rol_admin": "Administrador",
@@ -627,5 +628,57 @@
     "agotado": "Você atingiu as {{cupo}} gestões do seu plano neste mês. Sua carteira, seus relatórios e suas exportações continuam disponíveis; para voltar a gerir, faça upgrade do plano.",
     "excedente": "Você está {{excedente}} gestões acima das {{cupo}} do seu plano — serão faturadas como excedente.",
     "link_mejorar": "Fazer upgrade do plano"
+  },
+  "cxc": {
+    "titulo": "Contas a receber",
+    "subtitulo": "A análise de contas a receber calculada sobre sua carteira real: aging, DSO, efetividade de cobrança, conciliação de pagamentos e pagamentos mal aplicados. São cálculos, não respostas geradas — os mesmos dados dão sempre o mesmo número.",
+    "antiguedad": {
+      "titulo": "Aging de saldos",
+      "sub": "Quanto se deve em cada faixa de atraso. É a base de todo o resto.",
+      "tramo": "Faixa",
+      "monto": "Valor",
+      "deudores": "Devedores",
+      "pct": "% do total",
+      "total": "TOTAL"
+    },
+    "concentracion": {
+      "resumen": "Os {{n}} maiores devedores concentram {{pct}} da carteira."
+    },
+    "dso": {
+      "titulo": "DSO · dias de carteira",
+      "sub": "Quantos dias leva para receber uma venda. As vendas a prazo você informa; o saldo sai da sua carteira.",
+      "ventas": "Vendas a prazo do período",
+      "dias": "Dias do período",
+      "plazo": "Prazo de crédito",
+      "calcular": "Calcular DSO",
+      "dias_unidad": "dias"
+    },
+    "efectividad": {
+      "titulo": "Efetividade de cobrança",
+      "sub": "Valor recebido sobre valor trabalhado. Sai das gestões que você já registra.",
+      "mes": "Mês",
+      "gestionado": "Trabalhado",
+      "cobrado": "Recebido",
+      "variacion": "{{pp}} pontos contra {{mes}}.",
+      "sin_datos": "Ainda não há gestões registradas para calcular."
+    },
+    "conciliar": {
+      "titulo": "A qual fatura corresponde este pagamento?",
+      "sub": "Busca a fatura ou combinação que soma exatamente o valor recebido. Se houver mais de uma possível, avisa e não escolhe.",
+      "monto": "Valor recebido",
+      "buscar": "Conciliar",
+      "placeholder": "Uma fatura por linha: F-4501 30000",
+      "match": "Corresponde a: {{facturas}}",
+      "ambiguo": "Há mais de uma combinação possível — nenhuma é aplicada automaticamente:",
+      "sin_match": "Nenhum valor coincide. Os mais próximos:"
+    },
+    "anomalias": {
+      "titulo": "Pagamentos a revisar",
+      "sub": "Possíveis duplicados, pagamentos sem fatura e valores que não coincidem. Marca, não corrige.",
+      "limpio": "Sem achados em {{n}} pagamento(s) revisado(s).",
+      "tipo_posible_duplicado": "Possível duplicado",
+      "tipo_sin_factura": "Sem fatura",
+      "tipo_monto_no_calza": "O valor não coincide"
+    }
   }
 }
