@@ -20,7 +20,6 @@ sin traducir, que ninguna traducción termine cortada, y que las funciones que
 se fueron sumando a la plataforma se anuncien en los tres idiomas y no solo
 en español.
 """
-import io
 import os
 import re
 from html.parser import HTMLParser
@@ -32,7 +31,7 @@ IDIOMAS = ("pt", "en")
 
 
 def _leer():
-    with io.open(LANDING, encoding="utf-8") as f:
+    with open(LANDING, encoding="utf-8") as f:
         return f.read()
 
 
@@ -77,7 +76,7 @@ def _diccionario(idioma):
     html = _leer()
     inicio = html.index("var I18N=")
     bloque = html[inicio:]
-    m = re.search(r"\n\s*%s:\{" % idioma, bloque)
+    m = re.search(rf"\n\s*{idioma}:\{{", bloque)
     assert m, f"no está el diccionario de {idioma}"
     # Desde la llave de apertura hasta la que la cierra, contando anidamiento.
     i = m.end() - 1
