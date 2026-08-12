@@ -16,7 +16,9 @@ function GestorIADemo() {
   const simular = async (c) => {
     setCanal(c); setCargando(true); setError(""); setRes(null);
     try {
-      setRes(avisarPlan(await api("/api/gestor-ia/demo", { metodo: "POST", cuerpo: { canal: c } })));
+      // `api()` ya avisa el plan por su cuenta (éxito o error) — no hace
+      // falta envolver la respuesta acá.
+      setRes(await api("/api/gestor-ia/demo", { metodo: "POST", cuerpo: { canal: c } }));
     } catch (e) { setError(e.message); }
     finally { setCargando(false); }
   };
@@ -135,8 +137,11 @@ function AnalizarVoz() {
         body: fd,
       });
       const d = await r.json().catch(() => ({}));
+      // Antes del throw: si el cupo se agotó (402), la MISMA respuesta trae
+      // el plan actualizado — es el momento en que el chip más lo necesita.
+      avisarPlan(d);
       if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
-      setResultado(avisarPlan(d));
+      setResultado(d);
     } catch (e) {
       setError(e.message);
     } finally {

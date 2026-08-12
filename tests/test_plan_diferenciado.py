@@ -249,6 +249,39 @@ def test_una_licencia_nueva_no_hereda_lo_gastado(tmp_path, monkeypatch):
     from kobra import config as kconfig
     kconfig.guardar_extra("LICENCIA_TOKEN",
                           klicencias.emitir_licencia("empresa-B", "pro", secreto=SECRETO))
+    # En producción esto lo hace el endpoint que activa la licencia
+    # (`webapp/backend/api.py::licencia_activar`) inmediatamente después de
+    # guardar el token nuevo — si no, el caché corto de `claims()` seguiría
+    # devolviendo la licencia vieja hasta que expire por sí solo.
+    kplan.invalidar_cache()
+    assert kplan.consumo() == 0
+    assert kplan.estado()["cupo"] == 1000
+
+
+def test_activar_la_licencia_invalida_el_cache_sola(tmp_path, monkeypatch):
+    """El mismo caso que el test anterior, pero pasando por el ENDPOINT real
+    en vez de tocar la config a mano — así queda fijado que la invalidación
+    vive en el código de producción y no solo en el test."""
+    import importlib
+
+    kplan = _entorno(tmp_path, monkeypatch, plan="basico", cupo=2, sub="empresa-A")
+    kplan.registrar_gestion()
+    kplan.registrar_gestion()
+
+    monkeypatch.setenv("KOBRA_MODO_STANDALONE", "1")
+    from fastapi.testclient import TestClient
+
+    from webapp.backend import api
+    importlib.reload(api)
+    cliente = TestClient(api.app)
+
+    from backend_venta import licencias as klicencias
+    token_b = klicencias.emitir_licencia("empresa-B", "pro", secreto=SECRETO)
+    r = cliente.post("/api/licencia/activar", json={"token": token_b})
+    assert r.status_code == 200
+
+    # Sin llamar a invalidar_cache() a mano: si el endpoint no lo hiciera,
+    # este assert vería el consumo viejo de empresa-A durante hasta 2 s.
     assert kplan.consumo() == 0
     assert kplan.estado()["cupo"] == 1000
 
