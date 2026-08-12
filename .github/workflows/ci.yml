@@ -51,7 +51,10 @@ jobs:
       - name: Configurar Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # 22 y no 20: los runners ya avisan que Node 20 está deprecado, y el
+          # patrón de `npm test` se resuelve solo (el shell lo expande, y si no
+          # lo hace —Windows— el propio Node ≥22 lo interpreta como glob).
+          node-version: "22"
           cache: npm
 
       - name: Instalar dependencias de las funciones serverless

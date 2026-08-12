@@ -171,8 +171,12 @@ firma de licencia— tiene su propia suite, sin dependencias nuevas:
 
 ```bash
 npm install    # una vez, para tener `botid` (bot-check) disponible
-npm test       # node --test, viene con Node 18+
+npm test       # node --test, viene con Node (sin runner de terceros)
 ```
+
+Corre en CI junto con la suite de Python (`.github/workflows/ci.yml`). Antes no
+corría ahí: el job era solo de Python, así que un cambio en el emisor de
+licencias podía llegar a `main` sin ejecutar una sola de estas pruebas.
 
 No usa Jest ni Vitest a propósito: agregar un test runner de terceros para
 esto sería exactamente el tipo de dependencia extra que este proyecto evita
