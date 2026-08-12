@@ -51,6 +51,7 @@ from kobra import autenticacion as kauth  # noqa: E402
 from kobra import ayuda as kayuda  # noqa: E402
 from kobra import cartera_manual as kcartera  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
+from kobra import cuentas_por_cobrar as kcxc  # noqa: E402
 from kobra import informe_ejecutivo as kinforme  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
 from kobra import llm as kllm  # noqa: E402
@@ -761,6 +762,82 @@ def licencia_activar(datos: LicenciaIn, request: Request):
     estado = _estado_licencia(datos.token)
     return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
             "empresa": EMPRESA_DEFAULT, **estado}
+
+
+# ---------------------------------------------------------------------------
+# Cuentas por cobrar (kobra/cuentas_por_cobrar.py)
+# ---------------------------------------------------------------------------
+# El análisis de CxC que Kobra no cubría: antigüedad de saldos, DSO,
+# efectividad de cobranza, conciliación de pagos y pagos mal aplicados. Todo
+# es cálculo determinístico sobre la cartera real del cliente — no hay que
+# pegarle una tabla a un asistente ni verificar después si sumó bien.
+@app.get("/api/cxc/antiguedad")
+def cxc_antiguedad(top: int = 10, u: Usuario = Depends(usuario_actual)):
+    """Antigüedad de saldos + concentración: cuánto se debe en cada tramo y
+    qué porcentaje de la cartera son los deudores más grandes."""
+    f = _scored(u.empresa)
+    return {"antiguedad": kcxc.antiguedad_saldos(f),
+            "concentracion": kcxc.concentracion(f, top=top)}
+
+
+class DsoIn(BaseModel):
+    ventas_credito: float
+    saldo_cxc: float | None = None
+    dias_periodo: int = 30
+    plazo_estandar: int | None = None
+
+
+@app.post("/api/cxc/dso")
+def cxc_dso(datos: DsoIn, u: Usuario = Depends(usuario_actual)):
+    """Días de cartera (DSO). Las ventas a crédito las pone el usuario —
+    Kobra ve la cobranza, no la facturación—; el saldo, si no se envía, sale
+    de la cartera cargada."""
+    saldo = datos.saldo_cxc
+    if saldo is None:
+        saldo = float(pd.to_numeric(_scored(u.empresa)["monto_deuda"],
+                                    errors="coerce").fillna(0).sum())
+    return kcxc.dso(datos.ventas_credito, saldo, datos.dias_periodo,
+                    plazo_estandar=datos.plazo_estandar)
+
+
+@app.get("/api/cxc/efectividad")
+def cxc_efectividad(mes: str | None = None, comparar: str | None = None,
+                    u: Usuario = Depends(usuario_actual)):
+    """Monto cobrado sobre monto gestionado, del mes indicado, comparable
+    contra otro mes. Sale de las gestiones que Kobra ya registra."""
+    g = _gestiones(u.empresa)
+    if g is None or g.empty:
+        return {"efectividad": None, "error": "No hay gestiones registradas."}
+    if mes is None:
+        # El último mes CON DATOS, no el último del archivo: el mes en curso
+        # suele estar a medias y daría "sin datos" en un tablero con miles de
+        # gestiones cargadas.
+        mes = kcxc.ultimo_mes_con_datos(g)
+        if mes is None:
+            return {"efectividad": None,
+                    "error": "Ningún mes tiene monto gestionado cargado."}
+    return kcxc.efectividad(g, mes=mes, mes_comparar=comparar)
+
+
+class ConciliarIn(BaseModel):
+    monto: float
+    facturas: list[dict]
+
+
+@app.post("/api/cxc/conciliar")
+def cxc_conciliar(datos: ConciliarIn, u: Usuario = Depends(usuario_actual)):
+    """¿A qué factura(s) corresponde este pago? Si hay más de una combinación
+    posible lo dice y NO elige — aplicar la que 'parece' deja un saldo mal
+    imputado que reaparece como un descuadre."""
+    return kcxc.conciliar_pago(datos.monto, datos.facturas)
+
+
+@app.get("/api/cxc/anomalias")
+def cxc_anomalias(u: Usuario = Depends(usuario_actual)):
+    """Revisa los pagos registrados en el portal de cobros y marca posibles
+    duplicados, pagos sin factura y montos que no calzan. Marca, no corrige."""
+    pagos = kportal.listar_pagos(_dir_portal(u.empresa))
+    return kcxc.anomalias_en_pagos(pagos)
 
 
 @app.get("/api/kpis")

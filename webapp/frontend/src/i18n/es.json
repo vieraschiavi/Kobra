@@ -19,7 +19,8 @@
       "roi": "Calculadora ROI",
       "configuracion": "Configuración",
       "calidad": "Calidad de gestión",
-      "portal_cobros": "Portal de cobros"
+      "portal_cobros": "Portal de cobros",
+      "cxc": "Cuentas por cobrar"
     },
     "sidebar": {
       "rol_admin": "Administrador",
@@ -627,5 +628,57 @@
     "agotado": "Llegaste a las {{cupo}} gestiones de tu plan este mes. Tu cartera, tus informes y tus exportaciones siguen disponibles; para volver a gestionar, mejorá tu plan.",
     "excedente": "Vas {{excedente}} gestiones por encima de las {{cupo}} de tu plan — se facturan como excedente.",
     "link_mejorar": "Mejorar mi plan"
+  },
+  "cxc": {
+    "titulo": "Cuentas por cobrar",
+    "subtitulo": "El análisis de CxC calculado sobre tu cartera real: antigüedad de saldos, DSO, efectividad de cobranza, conciliación de pagos y pagos mal aplicados. Son cálculos, no respuestas generadas — los mismos datos dan siempre el mismo número, y por eso sirven para cerrar un mes.",
+    "antiguedad": {
+      "titulo": "Antigüedad de saldos",
+      "sub": "Cuánto se debe en cada tramo de mora. Es la base de todo lo demás.",
+      "tramo": "Tramo",
+      "monto": "Monto",
+      "deudores": "Deudores",
+      "pct": "% del total",
+      "total": "TOTAL"
+    },
+    "concentracion": {
+      "resumen": "Los {{n}} deudores más grandes concentran el {{pct}} de la cartera."
+    },
+    "dso": {
+      "titulo": "DSO · días de cartera",
+      "sub": "Cuántos días tarda en cobrarse una venta. Las ventas a crédito las ponés vos (Kobra ve la cobranza, no la facturación); el saldo sale de tu cartera.",
+      "ventas": "Ventas a crédito del período",
+      "dias": "Días del período",
+      "plazo": "Plazo de crédito",
+      "calcular": "Calcular DSO",
+      "dias_unidad": "días"
+    },
+    "efectividad": {
+      "titulo": "Efectividad de cobranza",
+      "sub": "Monto cobrado sobre monto gestionado. Sale de las gestiones que ya registrás.",
+      "mes": "Mes",
+      "gestionado": "Gestionado",
+      "cobrado": "Cobrado",
+      "variacion": "{{pp}} puntos contra {{mes}}.",
+      "sin_datos": "Todavía no hay gestiones registradas para calcularla."
+    },
+    "conciliar": {
+      "titulo": "¿A qué factura corresponde este pago?",
+      "sub": "Busca la factura o la combinación de facturas que suma exactamente el monto recibido. Si hay más de una posible, lo dice y no elige.",
+      "monto": "Monto recibido",
+      "buscar": "Conciliar",
+      "placeholder": "Una factura por línea: F-4501 30000",
+      "match": "Corresponde a: {{facturas}}",
+      "ambiguo": "Hay más de una combinación posible — no se aplica ninguna automáticamente:",
+      "sin_match": "Ningún monto calza. Las más cercanas:"
+    },
+    "anomalias": {
+      "titulo": "Pagos a revisar",
+      "sub": "Posibles duplicados, pagos sin factura y montos que no calzan. Marca, no corrige.",
+      "limpio": "Sin hallazgos sobre {{n}} pago(s) revisado(s).",
+      "tipo_posible_duplicado": "Posible duplicado",
+      "tipo_sin_factura": "Sin factura",
+      "tipo_monto_no_calza": "El monto no calza"
+    }
   }
 }
