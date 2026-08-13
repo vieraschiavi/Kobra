@@ -336,8 +336,15 @@ def test_abre_el_navegador_recien_cuando_de_verdad_no_esta_instalado(entrada):
 
 def test_tambien_mira_la_carpeta_que_eligio_el_instalador_de_consola(entrada):
     """La vía por consola anota su destino para no volver a preguntar; si se
-    instaló por ahí, el programa está en esa carpeta y no en el registro."""
-    assert "destino_%%~M.txt" in entrada
+    instaló por ahí, el programa está en esa carpeta y no en el registro.
+
+    Se prueban las DOS convenciones de nombre que conviven: los .bat de cada
+    edición (build_release.py) escriben `destino_<edicion>.txt`, y el
+    instalador por consola escribe `owner_destino.txt`. Mirando solo la
+    primera, a quien instalaba por consola en otro disco no se lo encontraba
+    por esta vía — que es justo el caso para el que existe la memoria."""
+    for nombre in ("destino_owner.txt", "owner_destino.txt"):
+        assert nombre in entrada, f"no mira {nombre}"
 
 
 def test_la_subrutina_no_deja_basura_en_el_disco(entrada):
