@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """El .bat de la versión OWNER: elegir carpeta y no mentir sobre el disco.
 
 Dos fallas reportadas desde una instalación real en Windows:

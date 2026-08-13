@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 // Iconos SVG de línea (estilo Lucide, trazo 2, currentColor) — reemplazan a
 // los emojis de la interfaz: mismo color que el texto, mismo peso visual en
 // cualquier sistema operativo, y un acabado profesional que el emoji no da.

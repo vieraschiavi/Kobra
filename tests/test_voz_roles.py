@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Gestor/Cliente confundidos en el análisis de voz — y el sentimiento con ellos.
 
 Reporte del usuario: en la pestaña de voz de Streamlit, la tabla "Transcripción

@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 // `_license.js` es el candado de la venta web: firma la licencia que recibe
 // quien pagó, y `verify()` es lo único que separa una licencia real de una
 // inventada.

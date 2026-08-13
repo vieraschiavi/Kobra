@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 import React, { useState } from "react";
 import { api, avisarPlan, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";

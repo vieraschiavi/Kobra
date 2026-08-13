@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Tests de kobra/llm.py: el cliente puede elegir Claude/Gemini/OpenAI como
 proveedor de IA (con su propia cuenta corporativa) para el Asistente, el
 Copiloto y el Gestor IA — antes esto estaba hardcodeado a Anthropic en 4

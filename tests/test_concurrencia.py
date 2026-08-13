@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Capacidad de llamadas simultáneas del chatvoice / chatbot.
 
 La pregunta del negocio era «¿cuántas llamadas atiende a la vez sin errores,

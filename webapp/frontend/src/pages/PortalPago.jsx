@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 // Portal público de pagos: la página que ve el DEUDOR al entrar por el link,
 // el QR o con usuario+código. No requiere sesión de la plataforma — el acceso
 // es el token firmado del link (o el que devuelve el login del deudor).

@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Tests del motor de originación (kobra/originacion.py) y sus endpoints."""
 import importlib
 import os

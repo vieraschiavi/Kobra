@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Comprimir los exports de Canva para que viajen con el repo
 =========================================================================

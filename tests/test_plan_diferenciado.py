@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Lo que el cliente pagó tiene que ser lo que el cliente recibe.
 
 El agujero que cierran estos tests: la licencia viajaba firmada con `plan`,

@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Eje CÓDIGO: cero warnings de deprecación y cobertura de los módulos de dinero.
 
 Corriendo la suite completa con las advertencias de deprecación elevadas a

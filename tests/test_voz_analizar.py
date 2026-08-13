@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Tests de /api/voz/analizar: subir una grabación real (.wav/.mp3) desde el
 dashboard debe analizarse (diarización + emoción acústica), no quedarse sin
 responder. Bug real reportado: el cliente subía wav/mp3 y "no analiza"."""

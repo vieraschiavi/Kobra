@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Elección de puerto sin pisar a otros programas
 ============================================================

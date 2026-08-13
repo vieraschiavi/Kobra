@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Campaña de contacto automática (canal + horario + prioridad)
 ===========================================================================

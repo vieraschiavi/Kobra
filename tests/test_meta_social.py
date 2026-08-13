@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Tests de la previsualización al compartir (Open Graph / Twitter Card) y de
 la coherencia de los iconos de marca.
 

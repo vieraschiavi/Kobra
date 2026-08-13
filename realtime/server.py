@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Copiloto en Vivo — backend de audio en tiempo real
 ==========================================================

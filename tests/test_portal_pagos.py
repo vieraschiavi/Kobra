@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Portal de cobros centralizado: el deudor paga solo y el pago queda imputado.
 
 Pedido: un menú profesional donde el cliente entre por QR, usuario/contraseña

@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Logo vectorial (SVG) a partir del PNG
 ====================================================

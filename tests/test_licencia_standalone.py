@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Tests del gateo por licencia en modo standalone (webapp/backend/api.py).
 
 En modo hosted (Vercel, multi-tenant) el login sigue siendo por contraseña,

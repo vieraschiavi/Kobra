@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 // MV Kobra AI · Guiones de las demos animadas, en los tres idiomas del producto.
 //
 // Antes vivían escritos a mano dentro de index.html, solo en castellano: elegir

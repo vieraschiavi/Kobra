@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 // Webhook de MercadoPago: la red de seguridad del cobro.
 //
 // EL PROBLEMA QUE RESUELVE

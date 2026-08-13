@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Backend de venta — FastAPI (Edición Venta)
 =====================================================

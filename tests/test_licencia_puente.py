@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 El puente entre el checkout web (Node) y la app instalada (Python).
 

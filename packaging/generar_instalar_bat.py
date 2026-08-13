@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Genera `packaging/Instalar_en_otro_disco.bat`
 ===========================================================

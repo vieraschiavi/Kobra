@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Conector Avaya / SIPREC (puente RTP → Copiloto en vivo)
 ==================================================================

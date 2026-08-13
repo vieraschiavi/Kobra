@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 /* MV Kobra AI · Copiloto de Negociación — motor offline en JS
  * Port del motor Python (kobra/copiloto.py): análisis de sentimiento,
  * emociones, técnicas, calidad y asesoría en vivo. Funciona sin backend.

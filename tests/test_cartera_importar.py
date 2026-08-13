@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Tests de /api/cartera/importar: subir la cartera real (CSV/Excel) debe
 reemplazar los datos de demo en TODO el dashboard, no solo simular una
 negociación aparte. Bug real reportado: el cliente subía un CSV/Excel y

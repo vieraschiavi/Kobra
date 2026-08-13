@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# © 2026 Martín Viera. Todos los derechos reservados.
 # MV Kobra AI · entrypoint: genera datos/modelo si faltan y arranca el servicio pedido.
 set -e
 

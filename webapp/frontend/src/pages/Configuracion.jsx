@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 import React, { useEffect, useState } from "react";
 import { api, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";

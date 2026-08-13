@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 // El webhook es la red de seguridad del cobro: es lo único que se entera de
 // un pago cuando el comprador cerró la pestaña. Y es una URL PÚBLICA, así que
 // lo primero que hay que fijar es que un aviso inventado no pueda fabricar

@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Tests de la identidad de marca: tokens de color compartidos y logo vectorial.
 
 Tres defectos reales que cubren estos tests:

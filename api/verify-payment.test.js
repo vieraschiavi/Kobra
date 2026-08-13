@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 // `verify-payment.js` decide si alguien recibe una licencia real o no —
 // consulta MercadoPago del lado del servidor para que no alcance con armar
 // la URL de /descarga a mano. Antes de este archivo, cero tests: ni el

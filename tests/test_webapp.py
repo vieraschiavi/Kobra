@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Tests del backend FastAPI del SaaS web (webapp/backend/api.py)."""
 import importlib
 import os

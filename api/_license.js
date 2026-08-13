@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 // Firma y verificación de licencias MV Kobra AI.
 // Prefijo "_" para que Vercel NO la trate como endpoint — es un módulo interno.
 //

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# © 2026 Martín Viera. Todos los derechos reservados.
 # MV Kobra AI · modo OWNER desde el código fuente (Linux/Mac).
 # Prepara todo solo: venv, dependencias e interfaz ya compilada.
 # Entra directo como Administrador — sin licencia ni trial.

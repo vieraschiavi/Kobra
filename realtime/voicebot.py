@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Voicebot (campañas salientes con Gestor IA)
 ======================================================

@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Lo que importa la suite tiene que estar DECLARADO en algún requirements.
 
 Bug real: `tests/test_instalador_owner.py` importaba `yaml` (PyYAML), que en la

@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """No usar el disco C: si el usuario no lo pidió.
 
 Reporte real: el instalador moría antes de abrir la primera pantalla, con

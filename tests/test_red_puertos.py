@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Elegir puerto sin pisar a otra aplicación (kobra/red.py).
 
 Reportado desde una instalación real: «no pisar puertos si otra app los usa».

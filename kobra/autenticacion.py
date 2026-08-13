@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Autenticación y roles del dashboard (Streamlit)
 ========================================================

@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Eje SEGURIDAD: freno a la fuerza bruta, cabeceras y escape de HTML.
 
 Tres huecos que aparecieron auditando el repo contra el estándar:

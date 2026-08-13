@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Integración con ERP / base de datos (sábana de gestiones)
 ====================================================================

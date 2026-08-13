@@ -1,3 +1,4 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
 // Portal de cobros (lado EMPRESA): configurar los métodos de pago y la
 // integración ERP/CRM, generar el acceso de cada deudor (link + QR +
 // usuario/código) y ver los pagos que van entrando por el portal.

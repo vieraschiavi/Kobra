@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """Regresión del Error 500 de la Cartera priorizada.
 
 Reportado con una cartera real del cliente: la pantalla mostraba «Error 500» y

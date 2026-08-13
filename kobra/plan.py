@@ -1,3 +1,4 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
 """
 MV Kobra AI · Qué incluye realmente el plan que pagó el cliente
 ==============================================================
