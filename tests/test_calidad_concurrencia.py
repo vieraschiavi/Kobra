@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """`_guardar_calidad` (webapp/backend/api.py) hace un read-modify-write sobre
 un CSV: lee el archivo entero, le suma una fila, reescribe. Dos evaluaciones
 subidas casi juntas (dos supervisores cargando llamadas al mismo tiempo)

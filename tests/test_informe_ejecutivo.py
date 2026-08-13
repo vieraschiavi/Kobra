@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests del informe ejecutivo en PDF (kobra/informe_ejecutivo.py + endpoint)."""
 import importlib
 import os

@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Log de auditoría (append-only, con cadena de hashes)
 =============================================================

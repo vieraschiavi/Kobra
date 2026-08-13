@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Cuentas por cobrar: los cálculos que un analista de CxC hace todos los días.
 
 Kobra cubría la GESTIÓN de cobranza (a quién llamar, con qué estrategia) pero

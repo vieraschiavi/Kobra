@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Los exports publicados tienen que atar con los datos que los generan.
 
 Hallazgo del loop de verificación end-to-end: `outputs/impacto_kobra.json`

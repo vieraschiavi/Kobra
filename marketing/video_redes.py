@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Genera los cortes para redes sociales a partir de los videos de la landing.
 
 Los videos maestros viven en `landing/video/` y duran ~69 s cada uno — bien

@@ -1,3 +1,5 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
+
 import React, { useState } from "react";
 import { t } from "../i18n/index.js";
 

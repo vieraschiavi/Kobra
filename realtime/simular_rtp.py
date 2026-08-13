@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Simulador de central Avaya (emisor RTP)
 ==================================================

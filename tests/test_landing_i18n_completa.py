@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Eje DISEÑO: la landing dice lo mismo en los tres idiomas.
 
 El cuerpo de la landing está escrito en español y cada nodo traducible lleva

@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Los instaladores .bat que genera packaging/build_release.py.
 
 Reportado desde una instalación real en Windows, en este orden:

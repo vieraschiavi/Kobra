@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests del tablero de calidad de llamadas.
 
 Pedido: una pestaña que analice la calidad por **gestor, mes, año y aspecto de

@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Explicabilidad de ProbPago (reason codes por deudor)
 ===============================================================
