@@ -11,9 +11,16 @@ set "APP_USER=%LocalAppData%\Programs\MV Kobra AI\MV Kobra AI.exe"
 set "APP_PF=%ProgramFiles%\MV Kobra AI\MV Kobra AI.exe"
 set "APP_PF86=%ProgramFiles(x86)%\MV Kobra AI\MV Kobra AI.exe"
 
-if exist "%APP_USER%" ( start "" "%APP_USER%" & exit /b )
-if exist "%APP_PF%"   ( start "" "%APP_PF%"   & exit /b )
-if exist "%APP_PF86%" ( start "" "%APP_PF86%" & exit /b )
+rem El build OWNER se instala con otro productName ("MV Kobra AI Owner"), asi
+rem que deja la copia en OTRA carpeta. Sin esta linea, la copia del dueno solo
+rem se encontraba por el registro. La lista de rutas por defecto sale de
+rem packaging/deteccion_instalacion.py.
+set "APP_USER_OWNER=%LocalAppData%\Programs\MV Kobra AI Owner\MV Kobra AI.exe"
+
+if exist "%APP_USER%"       ( start "" "%APP_USER%"       & exit /b )
+if exist "%APP_USER_OWNER%" ( start "" "%APP_USER_OWNER%" & exit /b )
+if exist "%APP_PF%"         ( start "" "%APP_PF%"         & exit /b )
+if exist "%APP_PF86%"       ( start "" "%APP_PF86%"       & exit /b )
 
 rem Instalaciones viejas (Inno Setup, pre-Electron), por si quedaron.
 set "EXE_PF=%ProgramFiles%\MV Kobra AI\MVKobraAI.exe"
@@ -39,10 +46,15 @@ rem =========================================================================
 call :buscar_instalado APP_REG
 if defined APP_REG ( start "" "!APP_REG!" & exit /b )
 
-rem Y la carpeta que eligio el usuario en el instalador por consola, que la
-rem deja anotada para no volver a preguntar.
-for %%M in ("owner" "produccion" "pro" "starter" "basico") do (
-  set "MEM=%LocalAppData%\MV Kobra AI\destino_%%~M.txt"
+rem Y la carpeta que eligio el usuario en el instalador, que la deja anotada
+rem para no volver a preguntar. Hay DOS convenciones de nombre vivas y se
+rem prueban las dos: los .bat de cada edicion (build_release.py) escriben
+rem destino_<edicion>.txt, y el instalador por consola
+rem (MVKobraAI_Owner_desde_codigo.bat) escribe owner_destino.txt. Mirando
+rem solo la primera, a quien instalaba por consola en otro disco no se lo
+rem encontraba por esta via. La lista sale de packaging/deteccion_instalacion.py.
+for %%M in ("destino_owner.txt" "destino_produccion.txt" "destino_pro.txt" "destino_starter.txt" "destino_basico.txt" "owner_destino.txt") do (
+  set "MEM=%LocalAppData%\MV Kobra AI\%%~M"
   if exist "!MEM!" (
     for /f "usebackq delims=" %%D in ("!MEM!") do (
       if exist "%%D\MV Kobra AI.exe" ( start "" "%%D\MV Kobra AI.exe" & exit /b )

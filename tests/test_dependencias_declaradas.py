@@ -31,8 +31,15 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
 
 # Paquetes del propio proyecto: no van a ningún requirements.
+#
+# `deteccion_instalacion` vive en `packaging/` pero se importa por su nombre
+# suelto, sin el prefijo del directorio: `from packaging import ...` traería la
+# librería homónima de PyPI (la de `packaging.version`, que arrastran
+# setuptools y pip) en vez de la carpeta de este repo. Por eso aparece acá y no
+# alcanza con tener "packaging" en la lista.
 PROPIOS = {"kobra", "webapp", "backend_venta", "realtime", "data", "marketing",
-           "app", "packaging", "tests", "electron", "owner"}
+           "app", "packaging", "tests", "electron", "owner",
+           "deteccion_instalacion"}
 
 # Import → nombre en PyPI, cuando no coinciden.
 EQUIVALENCIAS = {

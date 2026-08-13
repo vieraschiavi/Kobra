@@ -24,11 +24,32 @@ if not defined INTERNO if exist "%~dp0base_library.zip" set "INTERNO=%~dp0."
 rem 2) Una carpeta arrastrada sobre el .bat.
 if not defined INTERNO if not "%~1"=="" call :probar "%~1"
 
-rem 3) Y por ultimo las rutas donde instala el .exe por defecto.
+rem 3) Y si no, se busca la instalacion sola (rutas por defecto,
+rem    registro de Windows y la carpeta que quedo anotada).
+rem a) Las rutas donde instala el .exe cuando nadie toca Examinar.
 if not defined INTERNO call :probar "%LOCALAPPDATA%\Programs\MV Kobra AI"
 if not defined INTERNO call :probar "%LOCALAPPDATA%\Programs\MV Kobra AI Owner"
 if not defined INTERNO call :probar "%ProgramFiles%\MV Kobra AI"
 if not defined INTERNO call :probar "%ProgramFiles(x86)%\MV Kobra AI"
+
+rem b) El registro. Es la unica via que aguanta el boton Examinar:
+rem    el instalador anota ahi la carpeta que eligio el usuario, asi
+rem    que una instalacion en D:\MVKobraAI tambien aparece.
+if not defined INTERNO (
+  call :buscar_en_registro RAIZ_REG
+  if defined RAIZ_REG call :probar "!RAIZ_REG!"
+)
+
+rem c) La carpeta que el instalador dejo anotada al preguntar el
+rem    destino. Se prueban los dos nombres que se usan hoy: los .bat
+rem    de cada edicion escriben destino_<edicion>.txt y el instalador
+rem    por consola escribe owner_destino.txt.
+for %%M in ("destino_owner.txt" "destino_produccion.txt" "destino_pro.txt" "destino_starter.txt" "destino_basico.txt" "owner_destino.txt") do (
+  set "MEM=%LocalAppData%\MV Kobra AI\%%~M"
+  if not defined INTERNO if exist "!MEM!" (
+    for /f "usebackq delims=" %%D in ("!MEM!") do if not "%%D"=="" call :probar "%%D"
+  )
+)
 
 if not defined INTERNO (
   echo   No encontre la instalacion de MV Kobra AI.
@@ -69,6 +90,22 @@ echo.
 pause
 exit /b 0
 
+rem Una carpeta candidata sirve si adentro tiene el bundle congelado:
+rem ahi es donde va el sello. Cada script comprueba lo suyo (el
+rem lanzador busca el .exe), por eso la deteccion recibe esta rutina.
 :probar
 if exist "%~1\resources\backend\_internal\" set "INTERNO=%~1\resources\backend\_internal"
 goto :eof
+
+rem :buscar_en_registro <variable>  -> carpeta de instalacion, o vacio
+:buscar_en_registro
+set "%~1="
+set "KOBRA_RESP_DIR=%TEMP%\kobra_instalacion.txt"
+del "!KOBRA_RESP_DIR!" >nul 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $r=@('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'); foreach($p in (Get-ItemProperty $r | Where-Object { $_.DisplayName -like 'MV Kobra AI*' -and $_.InstallLocation } | Select-Object -ExpandProperty InstallLocation)){ if(Test-Path -LiteralPath $p){ Set-Content -LiteralPath $env:KOBRA_RESP_DIR -Value $p; exit } }" >nul 2>nul
+if exist "!KOBRA_RESP_DIR!" (
+  for /f "usebackq delims=" %%A in ("!KOBRA_RESP_DIR!") do if not "%%A"=="" set "%~1=%%A"
+)
+del "!KOBRA_RESP_DIR!" >nul 2>nul
+set "KOBRA_RESP_DIR="
+exit /b 0

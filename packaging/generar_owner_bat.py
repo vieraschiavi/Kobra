@@ -40,6 +40,15 @@ Uso:
 from __future__ import annotations
 
 import os
+import sys
+
+# Import por el directorio propio y no `from packaging import ...`: el nombre
+# `packaging` ya lo ocupa la librería homónima de PyPI (la de `packaging.version`,
+# que arrastran setuptools y pip), así que esa forma importa la instalada y no
+# la carpeta de este repo.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import deteccion_instalacion as deteccion  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SALIDA = os.path.join(ROOT, "packaging", "Owner.bat")
@@ -48,20 +57,14 @@ SALIDA = os.path.join(ROOT, "packaging", "Owner.bat")
 # `tests/test_sello_owner.py` compara los dos y falla si se separan.
 SELLO = '{"edition":"Owner","plan":null,"dias":null,"owner":true}'
 
-# Dónde puede estar instalado. `perMachine: false` en electron-builder deja la
-# copia en %LOCALAPPDATA%\Programs\<productName>; el Owner usa otro
-# productName, y quedan las dos de Program Files por si alguien instaló ahí.
-_CANDIDATAS = [
-    r"%LOCALAPPDATA%\Programs\MV Kobra AI",
-    r"%LOCALAPPDATA%\Programs\MV Kobra AI Owner",
-    r"%ProgramFiles%\MV Kobra AI",
-    r"%ProgramFiles(x86)%\MV Kobra AI",
-]
-
 
 def _bat() -> str:
-    busqueda = "".join(
-        f'if not defined INTERNO call :probar "{ruta}"\n' for ruta in _CANDIDATAS)
+    # Dónde buscar la instalación: la metodología vive en un solo lugar
+    # (packaging/deteccion_instalacion.py) y la comparten todos los scripts.
+    # Antes acá había cuatro rutas fijas, así que una instalación hecha con
+    # el botón Examinar —por ejemplo en D:\MVKobraAI— no se encontraba y el
+    # .bat la daba por inexistente.
+    busqueda = deteccion.bloque_busqueda(destino="INTERNO", comprobar="probar")
     return (
         "@echo off\n"
         "setlocal enabledelayedexpansion\n"
@@ -91,7 +94,8 @@ def _bat() -> str:
         "rem 2) Una carpeta arrastrada sobre el .bat.\n"
         "if not defined INTERNO if not \"%~1\"==\"\" call :probar \"%~1\"\n"
         "\n"
-        "rem 3) Y por ultimo las rutas donde instala el .exe por defecto.\n"
+        "rem 3) Y si no, se busca la instalacion sola (rutas por defecto,\n"
+        "rem    registro de Windows y la carpeta que quedo anotada).\n"
         + busqueda +
         "\n"
         "if not defined INTERNO (\n"
@@ -133,10 +137,15 @@ def _bat() -> str:
         "pause\n"
         "exit /b 0\n"
         "\n"
+        "rem Una carpeta candidata sirve si adentro tiene el bundle congelado:\n"
+        "rem ahi es donde va el sello. Cada script comprueba lo suyo (el\n"
+        "rem lanzador busca el .exe), por eso la deteccion recibe esta rutina.\n"
         ":probar\n"
         "if exist \"%~1\\resources\\backend\\_internal\\\" "
         "set \"INTERNO=%~1\\resources\\backend\\_internal\"\n"
-        "goto :eof\n")
+        "goto :eof\n"
+        "\n"
+        + deteccion.bloque_registro())
 
 
 def main() -> None:
