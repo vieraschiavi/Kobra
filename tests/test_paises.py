@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests del catálogo de países (Fase 1 LATAM + Fase 2 Brasil) y sus endpoints."""
 import importlib
 import os

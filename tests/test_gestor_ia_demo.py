@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests de /api/gestor-ia/demo: la demo del Gestor IA negociando (voz y
 WhatsApp) — la parte que 'no se había probado'. Corre el motor real de
 negociación y devuelve turnos + conclusiones."""

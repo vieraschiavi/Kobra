@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """El motor del ProbPago v13 dentro de la selección de modelos de Kobra.
 
 Pedido: «reemplazar la metodología de prob cobro por este modelo si es mejor;

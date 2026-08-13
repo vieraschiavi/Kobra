@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Exportar ProbPago para scorear en el navegador
 =============================================================

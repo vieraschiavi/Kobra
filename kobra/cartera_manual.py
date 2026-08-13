@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Cartera manual (modo "mi cartera de prueba")
 =======================================================

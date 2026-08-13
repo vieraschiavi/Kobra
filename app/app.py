@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Dashboard Gerencial de Cobranzas Inteligentes
 ====================================================
@@ -39,6 +40,7 @@ from kobra import ayuda as kayuda  # noqa: E402
 from kobra import campana as kcampana  # noqa: E402
 from kobra import consulta_bd as kconsulta  # noqa: E402
 from kobra import integracion as kerp  # noqa: E402
+from kobra import llm as kllm  # noqa: E402
 from kobra import seguimiento as kseg  # noqa: E402
 from kobra import twilio_setup as ktwilio  # noqa: E402
 from kobra import voz_tts  # noqa: E402
@@ -1314,6 +1316,63 @@ with tab7:
         st.markdown(_backend_txt + " Fuera del repo en todos los casos. En producción podés "
                     "inyectarlas por variables de entorno / secretos de Docker; el entorno "
                     "tiene prioridad sobre lo guardado.")
+
+        st.markdown("---")
+        st.subheader("🧠 Proveedor y modelo de IA")
+        st.caption("Con qué cuenta corporativa **propia** razona MV Kobra AI (Asistente, "
+                   "Copiloto, Gestor IA y consultas a la base): Claude, ChatGPT/OpenAI, "
+                   "Gemini o Grok. Eligiendo el **modelo** regulás el consumo de tokens — "
+                   "un modelo chico y barato para el volumen diario, uno grande para lo que "
+                   "lo amerite. Si tu empresa tiene \"Copilot corporativo\", casi seguro es "
+                   "Azure OpenAI / ChatGPT Enterprise: entrá por la opción OpenAI con esa key.")
+
+        _prov_activo = kllm.proveedor_activo()
+        _labels_prov = {p: kllm.NOMBRES[p] for p in kllm.PROVEEDORES}
+        _prov_sel = st.selectbox(
+            "Proveedor de IA", list(kllm.PROVEEDORES),
+            index=list(kllm.PROVEEDORES).index(_prov_activo),
+            format_func=lambda p: _labels_prov[p] +
+                ("" if kllm.disponible(proveedor=p) else " · ⚠️ falta la key"),
+            key="llm_proveedor_sel")
+
+        _col_mod, _col_act = st.columns([0.72, 0.28])
+        with _col_mod:
+            _modelos = kllm.modelos_disponibles(_prov_sel)
+            _mod_actual = kllm.modelo_de(_prov_sel)
+            _mod_sel = st.selectbox(
+                "Modelo (dentro de tu cuenta)", _modelos,
+                index=_modelos.index(_mod_actual) if _mod_actual in _modelos else 0,
+                key=f"llm_modelo_sel_{_prov_sel}")
+        with _col_act:
+            st.markdown("<div style='height:1.72em'></div>", unsafe_allow_html=True)
+            if st.button("🔄 Actualizar modelos", use_container_width=True,
+                         help="Consulta la API del proveedor por su catálogo vigente, para "
+                              "que la lista tenga las últimas versiones publicadas."):
+                _res_mod = kllm.actualizar_modelos(_prov_sel)
+                if _res_mod["ok"]:
+                    kauditoria.registrar("llm_modelos_actualizados",
+                                        {"proveedor": _prov_sel,
+                                         "cantidad": len(_res_mod["modelos"])}, rol=ROL_ACTIVO)
+                    st.success("✅ " + _res_mod["detalle"])
+                    st.rerun()
+                else:
+                    st.error(_res_mod["detalle"])
+        _fecha_mod = kllm.fecha_actualizacion_modelos(_prov_sel)
+        st.caption(("Catálogo actualizado por última vez: " + _fecha_mod.replace("T", " "))
+                   if _fecha_mod else
+                   "Catálogo nunca actualizado — se muestra el modelo de referencia; tocá "
+                   "**Actualizar modelos** (con la key cargada) para traer los vigentes.")
+
+        if st.button("💾 Usar este proveedor y modelo", type="primary"):
+            kllm.establecer_proveedor(_prov_sel)
+            kllm.establecer_modelo(_prov_sel, _mod_sel)
+            kauditoria.registrar("llm_proveedor_elegido",
+                                {"proveedor": _prov_sel, "modelo": _mod_sel}, rol=ROL_ACTIVO)
+            st.success(f"✅ Guardado: {_labels_prov[_prov_sel]} · `{_mod_sel}`. "
+                      "Ya se usa en toda la plataforma.")
+            if not kllm.disponible(proveedor=_prov_sel):
+                st.warning(f"⚠️ Falta cargar `{kllm.KEY_ENV[_prov_sel]}` arriba para que "
+                          "este proveedor funcione — mientras tanto la IA degrada a plantillas.")
 
         st.markdown("---")
         st.subheader("📞 Auto-configurar número Twilio")

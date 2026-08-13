@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Clonado de voz LOCAL y gratuito
 ==============================================

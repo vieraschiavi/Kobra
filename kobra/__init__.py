@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """MV Kobra AI · Plataforma de Cobranzas Inteligentes.
 
 Nota operativa: un push a `main` que toque este archivo dispara la release

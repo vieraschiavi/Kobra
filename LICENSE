@@ -1,31 +1,34 @@
-Copyright (c) 2026 Martín Viera. Todos los derechos reservados.
+MV Kobra AI · Todos los derechos reservados
+============================================
 
-Este software (código fuente, binarios compilados, instaladores, contenidos,
-imágenes, textos y cualquier material que lo acompañe — en adelante, el
-"Software") es propiedad exclusiva de Martín Viera (MV Software) y está
-protegido por las leyes de propiedad intelectual y los tratados
-internacionales aplicables.
+Copyright © 2026 Martín Viera. Todos los derechos reservados.
 
-El Software se LICENCIA, no se vende. Ninguna disposición de este aviso
-transfiere la titularidad del Software ni de sus derechos de autor.
+Este repositorio contiene el código fuente, los datos sintéticos, los
+activos de diseño y la documentación de MV Kobra AI (Plataforma de
+Cobranzas Inteligentes), en todas sus ediciones (dashboard Streamlit,
+webapp, API, app de escritorio para Windows y demo estática).
 
-Queda expresamente PROHIBIDO, salvo autorización previa y por escrito de
-Martín Viera:
+No se otorga ninguna licencia de código abierto. Salvo autorización previa
+y por escrito del titular, queda prohibido:
 
-  1. Copiar, redistribuir, sublicenciar, alquilar, prestar o revender el
-     Software, en todo o en parte, a terceros.
-  2. Descompilar, realizar ingeniería inversa, desensamblar o intentar de
-     cualquier otro modo obtener el código fuente a partir de los binarios
-     o instaladores distribuidos.
-  3. Eliminar, ocultar o alterar los avisos de copyright, marca o
-     titularidad presentes en el Software.
-  4. Usar el Software para desarrollar un producto competidor o derivado.
-  5. Distribuir copias del Software obtenidas durante el período de prueba
-     gratuita o bajo una licencia paga a personas o cuentas distintas de
-     las autorizadas.
+  - Copiar, reproducir o redistribuir el código fuente, total o parcial.
+  - Modificar, traducir o crear obras derivadas.
+  - Aplicar ingeniería inversa, descompilar o desensamblar el software,
+    incluidos los instaladores y paquetes ya compilados.
+  - Sublicenciar, vender, alquilar o explotar comercialmente de cualquier
+    forma este código o cualquier derivado.
 
-EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA
-O IMPLÍCITA, INCLUYENDO PERO NO LIMITADO A LAS GARANTÍAS DE COMERCIABILIDAD,
-IDONEIDAD PARA UN PROPÓSITO PARTICULAR Y NO INFRACCIÓN. EN NINGÚN CASO
-MARTÍN VIERA SERÁ RESPONSABLE POR RECLAMO, DAÑO U OTRA RESPONSABILIDAD
-DERIVADA DEL USO DEL SOFTWARE.
+El software se entrega, cuando corresponde, con una licencia de uso
+independiente para cada cliente (ver `packaging/build_release.py` y los
+términos que acompañan a cada paquete distribuido): esa licencia rige el
+uso del producto ya compilado por el cliente final, y no amplía ni
+reemplaza los derechos sobre este repositorio.
+
+Los datos usados en la demo y en la suite de tests son 100% sintéticos —
+no representan personas, empresas ni operaciones reales.
+
+EL SOFTWARE SE PROVEE "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O
+IMPLÍCITA. EN NINGÚN CASO EL TITULAR SERÁ RESPONSABLE POR RECLAMOS, DAÑOS
+U OTRA RESPONSABILIDAD QUE SURJAN DEL USO DE ESTE SOFTWARE.
+
+Para consultas sobre licenciamiento comercial, contactar al titular.

@@ -1,4 +1,5 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
+
 // Tests del freno por IP de las funciones serverless (api/*.js).
 //
 // `node --test`, sin dependencias: antes de esto no había NINGÚN test JS en

@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Publicar la edición Owner sin regalar el producto.
 
 El pedido fue «una versión owner para descargar en GitHub». Existía el

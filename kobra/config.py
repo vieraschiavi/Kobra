@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Configuración persistente (API keys)
 ============================================
@@ -37,6 +38,7 @@ CLAVES = {
     "OPENAI_API_KEY": "OpenAI · transcripción Whisper (voz → texto) + ChatGPT si lo elegís como proveedor de IA",
     "ANTHROPIC_API_KEY": "Anthropic · Claude, proveedor de IA por default",
     "GEMINI_API_KEY": "Google Gemini · alternativa de proveedor de IA (opcional)",
+    "XAI_API_KEY": "xAI · Grok, alternativa de proveedor de IA (opcional)",
     "TWILIO_ACCOUNT_SID": "Twilio · Account SID (llamadas reales)",
     "TWILIO_AUTH_TOKEN": "Twilio · Auth Token (llamadas reales)",
     "TWILIO_FROM": "Twilio · número emisor (ej. +1…) para llamar",

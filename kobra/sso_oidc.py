@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Single Sign-On corporativo (OpenID Connect)
 =====================================================

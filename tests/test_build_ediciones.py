@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests del empaquetado por edición (packaging/build_release.py::build_edicion):
 Demo con límite de días, Owner sin límites y una edición por plan — cada una con
 su licencia embebida (o flag owner), launcher en la raíz y SIN precios en la

@@ -1,4 +1,5 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
+
 // Cliente HTTP mínimo con token JWT en memoria + localStorage.
 const KEY = "kobra_token";
 

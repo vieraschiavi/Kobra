@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Ningún texto libre del deudor se inyecta con innerHTML.
 
 Este archivo existe porque el riesgo era real, no teórico. Corriendo los

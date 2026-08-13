@@ -1,4 +1,5 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
+
 import React, { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, cargarPais, getPais, getSesion, setPaisCache, setSesion } from "./api.js";

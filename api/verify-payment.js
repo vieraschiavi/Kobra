@@ -1,4 +1,5 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
+
 // Verifica un pago de MercadoPago contra la API real (server-side) antes de habilitar
 // la descarga. Evita que alguien arme la URL de /descarga a mano sin haber pagado.
 // Si el pago está aprobado, emite automáticamente la licencia MV Kobra AI (firmada).

@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Eje DISEÑO: los mismos meta tags en TODAS las variantes de idioma.
 
 `?lang=en` traducía el contenido visible pero nunca tocaba el `<head>`:

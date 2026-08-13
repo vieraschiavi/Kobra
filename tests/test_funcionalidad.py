@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Eje FUNCIONALIDAD: que un error le diga al usuario qué hacer.
 
 El hallazgo concreto salió probando la API con archivos inválidos, no leyendo

@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Desbloqueo de la copia del dueño con `mail|codigo` (kobra/owner.py).
 
 Hasta acá ser "owner" era una decisión de BUILD: el ZIP de la edición Owner

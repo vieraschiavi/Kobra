@@ -1,4 +1,5 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
+
 import React, { useEffect, useState } from "react";
 import { api, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
@@ -151,18 +152,35 @@ function ImportarCartera() {
 function ProveedorIA() {
   const [datos, setDatos] = useState(null);
   const [nota, setNota] = useState("");
+  const [actualizando, setActualizando] = useState(false);
   const cargar = () => api("/api/config/proveedor_ia").then(setDatos).catch(() => {});
   useEffect(() => { cargar(); }, []);
   if (!datos) return null;
 
-  const elegir = async (proveedor) => {
+  const elegir = async (proveedor, modelo) => {
     setNota("");
     try {
-      await api("/api/config/proveedor_ia", { metodo: "POST", cuerpo: { proveedor } });
+      await api("/api/config/proveedor_ia",
+        { metodo: "POST", cuerpo: modelo ? { proveedor, modelo } : { proveedor } });
       setNota(t("proveedor_ia.guardado"));
       cargar();
     } catch (e) { setNota(e.message); }
   };
+
+  // Botón "Actualizar": trae de la API del proveedor sus últimos modelos
+  // publicados, para que el selector siempre ofrezca las versiones vigentes.
+  const actualizarModelos = async () => {
+    setNota(""); setActualizando(true);
+    try {
+      const r = await api("/api/config/proveedor_ia/actualizar_modelos",
+        { metodo: "POST", cuerpo: { proveedor: datos.proveedor } });
+      setNota(r.detalle);
+      cargar();
+    } catch (e) { setNota(e.message); }
+    finally { setActualizando(false); }
+  };
+
+  const info = datos.modelos ? datos.modelos[datos.proveedor] : null;
 
   return (
     <div className="card" style={{ maxWidth: 720, marginTop: 18 }}>
@@ -182,6 +200,27 @@ function ProveedorIA() {
           </label>
         ))}
       </div>
+      {info && (
+        <div style={{ marginTop: 12 }}>
+          <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 6px" }}>
+            {t("proveedor_ia.modelo_ayuda")}
+          </p>
+          <div className="toolbar" style={{ flexWrap: "wrap", gap: 10 }}>
+            <select value={info.activo} style={{ minWidth: 240 }}
+                    onChange={(e) => elegir(datos.proveedor, e.target.value)}>
+              {info.disponibles.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <button className="btn ghost" disabled={actualizando} onClick={actualizarModelos}>
+              {actualizando ? t("proveedor_ia.actualizando") : t("proveedor_ia.actualizar")}
+            </button>
+          </div>
+          <p style={{ color: "var(--muted)", fontSize: 11.5, marginTop: 6 }}>
+            {info.actualizado
+              ? t("proveedor_ia.actualizado_el", { fecha: info.actualizado.replace("T", " ") })
+              : t("proveedor_ia.nunca_actualizado")}
+          </p>
+        </div>
+      )}
       {nota && <span style={{ color: "var(--muted)", fontSize: 13 }}>{nota}</span>}
     </div>
   );

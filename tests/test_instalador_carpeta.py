@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """La carpeta `instalador/` y las garantías del programa instalado.
 
 Pedido: «el instalador que sea profesional como programa y no streamlit, y no

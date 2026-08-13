@@ -1,4 +1,5 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
+
 // Traducciones de la webapp (Fase 2 LATAM: español + portugués brasileño).
 // El idioma no se elige aparte: viene del país del tenant (getPais().idioma,
 // ver ../api.js) — Brasil es el único país de Fase 2 que usa "pt".

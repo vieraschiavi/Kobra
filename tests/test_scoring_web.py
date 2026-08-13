@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """El scoring que corre en el navegador tiene que dar lo MISMO que scikit-learn.
 
 La demo pública deja que un visitante suba su CSV y vea el scoring sin mandar el

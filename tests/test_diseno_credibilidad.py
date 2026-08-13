@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Eje DISEÑO: la landing nombra, con nombre propio, lo que la hace creíble.
 
 Antes, las tres menciones de integración de la landing eran genéricas —"tu

@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Del pago a la app: lo que recibe quien COMPRA, y en qué se diferencia del demo.
 
 El recorrido comercial completo tiene cuatro tramos y cada uno tenía sus tests,

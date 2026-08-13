@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests del idioma de las piezas con voz e imagen.
 
 Bug reportado: eligiendo portugués o inglés en el sitio, **el audio y el video

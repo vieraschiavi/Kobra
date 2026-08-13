@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests del kit de contenido para redes (`marketing/`).
 
 Bug real que originó este módulo: los PNG del kit anterior salieron con el

@@ -1,4 +1,5 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
+
 // Copiloto de cobranzas con Claude — función serverless (Vercel, CommonJS).
 // La API key vive SOLO acá, del lado del servidor, como variable de entorno
 // (ANTHROPIC_API_KEY). Nunca se expone al navegador ni se guarda en el repo.

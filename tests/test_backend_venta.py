@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 Tests del backend de venta (licencias JWT + gateway medido + descargas +
 webhook de pago). Ver backend_venta/app.py.

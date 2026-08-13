@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """El instalador .exe de la edición Owner (release_owner.yml → instalador).
 
 Pedido: «poneme un instalador exe owner aparte en github que no puedan usar

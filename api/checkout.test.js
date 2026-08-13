@@ -1,4 +1,5 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
+
 // `checkout.js` crea la preferencia de pago real contra MercadoPago — la
 // puerta de entrada de la plata. Antes de este archivo, cero tests.
 //

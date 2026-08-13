@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Lo que tiene que entrar en el instalador de Windows (packaging/kobra.spec).
 
 Reportado como «no funciona instalador exe que ejecute el programa» y

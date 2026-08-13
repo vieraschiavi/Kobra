@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """La INTERFAZ de la demo tiene que hablar los tres idiomas, no solo el guion.
 
 `test_idiomas_demo.py` ya cubría los guiones de la llamada, el chat y los

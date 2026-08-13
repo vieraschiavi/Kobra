@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests de la voz premium pre-renderizada del chatvoice de la demo offline
 (data/generar_audio_demo_voz.py). Bug real reportado: el chatvoice de la demo
 sonaba con la voz robótica del navegador (Web Speech API) y con latencia — no

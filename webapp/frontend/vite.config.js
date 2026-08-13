@@ -1,4 +1,5 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 

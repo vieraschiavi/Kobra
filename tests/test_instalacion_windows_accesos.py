@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """Que el programa quede INSTALADO en Windows, no solo que corra.
 
 El pedido fue: «que el programa aparezca instalado con icono, menú de programas

@@ -1,4 +1,5 @@
 # © 2026 Martín Viera. Todos los derechos reservados.
+
 """El sello `edicion.json`: lo único que separa una copia cliente de la owner.
 
 El instalador de clientes y el de owner salen del MISMO bundle de PyInstaller;
