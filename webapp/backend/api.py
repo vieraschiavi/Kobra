@@ -1567,15 +1567,23 @@ def config_guardar(datos: ConfigIn, u: Usuario = Depends(solo_admin)):
 
 @app.get("/api/config/proveedor_ia")
 def proveedor_ia_estado(u: Usuario = Depends(solo_admin)):
-    """Con qué proveedor de IA (traé tu propia cuenta corporativa) razona el
-    Asistente, el Copiloto y el Gestor IA — Claude, Gemini o ChatGPT/OpenAI."""
+    """Con qué proveedor Y modelo de IA (traé tu propia cuenta corporativa)
+    razona el Asistente, el Copiloto y el Gestor IA — Claude, Gemini,
+    ChatGPT/OpenAI o Grok. Eligiendo el modelo el cliente regula su consumo
+    de tokens; `modelos` trae el catálogo cacheado de cada proveedor (ver
+    /actualizar_modelos para refrescarlo contra la API del proveedor)."""
     kconfig.aplicar()
     return {"proveedor": kllm.proveedor_activo(), "proveedores": list(kllm.PROVEEDORES),
-            "claves_configuradas": {p: kllm.disponible(proveedor=p) for p in kllm.PROVEEDORES}}
+            "claves_configuradas": {p: kllm.disponible(proveedor=p) for p in kllm.PROVEEDORES},
+            "modelos": {p: {"activo": kllm.modelo_de(p),
+                            "disponibles": kllm.modelos_disponibles(p),
+                            "actualizado": kllm.fecha_actualizacion_modelos(p)}
+                        for p in kllm.PROVEEDORES}}
 
 
 class ProveedorIAIn(BaseModel):
     proveedor: str
+    modelo: str | None = None
 
 
 @app.post("/api/config/proveedor_ia")
@@ -1584,7 +1592,25 @@ def proveedor_ia_guardar(datos: ProveedorIAIn, u: Usuario = Depends(solo_admin))
         raise HTTPException(400, f"Proveedor '{datos.proveedor}' no soportado "
                                  f"(válidos: {', '.join(kllm.PROVEEDORES)}).")
     kllm.establecer_proveedor(datos.proveedor)
-    return {"proveedor": datos.proveedor}
+    if datos.modelo and datos.modelo.strip():
+        kllm.establecer_modelo(datos.proveedor, datos.modelo.strip())
+    return {"proveedor": datos.proveedor, "modelo": kllm.modelo_de(datos.proveedor)}
+
+
+@app.post("/api/config/proveedor_ia/actualizar_modelos")
+def proveedor_ia_actualizar_modelos(datos: ProveedorIAIn, u: Usuario = Depends(solo_admin)):
+    """Botón "Actualizar": consulta a la API del proveedor por sus últimos
+    modelos publicados (con la key del cliente) y cachea el catálogo."""
+    if datos.proveedor not in kllm.PROVEEDORES:
+        raise HTTPException(400, f"Proveedor '{datos.proveedor}' no soportado "
+                                 f"(válidos: {', '.join(kllm.PROVEEDORES)}).")
+    kconfig.aplicar()
+    res = kllm.actualizar_modelos(datos.proveedor)
+    if not res["ok"]:
+        raise HTTPException(502, res["detalle"])
+    return {"proveedor": datos.proveedor, "modelos": res["modelos"],
+            "detalle": res["detalle"],
+            "actualizado": kllm.fecha_actualizacion_modelos(datos.proveedor)}
 
 
 # ---------------------------------------------------------------------------

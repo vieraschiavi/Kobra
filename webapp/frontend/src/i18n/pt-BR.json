@@ -350,10 +350,16 @@
     "nombre": {
       "anthropic": "Claude (Anthropic)",
       "gemini": "Gemini (Google)",
-      "openai": "ChatGPT (OpenAI)"
+      "openai": "ChatGPT (OpenAI / Azure / Copilot corporativo)",
+      "xai": "Grok (xAI)"
     },
     "sin_clave": "falta a chave",
-    "guardado": "Salvo."
+    "guardado": "Salvo.",
+    "modelo_ayuda": "Modelo dentro da sua conta — escolhendo um menor você regula o consumo de tokens; Atualizar traz do provedor as últimas versões publicadas.",
+    "actualizar": "🔄 Atualizar modelos",
+    "actualizando": "Consultando o provedor…",
+    "actualizado_el": "Catálogo atualizado: {{fecha}}",
+    "nunca_actualizado": "Catálogo nunca atualizado — mostra o modelo de referência; toque em Atualizar (com a chave cadastrada) para trazer os vigentes."
   },
   "activacion": {
     "subtitulo": "Cole a licença que você recebeu na compra (ou do trial de 3 dias) para ativar sua cópia da MV Kobra AI.",
