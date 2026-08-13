@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests del motor de calidad de gestión (rúbrica 14 criterios) y la
 comparativa Gestor IA vs Humano, más los endpoints /api/calidad/*."""
 import importlib

@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests de kobra/rutas.py: DIR_DATOS nunca apunta a la carpeta de
 instalación (Program Files) cuando el programa corre empaquetado —
 bug real reportado: PermissionError al subir un audio para analizar,

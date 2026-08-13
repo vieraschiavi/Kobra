@@ -1,3 +1,5 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, setSesion } from "../api.js";

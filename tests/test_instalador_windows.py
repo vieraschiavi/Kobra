@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Tests del instalador de Windows (electron-builder + NSIS).
 
 El pedido fue que el programa tenga un instalador que deje **elegir dónde

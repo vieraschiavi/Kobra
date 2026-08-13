@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# © 2026 Martín Viera. Todos los derechos reservados.
 # MV Kobra AI · runner end-to-end
 # Uso:
 #   ./run.sh            -> instala deps, genera datos, corre pipeline y levanta el dashboard

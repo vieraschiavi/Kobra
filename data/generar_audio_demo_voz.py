@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Pre-renderizar la voz del chatvoice de la demo offline
 =====================================================================

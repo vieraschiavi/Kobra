@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Eje DISEÑO: lo que el navegador y el buscador necesitan para no penalizar.
 
 Dos cosas aparecieron auditando el repo contra el estándar:

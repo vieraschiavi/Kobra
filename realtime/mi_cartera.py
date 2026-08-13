@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · "Mi cartera de prueba" (modo cliente, no premium)
 ============================================================

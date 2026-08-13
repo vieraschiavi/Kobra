@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """La copia del dueño no puede tener ninguna puerta cerrada.
 
 «Soy el dueño, no debería tener restricciones.» Al auditarlo, el modo owner ya

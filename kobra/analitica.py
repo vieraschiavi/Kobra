@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """
 MV Kobra AI · Analítica de gestión (por gestor y por mes)
 ===================================================

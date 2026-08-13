@@ -1,3 +1,5 @@
+// © 2026 Martín Viera. Todos los derechos reservados.
+
 /* MV Kobra AI · Scoring de ProbPago en el navegador
  * ==================================================
  * Le permite a un visitante subir su propio CSV y ver el scoring, SIN mandar

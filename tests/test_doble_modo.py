@@ -1,3 +1,5 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+
 """Cada edición se abre por DOS vías, y las dos tienen que funcionar igual.
 
 Pedido: además del instalador .exe, que haya un .bat — muchas empresas
