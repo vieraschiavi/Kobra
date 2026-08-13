@@ -16,7 +16,14 @@ cliente dice tener "Copilot corporativo" para esto, probablemente se refiere
 a Azure OpenAI o a ChatGPT Enterprise — ambos entran por la opción "openai"
 de acá con su propia API key.
 
-Los modelos por default de Gemini/OpenAI son una referencia (verificar
+Además del proveedor, el cliente elige el **modelo** dentro de su cuenta —
+así regula el consumo de tokens (un modelo chico para el volumen diario, uno
+grande para lo que lo amerite). `actualizar_modelos()` consulta la API del
+proveedor por su catálogo vigente (todos exponen un endpoint de listado) y
+lo cachea, para que la lista para elegir tenga siempre las últimas versiones
+sin tocar código.
+
+Los modelos por default de Gemini/OpenAI/xAI son una referencia (verificar
 contra la documentación vigente del proveedor antes de vender — igual
 criterio que `kobra.voz_tts.COSTO_POR_1000_CHARS_USD`); Claude usa
 "claude-sonnet-5", el mismo ya usado en el resto del producto. Todos son
@@ -24,26 +31,38 @@ ajustables sin tocar código vía `establecer_modelo()`.
 """
 from __future__ import annotations
 
+import json
 import os
+from datetime import datetime, timezone
 
 import requests
 
 from kobra import config as kconfig
 
 _CLAVE_PROVEEDOR = "LLM_PROVEEDOR"
-PROVEEDORES = ("anthropic", "gemini", "openai")
+PROVEEDORES = ("anthropic", "gemini", "openai", "xai")
 _DEFAULT = "anthropic"
 
 _MODELOS_DEFAULT = {
     "anthropic": "claude-sonnet-5",
     "gemini": "gemini-2.5-flash",
     "openai": "gpt-4o",
+    "xai": "grok-4",
 }
 
-_KEY_ENV = {
+KEY_ENV = {
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "openai": "OPENAI_API_KEY",
+    "xai": "XAI_API_KEY",
+}
+
+# Nombre comercial con el que el cliente conoce a cada proveedor (para UIs).
+NOMBRES = {
+    "anthropic": "Claude (Anthropic)",
+    "gemini": "Gemini (Google)",
+    "openai": "ChatGPT (OpenAI / Azure / Copilot corporativo)",
+    "xai": "Grok (xAI)",
 }
 
 
@@ -69,7 +88,119 @@ def establecer_modelo(proveedor: str, modelo: str) -> None:
 
 
 def _clave(proveedor: str, api_key: str | None) -> str:
-    return api_key or os.getenv(_KEY_ENV[proveedor], "")
+    return api_key or os.getenv(KEY_ENV[proveedor], "")
+
+
+# ---------------------------------------------------------------------------
+# Catálogo de modelos por proveedor — la lista para elegir en Configuración.
+# El botón "Actualizar" llama a `actualizar_modelos()`, que consulta el
+# endpoint de listado del proveedor (con la key del cliente) y cachea el
+# resultado; `modelos_disponibles()` devuelve ese caché o el default.
+# ---------------------------------------------------------------------------
+def _clave_cache_modelos(proveedor: str) -> str:
+    return f"LLM_MODELOS_{proveedor.upper()}"
+
+
+def modelos_disponibles(proveedor: str) -> list[str]:
+    """Modelos para ofrecer en el selector: el catálogo cacheado por la última
+    actualización, o el default si nunca se actualizó. El modelo elegido
+    actualmente se incluye siempre (aunque el proveedor ya no lo liste, para
+    que el selector nunca muestre vacío lo que está en uso)."""
+    if proveedor not in PROVEEDORES:
+        raise ValueError(f"proveedor desconocido: {proveedor!r} (válidos: {PROVEEDORES})")
+    crudo = kconfig.leer_extra(_clave_cache_modelos(proveedor))
+    try:
+        modelos = [m for m in json.loads(crudo) if isinstance(m, str) and m] if crudo else []
+    except Exception:
+        modelos = []
+    if not modelos:
+        modelos = [_MODELOS_DEFAULT[proveedor]]
+    actual = modelo_de(proveedor)
+    if actual not in modelos:
+        modelos.insert(0, actual)
+    return modelos
+
+
+def fecha_actualizacion_modelos(proveedor: str) -> str | None:
+    """ISO-8601 (UTC) de la última actualización exitosa del catálogo, o None."""
+    return kconfig.leer_extra(f"{_clave_cache_modelos(proveedor)}_FECHA")
+
+
+def actualizar_modelos(proveedor: str, api_key: str | None = None,
+                       timeout: int = 30) -> dict:
+    """Consulta a la API del proveedor por sus modelos vigentes y cachea la
+    lista. Devuelve {"ok", "modelos", "detalle"} — nunca lanza: si falta la
+    key o falla la llamada, ok=False con el motivo, y el caché anterior (si
+    había) queda intacto."""
+    if proveedor not in PROVEEDORES:
+        raise ValueError(f"proveedor desconocido: {proveedor!r} (válidos: {PROVEEDORES})")
+    key = _clave(proveedor, api_key)
+    if len(key) < 10:
+        return {"ok": False, "modelos": modelos_disponibles(proveedor),
+                "detalle": f"Falta la API key de {proveedor} "
+                           f"({KEY_ENV[proveedor]} en Configuración)."}
+    listar = {"anthropic": _listar_anthropic, "gemini": _listar_gemini,
+              "openai": _listar_openai, "xai": _listar_xai}[proveedor]
+    try:
+        modelos = listar(key, timeout)
+    except Exception as e:
+        return {"ok": False, "modelos": modelos_disponibles(proveedor),
+                "detalle": f"No se pudo consultar el catálogo de {proveedor}: {e}"}
+    if not modelos:
+        return {"ok": False, "modelos": modelos_disponibles(proveedor),
+                "detalle": f"El catálogo de {proveedor} vino vacío — se conserva la lista anterior."}
+    kconfig.guardar_extra(_clave_cache_modelos(proveedor), json.dumps(modelos))
+    kconfig.guardar_extra(f"{_clave_cache_modelos(proveedor)}_FECHA",
+                          datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    return {"ok": True, "modelos": modelos_disponibles(proveedor),
+            "detalle": f"{len(modelos)} modelos vigentes de {proveedor}."}
+
+
+def _listar_anthropic(key: str, timeout: int) -> list[str]:
+    r = requests.get("https://api.anthropic.com/v1/models?limit=100",
+                     headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
+                     timeout=timeout)
+    r.raise_for_status()
+    return [m["id"] for m in r.json().get("data", []) if m.get("id")]
+
+
+def _listar_gemini(key: str, timeout: int) -> list[str]:
+    r = requests.get("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
+                     headers={"x-goog-api-key": key}, timeout=timeout)
+    r.raise_for_status()
+    modelos = []
+    for m in r.json().get("models", []):
+        nombre = (m.get("name") or "").removeprefix("models/")
+        # Solo los que generan texto (afuera embeddings, imagen, TTS, etc.).
+        if nombre.startswith("gemini") and \
+                "generateContent" in m.get("supportedGenerationMethods", []):
+            modelos.append(nombre)
+    return modelos
+
+
+# El listado de OpenAI mezcla todo (embeddings, Whisper, TTS, DALL·E…) sin un
+# campo de capacidad — se filtra por nombre a los modelos de chat.
+_OPENAI_PREFIJOS_CHAT = ("gpt-", "o1", "o3", "o4", "chatgpt")
+_OPENAI_EXCLUIR = ("embedding", "whisper", "tts", "audio", "realtime", "image",
+                   "dall-e", "moderation", "transcribe", "search", "instruct")
+
+
+def _listar_openai(key: str, timeout: int) -> list[str]:
+    r = requests.get("https://api.openai.com/v1/models",
+                     headers={"Authorization": f"Bearer {key}"}, timeout=timeout)
+    r.raise_for_status()
+    data = [m for m in r.json().get("data", []) if m.get("id")]
+    data.sort(key=lambda m: m.get("created") or 0, reverse=True)
+    return [m["id"] for m in data
+            if m["id"].startswith(_OPENAI_PREFIJOS_CHAT)
+            and not any(p in m["id"] for p in _OPENAI_EXCLUIR)]
+
+
+def _listar_xai(key: str, timeout: int) -> list[str]:
+    r = requests.get("https://api.x.ai/v1/models",
+                     headers={"Authorization": f"Bearer {key}"}, timeout=timeout)
+    r.raise_for_status()
+    return [m["id"] for m in r.json().get("data", []) if m.get("id")]
 
 
 def disponible(proveedor: str | None = None, api_key: str | None = None) -> bool:
@@ -98,7 +229,7 @@ def generar(prompt: str, system: str | None = None, max_tokens: int = 600,
                 f"Falta la API key de {proveedor} (Configuración o variable de entorno).")
         return None
     generador = {"anthropic": _generar_anthropic, "gemini": _generar_gemini,
-                "openai": _generar_openai}[proveedor]
+                "openai": _generar_openai, "xai": _generar_xai}[proveedor]
     if lanzar:
         return generador(prompt, system, max_tokens, key, timeout)
     try:
@@ -145,6 +276,20 @@ def _generar_openai(prompt: str, system: str | None, max_tokens: int,
         "https://api.openai.com/v1/chat/completions",
         headers={"Authorization": f"Bearer {key}", "content-type": "application/json"},
         json={"model": modelo_de("openai"), "max_tokens": max_tokens,
+              "messages": mensajes}, timeout=timeout)
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"].strip()
+
+
+def _generar_xai(prompt: str, system: str | None, max_tokens: int,
+                 key: str, timeout: int) -> str:
+    # xAI expone una API compatible con el chat/completions de OpenAI.
+    mensajes = ([{"role": "system", "content": system}] if system else [])
+    mensajes.append({"role": "user", "content": prompt})
+    r = requests.post(
+        "https://api.x.ai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {key}", "content-type": "application/json"},
+        json={"model": modelo_de("xai"), "max_tokens": max_tokens,
               "messages": mensajes}, timeout=timeout)
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"].strip()
