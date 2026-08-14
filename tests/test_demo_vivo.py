@@ -173,3 +173,31 @@ def test_whatsapp_sin_plantilla_aprobada_avisa(demo, monkeypatch):
         monkeypatch.delenv(k, raising=False)
     r = demo.escribir_whatsapp()
     assert r["ok"] is False
+
+
+# --- Que la carpeta de datos exista de verdad ------------------------------
+def test_el_ensayo_por_consola_corre_entero(demo, capsys, monkeypatch):
+    """`python -m kobra.demo_vivo` tiene que recorrer el circuito sin reventar.
+
+    Regresión: tanto el ensayo como la pestaña del dashboard pedían la carpeta
+    del tenant con `krutas.dir_datos()`, que no existe —`kobra.rutas` expone la
+    constante `DIR_DATOS`—, así que las dos cosas morían con AttributeError
+    apenas se abrían. Un `getattr` mal escrito no lo ve el linter ni la
+    sintaxis: solo se cae al ejecutar, que es justo cuando hay alguien mirando.
+    """
+    # El ensayo se detiene a pedir el payment_id: se contesta vacío, que es
+    # lo que hace quien solo quiere recorrer el circuito sin cobrar nada.
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "")
+    demo._ensayo()
+    salida = capsys.readouterr().out
+    assert "ENSAYO" in salida, "no arrancó"
+    # Y que haya llegado hasta el final: las propuestas para negociar el saldo
+    # son el último tramo, así que si están, el circuito cerró entero.
+    assert "Contado con quita" in salida, f"se cortó antes del final:\n{salida[-400:]}"
+
+
+def test_la_carpeta_de_datos_del_tenant_se_puede_resolver():
+    """Lo que rompía era el nombre del accesor, no el valor. Se fija acá para
+    que renombrar `DIR_DATOS` obligue a actualizar a quien la consume."""
+    from kobra import rutas as krutas
+    assert isinstance(krutas.DIR_DATOS, str) and krutas.DIR_DATOS

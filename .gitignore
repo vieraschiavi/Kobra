@@ -59,6 +59,10 @@ electron/dist_installer/
 # Owner: entraria sin licencia y regalaria el producto.
 /edicion.json
 data/pagos_portal.csv
+# Corriendo desde un checkout, DIR_DATOS puede ser la raíz del repo y el
+# portal deja su registro acá en vez de en data/.
+/pagos_portal.csv
+/imputaciones_erp.jsonl
 data/imputaciones_erp.jsonl
 data/portal_config.json
 data/tenants/*/pagos_portal.csv

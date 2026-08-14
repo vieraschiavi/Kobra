@@ -50,12 +50,6 @@ CLAVES = {
     "SMTP_USER": "Email · usuario/cuenta SMTP",
     "SMTP_PASSWORD": "Email · contraseña / app password SMTP",
     "SMTP_FROM": "Email · dirección remitente (ej. cobranzas@tuempresa.com)",
-    # Contacto del caso que se muestra en vivo (kobra/caso_demo.py). Va acá y
-    # no en el código porque este repositorio es público: un teléfono y un mail
-    # commiteados se scrapean solos.
-    "DEMO_NOMBRE": "Demo en vivo · nombre de quien recibe la llamada",
-    "DEMO_TELEFONO": "Demo en vivo · teléfono en formato E.164 (ej. +598…)",
-    "DEMO_EMAIL": "Demo en vivo · mail para el comprobante",
     "ERP_API_URL": "ERP · URL del endpoint/webhook para enviar la sábana",
     "ERP_API_KEY": "ERP · API key (Bearer) del endpoint",
     "ERP_DB_URL": "ERP · URL de conexión a base de datos (SQLAlchemy)",
