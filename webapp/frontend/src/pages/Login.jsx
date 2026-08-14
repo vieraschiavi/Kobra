@@ -55,8 +55,35 @@ export default function Login() {
 
   const esSetup = modo === "setup";
 
+  // Spotlight que sigue al cursor (ver el bloque CINE de theme.css). El halo
+  // lo pinta el CSS a partir de --mx/--my; acá solo se escriben esas dos
+  // variables, y dentro de un rAF: el mousemove dispara decenas de eventos
+  // por segundo y tocar el estilo en cada uno hace trabajar de más al
+  // navegador. Se apaga solo si el visitante pidió menos movimiento o si no
+  // hay un cursor de verdad (celular) — en ese caso el CSS ya cae a una
+  // viñeta centrada, así que no hay nada que reemplazar.
+  const luz = React.useRef(null);
+  const frame = React.useRef(0);
+  const mover = (e) => {
+    const caja = luz.current;
+    if (!caja || frame.current) return;
+    const x = e.clientX, y = e.clientY;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      const r = caja.getBoundingClientRect();
+      caja.style.setProperty("--mx", `${x - r.left}px`);
+      caja.style.setProperty("--my", `${y - r.top}px`);
+      caja.classList.add("con-luz");
+    });
+  };
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+
+  const animable = typeof window !== "undefined" &&
+    window.matchMedia("(hover: hover) and (pointer: fine)").matches &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   return (
-    <div className="login-wrap">
+    <div className="login-wrap" ref={luz} onMouseMove={animable ? mover : undefined}>
       <div className="card login-card">
         <img src="/mv_icon.png" alt="MV Kobra AI" />
         <h1>MV KOBRA <span>AI</span></h1>
