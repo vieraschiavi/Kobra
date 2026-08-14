@@ -226,6 +226,96 @@ def registrar_acuerdo(monto_acordado: float, cuotas: int = 1,
 
 
 # ---------------------------------------------------------------------------
+def _ensayo(base_url: str = ""):
+    """Recorre la demostración completa, parando en cada paso.
+
+    Está pensado para el ensayo previo a la reunión: se corre una vez con el
+    teléfono de uno propio, se comprueba que suene, que llegue el WhatsApp y
+    que el pago con tarjeta de prueba se acredite, y recién ahí se muestra a
+    un cliente. Cada paso dice qué falta si no se puede hacer, en vez de
+    fallar en silencio.
+    """
+    import os
+
+    from kobra import mercadopago as kmp
+    from kobra import portal_pagos as kportal
+    from kobra import rutas as krutas
+
+    base_url = base_url or os.environ.get("PUBLIC_BASE_URL", "")
+    d = caso()
+    tenant = krutas.dir_datos()
+    cfg = kportal.cargar_config(tenant)
+    token_mp = (cfg["mercadopago"].get("access_token") or "").strip()
+
+    print("=" * 66)
+    print(f"  ENSAYO · {d['nombre']} · $U {d['monto_deuda']:.0f} · "
+          f"{d['dias_mora']} días de mora")
+    print(f"  Contacto: {d['telefono']}")
+    print("=" * 66)
+    if d["sintetico"]:
+        print("\n(!) Datos SINTÉTICOS: no va a sonar ningún teléfono.")
+        print("    python -m kobra.demo_vivo --configurar\n")
+
+    print("\n[1/5] Llamada")
+    if not base_url:
+        print("  ✗ Falta PUBLIC_BASE_URL (la URL pública donde Twilio busca el webhook).")
+    else:
+        r = llamar(base_url)
+        print(f"  {'✓ llamando…' if r['ok'] else '✗ ' + str(r['detalle'])}")
+
+    print("\n[2/5] WhatsApp")
+    r = escribir_whatsapp()
+    print(f"  {'✓ enviado' if r['ok'] else '✗ ' + str(r.get('detalle'))}")
+
+    print("\n[3/5] Link de pago")
+    saldo_actual = saldo(tenant)
+    if saldo_actual <= 0:
+        print("  ✓ La deuda ya está cancelada — nada que cobrar.")
+        return
+    pago = link_de_pago(tenant, monto=min(PAGO_DEMO, saldo_actual), metodo="mercadopago")
+    url = kportal.link_mercadopago(cfg, pago["referencia"], pago["monto"],
+                                   descripcion=f"Deuda {ID_DEUDOR}", base_url=base_url)
+    print(f"  Referencia : {pago['referencia']}  ($U {pago['monto']:.0f})")
+    print(f"  Link       : {url}")
+    if kmp.es_credencial_de_prueba(token_mp):
+        p = kmp.datos_de_prueba()
+        print("\n  MODO PRUEBA — pagalo con una tarjeta ficticia:")
+        for t in p["tarjetas"]:
+            print(f"    · {t['marca']}: {t['numero']}  CVV {t['cvv']}  vence {t['vence']}")
+        print(f"    · Titular: {p['titular']['aprobar']} (aprueba) / "
+              f"{p['titular']['rechazar']} (rechaza)")
+        print(f"    · Documento: {p['documento']['tipo']} {p['documento']['numero']}")
+        print(f"    · {p['aviso']}")
+    elif token_mp:
+        print("\n  (!) Credenciales de PRODUCCIÓN: este cobro es REAL.")
+    else:
+        print("\n  (!) Sin access token de MercadoPago: el link no cobra de verdad.")
+        print("      Cargá uno TEST-… en Portal de cobros para ensayar con tarjeta ficticia.")
+
+    print("\n[4/5] Pagá el link (o escaneá el QR desde el portal) y volvé acá.")
+    pid = input("  payment_id que devolvió MercadoPago (Enter para saltear): ").strip()
+    if pid and token_mp:
+        v = kmp.verificar_pago(token_mp, pid, referencia_esperada=pago["referencia"],
+                               monto_esperado=pago["monto"])
+        print(f"  MercadoPago dice: {v['estado']} · $U {v['monto']:.2f}")
+        if v["aprobado"]:
+            acreditar(tenant, pago["referencia"], metodo="mercadopago")
+            print("  ✓ Verificado y acreditado.")
+        else:
+            print(f"  ✗ No se acredita: {v['detalle']}")
+    else:
+        print("  — salteado (el pago queda pendiente).")
+
+    print("\n[5/5] Estado final")
+    s = saldo(tenant)
+    print(f"  Saldo: $U {s:.0f}")
+    if s > 0:
+        print("  Propuestas para la diferencia:")
+        for o in propuestas(s):
+            print(f"    · {o['opcion']:<22} $U {o['monto']:>7.0f}  {o['detalle']}")
+    print()
+
+
 def _configurar():
     """Carga los datos de contacto en el almacén cifrado de la máquina."""
     print(__doc__)
@@ -244,6 +334,8 @@ if __name__ == "__main__":
     import sys
     if "--configurar" in sys.argv:
         _configurar()
+    elif "--ensayo" in sys.argv:
+        _ensayo()
     else:
         d = caso()
         print(f"Caso de demostración · {d['nombre']} · "

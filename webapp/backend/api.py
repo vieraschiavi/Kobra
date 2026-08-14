@@ -2164,32 +2164,47 @@ def portal_public_pagar(datos: PortalPagoIn):
         out["transferencia"] = {k: v for k, v in cfg["transferencia"].items()
                                 if k != "habilitado"}
     else:
-        out["url_pago"] = kportal.link_mercadopago(cfg, pago["referencia"],
-                                                   pago["monto"])
+        out["url_pago"] = kportal.link_mercadopago(
+            cfg, pago["referencia"], pago["monto"],
+            descripcion=f"Deuda {id_deudor} · {empresa}",
+            base_url=os.environ.get("PUBLIC_BASE_URL", ""))
+        # Con access token cargado el checkout es real; si además es una
+        # credencial TEST, el que paga usa tarjetas ficticias. El portal lo
+        # dice en pantalla para que nadie confunda un ensayo con un cobro.
+        from kobra import mercadopago as kmp
+        if kmp.es_credencial_de_prueba(cfg["mercadopago"].get("access_token", "")):
+            out["modo_prueba"] = True
     return out
 
 
 class PortalConfirmarIn(BaseModel):
     t: str
     referencia: str
+    # `payment_id` lo devuelve MercadoPago al volver del checkout. Cuando
+    # llega —y la empresa cargó su access token— el pago se VERIFICA contra la
+    # API antes de imputarlo, y recién ahí puede quedar `aprobado`.
+    payment_id: str | None = None
 
 
 @app.post("/api/portal/public/confirmar")
 def portal_public_confirmar(datos: PortalConfirmarIn):
-    """El deudor declara que pagó — por transferencia o por MercadoPago — y el
-    pago queda `informado`: IMPUTADO (cola ERP + webhook si la empresa lo
-    configuró) pero pendiente de conciliar.
+    """El deudor informa que pagó. Qué tan lejos llega esa afirmación depende
+    de si se puede verificar:
 
-    Ninguno de los dos métodos verifica nada del lado del servidor acá: una
-    transferencia bancaria no se puede confirmar sin integrar el banco de la
-    empresa, y MercadoPago tampoco —a diferencia de `api/verify-payment.js`,
-    que sí re-consulta la API de MercadoPago antes de emitir una licencia,
-    ESTE endpoint nunca llamó a MercadoPago. Marcar el camino de MercadoPago
-    como `aprobado` (antes de este fix) afirmaba una verificación que nunca
-    ocurrió: cualquier deudor con su token de acceso podía declarar pagada su
-    propia deuda sin pagar un peso. `informado` es honesto sobre lo que
-    realmente se sabe en este punto; la empresa concilia contra su propio
-    extracto/cuenta antes de dar el cobro por bueno de verdad."""
+    * **Con `payment_id` y access token de MercadoPago** → se le pregunta a
+      MercadoPago por ese pago y se comparan estado, referencia y monto
+      (`kobra/mercadopago.py`). Si todo cierra, el pago queda **`aprobado`**:
+      la plata entró y hay con qué probarlo.
+    * **Sin eso** —transferencia bancaria, o MercadoPago sin credenciales—
+      queda **`informado`**: imputado (cola ERP + webhook) pero pendiente de
+      conciliar. Una transferencia no se puede confirmar sin integrar el banco
+      de la empresa, y afirmar lo contrario sería inventar una verificación.
+
+    La distinción no es burocracia: marcar `aprobado` solo porque alguien dice
+    que pagó permitía a cualquier deudor con su token de acceso saldar su
+    propia deuda sin pagar un peso. La única fuente de verdad sobre si entró
+    la plata es MercadoPago, nunca el navegador del que paga.
+    """
     empresa, id_deudor = _deudor_desde_token(datos.t)
     d = _dir_portal(empresa)
     pago = next((p for p in kportal.listar_pagos(d, id_deudor)
@@ -2197,10 +2212,25 @@ def portal_public_confirmar(datos: PortalConfirmarIn):
     if pago is None:
         raise HTTPException(404, "No existe ese pago para esta deuda.")
     cfg = kportal.cargar_config(d)
-    registro = kportal.confirmar_pago(d, datos.referencia, "informado",
+
+    estado, verificacion = "informado", None
+    token_mp = (cfg["mercadopago"].get("access_token") or "").strip()
+    if datos.payment_id and token_mp and pago["metodo"] == "mercadopago":
+        from kobra import mercadopago as kmp
+        v = kmp.verificar_pago(token_mp, datos.payment_id,
+                               referencia_esperada=datos.referencia,
+                               monto_esperado=pago["monto"])
+        verificacion = {"estado_mp": v["estado"], "detalle": v["detalle"]}
+        if v["aprobado"]:
+            estado = "aprobado"
+
+    registro = kportal.confirmar_pago(d, datos.referencia, estado,
                                       webhook_url=cfg["erp"]["webhook_url"])
-    return {"referencia": registro["referencia"], "estado": registro["estado"],
-            "monto": registro["monto"]}
+    salida = {"referencia": registro["referencia"], "estado": registro["estado"],
+              "monto": registro["monto"]}
+    if verificacion:
+        salida["verificacion"] = verificacion
+    return salida
 
 
 @app.get("/api/erp/imputaciones")
