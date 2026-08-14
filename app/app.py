@@ -276,11 +276,13 @@ st.markdown("---")
 # ----------------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------------
-tabH, tab1, tab2, tab3, tab4, tab5, tab6, tabAgenda, tab8, tab9, tabERP, tabNL2SQL, tab7 = st.tabs(
+(tabH, tab1, tab2, tab3, tab4, tab5, tab6, tabAgenda, tab8, tab9, tabERP,
+ tabNL2SQL, tabDemoVivo, tab7) = st.tabs(
     ["❓ Guía & Ayuda", "📊 Visión general", "🤖 Agente Negociador", "📋 Cartera & Export",
      "🧠 Modelo ProbPago", "🎧 Copiloto en Vivo", "📇 Gestores & Evolución",
      "📅 Agenda de seguimiento", "🧪 Probar mi cartera", "💰 Caso de negocio",
-     "🔌 Integración ERP", "🔎 Preguntá a tu base de datos", "⚙️ Configuración"])
+     "🔌 Integración ERP", "🔎 Preguntá a tu base de datos", "🎬 Demo en vivo",
+     "⚙️ Configuración"])
 
 # ---- Tab Ayuda: guía paso a paso -------------------------------------------
 with tabH:
@@ -1257,6 +1259,102 @@ with tabNL2SQL:
     else:
         st.info("Pegá la URL de conexión de la base del cliente y hacé click en "
                 "«Conectar / actualizar esquema» para empezar.", icon="🔎")
+
+# ---- Demo en vivo: el circuito completo delante del cliente ---------------
+# Un caso de gestión que se recorre entero en una reunión: el agente llama,
+# escribe, manda el link, entra la plata, baja el saldo y queda la promesa.
+# El paso que convence es el del medio — el cliente ve el saldo bajar solo.
+with tabDemoVivo:
+    from kobra import demo_vivo as kdemo
+
+    st.subheader("🎬 Demostración en vivo")
+    st.caption("El circuito completo con un caso real, para mostrarle a un cliente que esto "
+               "no es un video: el agente llama de verdad, escribe de verdad y el pago entra "
+               "de verdad. Los datos de contacto se cargan una sola vez y **nunca** viajan al "
+               "repositorio (`python -m kobra.demo_vivo --configurar`).")
+
+    _d = kdemo.caso()
+    if _d["sintetico"]:
+        st.warning("⚠️ Datos **sintéticos**: el circuito se recorre igual (link, cobro, saldo, "
+                   "promesa), pero no va a sonar ningún teléfono. Para la demostración con un "
+                   "teléfono real, cargá los datos con `python -m kobra.demo_vivo --configurar`.")
+
+    _c1, _c2, _c3, _c4 = st.columns(4)
+    _c1.metric("Deudor", _d["nombre"])
+    _c2.metric("Deuda", f"$U {_d['monto_deuda']:.0f}")
+    _c3.metric("Mora", f"{_d['dias_mora']} días")
+    _c4.metric("ProbPago", f"{_d['probpago']:.0%}")
+    st.caption(f"Alta {_d['fecha_alta']} · {_d['telefono']} · {_d['email']}")
+
+    _tenant = krutas.dir_datos()
+    _saldo = kdemo.saldo(_tenant)
+
+    st.markdown("---")
+    _p1, _p2 = st.columns(2)
+    with _p1:
+        st.markdown("**1 · El agente contacta**")
+        _base = os.environ.get("PUBLIC_BASE_URL", "")
+        if not _base:
+            st.info("Falta `PUBLIC_BASE_URL` para la llamada (ver Configuración).")
+        if st.button("📞 Llamar ahora", disabled=not _base, use_container_width=True):
+            _r = kdemo.llamar(base_url=_base)
+            (st.success if _r["ok"] else st.error)(
+                "📞 Llamando…" if _r["ok"] else f"No se pudo llamar: {_r['detalle']}")
+        if st.button("💬 Escribir por WhatsApp", use_container_width=True):
+            _r = kdemo.escribir_whatsapp()
+            (st.success if _r["ok"] else st.error)(
+                "💬 WhatsApp enviado." if _r["ok"] else f"No se pudo enviar: {_r.get('detalle')}")
+
+    with _p2:
+        st.markdown("**2 · El link de pago**")
+        _metodo = st.radio("Método", ["mercadopago", "transferencia"], horizontal=True,
+                          format_func=lambda m: "MercadoPago" if m == "mercadopago" else "Transferencia",
+                          key="demo_metodo")
+        _monto = st.number_input("Monto a cobrar (UYU)", min_value=1.0, max_value=float(_saldo or 1),
+                                value=float(min(kdemo.PAGO_DEMO, _saldo or kdemo.PAGO_DEMO)),
+                                step=10.0, key="demo_monto", disabled=_saldo <= 0)
+        if st.button("🔗 Generar link", disabled=_saldo <= 0, use_container_width=True):
+            _pago = kdemo.link_de_pago(_tenant, monto=_monto, metodo=_metodo)
+            st.session_state["demo_pago"] = _pago
+            kauditoria.registrar("demo_vivo_link", {"referencia": _pago["referencia"],
+                                                   "monto": _pago["monto"]}, rol=ROL_ACTIVO)
+
+    _pago = st.session_state.get("demo_pago")
+    if _pago:
+        st.info(f"**{_pago['referencia']}** · $U {_pago['monto']:.0f} ({_pago['tipo']}) "
+                f"→ {_pago['destino']}")
+        if _pago["estado"] == "pendiente" and st.button("✅ Confirmar que entró el pago"):
+            _conf = kdemo.acreditar(_tenant, _pago["referencia"], metodo=_pago["metodo"])
+            st.session_state["demo_pago"] = _conf
+            kauditoria.registrar("demo_vivo_cobro", {"referencia": _conf["referencia"],
+                                                    "estado": _conf["estado"]}, rol=ROL_ACTIVO)
+            st.rerun()
+
+    st.markdown("---")
+    st.markdown(f"**3 · Queda un saldo de $U {_saldo:.0f} — se negocia la diferencia**")
+    if _saldo > 0:
+        _ops = kdemo.propuestas(_saldo)
+        st.dataframe(pd.DataFrame(_ops), use_container_width=True, hide_index=True,
+                    column_config={"opcion": "Opción",
+                                   "monto": st.column_config.NumberColumn("Monto", format="$U %.0f"),
+                                   "cuotas": "Cuotas",
+                                   "descuento": st.column_config.NumberColumn("Desc.", format="%d%%"),
+                                   "detalle": "Detalle"})
+        _elegida = st.selectbox("Acuerdo cerrado", [o["opcion"] for o in _ops], key="demo_acuerdo")
+        _op = next(o for o in _ops if o["opcion"] == _elegida)
+        _fecha = st.date_input("Fecha de compromiso", key="demo_fecha")
+        if st.button("🤝 Registrar la promesa", type="primary"):
+            kdemo.registrar_acuerdo(monto_acordado=_op["monto"], cuotas=_op["cuotas"],
+                                   descuento=_op["descuento"],
+                                   fecha_compromiso=str(_fecha))
+            kauditoria.registrar("demo_vivo_promesa", {"monto": _op["monto"],
+                                                      "cuotas": _op["cuotas"]}, rol=ROL_ACTIVO)
+            st.success(f"🤝 Promesa registrada: $U {_op['monto']:.0f} en {_op['cuotas']} cuota(s) "
+                      f"para el {_fecha}. Ya entró al seguimiento — si la fecha pasa sin el pago, "
+                      "aparece en **Agenda de seguimiento** como cualquier otro caso.")
+    else:
+        st.success("✅ Deuda cancelada. Para volver a mostrar el circuito, generá un caso nuevo.")
+
 
 # ---- Tab 7: Configuración (API keys persistentes) — solo admin ------------
 with tab7:
