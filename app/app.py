@@ -1271,13 +1271,36 @@ with tabDemoVivo:
     st.caption("El circuito completo con un caso real, para mostrarle a un cliente que esto "
                "no es un video: el agente llama de verdad, escribe de verdad y el pago entra "
                "de verdad. Los datos de contacto se cargan una sola vez y **nunca** viajan al "
-               "repositorio (`python -m kobra.demo_vivo --configurar`).")
+               "repositorio.")
 
     _d = kdemo.caso()
     if _d["sintetico"]:
         st.warning("⚠️ Datos **sintéticos**: el circuito se recorre igual (link, cobro, saldo, "
-                   "promesa), pero no va a sonar ningún teléfono. Para la demostración con un "
-                   "teléfono real, cargá los datos con `python -m kobra.demo_vivo --configurar`.")
+                   "promesa), pero no va a sonar ningún teléfono. Cargá abajo el contacto real "
+                   "para que suene.")
+
+    # Los datos se cargan acá y no por consola: esto se usa delante de un
+    # cliente, y salir a una terminal a correr `--configurar` en medio de una
+    # presentación es exactamente lo que hay que evitar. El comando sigue
+    # existiendo para quien prepare la máquina de antemano.
+    with st.expander("👤 A quién llama la demostración", expanded=_d["sintetico"]):
+        st.caption("Se guarda en el almacén cifrado de esta máquina "
+                   f"(backend: {kconfig.backend_activo()}), nunca en el repositorio. "
+                   "Dejá un campo vacío para conservar lo que ya estaba.")
+        _dv_vals, _dv_cols = {}, st.columns(3)
+        for _i, (_clave, _desc) in enumerate(kdemo.CLAVES.items()):
+            _actual = kconfig.leer_extra(_clave) or ""
+            _dv_vals[_clave] = _dv_cols[_i % 3].text_input(
+                _desc.split("(")[0].strip(), value=_actual, key=f"dv_{_clave}")
+        if st.button("💾 Guardar contacto", key="dv_guardar", use_container_width=True):
+            _guardados = 0
+            for _clave, _valor in _dv_vals.items():
+                if _valor and _valor.strip():
+                    kconfig.guardar_extra(_clave, _valor.strip())
+                    _guardados += 1
+            st.success(f"Guardado ({_guardados} campo/s)." if _guardados
+                       else "No había nada nuevo para guardar.")
+            st.rerun()
 
     _c1, _c2, _c3, _c4 = st.columns(4)
     _c1.metric("Deudor", _d["nombre"])
@@ -1286,7 +1309,7 @@ with tabDemoVivo:
     _c4.metric("ProbPago", f"{_d['probpago']:.0%}")
     st.caption(f"Alta {_d['fecha_alta']} · {_d['telefono']} · {_d['email']}")
 
-    _tenant = krutas.dir_datos()
+    _tenant = krutas.DIR_DATOS
     _saldo = kdemo.saldo(_tenant)
 
     st.markdown("---")

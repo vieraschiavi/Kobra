@@ -243,7 +243,7 @@ def _ensayo(base_url: str = ""):
 
     base_url = base_url or os.environ.get("PUBLIC_BASE_URL", "")
     d = caso()
-    tenant = krutas.dir_datos()
+    tenant = krutas.DIR_DATOS
     cfg = kportal.cargar_config(tenant)
     token_mp = (cfg["mercadopago"].get("access_token") or "").strip()
 
