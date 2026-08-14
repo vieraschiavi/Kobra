@@ -62,8 +62,14 @@ CONFIG_DEFAULT = {
     },
     "mercadopago": {
         "habilitado": False,
+        # Access token de la cuenta de MercadoPago de la empresa. Con esto se
+        # crea un checkout con el monto EXACTO de cada deuda y se verifica el
+        # pago contra la API antes de imputarlo (ver kobra/mercadopago.py).
+        # Un token `TEST-…` usa el sandbox: se cobra con tarjetas ficticias,
+        # que es como se ensaya la demostración sin mover plata real.
+        "access_token": "",
         # Link base preconfigurado por la empresa (link de pago / suscripción
-        # de MercadoPago). En demo, si está vacío se usa uno simulado.
+        # de MercadoPago). Alternativa al access token, con el monto fijo.
         "link_base": "",
     },
     "erp": {
@@ -369,11 +375,33 @@ def _webhook_async(url: str, imputacion: dict, intentos: int = 3) -> None:
 # ---------------------------------------------------------------------------
 # MercadoPago (preconfigurado por la empresa; simulado en demo)
 # ---------------------------------------------------------------------------
-def link_mercadopago(cfg: dict, referencia: str, monto: float) -> str:
-    """Link de pago de MercadoPago. Si la empresa preconfiguró su link base
-    (link de pago de su cuenta MP) se usa ese con la referencia; si no, en
-    demo se arma un link simulado que deja claro que no cobra de verdad."""
-    base = (cfg.get("mercadopago", {}).get("link_base") or "").strip()
+def link_mercadopago(cfg: dict, referencia: str, monto: float,
+                     descripcion: str = "", base_url: str = "") -> str:
+    """Link de pago de MercadoPago, en orden de preferencia:
+
+    1. **Checkout real** con el monto exacto de esta deuda, si la empresa
+       cargó su `access_token`. Es la única opción que cobra de verdad: un
+       link estático tiene el monto fijo y cada deudor debe algo distinto.
+       Con un token `TEST-` esto devuelve el checkout de sandbox, donde se
+       paga con tarjetas ficticias — que es como se ensaya la demostración.
+    2. El **link preconfigurado** de la empresa, si pegó uno.
+    3. Un link **simulado**, que deja claro que no cobra nada.
+
+    Si la API falla se cae al paso 2 o al 3 en vez de romper: quedarse sin
+    ningún link es peor que quedarse con uno que no cobra, porque el gestor
+    se entera recién cuando el deudor le dice que no le llegó nada.
+    """
+    mp = cfg.get("mercadopago", {})
+    token = (mp.get("access_token") or "").strip()
+    if token:
+        from kobra import mercadopago as kmp
+        r = kmp.crear_preferencia(
+            access_token=token, referencia=referencia, monto=monto,
+            descripcion=descripcion or "Pago de deuda", base_url=base_url)
+        if r["ok"]:
+            return r["url"]
+
+    base = (mp.get("link_base") or "").strip()
     if base:
         sep = "&" if "?" in base else "?"
         return f"{base}{sep}external_reference={referencia}"
