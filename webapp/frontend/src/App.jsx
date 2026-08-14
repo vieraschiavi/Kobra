@@ -18,6 +18,7 @@ import Asistente from "./pages/Asistente.jsx";
 import Roi from "./pages/Roi.jsx";
 import Configuracion from "./pages/Configuracion.jsx";
 import PortalCobros from "./pages/PortalCobros.jsx";
+import DemoVivo from "./pages/DemoVivo.jsx";
 import PortalPago from "./pages/PortalPago.jsx";
 import {
   IcoAjustes, IcoAsistente, IcoBanco, IcoCalendario, IcoCalidad, IcoEquipo,
@@ -38,6 +39,7 @@ const NAV = [
   { ruta: "/asistente", ico: <IcoAsistente />, clave: "app.nav.asistente" },
   { ruta: "/roi", ico: <IcoTendencia />, clave: "app.nav.roi" },
   { ruta: "/portal-cobros", ico: <IcoPago />, clave: "app.nav.portal_cobros", admin: true },
+  { ruta: "/demo-vivo", ico: <IcoAsistente />, clave: "app.nav.demo_vivo", admin: true },
   { ruta: "/configuracion", ico: <IcoAjustes />, clave: "app.nav.configuracion", admin: true },
 ];
 
@@ -259,6 +261,7 @@ export default function App() {
           <Route path="/asistente" element={<Asistente />} />
           <Route path="/roi" element={<Roi />} />
           <Route path="/portal-cobros" element={<PortalCobros />} />
+          <Route path="/demo-vivo" element={<DemoVivo />} />
           <Route path="/configuracion" element={<Configuracion />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -2253,6 +2253,141 @@ def erp_imputaciones(request: Request, desde: str = "",
     return {"imputaciones": imps, "total": len(imps)}
 
 
+# ---------------------------------------------------------------------------
+# Demostración en vivo (kobra/demo_vivo.py)
+# ---------------------------------------------------------------------------
+# Todo el circuito se opera desde la pantalla: nadie tiene que abrir una
+# consola en el medio de una reunión con un cliente. El dominio vive en
+# demo_vivo.py; acá está solo la capa HTTP.
+from kobra import demo_vivo as kdemo  # noqa: E402
+
+
+def _dir_demo(empresa: str) -> str:
+    """Los pagos de la demo van al mismo lugar que los del portal del tenant,
+    así el cobro aparece en las mismas pantallas que uno real."""
+    return _dir_portal(empresa)
+
+
+@app.get("/api/demo/estado")
+def demo_estado(u: Usuario = Depends(usuario_actual)):
+    """Todo lo que la pantalla necesita para dibujarse entera, en un solo GET:
+    el caso, el saldo, el guion, las propuestas y qué falta configurar."""
+    d = _dir_demo(u.empresa)
+    saldo_actual = kdemo.saldo(d)
+    return {
+        "caso": kdemo.caso(),
+        "contacto_ok": kdemo.configurado(),
+        "claves": kdemo.CLAVES,
+        "base_url": os.environ.get("PUBLIC_BASE_URL", ""),
+        "saldo": saldo_actual,
+        "pago_demo": kdemo.PAGO_DEMO,
+        "guion": kdemo.guion(),
+        "propuestas": kdemo.propuestas(saldo_actual) if saldo_actual > 0 else [],
+        "pagos": kportal.listar_pagos(d, kdemo.ID_DEUDOR),
+    }
+
+
+class DemoContactoIn(BaseModel):
+    valores: dict
+
+
+@app.post("/api/demo/contacto")
+def demo_contacto(datos: DemoContactoIn, u: Usuario = Depends(solo_admin)):
+    """Guarda el contacto del caso en el almacén cifrado de la máquina — nunca
+    en el repositorio, que es público. Un campo vacío conserva lo que había."""
+    guardadas = []
+    for clave, valor in (datos.valores or {}).items():
+        if clave in kdemo.CLAVES and isinstance(valor, str) and valor.strip():
+            kconfig.guardar_extra(clave, valor.strip())
+            guardadas.append(clave)
+    if not guardadas:
+        raise HTTPException(400, "No llegó ningún dato para guardar.")
+    return {"guardadas": sorted(guardadas), "contacto_ok": kdemo.configurado()}
+
+
+@app.post("/api/demo/contactar")
+def demo_contactar(u: Usuario = Depends(solo_admin)):
+    """Llama y escribe por WhatsApp, de verdad. Es un endpoint aparte a
+    propósito: hacer sonar el teléfono de alguien no puede ser un efecto
+    secundario de abrir una pantalla."""
+    if not kdemo.configurado():
+        raise HTTPException(400, "Falta DEMO_VIVO_TELEFONO: sin número no hay "
+                                 "llamada ni WhatsApp.")
+    base = os.environ.get("PUBLIC_BASE_URL", "")
+    if not base:
+        raise HTTPException(400, "Falta PUBLIC_BASE_URL: sin una URL pública, "
+                                 "Twilio no encuentra el webhook de voz.")
+    llamada = kdemo.llamar(base_url=base)
+    whatsapp = kdemo.escribir_whatsapp()
+    return {"pasos": [
+        {"orden": 1, "titulo": "Llamada", "ok": bool(llamada.get("ok")),
+         "detalle": llamada.get("detalle")},
+        {"orden": 2, "titulo": "WhatsApp", "ok": bool(whatsapp.get("ok")),
+         "detalle": whatsapp.get("detalle")},
+    ]}
+
+
+class DemoCobroIn(BaseModel):
+    monto: float
+    metodo: str = "mercadopago"
+
+
+@app.post("/api/demo/cobrar")
+def demo_cobrar(datos: DemoCobroIn, u: Usuario = Depends(solo_admin)):
+    """El link de pago con el monto exacto. Con un access token `TEST-…`
+    devuelve además las tarjetas ficticias para pagarlo — que es como se
+    ensaya el cobro sin mover un peso."""
+    if datos.metodo not in ("mercadopago", "transferencia"):
+        raise HTTPException(400, "Método de pago desconocido.")
+    try:
+        pago = kdemo.link_de_pago(_dir_demo(u.empresa), monto=datos.monto,
+                                  metodo=datos.metodo, empresa=u.empresa,
+                                  base_url=os.environ.get("PUBLIC_BASE_URL", ""))
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    if pago.get("modo_prueba"):
+        from kobra import mercadopago as kmp
+        pago["datos_prueba"] = kmp.datos_de_prueba()
+    return pago
+
+
+class DemoAcreditarIn(BaseModel):
+    referencia: str
+    payment_id: str | None = None
+
+
+@app.post("/api/demo/acreditar")
+def demo_acreditar(datos: DemoAcreditarIn, u: Usuario = Depends(solo_admin)):
+    """Da por cobrado el pago. Con `payment_id` se verifica contra MercadoPago
+    y puede quedar `aprobado`; sin él queda `informado`. Si la verificación
+    falla, no se imputa nada y se devuelve el motivo."""
+    try:
+        r = kdemo.acreditar(_dir_demo(u.empresa), datos.referencia,
+                            payment_id=(datos.payment_id or "").strip())
+    except KeyError as e:
+        raise HTTPException(404, str(e)) from e
+    if r.get("estado") == "pendiente" and r.get("detalle"):
+        raise HTTPException(422, r["detalle"])
+    return r
+
+
+class DemoPromesaIn(BaseModel):
+    monto_acordado: float
+    cuotas: int = 1
+    descuento: float = 0.0
+    fecha_compromiso: str = ""
+
+
+@app.post("/api/demo/promesa")
+def demo_promesa(datos: DemoPromesaIn, u: Usuario = Depends(solo_admin)):
+    """Registra el acuerdo por el saldo. A partir de acá el caso entra al
+    seguimiento normal: si la fecha pasa sin el pago, aparece en la agenda."""
+    kdemo.registrar_acuerdo(monto_acordado=datos.monto_acordado, cuotas=datos.cuotas,
+                            descuento=datos.descuento,
+                            fecha_compromiso=datos.fecha_compromiso)
+    return {"ok": True, "saldo": kdemo.saldo(_dir_demo(u.empresa))}
+
+
 # --- Frontend compilado, si existe ------------------------------------------
 # Orden de búsqueda: (1) KOBRA_UI_DIST explícito (lo setea el lanzador owner
 # apuntando a owner/ui_dist, un build ya compilado y versionado, para no

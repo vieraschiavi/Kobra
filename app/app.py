@@ -1337,7 +1337,8 @@ with tabDemoVivo:
                                 value=float(min(kdemo.PAGO_DEMO, _saldo or kdemo.PAGO_DEMO)),
                                 step=10.0, key="demo_monto", disabled=_saldo <= 0)
         if st.button("🔗 Generar link", disabled=_saldo <= 0, use_container_width=True):
-            _pago = kdemo.link_de_pago(_tenant, monto=_monto, metodo=_metodo)
+            _pago = kdemo.link_de_pago(_tenant, monto=_monto, metodo=_metodo,
+                                       base_url=os.environ.get("PUBLIC_BASE_URL", ""))
             st.session_state["demo_pago"] = _pago
             kauditoria.registrar("demo_vivo_link", {"referencia": _pago["referencia"],
                                                    "monto": _pago["monto"]}, rol=ROL_ACTIVO)
@@ -1347,7 +1348,8 @@ with tabDemoVivo:
         st.info(f"**{_pago['referencia']}** · $U {_pago['monto']:.0f} ({_pago['tipo']}) "
                 f"→ {_pago['destino']}")
         if _pago["estado"] == "pendiente" and st.button("✅ Confirmar que entró el pago"):
-            _conf = kdemo.acreditar(_tenant, _pago["referencia"], metodo=_pago["metodo"])
+            _conf = kdemo.acreditar(_tenant, _pago["referencia"],
+                                    payment_id=st.session_state.get("demo_pid", "").strip())
             st.session_state["demo_pago"] = _conf
             kauditoria.registrar("demo_vivo_cobro", {"referencia": _conf["referencia"],
                                                     "estado": _conf["estado"]}, rol=ROL_ACTIVO)

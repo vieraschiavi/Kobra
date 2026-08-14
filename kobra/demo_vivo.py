@@ -121,6 +121,39 @@ def caso(hoy: date | None = None) -> dict:
     }
 
 
+def guion(hoy: date | None = None) -> list[dict]:
+    """Los seis pasos, con lo que va a pasar en cada uno.
+
+    Es el mismo guion del docstring, pero como datos: la pantalla lo muestra
+    para que quien da la demostración pueda ir narrando sin acordarse de nada,
+    y el orden de la pantalla sea el orden de la reunión.
+    """
+    d = caso(hoy)
+    tel = d["telefono"] if not d["sintetico"] else "(falta el teléfono)"
+    saldo_tras = MONTO_DEUDA - PAGO_DEMO
+    return [
+        {"orden": 1, "canal": "Llamada", "titulo": "El agente llama y negocia",
+         "detalle": f"Disca a {tel} y se presenta: deuda de {MONEDA} "
+                    f"{MONTO_DEUDA:.0f} vencida el {FECHA_ALTA.strftime('%d/%m/%Y')}, "
+                    f"{d['dias_mora']} días de mora."},
+        {"orden": 2, "canal": "WhatsApp", "titulo": "Le escribe con la propuesta",
+         "detalle": "Cierra la llamada y le manda el WhatsApp con el link de pago, "
+                    "con la plantilla aprobada por Meta."},
+        {"orden": 3, "canal": "Portal", "titulo": "El link de pago",
+         "detalle": f"{MONEDA} {PAGO_DEMO:.0f} a cuenta, por MercadoPago o "
+                    "transferencia. Se puede pagar escaneando el QR."},
+        {"orden": 4, "canal": "Cobro", "titulo": "Entra la plata",
+         "detalle": "El pago se verifica contra MercadoPago y se imputa. Este es "
+                    "el paso que convence: el cliente ve el saldo bajar solo."},
+        {"orden": 5, "canal": "Registro", "titulo": "Queda la promesa",
+         "detalle": f"Sobre los {MONEDA} {saldo_tras:.0f} que quedan se acuerda "
+                    "el saldo y la fecha, y entra al seguimiento."},
+        {"orden": 6, "canal": "Llamada", "titulo": "Se negocia la diferencia",
+         "detalle": "Contado con descuento chico, cuotas sin recargo, o el tope "
+                    "del 15 % — en ese orden, que es como se ponen sobre la mesa."},
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Los pasos del guion. Cada uno delega en el módulo que ya hace ese trabajo en
 # producción — acá no se reimplementa nada: si la demo funciona, es porque el
@@ -151,34 +184,81 @@ def escribir_whatsapp(hoy: date | None = None) -> dict:
 
 
 def link_de_pago(dir_datos_tenant: str, monto: float = PAGO_DEMO,
-                 metodo: str = "mercadopago", empresa: str = "MV Kobra AI") -> dict:
-    """Paso 3 — el link. Devuelve el pago creado y los datos para transferir.
+                 metodo: str = "mercadopago", empresa: str = "MV Kobra AI",
+                 base_url: str = "") -> dict:
+    """Paso 3 — el link. Devuelve el pago creado y a dónde mandar al deudor.
 
-    `metodo`: 'mercadopago' (el link que se paga con tarjeta o saldo) o
-    'transferencia' (los datos de la cuenta, que el deudor informa después).
+    Con `mercadopago`, el link sale de `portal_pagos.link_mercadopago`: si la
+    empresa cargó su access token, es un **checkout con el monto exacto de
+    esta deuda**, y si el token es `TEST-…`, el de sandbox — el único que
+    acepta tarjetas ficticias, que es como se ensaya el cobro sin mover un
+    peso. Antes acá el `destino` decía "MercadoPago" y nada más: un QR que
+    apuntara a eso no llevaba a ninguna parte donde se pudiera pagar.
     """
     from kobra import portal_pagos
+    cfg = portal_pagos.cargar_config(dir_datos_tenant)
     pago = portal_pagos.crear_pago(
         dir_datos_tenant=dir_datos_tenant, empresa=empresa, id_deudor=ID_DEUDOR,
         monto=monto, metodo=metodo, total_deuda=MONTO_DEUDA)
-    pago["destino"] = (f"{_dato('DEMO_VIVO_BANCO')} · {_dato('DEMO_VIVO_CUENTA')}"
-                       if metodo == "transferencia" else "MercadoPago")
+    if metodo == "transferencia":
+        pago["destino"] = f"{_dato('DEMO_VIVO_BANCO')} · {_dato('DEMO_VIVO_CUENTA')}"
+        pago["transferencia"] = {k: v for k, v in cfg["transferencia"].items()
+                                 if k != "habilitado"}
+    else:
+        from kobra import mercadopago as kmp
+        pago["url_pago"] = portal_pagos.link_mercadopago(
+            cfg, pago["referencia"], pago["monto"],
+            descripcion=f"Deuda {ID_DEUDOR}", base_url=base_url)
+        pago["destino"] = "MercadoPago"
+        pago["modo_prueba"] = kmp.es_credencial_de_prueba(
+            cfg["mercadopago"].get("access_token", ""))
     return pago
 
 
 def acreditar(dir_datos_tenant: str, referencia: str,
-              metodo: str = "mercadopago") -> dict:
-    """Paso 4 — entra la plata y se imputa sola.
+              payment_id: str = "") -> dict:
+    """Paso 4 — entra la plata y se imputa. Con tres desenlaces posibles.
 
-    `mercadopago` entra como **aprobado** (el gateway ya confirmó); una
-    transferencia entra como **informado** (la declaró el deudor y todavía
-    la tiene que conciliar la empresa). Son dos estados distintos a propósito:
-    mostrar una transferencia como cobrada antes de verla en el banco es
-    exactamente el error que hace desconfiar a un gerente de cobranzas.
+    Lo que decide cuál es: **si se pudo verificar**, no el medio de pago.
+    Antes, un pago por MercadoPago entraba como `aprobado` por el solo hecho
+    de ser de MercadoPago —"el gateway ya confirmó"—, pero nadie le preguntaba
+    nada al gateway: alcanzaba con apretar el botón para dar por cobrada una
+    deuda que nadie pagó. Es el mismo agujero que `portal_pagos` documenta
+    como inaceptable en el portal público.
+
+    * **Verificado y aprobado** → `aprobado`. Se le preguntó a MercadoPago por
+      ese `payment_id` y coinciden estado, referencia y monto.
+    * **Sin verificar** (transferencia, o sin `payment_id`/token) →
+      `informado`: imputado pero pendiente de conciliar. Es lo honesto cuando
+      nadie averiguó nada — una transferencia bancaria no se puede confirmar
+      sin integrar el banco de la empresa.
+    * **Verificado y NO aprobado** → no se imputa nada y el pago queda
+      `pendiente`. Dejarlo en `informado` descontaría del saldo pese a que
+      MercadoPago acaba de decir que ese pago no corresponde a esta deuda.
     """
     from kobra import portal_pagos
-    estado = "aprobado" if metodo == "mercadopago" else "informado"
-    return portal_pagos.confirmar_pago(dir_datos_tenant, referencia, estado)
+    cfg = portal_pagos.cargar_config(dir_datos_tenant)
+    pago = next((p for p in portal_pagos.listar_pagos(dir_datos_tenant, ID_DEUDOR)
+                 if p["referencia"] == referencia), None)
+    if pago is None:
+        raise KeyError(f"No existe el pago {referencia} para este caso.")
+
+    estado, verificacion = "informado", None
+    token = (cfg["mercadopago"].get("access_token") or "").strip()
+    if payment_id and token and pago["metodo"] == "mercadopago":
+        from kobra import mercadopago as kmp
+        verificacion = kmp.verificar_pago(
+            token, payment_id, referencia_esperada=referencia,
+            monto_esperado=pago["monto"])
+        if verificacion["aprobado"]:
+            estado = "aprobado"
+        else:
+            return {**pago, "verificacion": verificacion,
+                    "detalle": verificacion["detalle"]}
+
+    registro = portal_pagos.confirmar_pago(dir_datos_tenant, referencia, estado,
+                                           webhook_url=cfg["erp"]["webhook_url"])
+    return {**registro, "verificacion": verificacion}
 
 
 def saldo(dir_datos_tenant: str) -> float:
@@ -272,7 +352,8 @@ def _ensayo(base_url: str = ""):
     if saldo_actual <= 0:
         print("  ✓ La deuda ya está cancelada — nada que cobrar.")
         return
-    pago = link_de_pago(tenant, monto=min(PAGO_DEMO, saldo_actual), metodo="mercadopago")
+    pago = link_de_pago(tenant, monto=min(PAGO_DEMO, saldo_actual),
+                        metodo="mercadopago", base_url=base_url)
     url = kportal.link_mercadopago(cfg, pago["referencia"], pago["monto"],
                                    descripcion=f"Deuda {ID_DEUDOR}", base_url=base_url)
     print(f"  Referencia : {pago['referencia']}  ($U {pago['monto']:.0f})")
@@ -299,7 +380,7 @@ def _ensayo(base_url: str = ""):
                                monto_esperado=pago["monto"])
         print(f"  MercadoPago dice: {v['estado']} · $U {v['monto']:.2f}")
         if v["aprobado"]:
-            acreditar(tenant, pago["referencia"], metodo="mercadopago")
+            acreditar(tenant, pago["referencia"], payment_id=pid)
             print("  ✓ Verificado y acreditado.")
         else:
             print(f"  ✗ No se acredita: {v['detalle']}")

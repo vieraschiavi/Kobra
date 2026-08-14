@@ -111,8 +111,9 @@ def test_el_circuito_cierra_de_punta_a_punta(demo, tmp_path):
     assert pago["estado"] == "pendiente"
 
     # Entra la plata.
-    conf = demo.acreditar(tenant, pago["referencia"], metodo="mercadopago")
-    assert conf["estado"] == "aprobado"
+    conf = demo.acreditar(tenant, pago["referencia"])
+    # Sin payment_id no hay nada verificado: `informado`, no `aprobado`.
+    assert conf["estado"] == "informado"
 
     # Y el saldo baja solo: este es el número que se negocia.
     assert demo.saldo(tenant) == 100.0
@@ -126,7 +127,7 @@ def test_la_transferencia_entra_como_informada_no_como_cobrada(demo, tmp_path):
     os.makedirs(tenant, exist_ok=True)
     pago = demo.link_de_pago(tenant, monto=100.0, metodo="transferencia")
     assert "·" in pago["destino"]          # banco · cuenta
-    conf = demo.acreditar(tenant, pago["referencia"], metodo="transferencia")
+    conf = demo.acreditar(tenant, pago["referencia"])
     assert conf["estado"] == "informado"
 
 
@@ -201,3 +202,121 @@ def test_la_carpeta_de_datos_del_tenant_se_puede_resolver():
     que renombrar `DIR_DATOS` obligue a actualizar a quien la consume."""
     from kobra import rutas as krutas
     assert isinstance(krutas.DIR_DATOS, str) and krutas.DIR_DATOS
+
+
+# ---------------------------------------------------------------------------
+# Los endpoints: todo el circuito se opera desde la pantalla
+# ---------------------------------------------------------------------------
+# Si para mostrar el producto hay que abrir una terminal, la demo ya perdió.
+# Estos tests fijan que cada paso —cargar el contacto, cobrar, acreditar,
+# registrar la promesa— tenga su endpoint y no dependa de la consola.
+@pytest.fixture()
+def cliente(tmp_path, monkeypatch):
+    # Directorio de datos propio: los pagos del portal viven junto a los datos
+    # del tenant, así que sin aislarlos un test arrastra el saldo del anterior.
+    monkeypatch.setenv("KOBRA_DATA_DIR", str(tmp_path / "datos"))
+    monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "cfg"))
+    from kobra import config as kconfig
+    importlib.reload(kconfig)
+    from kobra import autenticacion as kauth
+    kauth.establecer_password("admin", "AdminTest123!")
+    from fastapi.testclient import TestClient
+
+    from kobra import registro as kregistro
+    from kobra import rutas as krutas
+    importlib.reload(krutas)
+    importlib.reload(kregistro)
+    from kobra import demo_vivo
+    importlib.reload(demo_vivo)
+    from webapp.backend import api
+    importlib.reload(api)
+    c = TestClient(api.app)
+    tok = c.post("/api/auth/login", json={"password": "AdminTest123!"}).json()["token"]
+    yield c, {"Authorization": f"Bearer {tok}"}
+
+    # Estos módulos calculan rutas al importarse: recargarlos con el
+    # KOBRA_DATA_DIR de prueba dejaría apuntando a un temporal a todo lo que
+    # corra después. Se revierte el entorno y se recargan de nuevo.
+    monkeypatch.undo()
+    for mod in (krutas, kregistro, demo_vivo, api):
+        importlib.reload(mod)
+
+
+def test_la_pantalla_recibe_todo_de_un_solo_pedido(cliente):
+    """Un GET tiene que alcanzar para dibujarla entera: caso, saldo, guion,
+    propuestas y qué falta configurar."""
+    c, h = cliente
+    d = c.get("/api/demo/estado", headers=h).json()
+    for clave in ("caso", "contacto_ok", "claves", "saldo", "pago_demo",
+                  "guion", "propuestas", "pagos"):
+        assert clave in d, f"falta {clave}"
+    assert len(d["guion"]) == 6
+    assert d["caso"]["monto_deuda"] == 200.0
+    assert d["saldo"] == 200.0
+
+
+def test_el_contacto_se_carga_desde_la_pantalla(cliente):
+    """Sin esto habría que abrir una consola, que es justo lo que no puede
+    pasar en medio de una reunión."""
+    c, h = cliente
+    assert c.get("/api/demo/estado", headers=h).json()["contacto_ok"] is False
+    r = c.post("/api/demo/contacto", headers=h, json={"valores": {
+        "DEMO_VIVO_NOMBRE": "Martín Viera", "DEMO_VIVO_TELEFONO": "+59899123456"}})
+    assert r.status_code == 200 and r.json()["contacto_ok"] is True
+    assert c.get("/api/demo/estado", headers=h).json()["caso"]["telefono"] == "+59899123456"
+
+
+def test_no_se_guardan_claves_que_no_son_del_caso(cliente):
+    """El endpoint escribe en el almacén de credenciales: solo acepta las
+    claves que el módulo declara, no cualquier cosa que llegue."""
+    c, h = cliente
+    r = c.post("/api/demo/contacto", headers=h,
+               json={"valores": {"ANTHROPIC_API_KEY": "sk-robada"}})
+    assert r.status_code == 400
+
+
+def test_cobrar_y_acreditar_desde_la_pantalla(cliente):
+    c, h = cliente
+    pago = c.post("/api/demo/cobrar", headers=h,
+                  json={"monto": 100.0, "metodo": "mercadopago"}).json()
+    assert pago["monto"] == 100.0 and pago["url_pago"]
+    r = c.post("/api/demo/acreditar", headers=h,
+               json={"referencia": pago["referencia"]}).json()
+    # Sin payment_id no hay nada verificado.
+    assert r["estado"] == "informado"
+    assert c.get("/api/demo/estado", headers=h).json()["saldo"] == 100.0
+
+
+def test_cobrar_de_mas_devuelve_un_error_util(cliente):
+    c, h = cliente
+    assert c.post("/api/demo/cobrar", headers=h, json={"monto": 9999.0}).status_code == 422
+
+
+def test_metodo_de_pago_desconocido_se_rechaza(cliente):
+    c, h = cliente
+    assert c.post("/api/demo/cobrar", headers=h,
+                  json={"monto": 10.0, "metodo": "bitcoin"}).status_code == 400
+
+
+def test_contactar_sin_telefono_no_arranca_la_secuencia(cliente):
+    """Arrancar para fallar en el paso 1 delante de un cliente es peor que no
+    arrancar."""
+    c, h = cliente
+    r = c.post("/api/demo/contactar", headers=h, json={})
+    assert r.status_code == 400 and "TELEFONO" in r.json()["detail"]
+
+
+def test_la_promesa_se_registra_desde_la_pantalla(cliente):
+    c, h = cliente
+    r = c.post("/api/demo/promesa", headers=h, json={
+        "monto_acordado": 95.0, "cuotas": 1, "descuento": 0.05,
+        "fecha_compromiso": "2026-09-01"})
+    assert r.status_code == 200 and r.json()["ok"] is True
+
+
+def test_todo_el_circuito_exige_sesion(cliente):
+    c, _ = cliente
+    assert c.get("/api/demo/estado").status_code == 401
+    for ruta in ("/api/demo/contacto", "/api/demo/cobrar", "/api/demo/acreditar",
+                 "/api/demo/promesa", "/api/demo/contactar"):
+        assert c.post(ruta, json={}).status_code == 401, f"{ruta} no exige sesión"
