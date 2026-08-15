@@ -94,6 +94,15 @@ button { font-family: inherit; }
 .kpi .delta { font-size: 12px; margin-top: 4px; color: var(--muted); }
 .kpi .delta.bad { color: var(--red); }
 .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; margin-top: 18px; }
+/* En un celular no entran 380px: la tarjeta se desbordaba y arrastraba la
+   página entera 70px hacia el costado, que es el defecto de diseño que peor
+   se ve — el contenido se mueve al hacer scroll vertical. `minmax(0, 1fr)`
+   deja que la columna se encoja hasta donde haya lugar; sin el 0 explícito,
+   el mínimo implícito es `auto` y la grilla vuelve a desbordar. */
+@media (max-width: 720px) {
+  .charts-grid { grid-template-columns: minmax(0, 1fr); }
+  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); }
+}
 .card h3 { margin: 0 0 12px; font-size: 14px; color: var(--ink); }
 
 /* ---- tables ---- */

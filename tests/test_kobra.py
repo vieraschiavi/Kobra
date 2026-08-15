@@ -651,9 +651,9 @@ def test_cartera_manual_y_gestor():
 def test_leer_csv_preserva_telefono(tmp_path):
     from kobra import cartera_manual as cm
     p = tmp_path / "c.csv"
-    p.write_text("nombre,telefono,deuda\nWendy,095779569,10000\n", encoding="utf-8")
+    p.write_text("nombre,telefono,deuda\nWendy,099000123,10000\n", encoding="utf-8")
     contactos = cm.leer_csv(str(p))
-    assert contactos[0]["telefono"] == "095779569"      # conserva el 0 inicial
+    assert contactos[0]["telefono"] == "099000123"      # conserva el 0 inicial
     assert contactos[0]["monto_deuda"] == 10000
 
 

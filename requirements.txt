@@ -7,7 +7,7 @@ python-pptx>=0.6.23
 openpyxl>=3.1
 xlsxwriter>=3.1
 joblib>=1.3
-requests>=2.31
+requests>=2.32.4   # arrastra urllib3; <2.7 tiene PYSEC-2026-141/142
 fastapi>=0.110
 uvicorn>=0.27
 websockets>=12.0
@@ -17,7 +17,11 @@ scipy>=1.11
 sqlalchemy>=2.0
 keyring>=24.0
 cryptography>=42.0
-PyJWT>=2.7
+# Piso alto a propósito: PyJWT firma los tokens de sesión, y las
+# versiones por debajo de 2.13 arrastran seis CVEs que pip-audit
+# reporta (PYSEC-2025-183, PYSEC-2026-120/175/177/179). Con `>=2.7`
+# un resolver podía quedarse con la 2.7.0 vulnerable.
+PyJWT>=2.13.0
 httpx2>=2.0
 portalocker>=2.8
 apscheduler>=3.10

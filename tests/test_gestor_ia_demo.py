@@ -39,8 +39,13 @@ def test_demo_negocia_y_cierra(cliente, canal):
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["canal"] == canal
-    # Diagnóstico ProbPago real del deudor demo (Martín Viera).
-    assert d["brief"]["nombre"] == "Martín Viera"
+    # Diagnóstico ProbPago real del deudor de demostración. El nombre se
+    # verifica contra el módulo y no se escribe acá: el deudor demo llevaba el
+    # nombre y el CELULAR REAL del dueño, y este test los fijaba — o sea que
+    # blindaba la PII en vez de impedirla (ver tests/test_sin_datos_personales.py).
+    from webapp.backend.api import _DEUDOR_DEMO_GESTOR
+    assert d["brief"]["nombre"] == _DEUDOR_DEMO_GESTOR["nombre"]
+    assert d["brief"]["nombre"]      # y no viene vacío
     assert 0 < d["brief"]["probpago"] <= 1
     # La conversación tiene turnos alternados y arranca el gestor.
     assert d["turnos"][0]["quien"] == "gestor"
