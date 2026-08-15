@@ -48,7 +48,12 @@ _SINTETICOS = re.compile(
 )
 
 # Un celular uruguayo: 09X con X de 1 a 9, más seis dígitos. En formato
-# nacional (098576279) o internacional (+59898576279).
+# nacional (09X NNNNNN) o internacional (+5989X NNNNNN).
+#
+# Los ejemplos van con letras y no con dígitos a propósito: acá había dos
+# números reales de muestra y este mismo test los encontró apenas el archivo
+# entró a git — el comentario que explica qué buscar no puede ser justamente
+# lo que hay que encontrar.
 _CELULAR_NACIONAL = re.compile(r"(?<!\d)09[1-9]\d{6}(?!\d)")
 _CELULAR_INTERNACIONAL = re.compile(r"\+?598\s?9[1-9][\s.-]?\d{3}[\s.-]?\d{3}")
 
