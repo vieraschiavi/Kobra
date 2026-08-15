@@ -120,7 +120,7 @@ function ImportarCartera() {
 
       {fuente === "archivo" ? (
         <div className="toolbar">
-          <input type="file" accept=".csv,.xlsx,.xls"
+          <input type="file" accept=".csv,.xlsx,.xls" aria-label={t("importar_cartera.archivo_aria")}
                  onChange={(e) => setArchivo(e.target.files[0] || null)} />
           <button className="btn" disabled={!archivo || cargando} onClick={subir}>
             {cargando ? t("importar_cartera.subiendo") : t("importar_cartera.boton")}

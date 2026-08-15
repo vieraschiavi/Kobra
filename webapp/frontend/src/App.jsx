@@ -65,6 +65,7 @@ function PaisSelector({ esAdmin }) {
     <div className="pais-chip" title={pais.nota_cumplimiento || ""}>
       <IcoGlobo size={14} />
       <select
+        aria-label={t("app.sidebar.pais")}
         disabled={guardando || !catalogo}
         value={pais.codigo}
         onChange={async (e) => {
@@ -98,8 +99,12 @@ function Sidebar({ sesion, plan }) {
         <img src="/mv_icon.png" alt="MV Kobra AI" />
         <b>MV KOBRA <span>AI</span></b>
       </div>
+      {/* `aria-label` y `title` no son decorativos acá: en pantalla chica la
+          barra colapsa a un rail de iconos y el `.txt` se oculta por CSS, así
+          que sin ellos el botón se queda sin nombre para un lector de
+          pantalla y sin forma de saber qué es al pasar el mouse. */}
       {NAV.filter((n) => !n.admin || sesion.rol === "admin").map((n) => (
-        <button key={n.ruta} onClick={() => nav(n.ruta)}
+        <button key={n.ruta} onClick={() => nav(n.ruta)} aria-label={t(n.clave)} title={t(n.clave)}
                 className={"nav-item" + (loc.pathname === n.ruta ? " on" : "")}>
           <span className="ico">{n.ico}</span><span className="txt">{t(n.clave)}</span>
         </button>
@@ -111,7 +116,8 @@ function Sidebar({ sesion, plan }) {
         {sesion.rol === "admin" ? <IcoEscudo size={12} /> : <IcoUsuario size={12} />}{" "}
         {sesion.rol === "admin" ? t("app.sidebar.rol_admin") : t("app.sidebar.rol_gestor")} · {sesion.empresa}
       </div>
-      <button className="nav-item" onClick={() => { setSesion(null); nav("/login"); }}>
+      <button className="nav-item" onClick={() => { setSesion(null); nav("/login"); }}
+              aria-label={t("app.sidebar.cerrar_sesion")} title={t("app.sidebar.cerrar_sesion")}>
         <span className="ico"><IcoSalir /></span><span className="txt">{t("app.sidebar.cerrar_sesion")}</span>
       </button>
     </aside>

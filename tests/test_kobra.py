@@ -50,9 +50,15 @@ def test_probpago_fit_seleccionado_sin_entrenamiento_previo_cae_en_fallback(monk
     """Sin outputs/probpago_model.joblib, fit_seleccionado() debe comportarse
     igual que fit() y etiquetarlo honestamente como fallback (no inventar un
     modelo "seleccionado" que no existe)."""
-    import kobra.probpago as pp
-    monkeypatch.setattr(pp, "_MODEL_PATH", str(tmp_path / "no_existe.joblib"))
-    monkeypatch.setattr(pp, "_SELECTION_PATH", str(tmp_path / "no_existe.json"))
+    # Se parchea el namespace donde vive la función, no `kobra.probpago` por
+    # nombre: otros tests borran entradas de `sys.modules`, y a partir de ahí
+    # un `import kobra.probpago` devuelve una copia NUEVA, distinta de la que
+    # trajo `ProbPagoModel` al importarse este archivo. Parchear la copia
+    # equivocada dejaba a `fit_seleccionado` leyendo el modelo real, y el test
+    # pasaba o fallaba según el orden en que corriera la suite.
+    globs = ProbPagoModel.fit_seleccionado.__globals__
+    monkeypatch.setitem(globs, "_MODEL_PATH", str(tmp_path / "no_existe.joblib"))
+    monkeypatch.setitem(globs, "_SELECTION_PATH", str(tmp_path / "no_existe.json"))
     df = _df()
     model = ProbPagoModel().fit_seleccionado(df)
     assert "fallback" in model.metrics["modelo"]

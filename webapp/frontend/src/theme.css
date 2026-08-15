@@ -83,6 +83,9 @@ button { font-family: inherit; }
   border-radius: 7px; font: inherit; font-size: 12px; padding: 3px 6px; flex: 1; min-width: 0;
 }
 
+/* El colapso de la barra lateral en pantalla chica vive más abajo, en el
+   bloque `@media (max-width: 860px)`, junto al resto del responsive. */
+
 /* ---- cards / KPIs ---- */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
 .card {
@@ -189,14 +192,58 @@ select:focus, input:focus, textarea:focus { border-color: var(--green); }
 
 .empty { color: var(--muted); padding: 30px 10px; text-align: center; }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; }
+/* 380px de columna mínima sobre un ancho útil de ~310px en un celular no
+   entran: la tarjeta se pasaba 70px y arrastraba la página entera al
+   costado. Igual que en `.charts-grid`, el `minmax(0, 1fr)` deja que la
+   columna se encoja; sin el 0 explícito el mínimo implícito es `auto` y
+   vuelve a desbordar. */
+@media (max-width: 720px) {
+  .grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 860px) {
-  .sidebar { width: 64px; padding: 18px 8px; }
-  .sidebar .brand b, .sidebar .nav-item .txt, .session-chip, .pais-chip { display: none; }
-  /* Barra lateral colapsada: queda solo la barrita de consumo, sin el texto
-     (que a 64 px de ancho se corta y no dice nada). */
+  .sidebar {
+    width: 64px; padding: 18px 8px; gap: 2px;
+    /* Doce secciones más los chips no entran en 844px de alto: sin scroll
+       propio, las últimas quedan fuera de alcance. */
+    overflow-y: auto; overflow-x: hidden;
+  }
+  .sidebar .brand { padding: 2px 0 14px; justify-content: center; }
+  .sidebar .nav-item { justify-content: center; padding: 10px 0; }
+  .sidebar .nav-item .ico { width: auto; }
+  /* Colapsada queda solo el icono. El texto se va —a 64px se corta y no dice
+     nada—, y por eso los botones llevan `aria-label` y `title` en App.jsx:
+     sin el `.txt` el nombre accesible tiene que seguir estando en algún
+     lado. El selector de país no se oculta, se angosta: es la única forma de
+     cambiar de país y esconderlo dejaba al usuario de celular sin ella. */
+  .sidebar .brand b, .sidebar .nav-item .txt, .session-chip { display: none; }
   .plan-chip { padding: 6px 8px 10px; }
   .plan-chip-txt { display: none; }
+  .pais-chip { padding: 6px 2px; justify-content: center; gap: 2px; }
+  .pais-chip select { font-size: 10.5px; padding: 3px 2px; }
   .main { padding: 20px 16px 50px; }
+  /* El tooltip de los gráficos se posiciona donde está el dedo y en pantalla
+     angosta se sale de la tarjeta, arrastrando la página. Recortado en el
+     borde de la tarjeta sigue siendo legible y no mueve el layout.
+     `clip` y no `hidden`: `hidden` crearía un contenedor de scroll y rompería
+     el `position: sticky` del encabezado de las tablas de adentro. */
+  .card { overflow-x: clip; }
+}
+
+/* Pantallas muy angostas (iPhone SE y anteriores, 320px).
+   Los formularios traen `minWidth` en línea de 200 a 260px, pensados para una
+   barra de herramientas de escritorio donde los controles conviven en una
+   fila. A 320px el ancho útil es de ~240px y cada uno de esos mínimos empuja
+   la página al costado. Acá los controles pasan a ocupar la fila entera:
+   el `!important` es necesario porque compite contra estilos en línea. */
+@media (max-width: 380px) {
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar > * { width: 100%; }
+  input, select, textarea, fieldset, legend, pre {
+    max-width: 100%; min-width: 0 !important;
+  }
+  .toolbar > input, .toolbar > select, .toolbar > textarea, .toolbar > label {
+    width: 100% !important;
+  }
 }
 
 /* --- Origen de los datos -------------------------------------------------
