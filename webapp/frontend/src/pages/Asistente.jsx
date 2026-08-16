@@ -156,7 +156,7 @@ function AnalizarVoz() {
       <h3 style={{ marginTop: 0 }}>{t("analizar_voz.titulo")}</h3>
       <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("analizar_voz.subtitulo")}</p>
       <div className="toolbar">
-        <input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg"
+        <input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" aria-label={t("analizar_voz.archivo_aria")}
                onChange={(e) => elegir(e.target.files[0] || null)} />
         <button className="btn" disabled={!archivo || cargando} onClick={analizar}>
           {cargando ? t("analizar_voz.analizando") : t("analizar_voz.boton")}

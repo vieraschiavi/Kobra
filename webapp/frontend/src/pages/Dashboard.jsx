@@ -54,7 +54,12 @@ export default function Dashboard() {
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+      {/* `flexWrap` en el encabezado: el botón del informe no se encoge
+          (`flexShrink: 0`, y con razón — el texto no se puede partir), así
+          que en un celular sumaba 18px de desborde a toda la página. Al
+          envolver, baja a su propia línea y ahí entra holgado. */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+                    gap: 16, flexWrap: "wrap" }}>
         <div>
           <h1 className="page-title">{t("dashboard.titulo")}</h1>
           <p className="page-sub">{t("dashboard.subtitulo")}</p>

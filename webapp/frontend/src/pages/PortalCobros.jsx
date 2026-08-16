@@ -11,8 +11,12 @@ import { IcoCopiar, IcoEnlace, IcoQr } from "../icons.jsx";
 
 function Copiar({ texto }) {
   const [ok, setOk] = useState(false);
+  // El contenido es un icono mientras no se copió: sin `aria-label` el botón
+  // no tiene nombre accesible y un lector de pantalla lo anuncia como "botón"
+  // a secas.
   return (
     <button type="button" className="btn ghost mini" title={t("portal_admin.copiar")}
+            aria-label={t("portal_admin.copiar")}
             onClick={async () => {
               try { await navigator.clipboard.writeText(texto); } catch { /* http plano */ }
               setOk(true); setTimeout(() => setOk(false), 1200);

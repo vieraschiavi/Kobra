@@ -268,12 +268,19 @@ function Anomalias() {
 export default function CuentasPorCobrar() {
   return (
     <div>
-      <h2>{t("cxc.titulo")}</h2>
-      <p style={{ color: "var(--muted)", fontSize: 13.5, maxWidth: 780 }}>{t("cxc.subtitulo")}</p>
+      {/* `page-title` / `page-sub`: las mismas clases que el resto de las
+          pantallas. Con un `<h2>` suelto esta página tenía otro tamaño de
+          título y otro margen que sus once hermanas. */}
+      <h2 className="page-title">{t("cxc.titulo")}</h2>
+      <p className="page-sub">{t("cxc.subtitulo")}</p>
       <Antiguedad />
+      {/* `min(320px, 100%)` y no `320px`: en un celular el ancho útil es de
+          ~300px y un mínimo rígido de 320 empuja la página entera 10px al
+          costado. Con el `min()` la columna baja hasta donde haya lugar y en
+          pantalla grande sigue partiendo en dos a los 320. */}
       <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 320 }}><Dso /></div>
-        <div style={{ flex: 1, minWidth: 320 }}><Efectividad /></div>
+        <div style={{ flex: 1, minWidth: "min(320px, 100%)" }}><Dso /></div>
+        <div style={{ flex: 1, minWidth: "min(320px, 100%)" }}><Efectividad /></div>
       </div>
       <Conciliar />
       <Anomalias />

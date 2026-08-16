@@ -189,6 +189,7 @@ export default function DemoVivo() {
           <h3 style={{ marginTop: 0 }}>{t("demo.cobrar_titulo")}</h3>
           <div className="toolbar">
             <input type="number" min="1" max={est.saldo} value={monto} style={{ width: 120 }}
+                   aria-label={t("demo.cobrar_titulo")}
                    onChange={(e) => setMonto(Number(e.target.value))} />
             <button className="btn" onClick={() => cobrar("mercadopago")}
                     disabled={est.saldo <= 0 || ocupado === "cobrar"}>
@@ -311,7 +312,8 @@ export default function DemoVivo() {
             </table>
           </div>
           <div className="toolbar" style={{ marginTop: 12 }}>
-            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            <input type="date" value={fecha} aria-label={t("demo.registrar_promesa")}
+                   onChange={(e) => setFecha(e.target.value)} />
             <button className="btn" onClick={registrarPromesa}
                     disabled={!acuerdo || !fecha || ocupado === "promesa"}>
               {t("demo.registrar_promesa")}

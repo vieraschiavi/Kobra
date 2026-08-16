@@ -182,3 +182,97 @@ def test_la_app_avisa_si_el_navegador_no_tiene_javascript():
     html = _html("webapp/frontend/index.html")
     assert "<noscript>" in html
     assert "JavaScript" in html
+
+
+# --- La app en un celular ---------------------------------------------------
+# Todo esto salió de medir con un navegador de verdad: doce pantallas a diez
+# anchos distintos, de 320 a 1440px. El defecto era siempre el mismo —un ancho
+# mínimo pensado para el escritorio— y se veía siempre igual: la página entera
+# corrida al costado, con el contenido moviéndose al hacer scroll vertical.
+_THEME = "webapp/frontend/src/theme.css"
+
+
+def _css():
+    with open(os.path.join(ROOT, _THEME), encoding="utf-8") as f:
+        return f.read()
+
+
+def _bloques_media_angostos(css):
+    """Los cuerpos de los `@media (max-width: …)` que apuntan a pantalla
+    chica, concatenados. Sirve para preguntar "¿esto se corrige en móvil?"."""
+    cuerpos = []
+    for m in re.finditer(r"@media\s*\(max-width:\s*(\d+)px\)\s*\{", css):
+        if int(m.group(1)) > 900:
+            continue
+        i, prof = m.end(), 1
+        while i < len(css) and prof:
+            prof += (css[i] == "{") - (css[i] == "}")
+            i += 1
+        cuerpos.append(css[m.end():i])
+    return "\n".join(cuerpos)
+
+
+def test_la_barra_lateral_se_colapsa_en_pantalla_chica():
+    """232px de barra fija sobre 390px de pantalla dejan 158px de contenido:
+    no entra nada. En móvil queda un rail de iconos."""
+    movil = _bloques_media_angostos(_css())
+    assert ".sidebar" in movil, "ninguna media query angosta toca .sidebar"
+    assert re.search(r"\.sidebar\s*\{[^}]*width:\s*(?:[1-9]\d?|1\d\d)px", movil), \
+        "la barra lateral no se angosta en pantalla chica"
+    assert ".nav-item .txt" in movil, \
+        "el texto de la navegación no se oculta: no hay lugar para él"
+
+
+def test_los_botones_de_navegacion_tienen_nombre_accesible():
+    """Corolario del test anterior: si el `.txt` se oculta por CSS, el botón se
+    queda sin contenido y un lector de pantalla lo anuncia como "botón" a
+    secas. El nombre tiene que estar en un atributo, no en el texto."""
+    with open(os.path.join(ROOT, "webapp/frontend/src/App.jsx"), encoding="utf-8") as f:
+        app = f.read()
+    nav = app[app.index("function Sidebar"):]
+    nav = nav[:nav.index("\n}\n")]
+    for boton in re.finditer(r"<button[^>]*className=\{?\"?nav-item", nav):
+        # El `>` que cierra la etiqueta no sirve de corte: los `onClick` traen
+        # funciones flecha (`=>`) adentro. El primer `<span` sí — es el icono,
+        # el primer hijo de todos estos botones.
+        resto = nav[boton.start():boton.start() + 500]
+        atributos = resto.split("<span")[0]
+        assert "aria-label=" in atributos, \
+            "un botón de la barra lateral no tiene aria-label:\n" + atributos[:120]
+
+
+@pytest.mark.parametrize("rejilla", ["charts-grid", "grid-2", "kpi-grid"])
+def test_las_rejillas_anchas_tienen_salida_en_movil(rejilla):
+    """`repeat(auto-fit, minmax(380px, 1fr))` en una pantalla con ~310px de
+    ancho útil desborda 70px. El mínimo tiene que poder achicarse: `minmax(0,
+    …)` o `minmax(min(Npx, 100%), …)`. Sin el 0 explícito el mínimo implícito
+    de una pista de grilla es `auto`, y vuelve a desbordar."""
+    css = _css()
+    anchos = re.findall(rf"\.{rejilla}\s*\{{[^}}]*minmax\((\d+)px", css)
+    if not anchos or max(int(a) for a in anchos) < 340:
+        return                      # ya entra en cualquier celular
+    movil = _bloques_media_angostos(css)
+    regla = re.search(rf"\.{rejilla}\s*\{{[^}}]*grid-template-columns:([^;]+);", movil)
+    assert regla, f".{rejilla} usa un mínimo de {max(anchos)}px y no lo corrige en móvil"
+    assert "minmax(0" in regla.group(1) or "min(" in regla.group(1), \
+        f".{rejilla} en móvil sigue con un mínimo rígido: {regla.group(1).strip()}"
+
+
+# Las pantallas sueltas: no viven dentro del layout con barra lateral y por
+# eso no llevan el encabezado común.
+_SIN_LAYOUT = {"Login.jsx", "Activacion.jsx", "PortalPago.jsx"}
+
+
+def test_todas_las_pantallas_usan_el_mismo_encabezado():
+    """`CuentasPorCobrar.jsx` traía un `<h2>` suelto con estilos en línea: otro
+    tamaño de título y otro margen que sus once hermanas, en la misma app."""
+    import glob
+    sueltas = []
+    for ruta in sorted(glob.glob(os.path.join(ROOT, "webapp/frontend/src/pages/*.jsx"))):
+        if os.path.basename(ruta) in _SIN_LAYOUT:
+            continue
+        with open(ruta, encoding="utf-8") as f:
+            if "page-title" not in f.read():
+                sueltas.append(os.path.basename(ruta))
+    assert not sueltas, ("estas pantallas no usan la clase `page-title` del "
+                         "resto de la app: " + ", ".join(sueltas))

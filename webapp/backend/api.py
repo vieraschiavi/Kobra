@@ -495,8 +495,29 @@ app = FastAPI(title="MV Kobra AI · API", version="1.0",
 app.add_middleware(klimite.LimitadorGeneral)
 # Red de seguridad general: cubre TODO endpoint público (48+ en este archivo),
 # no solo login/licencia/setup, que ya tienen su freno más estricto aparte.
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
-                   allow_headers=["*"])
+# CORS restringido, no `*`. La interfaz se sirve desde ESTE mismo backend
+# (el `StaticFiles` del final del archivo), así que el uso normal es
+# same-origin y no necesita CORS en absoluto. Abrirlo a `*` habilitaba un
+# ataque concreto sobre la instalación de escritorio, donde el backend queda
+# escuchando en localhost:
+#
+#   1. El usuario instala la app y todavía no configuró su contraseña.
+#   2. Visita cualquier página web.
+#   3. Esa página hace POST a http://localhost:<puerto>/api/auth/setup.
+#   4. Se queda con el admin de la instalación.
+#
+# El POST lleva `Content-Type: application/json`, así que el navegador hace
+# preflight — y con `allow_origins=["*"]` el preflight pasaba. Con la lista
+# de abajo, el navegador corta el pedido antes de que salga.
+#
+# Se permiten los orígenes de desarrollo (el dev server de Vite) y los que la
+# empresa declare en KOBRA_CORS_ORIGINS, separados por coma, para el caso de
+# servir la interfaz desde otro dominio.
+_CORS_DEV = ["http://localhost:5173", "http://127.0.0.1:5173"]
+_CORS_ORIGINS = [o.strip() for o in os.environ.get("KOBRA_CORS_ORIGINS", "").split(",")
+                 if o.strip()] or _CORS_DEV
+app.add_middleware(CORSMiddleware, allow_origins=_CORS_ORIGINS,
+                   allow_methods=["*"], allow_headers=["*"])
 
 
 # ---------------------------------------------------------------------------
@@ -1930,10 +1951,18 @@ async def voz_analizar(archivo: UploadFile = File(...), id_deudor: str | None = 
             "tecnicas": res["tecnicas"], "plan": plan_estado_actual}
 
 
-# Deudor sintético por default de la demo del Gestor IA — el caso "Martín Viera"
-# que se le muestra a un prospecto: 3 cuotas adeudadas, sueldo declarado, etc.
+# Deudor sintético por default de la demo del Gestor IA — el caso que se le
+# muestra a un prospecto: 3 cuotas adeudadas, sueldo declarado, etc.
+#
+# El teléfono es INVENTADO y tiene que seguir siéndolo. Acá había un celular
+# uruguayo real, commiteado en un repositorio público: eso lo indexa Google y
+# lo levantan los bots que rastrean GitHub buscando exactamente eso. Cuando la
+# demostración tiene que llamar a un teléfono de verdad, el número sale de la
+# configuración cifrada de la máquina (`kobra/demo_vivo.py`), nunca de acá.
+# `tests/test_sin_datos_personales.py` falla si vuelve a entrar uno real.
 _DEUDOR_DEMO_GESTOR = {
-    "id_deudor": "DEMO-001", "nombre": "Martín Viera", "telefono": "098576279",
+    "id_deudor": "DEMO-001", "nombre": "Cliente de Demostración",
+    "telefono": "099000001",
     "monto_deuda": 120000, "dias_mora": 90, "cuotas_atrasadas": 3,
     "ingreso_estimado": 120000, "antiguedad_cliente_meses": 36, "score_buro": 640,
     "segmento": "Retail", "producto": "Préstamo personal", "departamento": "Montevideo",

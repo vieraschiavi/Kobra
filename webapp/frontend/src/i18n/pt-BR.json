@@ -26,7 +26,8 @@
     "sidebar": {
       "rol_admin": "Administrador",
       "rol_gestor": "Operador",
-      "cerrar_sesion": "Sair"
+      "cerrar_sesion": "Sair",
+      "pais": "País de operação"
     }
   },
   "login": {
@@ -138,7 +139,9 @@
       "limpiar": "Limpar filtros",
       "modo_real": "Dados reais",
       "modo_demo": "Dados demo",
-      "sin_resultados": "Nenhum devedor atende a esses filtros."
+      "sin_resultados": "Nenhum devedor atende a esses filtros.",
+      "dias_min_aria": "Dias de atraso, mínimo",
+      "dias_max_aria": "Dias de atraso, máximo"
     },
     "filtro": {
       "segmento_corporativo": "Corporativo",
@@ -324,7 +327,8 @@
       "emocion": "Emoção"
     },
     "copiloto_ok": "Transcrição disponível (Whisper) — o Copiloto avaliou a qualidade da ligação e detectou técnicas de negociação.",
-    "sin_transcripcion": "Apenas diarização + emoção acústica (sem texto): configure OPENAI_API_KEY para transcrever com Whisper e somar a avaliação do Copiloto."
+    "sin_transcripcion": "Apenas diarização + emoção acústica (sem texto): configure OPENAI_API_KEY para transcrever com Whisper e somar a avaliação do Copiloto.",
+    "archivo_aria": "Gravação da chamada (WAV ou MP3)"
   },
   "importar_cartera": {
     "titulo": "Carregar sua carteira real",
@@ -343,7 +347,8 @@
     "origen_demo": "Você ainda está vendo dados de demonstração (sintéticos).",
     "boton": "⬆ Importar e analisar",
     "subiendo": "Analisando…",
-    "banner_demo": "Você está vendo dados de DEMONSTRAÇÃO (sintéticos). Para ver sua carteira real: Configurações → Carregar sua carteira real → botão «MINHA CARTEIRA»."
+    "banner_demo": "Você está vendo dados de DEMONSTRAÇÃO (sintéticos). Para ver sua carteira real: Configurações → Carregar sua carteira real → botão «MINHA CARTEIRA».",
+    "archivo_aria": "Arquivo da carteira (CSV ou Excel)"
   },
   "proveedor_ia": {
     "titulo": "Provedor de IA",

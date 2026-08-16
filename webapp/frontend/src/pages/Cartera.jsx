@@ -160,8 +160,10 @@ export default function Cartera() {
               <span style={{ color: "var(--muted)", fontSize: 13, marginLeft: 10 }}>
                 {t("cartera.toolbar.dias_mora")}: <b>{filtros.dias_min || dm.min}</b>–<b>{filtros.dias_max || dm.max}</b></span>
               <input type="range" min={dm.min} max={dm.max} value={filtros.dias_min || dm.min}
+                     aria-label={t("cartera.toolbar.dias_min_aria")}
                      onChange={setF("dias_min")} style={{ width: 120 }} />
               <input type="range" min={dm.min} max={dm.max} value={filtros.dias_max || dm.max}
+                     aria-label={t("cartera.toolbar.dias_max_aria")}
                      onChange={setF("dias_max")} style={{ width: 120 }} />
             </>)}
         </div>

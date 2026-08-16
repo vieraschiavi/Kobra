@@ -120,7 +120,7 @@ function ImportarCartera() {
 
       {fuente === "archivo" ? (
         <div className="toolbar">
-          <input type="file" accept=".csv,.xlsx,.xls"
+          <input type="file" accept=".csv,.xlsx,.xls" aria-label={t("importar_cartera.archivo_aria")}
                  onChange={(e) => setArchivo(e.target.files[0] || null)} />
           <button className="btn" disabled={!archivo || cargando} onClick={subir}>
             {cargando ? t("importar_cartera.subiendo") : t("importar_cartera.boton")}
@@ -347,7 +347,12 @@ export default function Configuracion() {
                     <td style={{ fontFamily: "var(--mono)", fontSize: 12 }}>{clave}</td>
                     <td>{on ? t("configuracion.estado.configurada") : t("configuracion.estado.sin_configurar")}</td>
                     <td>
+                      {/* El nombre de la clave está en la primera celda, que
+                          alcanza para verlo pero no para oírlo: sin
+                          `aria-label`, un lector de pantalla anuncia
+                          diecinueve "campo de texto" idénticos. */}
                       <input type="password" value={valores[clave] || ""}
+                             aria-label={clave}
                              style={{ width: "100%", minWidth: 180 }}
                              onChange={(e) =>
                                setValores({ ...valores, [clave]: e.target.value })} />
