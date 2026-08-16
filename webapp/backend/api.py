@@ -1026,6 +1026,56 @@ def informe_programacion_guardar(datos: ProgramacionIn, u: Usuario = Depends(sol
     return {"activo": datos.activo, "destino": destino}
 
 
+# ---------------------------------------------------------------------------
+# Carpeta de datos: en qué disco guarda el programa
+# ---------------------------------------------------------------------------
+# Instalar en D: no alcanzaba: los datos iban siempre a %LOCALAPPDATA%, o sea
+# a C:. El que instalaba en otro disco porque su C: estaba lleno chocaba igual
+# contra C: en el primer import de cartera. El instalador ya lo pregunta; esto
+# es para cambiarlo después, desde el programa y sin tocar una consola.
+#
+# `solo_admin` no es decorativo: esto elige una carpeta arbitraria del disco y
+# copia datos ahí. Un gestor no tiene por qué poder mover la base de la empresa.
+@app.get("/api/almacenamiento")
+def almacenamiento(u: Usuario = Depends(solo_admin)):
+    return krutas.estado()
+
+
+class AlmacenamientoIn(BaseModel):
+    carpeta: str
+    copiar_datos: bool = True
+
+
+@app.post("/api/almacenamiento")
+def almacenamiento_guardar(datos: AlmacenamientoIn, u: Usuario = Depends(solo_admin)):
+    carpeta = datos.carpeta.strip()
+    if not carpeta:
+        # Vaciar el campo = volver a la carpeta por defecto. No se copia nada:
+        # los datos siguen donde están y el programa vuelve a mirar el default.
+        krutas.guardar_eleccion("")
+        return {**krutas.estado(), "aviso": "Volviste a la carpeta por defecto. "
+                "Cerrá y volvé a abrir el programa para que tome efecto."}
+
+    diag = krutas.revisar(carpeta)
+    if not diag["ok"]:
+        raise HTTPException(400, diag["motivo"])
+
+    if datos.copiar_datos:
+        r = krutas.mover_datos(carpeta)
+        if not r["ok"]:
+            raise HTTPException(400, r["motivo"])
+        aviso = r["motivo"]
+    else:
+        krutas.guardar_eleccion(carpeta)
+        aviso = f"Guardado. El programa va a usar {carpeta}."
+
+    # El cambio recién aplica en el próximo arranque: DIR_DATOS se resuelve una
+    # vez al importar y hay módulos que ya calcularon sus rutas contra él.
+    # Prometer que ya está aplicado sería mentir sobre dónde se está guardando.
+    return {**krutas.estado(), "aviso": aviso + " Cerrá y volvé a abrir el "
+            "programa para que empiece a usarla."}
+
+
 @app.post("/api/informe/enviar-ahora")
 def informe_enviar_ahora(u: Usuario = Depends(solo_admin)):
     """Envío inmediato de prueba (valida el SMTP sin esperar al lunes)."""

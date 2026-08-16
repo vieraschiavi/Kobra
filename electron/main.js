@@ -17,6 +17,7 @@ const http = require("http");
 const net = require("net");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 
 // La compositación por GPU de Chromium se pelea con OBS Virtual Camera, la
 // captura de pantalla de OBS, el escritorio remoto (RDP) y algunos drivers
@@ -86,22 +87,60 @@ function rutaBackend() {
 
 // Dónde guarda sus datos el programa (cartera, gestiones, configuración).
 //
-// Por defecto `kobra/rutas.py` los pone en %LOCALAPPDATA% — o sea en C:, aunque
-// el usuario haya elegido instalar en otro disco. Quien instala en D: porque su
-// C: está justo de espacio no espera que igual se le llene con los datos.
+// Hay UNA sola fuente de verdad y es `kobra/rutas.py`: variable de entorno,
+// después el puntero `carpeta_datos.txt` que escriben el instalador y la
+// pantalla de Configuración, y después el default. Este proceso NO decide —
+// solo cubre el hueco de una instalación vieja, hecha antes de que el
+// instalador preguntara la carpeta.
 //
-// Regla: si la instalación NO está en el mismo disco que %LOCALAPPDATA%, los
-// datos van al lado del programa. Se respeta siempre una ruta explícita en
-// KOBRA_DATA_DIR, y NUNCA se mueve una instalación que ya tenga datos donde
-// estaban — mover datos por su cuenta sería peor que el problema.
+// El orden importa: pasar KOBRA_DATA_DIR PISA la elección del usuario, porque
+// la variable de entorno tiene la máxima prioridad en rutas.py. Por eso, si
+// hay puntero, este proceso no manda nada y deja que rutas.py resuelva.
+const PUNTERO_DATOS = "carpeta_datos.txt";
+
+function hayEleccionGuardada() {
+  const base = process.platform === "win32"
+    ? (process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "MV Kobra AI"))
+    : path.join(os.homedir(), ".mv_kobra_ai");
+  if (!base) return false;
+  try {
+    return fs.readFileSync(path.join(base, PUNTERO_DATOS), "utf8").trim() !== "";
+  } catch {
+    return false;
+  }
+}
+
+// ¿Ya hay una instalación funcionando con la carpeta por defecto?
+//
+// No alcanza con que la carpeta exista: `%LOCALAPPDATA%\MV Kobra AI` es
+// también donde los .bat de cada edición anotan su destino
+// (`destino_owner.txt`, ver packaging/deteccion_instalacion.py) y donde vive
+// este mismo puntero, así que puede estar creada sin un solo dato adentro.
+// Lo que decide es si hay contenido: `data/`, `outputs/`, o cualquier cosa
+// que no sea el puntero.
+function tieneDatosPrevios(estandar) {
+  try {
+    return fs.readdirSync(estandar).some((n) => n !== PUNTERO_DATOS);
+  } catch {
+    return false;      // no existe: no hay nada que preservar
+  }
+}
+
+// Instalación vieja sin puntero: si quedó en otro disco que %LOCALAPPDATA%,
+// los datos van al lado del programa y la decisión se ANOTA en el puntero —
+// así deja de ser una heurística invisible que se vuelve a evaluar en cada
+// arranque y pasa a ser una elección que el usuario ve y puede cambiar desde
+// Configuración. Nunca se mueve una instalación que ya tenga datos donde
+// estaban: mover datos por su cuenta sería peor que el problema.
 function dirDatosElegido() {
   if (process.env.KOBRA_DATA_DIR) return process.env.KOBRA_DATA_DIR;
   if (process.platform !== "win32" || !app.isPackaged) return null;
+  if (hayEleccionGuardada()) return null;     // ya eligieron: manda rutas.py
 
   const localAppData = process.env.LOCALAPPDATA;
   if (!localAppData) return null;
   const estandar = path.join(localAppData, "MV Kobra AI");
-  if (fs.existsSync(estandar)) return null;   // instalación previa: no tocar
+  if (tieneDatosPrevios(estandar)) return null;   // instalación previa: no tocar
 
   const instalacion = path.dirname(process.resourcesPath);
   const discoInstalacion = path.parse(instalacion).root.toUpperCase();
@@ -111,7 +150,9 @@ function dirDatosElegido() {
   const propio = path.join(instalacion, "datos");
   try {
     fs.mkdirSync(propio, { recursive: true });
-    return propio;
+    fs.mkdirSync(estandar, { recursive: true });
+    fs.writeFileSync(path.join(estandar, PUNTERO_DATOS), propio, "utf8");
+    return null;      // anotado: de acá en más lo resuelve rutas.py
   } catch {
     return null;   // sin permiso: que decida rutas.py, no romper el arranque
   }

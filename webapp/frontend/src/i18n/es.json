@@ -737,5 +737,19 @@
     "registrar_promesa": "Registrar la promesa",
     "promesa_ok": "Promesa registrada. Ya entró al seguimiento: si la fecha pasa sin el pago, aparece en la agenda.",
     "cancelada": "Deuda cancelada. El circuito se recorrió entero."
+  },
+  "almacenamiento": {
+    "titulo": "Carpeta de datos (en qué disco guarda)",
+    "subtitulo": "Acá se graban la cartera, las exportaciones, los modelos, los backups y la auditoría. Instalar el programa en otro disco no alcanza: si los datos siguen yendo a un C: lleno, se rompe igual al importar la primera cartera.",
+    "actual": "Guardando en:",
+    "libre": "{{libre}} GB libres de {{total}} GB",
+    "col_disco": "Disco",
+    "col_libre": "Libre",
+    "col_total": "Total",
+    "carpeta_aria": "Carpeta donde guardar los datos",
+    "copiar": "Copiar los datos actuales",
+    "guardar": "Usar esta carpeta",
+    "guardado": "Guardado.",
+    "forzada_env": "La carpeta viene fijada por la variable de entorno KOBRA_DATA_DIR, así que lo que elijas acá no se aplica hasta que la saques."
   }
 }
