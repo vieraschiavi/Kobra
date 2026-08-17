@@ -91,7 +91,12 @@ jobs:
         run: python data/generate_dataset.py --n 3000 --seed 42
 
       - name: Tests
-        run: python -m pytest -q tests/
+        # `-rs` lista los tests salteados CON su motivo. Un skip es invisible en
+        # la salida corta —un punto menos entre mil— y ahi es donde un test deja
+        # de proteger algo sin que nadie se entere: falta una herramienta en el
+        # runner, cambia el usuario que corre la suite, y el chequeo se apaga
+        # solo. Que aparezcan escritos cuesta cuatro lineas de log.
+        run: python -m pytest -q -rs tests/
 
       # Pasos pesados solo al mergear a main (no en cada PR) para ahorrar minutos.
       - name: Selección de modelos (CV + calibración)
