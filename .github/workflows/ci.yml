@@ -66,6 +66,15 @@ jobs:
         # el camino del que paga estaba, en los hechos, apagado en CI.
         run: npm ci
 
+      - name: Instalar NSIS (compilador del instalador de Windows)
+        # `tests/test_disco_y_carpeta_datos.py` compila `installer.nsh` con
+        # makensis en vez de leerlo como texto. Sin NSIS en el runner ese test
+        # se saltea, y justamente es el unico que ve un macro sin cerrar o una
+        # variable que no existe — que NSIS degrada a warning y deja pasar,
+        # dejando la pagina del asistente rota sin que falle nada. Son ~2 MB y
+        # unos segundos; el error que evita cuesta un build de Windows entero.
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq nsis
+
       - name: Linter
         # Antes del test: un import roto o una variable indefinida los detecta
         # ruff en segundos, sin esperar los dos minutos de la suite.
