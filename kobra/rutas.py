@@ -159,7 +159,7 @@ def discos() -> list[dict]:
     """
     salida, vistos = [], set()
     if sys.platform == "win32":
-        candidatos = [f"{chr(l)}:\\" for l in range(ord("A"), ord("Z") + 1)]
+        candidatos = [f"{chr(letra)}:\\" for letra in range(ord("A"), ord("Z") + 1)]
     else:
         candidatos = [os.path.expanduser("~"), "/"]
     for raiz in candidatos:

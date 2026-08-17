@@ -143,7 +143,7 @@ def test_el_puntero_vive_en_la_ubicacion_por_defecto(rutas, tmp_path):
     rutas.guardar_eleccion(str(elegida))
     puntero = os.path.join(rutas.dir_preferencias(), rutas.ARCHIVO_ELECCION)
     assert os.path.isfile(puntero)
-    assert not str(elegida) in rutas.dir_preferencias()
+    assert str(elegida) not in rutas.dir_preferencias()
 
 
 def test_la_carpeta_elegida_se_usa_al_arrancar(rutas, tmp_path, monkeypatch):
@@ -285,8 +285,9 @@ def test_el_instalador_avisa_del_espacio_antes_de_copiar():
 def test_el_minimo_del_instalador_coincide_con_el_del_programa():
     """Dos números que quieren decir lo mismo en dos archivos distintos: si se
     separan, el instalador acepta un disco que el programa después rechaza."""
-    from kobra import rutas as kr
     import re
+
+    from kobra import rutas as kr
     nsh = _leer("electron/build/installer.nsh")
     m = re.search(r"!define\s+MVK_MIN_DATOS_MB\s+(\d+)", nsh)
     assert m, "no se encontró MVK_MIN_DATOS_MB en el instalador"
@@ -330,6 +331,7 @@ def cliente(tmp_path, monkeypatch):
     kauth.establecer_password("admin", "AdminTest123!")
     kauth.establecer_password("gestor", "GestorTest123!")
     from fastapi.testclient import TestClient
+
     from webapp.backend import api
     importlib.reload(api)
     yield TestClient(api.app)
