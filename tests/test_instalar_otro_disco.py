@@ -120,10 +120,22 @@ def test_respeta_una_ruta_explicita(main_js):
 
 def test_no_le_mueve_los_datos_a_quien_ya_tenia_instalado(main_js):
     """La regla que evita el peor desenlace: que alguien actualice y crea que
-    perdió su cartera porque el programa empezó a mirar otra carpeta."""
+    perdió su cartera porque el programa empezó a mirar otra carpeta.
+
+    Se mira el CONTENIDO y no la existencia de la carpeta: en
+    `%LOCALAPPDATA%\\MV Kobra AI` también anotan su destino los .bat de cada
+    edición (`destino_owner.txt`) y vive el puntero de la carpeta elegida, así
+    que puede estar creada sin un solo dato adentro — y ahí sí conviene
+    mandar los datos al disco de la instalación.
+    """
     i = main_js.index("function dirDatosElegido")
     cuerpo = main_js[i:i + 1600]
-    assert "fs.existsSync(estandar)" in cuerpo and "return null" in cuerpo
+    assert "tieneDatosPrevios(estandar)" in cuerpo and "return null" in cuerpo
+    assert "function tieneDatosPrevios" in main_js
+    cuerpo_previos = main_js[main_js.index("function tieneDatosPrevios"):][:400]
+    assert "readdirSync" in cuerpo_previos, "mira si existe, no si hay algo adentro"
+    assert "PUNTERO_DATOS" in cuerpo_previos, \
+        "el propio puntero contaría como dato previo y bloquearía la decisión"
 
 
 def test_si_ya_esta_en_c_no_cambia_nada(main_js):

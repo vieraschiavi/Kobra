@@ -274,6 +274,103 @@ function InformeSemanal() {
   );
 }
 
+// En qué disco guarda el programa. Instalar en D: no alcanzaba: los datos
+// iban siempre a %LOCALAPPDATA% (C:), así que quien instalaba en otro disco
+// porque su C: estaba lleno chocaba igual con C: al importar la primera
+// cartera. Acá se ve dónde está guardando, cuánto queda en cada disco, y se
+// cambia sin tocar una consola.
+function CarpetaDatos() {
+  const [est, setEst] = useState(null);
+  const [carpeta, setCarpeta] = useState("");
+  const [copiar, setCopiar] = useState(true);
+  const [nota, setNota] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  const cargar = () => api("/api/almacenamiento")
+    .then((r) => { setEst(r); setCarpeta(r.elegida || r.dir_datos); })
+    .catch(() => {});
+  useEffect(() => { cargar(); }, []);
+  if (!est) return null;
+
+  const gb = (mb) => (mb / 1024).toFixed(1);
+  const guardar = async () => {
+    setGuardando(true); setNota("…");
+    try {
+      const r = await api("/api/almacenamiento",
+                          { metodo: "POST", cuerpo: { carpeta, copiar_datos: copiar } });
+      setEst(r);
+      setNota(r.aviso || t("almacenamiento.guardado"));
+    } catch (e) { setNota(e.message); }
+    setGuardando(false);
+  };
+
+  return (
+    <div className="card" style={{ maxWidth: 720, marginTop: 18 }}>
+      <h3 style={{ marginTop: 0 }}>{t("almacenamiento.titulo")}</h3>
+      <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("almacenamiento.subtitulo")}</p>
+
+      {/* El motivo por el que NO se está usando la carpeta elegida. Un disco
+          desconectado no tumba el arranque, pero tampoco puede pasar
+          inadvertido: el usuario tiene que saber dónde se está guardando. */}
+      {est.motivo_fallback && (
+        <p style={{ color: "var(--amber)", fontSize: 12.5 }}>⚠ {est.motivo_fallback}</p>
+      )}
+      {est.forzada_por_entorno && (
+        <p style={{ color: "var(--muted)", fontSize: 12.5 }}>{t("almacenamiento.forzada_env")}</p>
+      )}
+
+      <p style={{ fontSize: 13 }}>
+        {t("almacenamiento.actual")}{" "}
+        <b style={{ fontFamily: "var(--mono)", fontSize: 12 }}>{est.dir_datos}</b>
+        {est.total_mb > 0 && (
+          <span style={{ color: est.poco_espacio ? "var(--red)" : "var(--muted)" }}>
+            {" "}· {t("almacenamiento.libre", { libre: gb(est.libre_mb), total: gb(est.total_mb) })}
+          </span>
+        )}
+      </p>
+
+      {est.discos?.length > 0 && (
+        <div className="tablewrap" style={{ marginBottom: 12 }}>
+          <table style={{ minWidth: 0 }}>
+            <thead><tr>
+              <th>{t("almacenamiento.col_disco")}</th>
+              <th className="num">{t("almacenamiento.col_libre")}</th>
+              <th className="num">{t("almacenamiento.col_total")}</th>
+            </tr></thead>
+            <tbody>
+              {est.discos.map((d) => (
+                <tr key={d.unidad} className="norow">
+                  <td style={{ fontFamily: "var(--mono)", fontSize: 12 }}>{d.unidad}</td>
+                  <td className="num tnum" style={{ color: d.suficiente ? "inherit" : "var(--red)" }}>
+                    {gb(d.libre_mb)} GB
+                  </td>
+                  <td className="num tnum">{gb(d.total_mb)} GB</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="toolbar">
+        <input type="text" style={{ flex: 1, minWidth: 200 }} value={carpeta}
+               aria-label={t("almacenamiento.carpeta_aria")}
+               placeholder={est.default}
+               onChange={(e) => setCarpeta(e.target.value)} />
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
+          <input type="checkbox" checked={copiar}
+                 onChange={(e) => setCopiar(e.target.checked)} />
+          {t("almacenamiento.copiar")}
+        </label>
+        <button className="btn" disabled={guardando} onClick={guardar}>
+          {t("almacenamiento.guardar")}
+        </button>
+      </div>
+      {nota && <span style={{ color: "var(--muted)", fontSize: 13 }}>{nota}</span>}
+    </div>
+  );
+}
+
 function AltaEmpresa() {
   const [nombre, setNombre] = useState("");
   const [nota, setNota] = useState("");
@@ -370,6 +467,7 @@ export default function Configuracion() {
       )}
       <ImportarCartera />
       <ProveedorIA />
+      <CarpetaDatos />
       <InformeSemanal />
       <AltaEmpresa />
     </>

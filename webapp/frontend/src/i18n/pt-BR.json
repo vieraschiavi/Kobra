@@ -737,5 +737,19 @@
     "registrar_promesa": "Registrar a promessa",
     "promesa_ok": "Promessa registrada. Já entrou no acompanhamento: se a data passar sem o pagamento, aparece na agenda.",
     "cancelada": "Dívida quitada. O circuito foi percorrido inteiro."
+  },
+  "almacenamiento": {
+    "titulo": "Pasta de dados (em qual disco salva)",
+    "subtitulo": "Aqui são gravados a carteira, as exportações, os modelos, os backups e a auditoria. Instalar o programa em outro disco não basta: se os dados continuarem indo para um C: lotado, quebra do mesmo jeito na primeira importação de carteira.",
+    "actual": "Salvando em:",
+    "libre": "{{libre}} GB livres de {{total}} GB",
+    "col_disco": "Disco",
+    "col_libre": "Livre",
+    "col_total": "Total",
+    "carpeta_aria": "Pasta onde salvar os dados",
+    "copiar": "Copiar os dados atuais",
+    "guardar": "Usar esta pasta",
+    "guardado": "Salvo.",
+    "forzada_env": "A pasta está fixada pela variável de ambiente KOBRA_DATA_DIR, então o que você escolher aqui só vale depois de removê-la."
   }
 }

@@ -51,7 +51,45 @@ $ClaveApp = "MVKobraAI"
 if ($Owner) { $ClaveApp = "MVKobraAI_Owner"; $Nombre = "$Nombre (Owner)" }
 if (-not $Datos) { $Datos = Join-Path $Destino "datos" }
 
-New-Item -ItemType Directory -Force -Path $Destino, $Datos | Out-Null
+# --- El disco, antes de copiar nada -----------------------------------------
+# Instalar en D: no alcanza si los datos van a un C: lleno, y quedarse sin
+# espacio a mitad deja una instalacion rota que nadie sabe interpretar: el
+# error habla de un archivo, no del disco. Se pregunta al principio.
+# Mismo minimo que MIN_LIBRE_MB en kobra/rutas.py.
+$MinLibreMb = 500
+
+function Test-Carpeta([string]$ruta, [string]$para) {
+    try {
+        New-Item -ItemType Directory -Force -Path $ruta -ErrorAction Stop | Out-Null
+    } catch {
+        throw "No se puede crear la carpeta de $para ('$ruta'): $($_.Exception.Message)"
+    }
+    # Prueba de escritura real y no Test-Path: en Windows los permisos
+    # declarados dicen que si sobre carpetas donde escribir falla igual
+    # (unidad de red caida, carpeta vigilada por el antivirus).
+    $prueba = Join-Path $ruta ".kobra_prueba_escritura"
+    try {
+        Set-Content -LiteralPath $prueba -Value "ok" -Encoding ASCII -ErrorAction Stop
+        Remove-Item -LiteralPath $prueba -Force -ErrorAction SilentlyContinue
+    } catch {
+        throw "La carpeta de $para ('$ruta') no se puede escribir: $($_.Exception.Message)"
+    }
+
+    $raiz = [System.IO.Path]::GetPathRoot((Resolve-Path -LiteralPath $ruta).Path)
+    $libreMb = 0
+    try {
+        $libreMb = [int]((Get-PSDrive -Name $raiz.Substring(0, 1) -ErrorAction Stop).Free / 1MB)
+    } catch { }
+    if ($libreMb -gt 0 -and $libreMb -lt $MinLibreMb) {
+        Write-Warning ("En $raiz quedan $libreMb MB libres, por debajo de los " +
+                       "$MinLibreMb MB que necesita $para. Es muy probable que " +
+                       "se quede sin espacio al importar una cartera o exportar.")
+    }
+    return $libreMb
+}
+
+Test-Carpeta $Destino "la instalacion" | Out-Null
+Test-Carpeta $Datos "los datos" | Out-Null
 
 # --- Dónde está el launcher -------------------------------------------------
 # Hay dos layouts y los dos son válidos: el repo lo tiene en `packaging\` y el

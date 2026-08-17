@@ -133,6 +133,11 @@ jobs:
             Write-Error "No se generó el instalador Electron"; exit 1
           }
           Copy-Item "dist_installer/MVKobraAI_Setup.exe" ../dist/
+          # El rescate de disco viaja CON el instalador. El propio .exe
+          # se lo nombra al usuario cuando detecta poco espacio en %TEMP%
+          # (ver electron/build/installer.nsh), asi que tiene que estar
+          # descargable al lado y no solo en el ZIP del owner.
+          Copy-Item "../packaging/Instalar_en_otro_disco.bat" ../dist/
         env:
           # Sin firma de código por ahora: no fallar buscando certificado.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -183,9 +188,16 @@ jobs:
               el dashboard abre en el navegador. Requiere Python 3.11+ (o usá
               `INSTALAR.bat`, que lo prepara todo y también deja ícono y
               desinstalador).
+
+            Si el disco C: está lleno y el instalador falla al extraer,
+            bajá también **`Instalar_en_otro_disco.bat`**, ponelo en la misma
+            carpeta que el .exe y hacé doble clic ahí: manda los archivos
+            temporales al disco donde lo dejaste. Dentro del asistente podés
+            elegir tanto la carpeta de instalación como la carpeta de datos.
           files: |
             dist/MVKobraAI_Setup.exe
             dist/MVKobraAI_Demo_v*.zip
+            dist/Instalar_en_otro_disco.bat
 
       - name: ¿Está configurado el repo público de releases?
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
@@ -221,6 +233,13 @@ jobs:
               el dashboard abre en el navegador. Requiere Python 3.11+ (o usá
               `INSTALAR.bat`, que lo prepara todo y también deja ícono y
               desinstalador).
+
+            Si el disco C: está lleno y el instalador falla al extraer,
+            bajá también **`Instalar_en_otro_disco.bat`**, ponelo en la misma
+            carpeta que el .exe y hacé doble clic ahí: manda los archivos
+            temporales al disco donde lo dejaste. Dentro del asistente podés
+            elegir tanto la carpeta de instalación como la carpeta de datos.
           files: |
             dist/MVKobraAI_Setup.exe
             dist/MVKobraAI_Demo_v*.zip
+            dist/Instalar_en_otro_disco.bat
