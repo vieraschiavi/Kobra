@@ -23,7 +23,9 @@ Lo que se prueba acá:
 """
 import importlib
 import os
+import shutil
 import stat
+import subprocess
 import sys
 
 import pytest
@@ -385,3 +387,70 @@ def test_sin_token_no_se_ve_la_ruta_de_los_datos(cliente):
     """La ruta de instalación es información de reconocimiento: dice el nombre
     de usuario de Windows y la estructura de discos de la máquina."""
     assert cliente.get("/api/almacenamiento").status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Que el instalador compile de verdad, no solo que se lea bien
+# ---------------------------------------------------------------------------
+@pytest.mark.skipif(shutil.which("makensis") is None,
+                    reason="makensis no está instalado (apt-get install nsis)")
+def test_el_script_del_instalador_compila(tmp_path):
+    """Los tests de arriba leen el `.nsh` como texto, y eso no ve un macro sin
+    cerrar, una variable inexistente ni un `${if}` mal armado. Esos errores
+    aparecían recién en el runner de Windows, con el build completo por delante.
+
+    Acá se compila el fragmento con los símbolos que le pone electron-builder
+    alrededor (`$newDesktopLink`, `${isUpdated}`, las páginas de MUI2). No sale
+    un instalador usable —falta todo el payload—, pero un error de sintaxis sí
+    sale.
+
+    Y se mira el **warning 6000** aparte del código de salida, que es la trampa
+    de NSIS: una variable inexistente no es un error, es un aviso, y makensis
+    termina con éxito igual. Con `warningsAsErrors: false` en la config de
+    electron-builder —que está así para tolerar los avisos de sus propias
+    plantillas—, un `${NSD_GetText} $variableQueNoExiste` compilaría, publicaría
+    y dejaría la página del asistente rota en silencio. El texto del aviso es
+    literalmente "detected, ignoring".
+    """
+    banco = tmp_path / "banco.nsi"
+    shutil.copy(os.path.join(ROOT, "electron", "build", "installer.nsh"),
+                tmp_path / "installer.nsh")
+    banco.write_text(
+        'Name "banco"\n'
+        'OutFile "banco.exe"\n'
+        "RequestExecutionLevel user\n"
+        '!include "MUI2.nsh"\n'
+        '!include "LogicLib.nsh"\n'
+        "; Lo que aporta electron-builder alrededor del include:\n"
+        "Var newDesktopLink\n"
+        "Var newStartMenuLink\n"
+        "Var mvkFingeUpdate\n"
+        "!define isUpdated `$mvkFingeUpdate == \"1\"`\n"
+        '!include "installer.nsh"\n'
+        "!insertmacro customPageAfterChangeDir\n"
+        "!insertmacro MUI_PAGE_INSTFILES\n"
+        '!insertmacro MUI_LANGUAGE "Spanish"\n'
+        '!insertmacro MUI_LANGUAGE "PortugueseBR"\n'
+        '!insertmacro MUI_LANGUAGE "English"\n'
+        "Function .onInit\n"
+        "  !insertmacro customInit\n"
+        # Se les escribe algo a las variables prestadas: si solo se leen,
+        # NSIS avisa 6001 ("never set") y ese ruido tapa lo que importa.
+        '  StrCpy $newDesktopLink ""\n'
+        '  StrCpy $newStartMenuLink ""\n'
+        '  StrCpy $mvkFingeUpdate ""\n'
+        "FunctionEnd\n"
+        'Section "principal"\n'
+        "  !insertmacro customInstall\n"
+        "SectionEnd\n", encoding="utf-8")
+
+    r = subprocess.run(["makensis", "banco.nsi"], cwd=tmp_path,
+                       capture_output=True, text=True)
+    salida = r.stdout + r.stderr
+    assert r.returncode == 0, f"el instalador no compila:\n{salida}"
+    assert "warning 6000" not in salida, (
+        "hay una variable o constante que no existe — NSIS la ignora y sigue, "
+        f"así que la página queda rota sin que falle nada:\n{salida}")
+    # Las tres páginas propias: carpeta de datos, accesos directos e instfiles.
+    assert "3 pages" in salida, \
+        f"faltan páginas del asistente — ¿se salteó alguna?\n{salida}"
