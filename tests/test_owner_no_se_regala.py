@@ -56,11 +56,16 @@ def test_el_workflow_owner_exige_repo_privado():
     wf = _leer(WF)
     assert "visibility" in wf, \
         "el workflow no consulta la visibilidad del repositorio"
-    assert re.search(r'!=\s*"private"', wf), \
+    # Se busca la comparación contra "private" en cualquiera de sus dos
+    # sentidos: la primera versión preguntaba `!= "private"` y la de ahora
+    # pregunta `= "private"` para salir temprano. Lo que importa es que
+    # compare, no cómo — atar el test a la sintaxis lo hace fallar en cada
+    # reescritura sin que nada esté roto.
+    assert re.search(r'(!=|=)\s*"private"', wf), \
         "no hay una comprobación de que el repo sea privado"
     # Y que efectivamente CORTE, no que solo avise: un warning en un log que
     # nadie lee no evita que el .exe se suba igual.
-    bloque = wf[wf.index("El repo tiene que ser privado"):][:1200]
+    bloque = wf[wf.index("El repo tiene que ser privado"):][:2600]
     assert "exit 1" in bloque, "detecta el repo público pero publica igual"
 
 
@@ -173,3 +178,32 @@ def test_la_version_es_la_misma_en_todos_lados():
         electron = json.load(f)["version"]
     assert electron == kobra.__version__, (
         f"electron/package.json dice {electron} y el programa {kobra.__version__}")
+
+
+def test_la_salida_de_emergencia_exige_escribir_la_palabra():
+    """El dueño puede querer publicarla igual —para probar el instalador antes
+    de cerrar el repo—, y esa es su decisión. Pero tiene que costar un acto
+    deliberado: un checkbox se tilda sin leer, escribir PUBLICO no.
+    """
+    wf = _leer(WF)
+    assert "publicar_aunque_el_repo_sea_publico" in wf, \
+        "no hay forma de publicarla a conciencia con el repo abierto"
+    assert '== "PUBLICO"' in wf or "= \"PUBLICO\"" in wf, \
+        "la salida no exige una palabra escrita"
+    # Y avisa en el resumen del run, no solo en un log que nadie abre.
+    assert "GITHUB_STEP_SUMMARY" in wf, \
+        "publica en abierto sin dejar constancia visible"
+
+
+def test_la_salida_de_emergencia_no_alcanza_a_un_push():
+    """Un push a main que toca la versión NO puede publicarla en abierto: en un
+    push `inputs` viene vacío, así que la comparación falla y el gate corta.
+    Si esto se rompiera, subir la versión regalaría el producto en silencio —
+    que es exactamente el agujero que este gate vino a tapar."""
+    wf = _leer(WF)
+    bloque = wf[wf.index("El repo tiene que ser privado"):][:2200]
+    assert "inputs.publicar_aunque_el_repo_sea_publico" in bloque, \
+        "la salida no se lee de los inputs del disparo manual"
+    # `github.event.inputs` también existe en push (vacío), pero usar `inputs`
+    # deja explícito que es del workflow_dispatch.
+    assert "exit 1" in bloque, "el gate dejó de cortar"
