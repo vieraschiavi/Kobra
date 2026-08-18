@@ -26,6 +26,7 @@ sobre datos 100% sintéticos** — el pipeline es real, las métricas de impacto
 | Pipeline (datos+modelo+exports) | `python3 -m kobra.pipeline` |
 | Entrenar modelo | `python3 -m kobra.train` |
 | **Tests** | `python3 -m pytest -q tests/` |
+| **Verificar como CI** (antes de pushear) | `python3 verificar.py` |
 | Levantar dashboard | `streamlit run app/app.py` |
 | Servidor realtime | `python3 -m realtime.server` |
 | Presentación PPTX | `python3 presentation/build_ppt.py` |
@@ -46,8 +47,13 @@ sobre datos 100% sintéticos** — el pipeline es real, las métricas de impacto
 1. **Planificá** antes de cambios grandes: usá `/plan` (solo lectura primero).
 2. Hacé el cambio acotado.
 3. **Testeá:** `python3 -m pytest -q tests/` (o `/test`). Nunca declares algo listo sin tests verdes.
-4. **Publicá** con `/ship`: checkpoint (commit) → push → PR draft.
-5. Para trabajo pesado, delegá en subagentes (`explorer`, `planificador`, `parallel-worker`,
+4. **Verificá como CI antes de pushear:** `python3 verificar.py`. CI corre cuatro
+   gates y `pytest` es uno solo — las dos últimas fallas de este repo fueron
+   `ruff` y un test que se encontró a sí mismo, las dos invisibles corriendo
+   solo pytest. `python3 verificar.py --instalar-hook` lo deja automático en
+   cada `git push`.
+5. **Publicá** con `/ship`: checkpoint (commit) → push → PR draft.
+6. Para trabajo pesado, delegá en subagentes (`explorer`, `planificador`, `parallel-worker`,
    `specialist`, `revisor`, `verificador`).
 
 ## Convenciones
