@@ -47,6 +47,32 @@ jobs:
       version: ${{ steps.check.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+
+      # El repositorio TIENE que ser privado para publicar esto.
+      #
+      # Todo este workflow se escribió sobre la premisa de que
+      # `vieraschiavi/Kobra` era privado — está en el comentario de arriba. La
+      # premisa dejó de ser cierta (o nunca lo fue), y nadie se enteró: el
+      # instalador Owner arranca sin licencia, sin trial y sin vencimiento, así
+      # que publicado en un repo público es el producto completo regalado, con
+      # URL de descarga directa y sin necesidad de cuenta.
+      #
+      # Un comentario no protege nada. Esto sí: si el repo es público, el
+      # workflow corta acá y no sube un solo byte.
+      - name: El repo tiene que ser privado
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VIS=$(gh api "repos/${{ github.repository }}" --jq .visibility)
+          echo "Visibilidad de ${{ github.repository }}: $VIS"
+          if [ "$VIS" != "private" ]; then
+            echo "::error::La edicion Owner NO se publica en un repositorio $VIS."
+            echo "::error::Entra sin licencia y sin vencimiento: publicarla aca"
+            echo "::error::equivale a regalar el producto a cualquiera con el link."
+            echo "::error::Pone el repo en privado, o saca este workflow."
+            exit 1
+          fi
+
       - id: check
         env:
           GH_TOKEN: ${{ github.token }}

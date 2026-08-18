@@ -13,6 +13,9 @@ echo   ============================================================
 echo.
 
 set "INTERNO="
+set "PARCIAL="
+set "DIAG=%TEMP%\kobra_owner_rutas.txt"
+del "!DIAG!" >nul 2>nul
 
 rem 1) La carpeta donde esta ESTE archivo. Es el caso normal: se copia
 rem    el .bat junto al programa y se hace doble clic. Se contemplan
@@ -30,7 +33,9 @@ rem a) Las rutas donde instala el .exe cuando nadie toca Examinar.
 if not defined INTERNO call :probar "%LOCALAPPDATA%\Programs\MV Kobra AI"
 if not defined INTERNO call :probar "%LOCALAPPDATA%\Programs\MV Kobra AI Owner"
 if not defined INTERNO call :probar "%ProgramFiles%\MV Kobra AI"
+if not defined INTERNO call :probar "%ProgramFiles%\MV Kobra AI Owner"
 if not defined INTERNO call :probar "%ProgramFiles(x86)%\MV Kobra AI"
+if not defined INTERNO call :probar "%ProgramFiles(x86)%\MV Kobra AI Owner"
 
 rem b) El registro. Es la unica via que aguanta el boton Examinar:
 rem    el instalador anota ahi la carpeta que eligio el usuario, asi
@@ -51,16 +56,39 @@ for %%M in ("destino_owner.txt" "destino_produccion.txt" "destino_pro.txt" "dest
   )
 )
 
-if not defined INTERNO (
-  echo   No encontre la instalacion de MV Kobra AI.
+if not defined INTERNO if defined PARCIAL (
+  echo   Encontre MV Kobra AI instalado en:
+  echo     !PARCIAL!
   echo.
-  echo   Copia este archivo a la carpeta donde esta el programa
-  echo   ^(la que tiene "MV Kobra AI.exe"^) y hace doble clic ahi.
-  echo   Tambien podes arrastrar esa carpeta sobre este archivo.
+  echo   Pero le falta la carpeta resources\backend\_internal, que es
+  echo   el motor del programa. La instalacion quedo a medias.
+  echo.
+  echo   Volve a correr MVKobraAI_Setup.exe y dejalo terminar. Si se
+  echo   corta siempre en el mismo punto, suele ser falta de espacio
+  echo   en disco o el antivirus borrando archivos recien copiados.
   echo.
   pause
   exit /b 1
 )
+
+if not defined INTERNO (
+  echo   No encontre la instalacion de MV Kobra AI.
+  echo.
+  echo   Busque en estas carpetas:
+  if exist "!DIAG!" type "!DIAG!"
+  echo.
+  echo   Si el programa esta instalado en otro lado: copia este
+  echo   archivo a la carpeta donde esta el programa
+  echo   ^(la que tiene "MV Kobra AI.exe"^) y hace doble clic ahi.
+  echo   Tambien podes arrastrar esa carpeta sobre este archivo.
+  echo.
+  echo   Si NO esta instalado: corre primero MVKobraAI_Setup.exe.
+  echo.
+  del "!DIAG!" >nul 2>nul
+  pause
+  exit /b 1
+)
+del "!DIAG!" >nul 2>nul
 
 echo   Instalacion encontrada:
 echo     !INTERNO!
@@ -93,8 +121,15 @@ exit /b 0
 rem Una carpeta candidata sirve si adentro tiene el bundle congelado:
 rem ahi es donde va el sello. Cada script comprueba lo suyo (el
 rem lanzador busca el .exe), por eso la deteccion recibe esta rutina.
+rem
+rem Anota lo que probo y, si encuentra el .exe pero NO el motor, deja
+rem la carpeta en PARCIAL: esa es una instalacion a medias y merece
+rem otro mensaje que "no esta instalado".
 :probar
+if "%~1"=="" goto :eof
+>>"!DIAG!" echo     %~1
 if exist "%~1\resources\backend\_internal\" set "INTERNO=%~1\resources\backend\_internal"
+if not defined INTERNO if exist "%~1\MV Kobra AI.exe" set "PARCIAL=%~1"
 goto :eof
 
 rem :buscar_en_registro <variable>  -> carpeta de instalacion, o vacio
