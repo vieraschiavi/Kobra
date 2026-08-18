@@ -51,6 +51,8 @@ Var mvkChkMenuInicio
 Var mvkDirDatos
 Var mvkTxtDatos
 Var mvkLblEspacio
+Var mvkMejorDisco
+Var mvkMejorLibre
 
 ; Deja en $R9 los MB libres del disco donde cae la ruta $R8.
 !macro MvkLibresMB
@@ -59,12 +61,56 @@ Var mvkLblEspacio
   ${DriveSpace} "$R7" "/D=F /S=M" $R9
 !macroend
 
+; --- El disco por defecto para los DATOS --------------------------------------
+; La carpeta de instalacion la sigue eligiendo el asistente (boton Examinar) y su
+; valor por defecto lo impone electron-builder: sale de `setInstallModePerUser`
+; en multiUser.nsh, que reescribe $INSTDIR al salir de la pagina "para quien
+; instalar". No hay hook libre para cambiarlo — el `PRE` de la pagina de
+; directorio ya lo ocupa `skipPageIfUpdated` y redefinirlo no compila.
+;
+; Pero el disco de instalacion casi no importa: el programa pesa ~270 MB fijos.
+; Lo que crece es la carpeta de DATOS —cartera, exportaciones, modelos, backups,
+; auditoria— y esa si es nuestra. Por defecto va al disco fijo con MAS lugar, no
+; al del perfil de Windows. En una maquina de un solo disco eso sigue siendo C:
+; y no cambia nada; en una con C: chico y D: grande, arranca en D:.
+Function mvkMirarDisco
+  ; ${GetDrives} llama aca una vez por unidad: $9 = "D:\", $8 = tipo.
+  StrCpy $R8 "$9"
+  !insertmacro MvkLibresMB
+  ${if} $R9 > $mvkMejorLibre
+    StrCpy $mvkMejorLibre $R9
+    StrCpy $mvkMejorDisco "$9"
+  ${endif}
+  Push $0                 ; $0 vacio = seguir con la proxima unidad
+FunctionEnd
+
 !macro customInit
   ; Defaults (instalacion silenciosa, update, o si la pagina no llega a verse):
   ; se crean los dos accesos y los datos van donde iban siempre.
   StrCpy $mvkCrearEscritorio "1"
   StrCpy $mvkCrearMenuInicio "1"
   StrCpy $mvkDirDatos "$LOCALAPPDATA\MV Kobra AI"
+
+  ; Solo discos fijos: un pendrive o una unidad de red con mucho lugar no es
+  ; donde queres que viva la base de una empresa.
+  StrCpy $mvkMejorDisco ""
+  StrCpy $mvkMejorLibre 0
+  ${GetDrives} "HDD" mvkMirarDisco
+
+  ; Si el disco con mas lugar NO es el del perfil, los datos arrancan ahi.
+  StrCpy $R8 "$LOCALAPPDATA"
+  !insertmacro MvkLibresMB
+  StrCpy $R6 $R7                      ; raiz del disco del perfil ("C:\")
+  ${if} $mvkMejorDisco != ""
+  ${andif} $mvkMejorDisco != $R6
+  ${andif} $mvkMejorLibre > $R9
+    ; En dos pasos y no "$mvkMejorDiscoMV Kobra AI": pegado a una letra, el
+    ; nombre de la variable se vuelve ambiguo para el parser de NSIS. Lo
+    ; resuelve bien, pero depender de eso en un instalador que nadie puede
+    ; depurar comodo no vale los dos caracteres que ahorra.
+    StrCpy $R5 "MV Kobra AI\datos"
+    StrCpy $mvkDirDatos "$mvkMejorDisco$R5"
+  ${endif}
 
   ; El disco de los temporales. NSIS se auto-descomprime ahi ANTES de correr
   ; una sola linea de este script, asi que si ya no hubiera lugar no llegariamos

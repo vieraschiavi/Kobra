@@ -362,7 +362,7 @@
     "sin_clave": "falta a chave",
     "guardado": "Salvo.",
     "modelo_ayuda": "Modelo dentro da sua conta — escolhendo um menor você regula o consumo de tokens; Atualizar traz do provedor as últimas versões publicadas.",
-    "actualizar": "🔄 Atualizar modelos",
+    "actualizar": "Atualizar modelos",
     "actualizando": "Consultando o provedor…",
     "actualizado_el": "Catálogo atualizado: {{fecha}}",
     "nunca_actualizado": "Catálogo nunca atualizado — mostra o modelo de referência; toque em Atualizar (com a chave cadastrada) para trazer os vigentes."
