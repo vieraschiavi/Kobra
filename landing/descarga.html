@@ -65,13 +65,13 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){retur
 var INSTALADOR_URL='https://github.com/vieraschiavi/mv-kobra-ai-releases/releases/latest/download/MVKobraAI_Setup.exe';
 function showOk(plan,license){
   var planName=PLAN_NAMES[plan]||plan;
-  card.innerHTML='<h1>✅ ¡Pago confirmado!</h1>'
+  card.innerHTML='<h1>✓ ¡Pago confirmado!</h1>'
     +'<p>Gracias por tu compra'+(plan?(' del plan <b>'+esc(planName)+'</b>'):'')+'. Descargá MV Kobra AI para Windows: instalador standalone, no requiere tener Python instalado.</p>'
     +'<a class="btn" href="'+INSTALADOR_URL+'">⬇ Descargar MV Kobra AI (Windows)</a>'
     +'<div class="muted">Ejecutá el instalador y seguí el asistente.<br>'
     +'¿Usás Linux/Mac? Escribinos y te pasamos la variante por Docker.</div>'
     +(license?(
-      '<div class="lic-box"><div class="lic-label">🔑 Tu licencia MV Kobra AI (guardala, es tu comprobante de activación):</div>'
+      '<div class="lic-box"><div class="lic-label">Tu licencia MV Kobra AI (guardala, es tu comprobante de activación):</div>'
       +'<div class="lic-row"><div class="lic-val" id="licVal">'+esc(license)+'</div>'
       +'<button class="copy-btn" onclick="copyLic()">Copiar</button></div>'
       +'<div class="muted" id="licMsg" style="margin-top:6px"></div></div>'

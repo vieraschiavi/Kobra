@@ -134,24 +134,24 @@
     const t = (clave, esp, vars) =>
       (typeof window !== "undefined" && window.T && window.T(clave, vars)) || esp;
     const tips = [];
-    if (emo.has("enojo")) tips.push([t("cop_enojo_t", "🔴 Cliente enojado"), t("cop_enojo_d", "Bajá el ritmo, validá su malestar ANTES de ofrecer. Evitá justificar.")]);
-    if (emo.has("frustracion")) tips.push([t("cop_frustracion_t", "🟠 Frustración"), t("cop_frustracion_d", "Reconocé el historial y ofrecé algo concreto y distinto a lo anterior.")]);
-    if (emo.has("ansiedad")) tips.push([t("cop_ansiedad_t", "🟠 Ansiedad"), t("cop_ansiedad_d", "Transmití calma y pasos claros y cortos: 'hagamos una sola cosa hoy'.")]);
-    if (emo.has("dificultad_economica")) tips.push([t("cop_dificultad_t", "💸 Dificultad económica"), t("cop_dificultad_d", "Priorizá plan de cuotas o quita; no presiones el pago total.")]);
-    if (emo.has("intencion_pago") || cl > 0.2) tips.push([t("cop_compra_t", "🟢 Señal de compra"), t("cop_compra_d", "Clima favorable: CERRÁ ahora con fecha y medio de pago.")]);
-    if (emo.has("objecion") && cl <= 0.2) tips.push([t("cop_objecion_t", "🟡 Objeción activa"), t("cop_objecion_d", "No rebatas de frente: '¿qué parte le complica?' y ofrecé 2 alternativas.")]);
+    if (emo.has("enojo")) tips.push([t("cop_enojo_t", "Cliente enojado"), t("cop_enojo_d", "Bajá el ritmo, validá su malestar ANTES de ofrecer. Evitá justificar.")]);
+    if (emo.has("frustracion")) tips.push([t("cop_frustracion_t", "Frustración"), t("cop_frustracion_d", "Reconocé el historial y ofrecé algo concreto y distinto a lo anterior.")]);
+    if (emo.has("ansiedad")) tips.push([t("cop_ansiedad_t", "Ansiedad"), t("cop_ansiedad_d", "Transmití calma y pasos claros y cortos: 'hagamos una sola cosa hoy'.")]);
+    if (emo.has("dificultad_economica")) tips.push([t("cop_dificultad_t", "Dificultad económica"), t("cop_dificultad_d", "Priorizá plan de cuotas o quita; no presiones el pago total.")]);
+    if (emo.has("intencion_pago") || cl > 0.2) tips.push([t("cop_compra_t", "Señal de compra"), t("cop_compra_d", "Clima favorable: CERRÁ ahora con fecha y medio de pago.")]);
+    if (emo.has("objecion") && cl <= 0.2) tips.push([t("cop_objecion_t", "Objeción activa"), t("cop_objecion_d", "No rebatas de frente: '¿qué parte le complica?' y ofrecé 2 alternativas.")]);
     if (probpago != null) {
-      if (probpago >= 0.65) tips.push([t("cop_alta_t", "📈 Alta propensión"), t("cop_alta_d", "Apuntá a pago total o cuota inicial fuerte; poca o nula quita.")]);
-      else if (probpago < 0.35) tips.push([t("cop_baja_t", "📉 Baja propensión"), t("cop_baja_d", "Asegurá CUALQUIER pago: habilitá quita/plan largo y compromiso escrito.")]);
+      if (probpago >= 0.65) tips.push([t("cop_alta_t", "Alta propensión"), t("cop_alta_d", "Apuntá a pago total o cuota inicial fuerte; poca o nula quita.")]);
+      else if (probpago < 0.35) tips.push([t("cop_baja_t", "Baja propensión"), t("cop_baja_d", "Asegurá CUALQUIER pago: habilitá quita/plan largo y compromiso escrito.")]);
     }
-    if (estrategia) tips.push([t("cop_estrategia_t", "🎯 Estrategia sugerida"),
+    if (estrategia) tips.push([t("cop_estrategia_t", "Estrategia sugerida"),
       t("cop_estrategia_d", `Guion recomendado por MV Kobra AI: «${estrategia}».`, {e: estrategia})]);
     let next;
     if (cl > 0.2 || emo.has("intencion_pago")) next = t("cop_next_cierre", "Perfecto, coordinemos: le envío ahora el link de pago y le llega el comprobante. ¿Le queda cómodo?");
     else if (emo.has("enojo") || emo.has("frustracion")) next = t("cop_next_enojo", "Entiendo su molestia y quiero resolverlo hoy mismo. Le propongo una opción hecha a su medida, ¿la vemos?");
     else if (emo.has("dificultad_economica")) next = t("cop_next_dificultad", "Sin problema, busquemos algo acorde a su situación. ¿Cuánto podría afrontar este mes?");
     else next = t("cop_next_default", "¿Qué le parece si lo dividimos en cuotas cómodas y arrancamos con una hoy?");
-    if (!tips.length) tips.push([t("cop_ok_t", "🟢 Todo en orden"), t("cop_ok_d", "Mantené el tono y avanzá hacia el cierre con una propuesta concreta.")]);
+    if (!tips.length) tips.push([t("cop_ok_t", "Todo en orden"), t("cop_ok_d", "Mantené el tono y avanzá hacia el cierre con una propuesta concreta.")]);
     return { clima: +cl.toFixed(3), clima_etiqueta: cl > 0.15 ? "positivo" : cl < -0.15 ? "negativo" : "neutro",
       emociones_cliente: [...emo].sort(), sugerencias: tips, proxima_frase: next };
   }

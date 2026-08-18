@@ -362,7 +362,7 @@
     "sin_clave": "falta la clave",
     "guardado": "Guardado.",
     "modelo_ayuda": "Modelo dentro de tu cuenta — eligiendo uno chico regulás el consumo de tokens; Actualizar trae del proveedor sus últimas versiones publicadas.",
-    "actualizar": "🔄 Actualizar modelos",
+    "actualizar": "Actualizar modelos",
     "actualizando": "Consultando al proveedor…",
     "actualizado_el": "Catálogo actualizado: {{fecha}}",
     "nunca_actualizado": "Catálogo nunca actualizado — se muestra el modelo de referencia; tocá Actualizar (con la clave cargada) para traer los vigentes."

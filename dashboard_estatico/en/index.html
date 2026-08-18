@@ -144,7 +144,7 @@
 </div>
 
 <div class="card" id="miCartera">
-  <h2 data-i18n="mc_titulo">🧪 Probalo con tu cartera</h2>
+  <h2 data-i18n="mc_titulo">Probalo con tu cartera</h2>
   <p class="sub" style="margin-bottom:12px" data-i18n-html="mc_texto">
     Subí un CSV anonimizado —500 cuentas alcanzan— y mirá el scoring corriendo sobre
     <b>tus</b> números. <b>El archivo no sale de tu navegador</b>: se lee y se scorea acá,
@@ -153,7 +153,7 @@
   </p>
   <div class="toolbar" style="flex-wrap:wrap;gap:10px">
     <label class="btn" style="cursor:pointer;display:inline-block">
-      <span data-i18n="mc_elegir">📁 Elegir CSV</span>
+      <span data-i18n="mc_elegir">Elegir CSV</span>
       <input type="file" id="csvCartera" accept=".csv,text/csv" style="display:none">
     </label>
     <a class="btn alt" href="/demo/ejemplo_500_cuentas.csv" download data-i18n="mc_bajar">⬇ Bajar un CSV de ejemplo (500 cuentas)</a>
@@ -165,15 +165,15 @@
 <div class="card">
   <h2 data-i18n="t_titulo">Cartera priorizada</h2>
   <div class="toolbar">
-    <button onclick="exportCSV()" data-i18n="btn_csv">📄 Exportar CSV</button>
-    <button class="alt" onclick="exportXLSX()" data-i18n="btn_excel">📊 Exportar Excel</button>
+    <button onclick="exportCSV()" data-i18n="btn_csv">Exportar CSV</button>
+    <button class="alt" onclick="exportXLSX()" data-i18n="btn_excel">Exportar Excel</button>
     <span class="sub" id="rowInfo"></span>
   </div>
   <div class="tablewrap"><table id="tabla"></table></div>
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h2 data-i18n="v_titulo">📞 Gestor IA por voz</h2>
+  <h2 data-i18n="v_titulo">Gestor IA por voz</h2>
   <p class="sub" style="margin-bottom:10px;" data-i18n="v_sub">Así llama y negocia MV Kobra AI por teléfono, con voz sintetizada en vivo (subí el volumen).</p>
   <div class="toolbar"><button onclick="reproducirLlamada()" data-i18n="v_btn">▶ Reproducir llamada de ejemplo (con voz)</button>
     <button class="alt" onclick="detenerLlamada()" data-i18n="v_stop">⏹ Detener</button>
@@ -182,7 +182,7 @@
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h2 data-i18n="w_titulo">💬 Negociador por WhatsApp</h2>
+  <h2 data-i18n="w_titulo">Negociador por WhatsApp</h2>
   <p class="sub" style="margin-bottom:10px;" data-i18n="w_sub">El mismo agente cierra por chat, manda el link de pago y registra todo solo.</p>
   <div class="toolbar"><button onclick="reproducirWhatsApp()" data-i18n="w_btn">▶ Reproducir conversación de ejemplo</button>
     <span class="sub" id="wspInfo"></span></div>
@@ -190,11 +190,11 @@
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h2 data-i18n="c_titulo">🎧 Copiloto de Negociación</h2>
+  <h2 data-i18n="c_titulo">Copiloto de Negociación</h2>
   <p class="sub" id="convHint" style="margin-bottom:10px;" data-i18n-html="c_hint">Pegá una conversación (WhatsApp o transcripción). Analizala <b>offline</b> en tu navegador, o con <b>IA en vivo</b> (motor neuronal real).</p>
   <textarea id="convText" aria-labelledby="convHint" style="width:100%;height:150px;background:#0b0e16;color:var(--txt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.85rem;"></textarea>
   <div class="toolbar"><button onclick="analizarCopiloto()" data-i18n="c_btn_offline">⚡ Analizar offline</button>
-    <button class="alt" onclick="analizarIA()" data-i18n="c_btn_ia">🤖 Analizar con IA en vivo</button>
+    <button class="alt" onclick="analizarIA()" data-i18n="c_btn_ia">Analizar con IA en vivo</button>
     <span class="sub" id="copInfo"></span></div>
   <div id="copAI" style="display:none;margin:12px 0;padding:16px;background:#0b0e16;border:1px solid var(--border);border-radius:12px;"></div>
   <div id="copResult" style="display:none;">
@@ -250,8 +250,8 @@ function esc(v){
 function chip(t,c){return '<span style="display:inline-block;background:'+esc(c||'rgba(0,200,150,.16)')+';color:#eaf1fb;padding:3px 10px;border-radius:12px;font-size:.75rem;margin:2px 4px 2px 0">'+esc(t)+'</span>';}
 function renderAI(a){
   var box=document.getElementById('copAI'); if(!box) return; box.style.display='block';
-  if(a._error){ box.innerHTML='<b style="color:var(--yellow)">⚠️ '+esc(a._error)+'</b>'; return; }
-  if(a._raw && !a.sentimiento){ box.innerHTML='<b style="color:var(--green)">🤖 IA:</b><div style="margin-top:8px;white-space:pre-wrap;font-size:.85rem">'+esc(a._raw)+'</div>'; return; }
+  if(a._error){ box.innerHTML='<b style="color:var(--yellow)">⚠ '+esc(a._error)+'</b>'; return; }
+  if(a._raw && !a.sentimiento){ box.innerHTML='<b style="color:var(--green)">IA:</b><div style="margin-top:8px;white-space:pre-wrap;font-size:.85rem">'+esc(a._raw)+'</div>'; return; }
   var temp=Math.max(0,Math.min(100,parseInt(a.temperatura,10)||0));
   var sc=a.sentimiento==='Positivo'?'var(--green)':a.sentimiento==='Negativo'?'var(--red)':'var(--yellow)';
   var tecs=(a.tecnicas||[]).map(function(t){return chip(t)}).join('')||'<span class="sub">—</span>';
@@ -267,16 +267,16 @@ function renderAI(a){
 </script>
 
 <div class="card" style="margin-top:16px;">
-  <h2 data-i18n="e_titulo">📤 Resultados enviados a tu ERP</h2>
+  <h2 data-i18n="e_titulo">Resultados enviados a tu ERP</h2>
   <p class="sub" style="margin-bottom:10px;" data-i18n="e_sub">Cada gestión cerrada (voz, WhatsApp o copiloto) se sincroniza sola a tu ERP o base de datos — por API REST, SQL o archivo. Así se ve del otro lado:</p>
   <div class="kpis" id="erpKpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px"></div>
   <h3 style="margin-bottom:10px;color:var(--muted);font-size:.9rem" data-i18n="e_evolucion">Evolución de recupero (últimos 30 días)</h3>
   <canvas id="chartEvol" style="max-height:220px;margin-bottom:18px"></canvas>
   <div class="toolbar">
-    <button onclick="exportResultadosCSV()">📄 CSV</button>
-    <button class="alt" onclick="exportResultadosXLSX()">📊 Excel</button>
-    <button onclick="exportResultadosPDF()">🖨️ PDF</button>
-    <button class="alt" onclick="exportResultadosWord()">📝 Word</button>
+    <button onclick="exportResultadosCSV()">CSV</button>
+    <button class="alt" onclick="exportResultadosXLSX()">Excel</button>
+    <button onclick="exportResultadosPDF()">PDF</button>
+    <button class="alt" onclick="exportResultadosWord()">Word</button>
     <span class="sub" data-i18n="e_mismo_dato">Mismo dato que recibe tu ERP vía API/SQL</span>
   </div>
   <div class="tablewrap"><table id="tablaResultados"></table></div>
@@ -465,7 +465,7 @@ function analizarCopiloto(){
   const r = KobraCopiloto.analizar(txt);
   const cop = r.copiloto;
   document.getElementById('copResult').style.display='block';
-  const emoji = {positivo:'🟢',neutro:'🟡',negativo:'🔴'}[cop.clima_etiqueta];
+  const emoji = {positivo:'●',neutro:'●',negativo:'●'}[cop.clima_etiqueta];
   // `clima_etiqueta`, las emociones y las claves de `tecnicas` vienen del
   // objeto de respuesta (diccionario fijo de copiloto.js, o la API). Hoy son
   // vocabulario cerrado, pero van escapadas igual: es la regla del archivo, no
@@ -613,9 +613,9 @@ function reproducirLlamada(){
   var box=document.getElementById('callBox'); box.innerHTML='';
   var hayPremium = Object.keys(AUDIO_MANIFEST_POR_INDICE).length>0;
   var info=document.getElementById('callInfo');
-  info.textContent = hayPremium ? (TXT.en_curso_voz||'🔊 Llamada en curso (voz real)…')
-                 : (TTS_OK ? (TXT.en_curso_nav||'🔊 Llamada en curso (con voz)…')
-                           : (TXT.en_curso||'🔊 Llamada en curso…'));
+  info.textContent = hayPremium ? (TXT.en_curso_voz||'Llamada en curso (voz real)…')
+                 : (TTS_OK ? (TXT.en_curso_nav||'Llamada en curso (con voz)…')
+                           : (TXT.en_curso||'Llamada en curso…'));
   if(TTS_OK) window.speechSynthesis.cancel();
   var gen = ++_llamadaGen;
   var i=0;
@@ -631,7 +631,7 @@ function reproducirLlamada(){
     }
     var turn=CALL_SCRIPT[i];
     box.appendChild(chatBubble(turn.who,turn.text,'background:#16324a;color:#eaf1fb','background:#232838;color:#eaf1fb',
-      (TXT.etiqueta_ia||'🤖 MV Kobra AI (voz)'),(TXT.etiqueta_cliente||'👤 Cliente')));
+      (TXT.etiqueta_ia||'MV Kobra AI (voz)'),(TXT.etiqueta_cliente||'Cliente')));
     box.scrollTop=box.scrollHeight;
     var idx=i, archivo=AUDIO_MANIFEST_POR_INDICE[idx];
     i++;
@@ -684,7 +684,7 @@ function reproducirWhatsApp(){
       return;
     }
     var turn=WSP_SCRIPT[i];
-    var bubble=chatBubble(turn.who,turn.text,'background:#0b3d2e;color:#eaf1fb','background:#232838;color:#eaf1fb','🤖 MV Kobra AI ✓✓','👤 Cliente');
+    var bubble=chatBubble(turn.who,turn.text,'background:#0b3d2e;color:#eaf1fb','background:#232838;color:#eaf1fb','MV Kobra AI ✓✓','Cliente');
     box.appendChild(bubble);
     box.scrollTop=box.scrollHeight;
     i++;
