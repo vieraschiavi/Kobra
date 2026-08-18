@@ -299,16 +299,17 @@ Pendiente — pasos de negocio/infraestructura, no de código:
   Publicar la pública no habilita nada — es para lo que existe. Y como no hay
   ningún secreto que inyectar, el instalador no necesita tratamiento especial.
 
-  **Generar el par** (la privada no queda en ningún archivo del repositorio):
+  **El par ya está generado** — la pública ya está commiteada en
+  `backend_venta/licencia_clave.py`. La privada correspondiente se entregó
+  directamente (no en el repo, no en un archivo): pegarla tal cual en Vercel →
+  Project → Settings → Environment Variables → `KOBRA_LICENSE_PRIVATE_KEY`,
+  Production, y redeploy. No hace falta correr ningún comando.
 
-  ```
-  python -m backend_venta.licencia_clave --nuevo-par
-  ```
-
-  Imprime los dos bloques. La privada va a Vercel → Settings → Environment
-  Variables; la pública reemplaza la constante `PUBLICA` de
-  `backend_venta/licencia_clave.py` y se commitea. Rotar el par invalida las
-  licencias ya emitidas, así que hacerlo solo si la privada se expuso.
+  Para rotar el par más adelante (por ejemplo si esta privada se filtró),
+  correr `python -m backend_venta.licencia_clave --nuevo-par`, reemplazar
+  `PUBLICA` en `backend_venta/licencia_clave.py` con la que imprime, commitear,
+  y cargar la nueva privada en Vercel. Rotar invalida las licencias ya
+  emitidas con el par anterior, así que hacerlo solo si hace falta.
 
   Mientras la privada no esté cargada, Node **sigue firmando HS256** y el
   deploy actual no se rompe: simplemente el cliente que compre va a seguir sin
