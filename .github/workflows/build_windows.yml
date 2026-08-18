@@ -155,18 +155,19 @@ jobs:
           # almacenamiento de Actions se agota y la subida falla en PRs futuros.
           retention-days: 3
 
-      - name: Armar la edición SIN instalador (.bat, para empresas que bloquean .exe)
-        # Segunda vía para el cliente final: un ZIP con .bat que abre el
-        # dashboard con Python, sin ejecutar ningún .exe. Muchas empresas
-        # prohíben por política correr un ejecutable bajado de internet; sin
-        # esto, ese cliente se quedaba sin producto. Es un paquete de código
-        # (~1.5 MB), así que agregarlo casi no cuesta build.
-        shell: pwsh
-        run: |
-          python packaging/build_release.py --edicion Demo
-          $zip = Get-ChildItem dist/MVKobraAI_Demo_v*.zip | Select-Object -First 1
-          if (-Not $zip) { Write-Error "No se genero la edicion Demo (.bat)"; exit 1 }
-          Write-Host "ZIP sin instalador: $($zip.Name) $([math]::Round($zip.Length/1MB,1)) MB"
+      # La edición Streamlit (.bat + Python) ya no se publica.
+      #
+      # Existía como segunda vía para empresas que prohíben ejecutar un .exe
+      # bajado de internet, y esa necesidad es real. Pero ofrecer las dos cosas
+      # tenía un costo mayor: el comprador abría un dashboard de Streamlit —con
+      # su barra propia, su menú de hamburguesa y su estética de notebook— y lo
+      # que compraba dejaba de parecer un producto. Para vender a una empresa,
+      # una sola puerta bien terminada vale más que dos a medias.
+      #
+      # El código NO se borró: `app/app.py` y `packaging/build_release.py`
+      # siguen enteros y `python packaging/build_release.py --edicion Demo`
+      # sigue armando el ZIP a mano si algún cliente lo necesita. Lo que se
+      # sacó es el ofrecimiento por defecto, que es la decisión reversible.
 
       - name: Publicar en Release (main y tags vX.Y.Z)
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
@@ -177,17 +178,13 @@ jobs:
           tag_name: v${{ steps.ver.outputs.KVER }}
           name: MV Kobra AI v${{ steps.ver.outputs.KVER }}
           body: |
-            App de escritorio para Windows. **Dos formas de usarlo — elegí la que te sirva:**
+            **Aplicación de escritorio para Windows.**
 
-            - **`MVKobraAI_Setup.exe`** — instalador normal (Electron + React, no
-              requiere Python). Deja ícono en el Escritorio, entrada en el Menú
-              Inicio y desinstalador en «Agregar o quitar programas».
-            - **`MVKobraAI_Demo_v*.zip`** — **sin ningún .exe**. Para empresas
-              donde el área de sistemas no permite ejecutar programas bajados de
-              internet: descomprimí y hacé doble clic en `INICIAR_DEMO_STREAMLIT.bat`;
-              el dashboard abre en el navegador. Requiere Python 3.11+ (o usá
-              `INSTALAR.bat`, que lo prepara todo y también deja ícono y
-              desinstalador).
+            - **`MVKobraAI_Setup.exe`** — Electron + React. No requiere Python ni
+              instalar nada más. Deja ícono en el Escritorio, entrada en el Menú
+              Inicio y desinstalador en «Agregar o quitar programas». Durante la
+              instalación podés elegir la carpeta del programa y la carpeta donde
+              guarda tus datos (por defecto, el disco con más espacio libre).
 
             Si el disco C: está lleno y el instalador falla al extraer,
             bajá también **`Instalar_en_otro_disco.bat`**, ponelo en la misma
@@ -196,7 +193,6 @@ jobs:
             elegir tanto la carpeta de instalación como la carpeta de datos.
           files: |
             dist/MVKobraAI_Setup.exe
-            dist/MVKobraAI_Demo_v*.zip
             dist/Instalar_en_otro_disco.bat
 
       - name: ¿Está configurado el repo público de releases?
@@ -222,17 +218,13 @@ jobs:
           tag_name: v${{ steps.ver.outputs.KVER }}
           name: MV Kobra AI v${{ steps.ver.outputs.KVER }}
           body: |
-            App de escritorio para Windows. **Dos formas de usarlo — elegí la que te sirva:**
+            **Aplicación de escritorio para Windows.**
 
-            - **`MVKobraAI_Setup.exe`** — instalador normal (Electron + React, no
-              requiere Python). Deja ícono en el Escritorio, entrada en el Menú
-              Inicio y desinstalador en «Agregar o quitar programas».
-            - **`MVKobraAI_Demo_v*.zip`** — **sin ningún .exe**. Para empresas
-              donde el área de sistemas no permite ejecutar programas bajados de
-              internet: descomprimí y hacé doble clic en `INICIAR_DEMO_STREAMLIT.bat`;
-              el dashboard abre en el navegador. Requiere Python 3.11+ (o usá
-              `INSTALAR.bat`, que lo prepara todo y también deja ícono y
-              desinstalador).
+            - **`MVKobraAI_Setup.exe`** — Electron + React. No requiere Python ni
+              instalar nada más. Deja ícono en el Escritorio, entrada en el Menú
+              Inicio y desinstalador en «Agregar o quitar programas». Durante la
+              instalación podés elegir la carpeta del programa y la carpeta donde
+              guarda tus datos (por defecto, el disco con más espacio libre).
 
             Si el disco C: está lleno y el instalador falla al extraer,
             bajá también **`Instalar_en_otro_disco.bat`**, ponelo en la misma
@@ -241,5 +233,4 @@ jobs:
             elegir tanto la carpeta de instalación como la carpeta de datos.
           files: |
             dist/MVKobraAI_Setup.exe
-            dist/MVKobraAI_Demo_v*.zip
             dist/Instalar_en_otro_disco.bat
