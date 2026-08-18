@@ -141,7 +141,13 @@ def test_la_demo_si_es_trial_y_dura_poco(tmp_path, monkeypatch):
     cliente = _app_instalada(tmp_path, monkeypatch)
     d = cliente.post("/api/licencia/activar", json={"token": lic}).json()
     assert d["trial"] is True
-    assert d["dias_restantes"] <= 3
+    # Contra el plan y no contra un literal: la duración del trial es una
+    # decisión comercial que cambia (empezó en 3 días, hoy son 7). Lo que no
+    # puede cambiar es la relación — la evaluación dura menos que lo que se
+    # cobra, o no hay motivo para pagar.
+    from backend_venta.licencias import PLANES
+    assert d["dias_restantes"] < PLANES["basico"]["dias"], \
+        "el trial dura tanto como un plan pago"
 
 
 # --- Lo que NO puede pasar --------------------------------------------------

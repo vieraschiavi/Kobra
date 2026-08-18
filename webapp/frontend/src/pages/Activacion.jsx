@@ -6,7 +6,7 @@ import { t } from "../i18n/index.js";
 
 // Puerta de entrada de la versión standalone (instalador de Windows): en vez
 // de una contraseña arbitraria, lo que gatea el acceso es la licencia que el
-// cliente recibió al comprar (o el trial de 3 días si descargó la demo desde
+// cliente recibió al comprar (o el trial de 7 días si descargó la demo desde
 // mvkobranzaia.com). Ver webapp/backend/api.py::MODO_STANDALONE.
 export default function Activacion({ onActivada, vencida }) {
   const [token, setToken] = useState("");

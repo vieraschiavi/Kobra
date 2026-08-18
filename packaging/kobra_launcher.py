@@ -10,7 +10,7 @@ navegador. Es lo que se ejecuta cuando el usuario hace doble clic en el
 acceso directo "MV Kobra AI" que crea el instalador.
 
 El acceso a esta copia local se gatea por LICENCIA (la que se recibe al
-comprar, o el trial de 3 días de la demo), no por una contraseña de
+comprar, o el trial de 7 días de la demo), no por una contraseña de
 administrador — ver webapp/backend/api.py::MODO_STANDALONE. La propia app
 pide la licencia sola en el primer arranque, sin pasos previos.
 """

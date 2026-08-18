@@ -22,6 +22,7 @@ import time
 
 import jwt
 
+from backend_venta import licencia_clave as kclave
 from kobra import config as kconfig
 
 _CLAVE_SECRETO = "LICENSE_SECRET"
@@ -33,7 +34,7 @@ _CLAVE_SECRETO = "LICENSE_SECRET"
 # margen al plan sin que se haya cotizado. Se habilita explícitamente por
 # cliente: emitir_licencia(cliente_id, plan, features=[*PLANES[plan]["features"], "voz_premium"]).
 PLANES = {
-    "trial":      {"cupo_mensual": 50,   "precio": 0.0,   "dias": 3,
+    "trial":      {"cupo_mensual": 50,   "precio": 0.0,   "dias": 7,
                    "features": ["voz", "whatsapp", "copiloto", "erp"]},
     "basico":     {"cupo_mensual": 300,  "precio": 99.0,  "dias": 30,
                    "features": ["voz", "whatsapp", "copiloto", "erp"]},
@@ -91,11 +92,37 @@ def emitir_licencia(cliente_id: str, plan: str, edicion: str = "venta",
         "cupo_mensual": cupo, "features": feats,
         "iat": ahora, "exp": ahora + dias_val * 24 * 3600,
     }
+    privada = os.environ.get("KOBRA_LICENSE_PRIVATE_KEY")
+    if privada and secreto is None:
+        # Camino de venta: firma asimétrica, verificable por cualquier copia
+        # instalada sin repartir ningún secreto. Ver licencia_clave.py.
+        return jwt.encode(payload, privada, algorithm=kclave.ALGORITMO)
     return jwt.encode(payload, secreto or secreto_firma(), algorithm="HS256")
 
 
 def validar_licencia(token: str, secreto: str | None = None) -> dict:
-    """Decodifica y valida la licencia. Lanza jwt.PyJWTError si es inválida/expirada."""
+    """Decodifica y valida la licencia. Lanza jwt.PyJWTError si es inválida/expirada.
+
+    Acepta las dos firmas, y el orden importa:
+
+    * **RS256** — las licencias compradas. Se verifican con la clave pública
+      que viaja en el propio programa (`licencia_clave.PUBLICA`), así que
+      funcionan en cualquier instalación sin configurar nada. Este era el
+      agujero: el instalador de clientes no recibía el secreto HS256 del
+      servidor, cada máquina generaba el suyo al azar, y una licencia
+      perfectamente válida moría con `Signature verification failed`.
+    * **HS256** — el camino hosted (mismo proceso emite y valida) y los tests.
+
+    Se prueba primero la asimétrica salvo que el llamador pase un secreto
+    explícito, que es la forma de decir "quiero el camino simétrico".
+    """
+    if secreto is None:
+        try:
+            return jwt.decode(token, kclave.PUBLICA, algorithms=[kclave.ALGORITMO])
+        except jwt.ExpiredSignatureError:
+            raise                      # firmada por nosotros, pero vencida
+        except jwt.PyJWTError:
+            pass                       # no es RS256 nuestra: probar HS256
     return jwt.decode(token, secreto or secreto_firma(), algorithms=["HS256"])
 
 

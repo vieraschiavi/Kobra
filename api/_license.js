@@ -26,7 +26,7 @@ const crypto = require("crypto");
 // Espejo de backend_venta/licencias.py::PLANES. Si cambia allá, cambia acá:
 // `tests/test_licencia_puente.py` falla si se desincronizan.
 const PLANES = {
-  trial:      { cupo_mensual: 50,   dias: 3,   features: ["voz", "whatsapp", "copiloto", "erp"] },
+  trial:      { cupo_mensual: 50,   dias: 7,   features: ["voz", "whatsapp", "copiloto", "erp"] },
   basico:     { cupo_mensual: 300,  dias: 30,  features: ["voz", "whatsapp", "copiloto", "erp"] },
   // Sin tope a propósito: el consumo lo paga el cliente con sus propias APIs
   // (ver el comentario largo en backend_venta/licencias.py::PLANES).
@@ -50,6 +50,21 @@ function secretoActivo() {
 
 function firmar(headerB64, payloadB64, secret) {
   return b64u(crypto.createHmac("sha256", secret).update(headerB64 + "." + payloadB64).digest());
+}
+
+/** Clave privada de firma (PEM). Solo existe en el servidor de ventas. */
+function clavePrivada() {
+  const k = process.env.KOBRA_LICENSE_PRIVATE_KEY;
+  // Vercel guarda los saltos de línea como `\n` literales en algunas
+  // interfaces de carga; sin desescaparlos, el PEM no parsea y la firma
+  // explota justo en el peor momento: cuando alguien acaba de pagar.
+  return k ? k.replace(/\\n/g, "\n") : null;
+}
+
+function firmarRS256(headerB64, payloadB64, privada) {
+  return b64u(crypto.createSign("RSA-SHA256")
+    .update(headerB64 + "." + payloadB64)
+    .sign(privada));
 }
 
 /**
@@ -83,6 +98,24 @@ function sign(datos, secret) {
   // conserva para poder rastrear qué pago originó cada licencia en soporte.
   if (datos.pid) payload.pid = String(datos.pid);
 
+  // RS256 si hay clave privada; si no, el HS256 de siempre.
+  //
+  // Por qué se prefiere la asimétrica: con HS256 la clave que VERIFICA es la
+  // misma que FIRMA, así que la copia instalada necesitaba el secreto del
+  // servidor para validar. Nunca lo recibía —el instalador de clientes se arma
+  // sin `edicion.json`—, cada máquina se generaba uno al azar, y una licencia
+  // comprada moría con "Signature verification failed". Repartir el secreto
+  // dentro del .exe lo arreglaba y abría otro agujero: quien lo extrajera se
+  // emitía las licencias que quisiera.
+  //
+  // Con RS256 la privada vive solo acá y la pública viaja en el programa
+  // (backend_venta/licencia_clave.py). Publicarla no habilita nada.
+  const privada = clavePrivada();
+  if (privada) {
+    const headerB64 = b64uJson({ alg: "RS256", typ: "JWT" });
+    const payloadB64 = b64uJson(payload);
+    return headerB64 + "." + payloadB64 + "." + firmarRS256(headerB64, payloadB64, privada);
+  }
   const headerB64 = b64uJson({ alg: "HS256", typ: "JWT" });
   const payloadB64 = b64uJson(payload);
   return headerB64 + "." + payloadB64 + "." + firmar(headerB64, payloadB64, secret);

@@ -14,8 +14,19 @@ from PyInstaller.utils.hooks import collect_all, copy_metadata
 ROOT = os.path.abspath(os.getcwd())
 
 # --- Dependencias que necesitan recolección completa (datos + submódulos) ---
+# Sin `streamlit` ni `altair`: 43 MB que el .exe cargaba y no usaba.
+#
+# La app de escritorio es FastAPI + React (`kobra_launcher.py`); el dashboard
+# Streamlit es otro producto, el de la edición ZIP que se arma aparte. Los
+# únicos `import streamlit` del backend están DENTRO de funciones que solo
+# llama la UI de Streamlit (`kobra/autenticacion.py`), así que nunca se
+# ejecutan acá.
+#
+# Comprobado y no deducido: se levantó el backend real con el import de
+# `streamlit` bloqueado, se hizo login y se pidieron diez endpoints. El
+# resultado fue idéntico al control con Streamlit disponible.
 _PAQUETES = [
-    "streamlit", "plotly", "altair", "pandas", "numpy", "sklearn",
+    "plotly", "pandas", "numpy", "sklearn",
     "scipy", "pyarrow", "xlsxwriter", "openpyxl", "joblib",
     "fastapi", "starlette", "uvicorn", "pptx", "soundfile", "apscheduler",
 ]
@@ -30,8 +41,7 @@ for _pkg in _PAQUETES:
         pass
 
 # Metadata que algunas libs leen en runtime (importlib.metadata)
-for _pkg in ["streamlit", "altair", "plotly", "pandas", "numpy",
-             "scikit-learn", "pyarrow"]:
+for _pkg in ["plotly", "pandas", "numpy", "scikit-learn", "pyarrow"]:
     try:
         datas += copy_metadata(_pkg)
     except Exception:

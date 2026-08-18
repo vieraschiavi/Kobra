@@ -199,7 +199,7 @@ compilar desde Linux/Mac):
   aparte solo para binarios — ver `docs/DISTRIBUCION_INSTALADOR.md` — porque
   este repo es privado).
 - **Acceso por licencia, no por contraseña**: el primer arranque pide la
-  licencia recibida al comprar (o el trial de 3 días de la demo) —
+  licencia recibida al comprar (o el trial de 7 días de la demo) —
   `backend_venta/licencias.py` — no una contraseña de administrador. El
   dashboard clásico (Streamlit, `app/app.py`) sigue en el paquete y disponible
   para correr a mano, pero ya no es lo que abre el instalador por default.

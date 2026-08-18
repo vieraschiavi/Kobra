@@ -279,16 +279,42 @@ Pendiente — pasos de negocio/infraestructura, no de código:
 - [ ] Desplegar `backend_venta` en un servidor real (Render/Fly/EC2/lo que uses).
 - [ ] Cargar claves reales como secretos del servidor (`ANTHROPIC_API_KEY`, `MP_ACCESS_TOKEN`, `ELEVENLABS_API_KEY`, y las de Twilio/WhatsApp cuando se conecten esos gateways).
 - [ ] `KOBRA_LICENSE_SECRET` y `KOBRA_BACKEND_ADMIN_TOKEN`: fijarlos explícitamente en producción (si no, se autogeneran una vez y quedan guardados localmente — ver el log del proceso la primera vez que arranca).
-- [ ] **El secreto de licencia tiene que ser EL MISMO en los dos lados.** Quien
-  firma la licencia es la función serverless de Vercel (`api/verify-payment.js`,
-  variable `LICENSE_SECRET`) y quien la valida es la app instalada
-  (`backend_venta/licencias.py`, variable `KOBRA_LICENSE_SECRET`). Son dos
-  nombres distintos para el mismo valor: si no coinciden, el cliente paga,
-  recibe su licencia y la app le dice «Licencia inválida». El módulo de Node
-  acepta cualquiera de los dos nombres, así que alcanza con cargar el mismo
-  string; lo que no puede pasar es que sean valores distintos.
-  `tests/test_puente_licencia.py` verifica el puente entero (Node firma →
-  PyJWT valida), incluidos formato y claims.
+- [ ] **Cargar `KOBRA_LICENSE_PRIVATE_KEY` en Vercel.** Es lo único que falta
+  para que un cliente pueda pagar y entrar.
+
+  Este punto decía otra cosa hasta ahora: que el secreto tenía que ser *el
+  mismo* en los dos lados. Predecía el síntoma exacto —«el cliente paga, recibe
+  su licencia y la app le dice Licencia inválida»— y era irresoluble para la
+  copia instalada: el instalador de clientes se arma sin `edicion.json`, así
+  que **nunca recibía ese secreto**. Cada máquina se generaba uno al azar y
+  ninguna licencia comprada validó jamás.
+
+  Ahora la firma es asimétrica (RS256):
+
+  | | Dónde vive | Qué puede hacer |
+  |---|---|---|
+  | **Privada** | `KOBRA_LICENSE_PRIVATE_KEY` en Vercel | firmar licencias |
+  | **Pública** | `backend_venta/licencia_clave.py`, en el repo | solo verificar |
+
+  Publicar la pública no habilita nada — es para lo que existe. Y como no hay
+  ningún secreto que inyectar, el instalador no necesita tratamiento especial.
+
+  **Generar el par** (la privada no queda en ningún archivo del repositorio):
+
+  ```
+  python -m backend_venta.licencia_clave --nuevo-par
+  ```
+
+  Imprime los dos bloques. La privada va a Vercel → Settings → Environment
+  Variables; la pública reemplaza la constante `PUBLICA` de
+  `backend_venta/licencia_clave.py` y se commitea. Rotar el par invalida las
+  licencias ya emitidas, así que hacerlo solo si la privada se expuso.
+
+  Mientras la privada no esté cargada, Node **sigue firmando HS256** y el
+  deploy actual no se rompe: simplemente el cliente que compre va a seguir sin
+  poder activar. `tests/test_licencia_comprada_activa.py` verifica el cruce
+  entero (Node firma → PyJWT valida) en una instalación sin nada configurado,
+  que es el caso que estaba roto.
 - [x] ~~Conectar el webhook de MercadoPago a la URL pública~~ — **hecho y sin configuración manual**: `api/checkout.js` manda `notification_url` apuntando a `https://<dominio>/api/webhook-mercadopago` en cada preferencia que crea, así que MercadoPago sabe adónde avisar sin tocar nada en su panel. El handler (`api/webhook-mercadopago.js`) relee el pago contra la API real —nunca cree el cuerpo del aviso, que llega por una URL pública— y emite la licencia. Es lo que cubre el caso "el comprador cerró la pestaña": antes la licencia dependía enteramente de que su navegador ejecutara el fetch de `/descarga`.
 - [ ] Compilar el instalador `Edición Venta` y apuntar `KOBRA_INSTALADOR_PATH` a ese archivo.
 - [ ] Definir precios de excedente por canal (3–5× costo) — hoy `plan_permite_excedente()` solo dice si el plan lo permite, no calcula el cobro.
