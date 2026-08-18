@@ -5,7 +5,7 @@
 En modo hosted (Vercel, multi-tenant) el login sigue siendo por contraseña,
 sin cambios. En modo standalone (instalador de Windows, KOBRA_MODO_STANDALONE=1,
 lo activa kobra_launcher.py) la puerta de entrada es la licencia emitida al
-comprar (o el trial de 3 días) — no una contraseña de administrador.
+comprar (o el trial de 7 días) — no una contraseña de administrador.
 """
 import importlib
 import os
@@ -67,7 +67,13 @@ def test_modo_standalone_activa_con_trial_y_persiste(standalone):
     d = r.json()
     assert d["trial"] is True
     assert d["plan"] == "trial"
-    assert d["dias_restantes"] == 2  # emitido ahora mismo, vence en 3 días
+    # El número sale del plan y no escrito a mano: la duración del trial es una
+    # decisión comercial que cambia (empezó en 3 días, hoy son 7), y un test
+    # que la fija con un literal falla por el cambio en vez de por un bug.
+    # Lo que se verifica es la relación: emitido recién, quedan todos los días
+    # menos el que está corriendo.
+    dias_trial = klicencias.PLANES["trial"]["dias"]
+    assert d["dias_restantes"] == dias_trial - 1
     assert d["token"]
 
     # El bearer emitido ya sirve para pegarle a la API sin pedir password.
@@ -77,7 +83,7 @@ def test_modo_standalone_activa_con_trial_y_persiste(standalone):
     # Y queda persistido: una nueva consulta de estado la sigue viendo activa.
     r2 = cliente.get("/api/licencia/estado").json()
     assert r2 == {"standalone": True, "activa": True, "plan": "trial",
-                 "trial": True, "dias_restantes": 2}
+                 "trial": True, "dias_restantes": dias_trial - 1}
 
 
 def test_modo_standalone_licencia_invalida(standalone):

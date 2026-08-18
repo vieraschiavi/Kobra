@@ -368,7 +368,7 @@
     "nunca_actualizado": "Catálogo nunca actualizado — se muestra el modelo de referencia; tocá Actualizar (con la clave cargada) para traer los vigentes."
   },
   "activacion": {
-    "subtitulo": "Pegá la licencia que recibiste al comprar (o del trial de 3 días) para activar tu copia de MV Kobra AI.",
+    "subtitulo": "Pegá la licencia que recibiste al comprar (o del trial de 7 días) para activar tu copia de MV Kobra AI.",
     "subtitulo_vencida": "Tu licencia venció. Comprá un plan o pedí un nuevo trial para seguir usando MV Kobra AI.",
     "placeholder": "Pegá acá tu licencia",
     "boton_activar": "Activar",

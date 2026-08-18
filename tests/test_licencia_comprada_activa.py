@@ -30,6 +30,7 @@ cliente, y nadie los había hecho hablar sin secreto compartido.
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -209,3 +210,48 @@ def test_node_sin_clave_privada_sigue_firmando_hs256(tmp_path):
     assert r.returncode == 0, r.stderr
     datos = json.loads(r.stdout)
     assert datos["alg"] == "HS256" and datos["ok"], datos
+
+
+# ---------------------------------------------------------------------------
+# El recorrido comercial: demo -> 7 días -> vence -> paga
+# ---------------------------------------------------------------------------
+def test_el_trial_dura_siete_dias_en_los_dos_lenguajes():
+    """La duración del trial es una decisión comercial, y vive en DOS listas:
+    `PLANES` de Python (que valida) y el espejo de `api/_license.js` (que
+    emite). Si se separan, el cliente recibe una licencia de N días y el
+    programa le cuenta M — y el que reclama tiene razón."""
+    esperado = 7
+    assert klic.PLANES["trial"]["dias"] == esperado, \
+        "cambió la duración del trial en Python sin actualizar este test"
+
+    js = open(os.path.join(ROOT, "api", "_license.js"), encoding="utf-8").read()
+    m = re.search(r"trial:\s*\{[^}]*dias:\s*(\d+)", js)
+    assert m, "no se encontró el plan trial en el espejo de Node"
+    assert int(m.group(1)) == esperado, (
+        f"Node emite trials de {m.group(1)} días y Python valida {esperado}. "
+        "El cliente vería una cuenta regresiva que no coincide con lo que "
+        "compró.")
+
+
+def test_un_trial_vencido_manda_a_comprar_y_no_a_soporte(
+        par_de_claves, instalacion_limpia, monkeypatch):
+    """Al día 8 el programa tiene que pedir la compra, no dar un error técnico.
+    Es el momento exacto en que se decide la venta."""
+    import time
+
+    import jwt
+    priv, pub = par_de_claves
+    monkeypatch.setattr(kclave, "PUBLICA", pub)
+
+    ahora = int(time.time())
+    vencido = jwt.encode(
+        {"sub": "cliente@ejemplo.invalid", "plan": "trial", "edition": "venta",
+         "cupo_mensual": 50, "features": ["voz"],
+         "iat": ahora - 8 * 86400, "exp": ahora - 86400},
+        priv, algorithm=kclave.ALGORITMO)
+
+    r = klic.licencia_activa(vencido)
+    assert not r["ok"]
+    assert r["error"] == "licencia_expirada", (
+        f"un trial vencido reporta {r['error']!r}. Tiene que distinguirse de "
+        "'licencia_invalida': uno manda a comprar, el otro a soporte.")

@@ -34,7 +34,7 @@ _CLAVE_SECRETO = "LICENSE_SECRET"
 # margen al plan sin que se haya cotizado. Se habilita explícitamente por
 # cliente: emitir_licencia(cliente_id, plan, features=[*PLANES[plan]["features"], "voz_premium"]).
 PLANES = {
-    "trial":      {"cupo_mensual": 50,   "precio": 0.0,   "dias": 3,
+    "trial":      {"cupo_mensual": 50,   "precio": 0.0,   "dias": 7,
                    "features": ["voz", "whatsapp", "copiloto", "erp"]},
     "basico":     {"cupo_mensual": 300,  "precio": 99.0,  "dias": 30,
                    "features": ["voz", "whatsapp", "copiloto", "erp"]},

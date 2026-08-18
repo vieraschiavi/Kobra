@@ -26,7 +26,7 @@ const crypto = require("crypto");
 // Espejo de backend_venta/licencias.py::PLANES. Si cambia allá, cambia acá:
 // `tests/test_licencia_puente.py` falla si se desincronizan.
 const PLANES = {
-  trial:      { cupo_mensual: 50,   dias: 3,   features: ["voz", "whatsapp", "copiloto", "erp"] },
+  trial:      { cupo_mensual: 50,   dias: 7,   features: ["voz", "whatsapp", "copiloto", "erp"] },
   basico:     { cupo_mensual: 300,  dias: 30,  features: ["voz", "whatsapp", "copiloto", "erp"] },
   // Sin tope a propósito: el consumo lo paga el cliente con sus propias APIs
   // (ver el comentario largo en backend_venta/licencias.py::PLANES).
