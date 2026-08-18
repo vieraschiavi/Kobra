@@ -26,6 +26,11 @@ on:
         description: "Versión a publicar (ej. 1.3.0). Vacío = la de build_release.py"
         required: false
         type: string
+      publicar_aunque_el_repo_sea_publico:
+        description: "Escribí PUBLICO (en mayúsculas) para publicar igual con el repo abierto. Cualquiera con el link se baja el producto completo."
+        required: false
+        default: ""
+        type: string
   push:
     branches: [main]
     tags:
@@ -65,13 +70,37 @@ jobs:
         run: |
           VIS=$(gh api "repos/${{ github.repository }}" --jq .visibility)
           echo "Visibilidad de ${{ github.repository }}: $VIS"
-          if [ "$VIS" != "private" ]; then
-            echo "::error::La edicion Owner NO se publica en un repositorio $VIS."
-            echo "::error::Entra sin licencia y sin vencimiento: publicarla aca"
-            echo "::error::equivale a regalar el producto a cualquiera con el link."
-            echo "::error::Pone el repo en privado, o saca este workflow."
-            exit 1
+          if [ "$VIS" = "private" ]; then
+            exit 0
           fi
+
+          # La salida de emergencia. Solo existe para el disparo MANUAL: en un
+          # push a main `inputs` viene vacio, asi que subir la version con el
+          # repo abierto sigue cortando. Y hay que ESCRIBIR la palabra: un
+          # checkbox se tilda sin leer, esto no.
+          if [ "${{ inputs.publicar_aunque_el_repo_sea_publico }}" = "PUBLICO" ]; then
+            echo "::warning::Publicando la edicion Owner en un repositorio $VIS a pedido explicito."
+            echo "::warning::El .exe queda descargable por cualquiera, sin cuenta y sin licencia."
+            echo "::warning::Cuando termines de probar: pone el repo en privado y borra el asset."
+            {
+              echo "### Edicion Owner publicada en un repo **$VIS**"
+              echo ""
+              echo "Se pidio explicitamente con \`publicar_aunque_el_repo_sea_publico=PUBLICO\`."
+              echo "Mientras el repo siga abierto, cualquiera con el link se baja el"
+              echo "producto completo: sin licencia, sin trial y sin vencimiento."
+              echo ""
+              echo "**Pendiente:** poner el repo en privado y borrar el asset."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "::error::La edicion Owner NO se publica en un repositorio $VIS."
+          echo "::error::Entra sin licencia y sin vencimiento: publicarla aca"
+          echo "::error::equivale a regalar el producto a cualquiera con el link."
+          echo "::error::Opciones: (a) pone el repo en privado — vos vas a poder"
+          echo "::error::bajar la release igual, es tuya; o (b) corre este workflow"
+          echo "::error::a mano escribiendo PUBLICO en el campo correspondiente."
+          exit 1
 
       - id: check
         env:
