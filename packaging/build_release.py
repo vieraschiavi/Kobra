@@ -20,10 +20,20 @@ Uso:
 import hashlib
 import os
 import shutil
+import sys
 import zipfile
 
-VERSION = "1.4.0"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# La versión sale de `kobra/__init__.py` y no de una constante propia. Acá
+# había un "1.4.0" escrito a mano, y el número que anuncia el paquete no puede
+# ser distinto del que reporta el programa: el CI arma el instalador con
+# `kobra.__version__` y este script escribía otro en el nombre del ZIP y en la
+# licencia. Un cliente que reporta "tengo la 1.4.0" no sirve de nada si esa
+# etiqueta no dice qué código tiene adentro.
+sys.path.insert(0, ROOT)
+from kobra import __version__ as VERSION  # noqa: E402
+
 DIST = os.path.join(ROOT, "dist")
 
 # ---------------------------------------------------------------------------

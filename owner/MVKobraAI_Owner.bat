@@ -16,11 +16,17 @@ rem que deja la copia en OTRA carpeta. Sin esta linea, la copia del dueno solo
 rem se encontraba por el registro. La lista de rutas por defecto sale de
 rem packaging/deteccion_instalacion.py.
 set "APP_USER_OWNER=%LocalAppData%\Programs\MV Kobra AI Owner\MV Kobra AI.exe"
+rem Y con "instalar para todos los usuarios" (allowElevation en el
+rem instalador), la copia del dueno cae en Archivos de programa.
+set "APP_PF_OWNER=%ProgramFiles%\MV Kobra AI Owner\MV Kobra AI.exe"
+set "APP_PF86_OWNER=%ProgramFiles(x86)%\MV Kobra AI Owner\MV Kobra AI.exe"
 
-if exist "%APP_USER%"       ( start "" "%APP_USER%"       & exit /b )
-if exist "%APP_USER_OWNER%" ( start "" "%APP_USER_OWNER%" & exit /b )
-if exist "%APP_PF%"         ( start "" "%APP_PF%"         & exit /b )
-if exist "%APP_PF86%"       ( start "" "%APP_PF86%"       & exit /b )
+if exist "%APP_USER%"        ( start "" "%APP_USER%"        & exit /b )
+if exist "%APP_USER_OWNER%"  ( start "" "%APP_USER_OWNER%"  & exit /b )
+if exist "%APP_PF%"          ( start "" "%APP_PF%"          & exit /b )
+if exist "%APP_PF_OWNER%"    ( start "" "%APP_PF_OWNER%"    & exit /b )
+if exist "%APP_PF86%"        ( start "" "%APP_PF86%"        & exit /b )
+if exist "%APP_PF86_OWNER%"  ( start "" "%APP_PF86_OWNER%"  & exit /b )
 
 rem Instalaciones viejas (Inno Setup, pre-Electron), por si quedaron.
 set "EXE_PF=%ProgramFiles%\MV Kobra AI\MVKobraAI.exe"

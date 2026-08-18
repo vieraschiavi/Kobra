@@ -52,7 +52,13 @@ RUTAS_DEFAULT = (
     r"%LOCALAPPDATA%\Programs\MV Kobra AI",
     r"%LOCALAPPDATA%\Programs\MV Kobra AI Owner",
     r"%ProgramFiles%\MV Kobra AI",
+    # Con `allowElevation: true` el asistente ofrece "instalar para todos los
+    # usuarios", y ahí NSIS usa Archivos de programa en vez del perfil. Las
+    # variantes Owner faltaban: quien instalaba el .exe del dueño para todos
+    # los usuarios no aparecía por ninguna vía.
+    r"%ProgramFiles%\MV Kobra AI Owner",
     r"%ProgramFiles(x86)%\MV Kobra AI",
+    r"%ProgramFiles(x86)%\MV Kobra AI Owner",
 )
 
 # Los dos nombres con que se anota el destino elegido (ver el docstring).
