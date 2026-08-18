@@ -98,3 +98,46 @@ def test_el_script_sale_con_codigo_distinto_de_cero_si_algo_falla():
     assert "--no-verify" in script, \
         "el hook no documenta cómo saltearse una vez (y entonces se borra)"
 
+
+
+# ---------------------------------------------------------------------------
+# Que la promesa siga siendo cierta
+# ---------------------------------------------------------------------------
+def test_ci_es_el_unico_workflow_que_corre_en_un_pull_request():
+    """`verificar.py` cubre `ci.yml`. Esa cobertura vale el 100% solo mientras
+    `ci.yml` sea el único workflow que se dispara en un PR.
+
+    Si mañana `build_windows.yml` suma `pull_request` —construir el instalador
+    en cada PR es una idea razonable—, un PR va a poder ponerse en rojo por un
+    build de Windows que nadie puede reproducir localmente, y el script diría
+    "todo verde" igual. Este test obliga a decidirlo a conciencia.
+    """
+    import glob
+    otros = []
+    for ruta in sorted(glob.glob(os.path.join(ROOT, ".github", "workflows", "*.yml"))):
+        with open(ruta, encoding="utf-8") as f:
+            wf = yaml.safe_load(f)
+        # PyYAML lee la clave `on:` como el booleano True (norma YAML 1.1).
+        disparadores = wf.get("on", wf.get(True)) or {}
+        if "pull_request" not in disparadores:
+            continue
+        nombre = os.path.basename(ruta)
+        if nombre != "ci.yml":
+            otros.append(nombre)
+    assert not otros, (
+        "estos workflows corren en un pull request además de ci.yml: "
+        f"{', '.join(otros)}. O los cubrís en verificar.py, o un PR se puede "
+        "poner en rojo por algo que nadie pudo ver antes de pushear.")
+
+
+def test_el_script_muestra_los_tests_salteados():
+    """Un test salteado acá no verificó nada acá — y puede correr en CI.
+
+    El caso concreto: `test_una_carpeta_sin_permiso_de_escritura_se_rechaza` se
+    saltea como root (contenedores, CI de otros) y CORRE en el runner de
+    GitHub, que no es root. Verde local, rojo remoto. `-rs` los lista con el
+    motivo para que se vean en vez de perderse entre mil puntos.
+    """
+    script = _script()
+    assert '"-rs"' in script, \
+        "pytest corre sin -rs: los salteados quedan invisibles"
