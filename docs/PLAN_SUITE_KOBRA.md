@@ -164,18 +164,85 @@ enmascarado de PII, RBAC sobre datos y reportes, y reglas de calidad al ingerir.
 > siempre sintéticos. Las reglas de PII se prueban contra datos generados, nunca
 > contra datos reales de clientes.
 
-### Fase 3 — Motor de medidas calculadas (tipo DAX)
+### Fase 3 — Motor de medidas calculadas (tipo DAX) ✅ HECHA
 
-El cliente define sus propios KPIs con fórmulas sobre las columnas existentes.
+`kobra/medidas.py`. El cliente define sus KPIs con fórmulas sobre las columnas
+de su cartera:
 
-**Requisito de seguridad, no negociable:** las fórmulas se evalúan con un parser
-propio de lista blanca, nunca con `eval()` ni `exec()`. Una fórmula la escribe
-un usuario, y en la edición instalada corre en la máquina del cliente con sus
-permisos.
+    promedio(monto_deuda)
+    suma(monto_deuda) / contar()
+    contar_si(dias_mora > 90) / contar() * 100
 
-### Fase 4 — Dashboard conversacional
+**El parser es lista blanca sobre `ast`, nunca `eval`.** No es una preferencia
+de estilo: se comprobó ejecutando los mismos ataques contra las dos
+implementaciones. Con `eval`, las cuatro pruebas pasaron — corrió un comando
+del sistema, leyó `/etc/passwd`, llegó a `__subclasses__()` y escribió un
+archivo en disco. El parser real las rechazó todas. `eval` no se arregla con
+una lista negra: desde cualquier expresión se llega a `__builtins__`.
 
-Página nueva con el diseño de Kobra. Todo lo necesario ya está mapeado:
+Se recorre el árbol y se rechaza todo nodo que no esté explícitamente
+permitido; `generic_visit` es el rechazo, así que un tipo de nodo que nadie
+previó (walrus, f-string, comprensión) falla cerrado. 18 tests cubren ese
+vector — si empiezan a fallar, alguien aflojó la lista blanca.
+
+Detalles que importan en uso real:
+
+* Dividir por cero da "sin datos", no `inf` ni 0 — es el caso más común de una
+  medida recién escrita, y `0` sería una mentira ("la tasa es cero").
+* Una medida rota no deja el tablero en blanco: se muestra con su error y las
+  demás siguen calculando.
+* Guardar valida el lote entero o no guarda nada: guardar la mitad deja al
+  cliente sin saber cuáles quedaron.
+* Las medidas se calculan sobre los datos **ya enmascarados**. Una medida es
+  una vía de lectura como cualquier otra: sin esto, un gestor podría averiguar
+  el dato exacto de un deudor con `maximo(...)` y el filtro bien puesto.
+* Solo un admin cambia las definiciones — es el KPI que después mira todo el
+  equipo.
+
+Pantalla: `webapp/frontend/src/pages/Medidas.jsx`, con botón "Probar" por
+fórmula (el error tiene que aparecerle a quien la escribe, no a quien abre el
+tablero) y referencia desplegable de funciones y columnas.
+
+49 tests (`tests/test_medidas.py` + `tests/test_medidas_api.py`).
+
+### Fase 4 — Dashboard conversacional ✅ HECHA
+
+`kobra/analista.py` + `webapp/frontend/src/pages/Tablero.jsx`. Buscador en
+lenguaje natural, KPIs, y las tres listas de Advertencias / Sugerencias /
+Acciones.
+
+**La regla que lo hace usable: pandas calcula, el modelo solo redacta.** Si el
+modelo estimara las cifras, cada respuesta sería plausible y algunas falsas, y
+no habría forma de saber cuál es cuál sin rehacer la cuenta a mano — o sea, sin
+usar el tablero. Concretamente: `hechos()` calcula un resumen exacto, ese
+resumen y nada más va al modelo, y el system prompt le prohíbe inventar,
+estimar y proyectar. La respuesta incluye los hechos usados, desplegables en la
+pantalla, para que quien lee pueda verificar sin creernos.
+
+Decisiones que importan:
+
+* **No está detrás de ningún módulo pago.** Es la pantalla de inicio: cobrarle
+  al cliente por ver sus propios indicadores sería sacarle producto.
+* **Abre sin proveedor de IA configurado**, que es como llega toda instalación
+  nueva. KPIs, advertencias y acciones son determinísticos; lo único que se
+  pierde sin IA es la pregunta libre.
+* Advertencias y acciones salen de **reglas explícitas**, no del modelo. Una
+  advertencia que aparece y desaparece según lo que alucinó el modelo esa vez
+  no es una advertencia.
+* La pregunta libre corre sobre los datos **ya enmascarados**: sin eso, sería
+  la puerta para sacar por texto lo que la tabla protege.
+* Las preguntas sugeridas se arman según las columnas que la cartera realmente
+  tiene.
+
+Un bug que encontraron los tests: la alerta de concentración usaba un umbral
+fijo del 35%, y con dos segmentos marcaba como concentrado un reparto 50/50 —
+que es *el más equilibrado posible*. Una alerta que aparece siempre se deja de
+mirar. Ahora se compara contra el reparto parejo (1/n) y se piden al menos tres
+categorías.
+
+25 tests (`tests/test_analista.py` + `tests/test_tablero_api.py`).
+
+Referencia del frontend que se usó (sirve para las próximas pantallas):
 
 * **Router:** `HashRouter` en `src/main.jsx`; rutas en `src/App.jsx` (~línea 259)
   y el array `NAV` (~línea 31) que arma el sidebar.
@@ -196,16 +263,49 @@ Página nueva con el diseño de Kobra. Todo lo necesario ya está mapeado:
 El buscador en lenguaje natural se apoya en `kobra/llm.py` y
 `kobra/consulta_bd.py`, que ya existen.
 
-### Fase 5 — AutoML
+### Fase 5 — AutoML ✅ HECHA
 
-Portar desde `MV-Machine-Learning`. El cliente sube su dataset y Kobra prueba
-varios algoritmos e hiperparámetros.
+`kobra/automl.py`. El cliente sube su tabla, elige qué predecir, y Kobra prueba
+cuatro familias de algoritmos y se queda con el mejor.
 
-**Requisito de honestidad, heredado de cómo se entrena ProbPago** (`kobra/train.py`):
-la métrica que se le reporta al cliente sale de un holdout que no se usó para
-elegir nada, y las series temporales se parten por tiempo, nunca al azar. Un
-AutoML que elige el modelo y reporta el error del mismo tramo donde eligió está
-mintiendo, y con un comprador empresarial eso se descubre.
+**Lo difícil no es probar modelos — es de dónde sale el número que se reporta.**
+El error habitual (partir en dos, elegir el mejor en prueba, reportar esa misma
+métrica) da siempre un número optimista: al tomar el máximo entre varias
+mediciones sobre el mismo conjunto, ese máximo incorpora la suerte del ganador
+en ese corte. El cliente descubre la diferencia en producción.
+
+Acá se parte en **tres**: entrenamiento (60%) ajusta, selección (20%) decide
+cuál gana, holdout (20%) solo mide y no se usa para nada más. El número
+reportado sale del holdout, y **se muestra además la brecha** entre selección y
+holdout — cuánto se hubiera exagerado con el método habitual.
+
+Otras decisiones que importan:
+
+* Con columna de fecha, los cortes son **temporales**. Un split aleatorio sobre
+  datos con orden temporal es la fuga más común que existe.
+* El escalado va dentro del Pipeline, no antes: si no, la media del conjunto de
+  prueba se filtra al entrenamiento.
+* Un AUC ≥ 0.98 dispara un aviso en vez de celebrarse: casi siempre es una
+  consecuencia del resultado colada como causa.
+* Se explica qué columnas pesaron. En cobranzas hay que poder justificar por
+  qué se prioriza a una persona.
+* El archivo subido **no se guarda**: se lee, se entrena y se descarta.
+
+Un bug que encontraron los tests y conviene no repetir: la heurística que
+descarta identificadores usaba "muchos valores distintos", y con eso tiraba
+`monto_deuda` —un decimal continuo, y la columna más predictiva de una
+cartera— en silencio. Ahora el criterio depende del tipo: los decimales nunca
+se descartan, los enteros solo si son únicos en todas las filas, y el texto si
+casi no se repite.
+
+Pantalla: `webapp/frontend/src/pages/AutoML.jsx`, con el flujo en dos pasos y
+la brecha selección→holdout mostrada con nombre propio.
+
+30 tests (`tests/test_automl.py` + `tests/test_automl_api.py`).
+
+> Nota: se construyó dentro de Kobra, **no se portó** desde
+> `MV-Machine-Learning` — ese repo nunca estuvo accesible. Si se abre, conviene
+> comparar antes de dar el módulo por cerrado.
 
 ## Lo que esta sesión sí dejó hecho
 

@@ -48,8 +48,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, ROOT)
 
 from backend_venta import licencias as klicencias  # noqa: E402
+from kobra import analista as kanalista  # noqa: E402
 from kobra import analitica as kanalitica  # noqa: E402
 from kobra import autenticacion as kauth  # noqa: E402
+from kobra import automl as kautoml  # noqa: E402
 from kobra import ayuda as kayuda  # noqa: E402
 from kobra import cartera_manual as kcartera  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
@@ -1066,6 +1068,41 @@ def gobernanza_linaje(destino: str | None = None,
 
 
 # ---------------------------------------------------------------------------
+# Tablero conversacional
+# ---------------------------------------------------------------------------
+# NO va detrás de un módulo de la suite: es la pantalla de inicio, y cobrarle
+# aparte al cliente por ver sus propios indicadores sería sacarle producto.
+# Lo que sí consume cupo es la pregunta libre, que llama al modelo.
+class PreguntaTableroIn(BaseModel):
+    pregunta: str
+
+
+@app.get("/api/tablero")
+def tablero(u: Usuario = Depends(usuario_actual)):
+    """Indicadores, advertencias, sugerencias y acciones. Sin llamar a la IA.
+
+    Es determinístico a propósito: la pantalla de inicio tiene que abrir y
+    mostrar lo mismo siempre, haya o no proveedor de IA configurado.
+    """
+    return kanalista.tablero(_proteger(_scored(u.empresa), u.rol))
+
+
+@app.post("/api/tablero/preguntar")
+def tablero_preguntar(datos: PreguntaTableroIn, u: Usuario = Depends(usuario_actual)):
+    """Contesta una pregunta sobre la cartera, con los números ya calculados."""
+    try:
+        r = kanalista.responder(datos.pregunta,
+                                _proteger(_scored(u.empresa), u.rol))
+    except kanalista.SinModelo as e:
+        # 409 y no 500: no está roto, falta configurarlo, y el mensaje dice
+        # exactamente dónde.
+        raise HTTPException(409, str(e)) from e
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return r
+
+
+# ---------------------------------------------------------------------------
 # Medidas calculadas (módulo de la suite)
 # ---------------------------------------------------------------------------
 _MODULO_DAX = "las medidas calculadas"
@@ -1143,6 +1180,79 @@ def medidas_guardar(lista: list[MedidaIn], u: Usuario = Depends(solo_admin)):
     kconfig.guardar_extra(_clave_medidas(u.empresa),
                           json.dumps([m.model_dump() for m in lista]))
     return {"ok": True, "guardadas": len(lista)}
+
+
+# ---------------------------------------------------------------------------
+# AutoML (módulo de la suite)
+# ---------------------------------------------------------------------------
+_MODULO_AUTOML = "el entrenamiento con tus propios datos"
+MAX_MB_DATASET = 50
+
+
+@app.post("/api/automl/columnas")
+async def automl_columnas(archivo: UploadFile = File(...),
+                          u: Usuario = Depends(solo_admin)):
+    """Lee el encabezado del archivo para que el usuario elija qué predecir.
+
+    `solo_admin`: entrenar un modelo con datos de la empresa es una decisión
+    de quien responde por esos datos, no de cualquiera con una sesión abierta.
+    """
+    kplan.exigir("automl", _MODULO_AUTOML)
+    df = await _leer_dataset(archivo)
+    return {"columnas": list(df.columns), "filas": len(df),
+            "vista": df.head(5).astype(str).to_dict("records")}
+
+
+class EntrenarIn(BaseModel):
+    objetivo: str
+    columna_fecha: str | None = None
+
+
+@app.post("/api/automl/entrenar")
+async def automl_entrenar(objetivo: str, columna_fecha: str | None = None,
+                          archivo: UploadFile = File(...),
+                          u: Usuario = Depends(solo_admin)):
+    """Entrena, elige el mejor modelo y devuelve el informe.
+
+    El archivo NO se guarda: se lee, se entrena y se descarta. Lo que persiste
+    son las métricas, que es lo que el cliente necesita revisar después.
+    """
+    kplan.exigir("automl", _MODULO_AUTOML)
+    df = await _leer_dataset(archivo)
+    try:
+        resultado = kautoml.entrenar(df, objetivo, columna_fecha)
+    except kautoml.DatosInsuficientes as e:
+        # 400 y no 500: el problema está en los datos que subió, no en el
+        # programa, y el mensaje le dice exactamente qué corregir.
+        raise HTTPException(400, str(e)) from e
+
+    if kplan.permite("gobernanza"):
+        kgob.registrar_linaje(
+            f"modelo_automl_{objetivo}", [archivo.filename or "dataset_subido"],
+            "entrenamiento automl", filas=len(df),
+            detalle={"modelo": resultado["modelo_elegido"],
+                     "auc_holdout": resultado["holdout"]["auc"],
+                     "usuario": u.rol})
+
+    return {**kautoml.informe(resultado),
+            "importancias": kautoml.importancias(resultado)}
+
+
+async def _leer_dataset(archivo: UploadFile) -> pd.DataFrame:
+    """CSV o Excel subido por el cliente, con tope de tamaño."""
+    contenido = await archivo.read()
+    if len(contenido) > MAX_MB_DATASET * 1024 * 1024:
+        raise HTTPException(
+            413, f"El archivo supera los {MAX_MB_DATASET} MB.")
+    nombre = (archivo.filename or "").lower()
+    try:
+        if nombre.endswith((".xlsx", ".xls")):
+            return pd.read_excel(io.BytesIO(contenido))
+        return pd.read_csv(io.BytesIO(contenido))
+    except Exception as e:                              # noqa: BLE001
+        raise HTTPException(
+            400, "No se pudo leer el archivo. Tiene que ser un CSV o un Excel."
+        ) from e
 
 
 @app.get("/api/informe/ejecutivo.pdf")
