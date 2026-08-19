@@ -25,14 +25,19 @@ const crypto = require("crypto");
 
 // Espejo de backend_venta/licencias.py::PLANES. Si cambia allá, cambia acá:
 // `tests/test_licencia_puente.py` falla si se desincronizan.
+// Capacidades del núcleo de cobranzas, en todos los planes. Los módulos de la
+// suite que se venden aparte —"gobernanza", "dax", "automl"— se suman a partir
+// de Pro y arman la escalera de precios (ver el detalle en licencias.py).
+const NUCLEO = ["voz", "whatsapp", "copiloto", "erp"];
+
 const PLANES = {
-  trial:      { cupo_mensual: 50,   dias: 7,   features: ["voz", "whatsapp", "copiloto", "erp"] },
-  basico:     { cupo_mensual: 300,  dias: 30,  features: ["voz", "whatsapp", "copiloto", "erp"] },
+  trial:      { cupo_mensual: 50,   dias: 7,   features: [...NUCLEO] },
+  basico:     { cupo_mensual: 300,  dias: 30,  features: [...NUCLEO] },
   // Sin tope a propósito: el consumo lo paga el cliente con sus propias APIs
   // (ver el comentario largo en backend_venta/licencias.py::PLANES).
-  starter:    { cupo_mensual: null, dias: 365, features: ["voz", "whatsapp", "copiloto", "erp"] },
-  pro:        { cupo_mensual: 1000, dias: 30,  features: ["voz", "whatsapp", "copiloto", "erp", "excedente"] },
-  enterprise: { cupo_mensual: null, dias: 30,  features: ["voz", "whatsapp", "copiloto", "erp", "excedente", "white_label", "sso"] },
+  starter:    { cupo_mensual: null, dias: 365, features: [...NUCLEO, "gobernanza", "dax"] },
+  pro:        { cupo_mensual: 1000, dias: 30,  features: [...NUCLEO, "excedente", "gobernanza"] },
+  enterprise: { cupo_mensual: null, dias: 30,  features: [...NUCLEO, "excedente", "white_label", "sso", "gobernanza", "dax", "automl"] },
 };
 
 function b64u(buf) {

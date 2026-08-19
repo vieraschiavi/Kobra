@@ -33,11 +33,33 @@ _CLAVE_SECRETO = "LICENSE_SECRET"
 # se pusiera por default en un plan de precio fijo, cada uso real le resta
 # margen al plan sin que se haya cotizado. Se habilita explícitamente por
 # cliente: emitir_licencia(cliente_id, plan, features=[*PLANES[plan]["features"], "voz_premium"]).
+
+# --------------------------------------------------------------------------
+# Módulos de la suite: lo que hace que el precio sea escalable
+# --------------------------------------------------------------------------
+# Kobra deja de ser un producto único y pasa a ser una suite. Sobre el núcleo
+# de cobranzas se enchufan tres módulos que se venden por separado, y de cuáles
+# incluye cada plan sale la escalera de precios.
+#
+#   gobernanza — catálogo, linaje, calidad, PII y RBAC sobre los datos.
+#   dax        — medidas calculadas: el cliente define sus propios KPIs.
+#   automl     — el cliente entrena un modelo con su propio dataset.
+#
+# Se listan acá y no sueltos en cada plan para que agregar un módulo nuevo sea
+# un solo lugar, y para que se pueda distinguir un módulo de la suite de una
+# capacidad del núcleo (`voz`, `whatsapp`) al armar el mensaje de "tu plan no
+# incluye esto". Lo cuida tests/test_modulos_suite.py.
+MODULOS = ("gobernanza", "dax", "automl")
+
+# Capacidades del núcleo de cobranzas: van en todos los planes, incluido el
+# trial. Son lo que Kobra ya hacía antes de la suite.
+_NUCLEO = ["voz", "whatsapp", "copiloto", "erp"]
+
 PLANES = {
     "trial":      {"cupo_mensual": 50,   "precio": 0.0,   "dias": 7,
-                   "features": ["voz", "whatsapp", "copiloto", "erp"]},
+                   "features": [*_NUCLEO]},
     "basico":     {"cupo_mensual": 300,  "precio": 99.0,  "dias": 30,
-                   "features": ["voz", "whatsapp", "copiloto", "erp"]},
+                   "features": [*_NUCLEO]},
     # Starter no lleva tope de gestiones A PROPÓSITO. Es el plan "traé tus
     # propias APIs" (US$690 de licencia + soporte): el consumo lo paga el
     # cliente en su propia cuenta de OpenAI/Twilio, así que un cupo nuestro no
@@ -47,12 +69,30 @@ PLANES = {
     # un cliente de US$690 con MENOS gestiones que uno de US$99. La landing
     # nunca vendió un tope para este plan.
     "starter":    {"cupo_mensual": None, "precio": 690.0, "dias": 365,
-                   "features": ["voz", "whatsapp", "copiloto", "erp"]},
+                   "features": [*_NUCLEO, "gobernanza", "dax"]},
     "pro":        {"cupo_mensual": 1000, "precio": 349.0, "dias": 30,
-                   "features": ["voz", "whatsapp", "copiloto", "erp", "excedente"]},
+                   "features": [*_NUCLEO, "excedente", "gobernanza"]},
     "enterprise": {"cupo_mensual": None, "precio": None,  "dias": 30,
-                   "features": ["voz", "whatsapp", "copiloto", "erp", "excedente", "white_label", "sso"]},
+                   "features": [*_NUCLEO, "excedente", "white_label", "sso",
+                                "gobernanza", "dax", "automl"]},
 }
+
+# La escalera de módulos sigue el orden de precio que ya existía
+# (Básico 99 < Pro 349 < Starter 690 < Enterprise a medida), que es el mismo
+# que verifica tests/test_plan_diferenciado.py: ninguno más caro puede incluir
+# menos que uno más barato.
+#
+#   Básico      —                          (solo el núcleo de cobranzas)
+#   Pro         gobernanza
+#   Starter     gobernanza + dax
+#   Enterprise  gobernanza + dax + automl
+#
+# Es una PROPUESTA, no una restricción técnica: qué módulo entra en qué plan es
+# una decisión comercial del dueño y se cambia editando estas listas. Y como ya
+# pasa con "voz_premium", cualquier módulo se puede vender suelto a un cliente
+# puntual sin tocar el catálogo:
+#     emitir_licencia(cliente, "basico",
+#                     features=[*PLANES["basico"]["features"], "automl"])
 
 
 def secreto_firma() -> str:

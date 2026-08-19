@@ -54,10 +54,35 @@ Las URLs de los otros tres proyectos no se pudieron confirmar
 
 El orden importa: cada fase se apoya en la anterior.
 
-### Fase 1 — Catálogo de planes con módulos activables
+### Fase 1 — Catálogo de planes con módulos activables ✅ HECHA
 
 Es el cimiento de "precios escalables", y **no depende de los repos de origen**:
-se puede hacer entera antes de que llegue el código de los módulos.
+se hizo entera antes de que llegue el código de los módulos.
+
+Qué quedó implementado:
+
+* `backend_venta/licencias.py` — la tupla `MODULOS` declara los tres módulos en
+  un solo lugar, y `_NUCLEO` separa lo que ya hacía Kobra de lo que se vende
+  aparte. La escalera quedó: Básico nada · Pro `gobernanza` · Starter
+  `gobernanza`+`dax` · Enterprise los tres.
+* `api/_license.js` — el espejo en Node, sincronizado (lo verifica
+  `tests/test_licencia_puente.py`, que ejecuta el firmador de Node y valida con
+  PyJWT).
+* `landing/index.html` — cada tarjeta muestra qué módulos incluye, con la línea
+  destacada por peso y símbolo (no solo por color). Traducido a pt y en, y las
+  copias de idioma regeneradas.
+* `tests/test_modulos_suite.py` — 9 tests: la escalera no se puede invertir, los
+  planes de entrada no traen módulos, Enterprise los trae todos, un módulo no
+  pagado corta con un mensaje que dice dónde mejorar, uno pagado deja pasar, y
+  se puede vender un módulo suelto sin cambiar de plan.
+
+**Pendiente al portar los módulos:** las tarjetas dicen "próximamente" a
+propósito, porque hoy la licencia habilita un módulo que todavía no existe.
+Sacar esa palabra cuando cada módulo esté realmente en el producto — anunciar
+antes sería venderle a un cliente algo que no va a encontrar al instalar.
+
+La distribución de módulos por plan es una **propuesta**: es decisión comercial
+del dueño y se cambia editando las listas de `PLANES`.
 
 La infraestructura ya existe y no hay que inventarla:
 
