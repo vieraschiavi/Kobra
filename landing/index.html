@@ -743,7 +743,13 @@ var TXT_PAIS_NOTA={
   pt:function(m,p){return '≈ '+m+' '+p.moneda+' (referência) — hoje cobrado em pesos uruguaios via Mercado Pago; fale conosco para habilitar cobrança na sua moeda.';},
   en:function(m,p){return '≈ '+m+' '+p.moneda+' (reference) — currently billed in Uruguayan pesos via Mercado Pago; contact us to enable billing in your currency.';}
 };
-var USD_BASE={p0:[59,null],p1:[490,29],p2:[149,null],p3:[1500,null]};
+// [precio base USD, mensualidad aparte USD o null] por plan. TIENE que
+// coincidir con el número de la tarjeta (.amt) y con lo que cobra
+// api/checkout.js: esto es lo que ve un visitante de AR/MX/CL/CO/PE/BR
+// convertido a su moneda, y de acá salía un precio y se cobraba otro —
+// Pro mostraba el equivalente a US$149 y el checkout cobraba US$349. Lo
+// cuida tests/test_precios_coherentes.py.
+var USD_BASE={p0:[99,null],p1:[690,49],p2:[349,null],p3:[1500,null]};
 function fmtLocal(usd,p){
   return Math.round(usd*p.tasaPorUsd).toLocaleString(p.locale);
 }
