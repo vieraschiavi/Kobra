@@ -142,6 +142,17 @@ jobs:
           # Sin firma de código por ahora: no fallar buscando certificado.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
+      - name: Calcular SHA256 del instalador
+        # Sin firma de código, es la única forma de que quien lo baja
+        # verifique que el .exe llegó entero (una descarga cortada da el
+        # mismo síntoma que un antivirus bloqueando la extracción: "error
+        # escribiendo al archivo" a mitad de instalar).
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash "dist/MVKobraAI_Setup.exe" -Algorithm SHA256).Hash
+          "$hash  MVKobraAI_Setup.exe" | Out-File -FilePath dist/MVKobraAI_Setup.exe.sha256 -Encoding ascii
+          Write-Host "SHA256: $hash"
+
       - name: Publicar instalador como artefacto
         uses: actions/upload-artifact@v4
         # La cuota de artifacts se agota seguido y GitHub tarda 6-12 h en
@@ -191,8 +202,15 @@ jobs:
             carpeta que el .exe y hacé doble clic ahí: manda los archivos
             temporales al disco donde lo dejaste. Dentro del asistente podés
             elegir tanto la carpeta de instalación como la carpeta de datos.
+
+            El instalador no tiene firma de código todavía, así que algún
+            antivirus puede demorarlo o bloquearlo al extraer. Si eso pasa,
+            probá primero con `Instalar_en_otro_disco.bat`; si sigue fallando,
+            verificá que la descarga llegó entera comparando el hash contra
+            **`MVKobraAI_Setup.exe.sha256`**.
           files: |
             dist/MVKobraAI_Setup.exe
+            dist/MVKobraAI_Setup.exe.sha256
             dist/Instalar_en_otro_disco.bat
 
       - name: ¿Está configurado el repo público de releases?
@@ -231,6 +249,13 @@ jobs:
             carpeta que el .exe y hacé doble clic ahí: manda los archivos
             temporales al disco donde lo dejaste. Dentro del asistente podés
             elegir tanto la carpeta de instalación como la carpeta de datos.
+
+            El instalador no tiene firma de código todavía, así que algún
+            antivirus puede demorarlo o bloquearlo al extraer. Si eso pasa,
+            probá primero con `Instalar_en_otro_disco.bat`; si sigue fallando,
+            verificá que la descarga llegó entera comparando el hash contra
+            **`MVKobraAI_Setup.exe.sha256`**.
           files: |
             dist/MVKobraAI_Setup.exe
+            dist/MVKobraAI_Setup.exe.sha256
             dist/Instalar_en_otro_disco.bat
