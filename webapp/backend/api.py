@@ -1067,6 +1067,32 @@ def gobernanza_linaje(destino: str | None = None,
             "aguas_abajo": kgob.aguas_abajo(destino) if destino else []}
 
 
+@app.get("/api/gobernanza/glosario")
+def gobernanza_glosario(idioma: str = "es",
+                        u: Usuario = Depends(usuario_actual)):
+    """Las definiciones oficiales, atadas a las columnas que las materializan."""
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    return {"terminos": kgob.glosario(idioma)}
+
+
+@app.get("/api/gobernanza/enforcement")
+def gobernanza_enforcement(tabla: str = "cartera", motor: str = "postgresql",
+                           u: Usuario = Depends(solo_admin)):
+    """DDL para aplicar la clasificación en la base del cliente.
+
+    `solo_admin` y no `usuario_actual`: esto devuelve el mapa de qué columna es
+    sensible y qué rol debería verla — o sea, exactamente lo que le sirve a
+    alguien para saber dónde apuntar. Un gestor no tiene por qué tenerlo.
+    """
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    try:
+        return kgob.plan_enforcement(tabla, _scored(u.empresa).columns, motor)
+    except ValueError as e:
+        # Motor no soportado: es un pedido inválido del cliente, no una falla
+        # del servidor. El mensaje ya dice cuáles sí están cubiertos.
+        raise HTTPException(400, str(e)) from e
+
+
 # ---------------------------------------------------------------------------
 # Tablero conversacional
 # ---------------------------------------------------------------------------

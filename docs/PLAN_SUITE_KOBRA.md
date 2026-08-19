@@ -1,54 +1,76 @@
 # MV Kobra AI — Plan de la suite con módulos escalables
 
-> **Estado: planificado, no implementado.** Este documento es el traspaso de una
-> sesión que mapeó el terreno pero no pudo portar el código, porque los repos de
-> origen no estaban en su alcance. Quien retome: leé "Cómo retomar" primero.
+> **Estado: implementado.** Las cinco fases están hechas, con tests. Lo que
+> queda abierto es qué más traer de los repos de origen, y la decisión de
+> producto sobre fusionar o no `Plania` y `Project-management-mv`.
 
 ## El objetivo
 
 Kobra deja de ser un producto único y pasa a ser una **suite con precios
-escalables según los módulos incluidos**. Sobre el producto de cobranzas actual
-se suman tres módulos que hoy viven en repos separados del dueño:
+escalables según los módulos incluidos**. Sobre el producto de cobranzas se
+suman tres módulos vendibles por separado:
 
-| Módulo | Repo de origen | Qué agrega |
+| Módulo | Origen | Estado |
 |---|---|---|
-| Gobernanza de datos | `vieraschiavi/Mv-Data-Governance` | Catálogo, linaje, calidad, PII, RBAC |
-| Medidas calculadas (DAX) | `vieraschiavi/Power-bi` | KPIs definidos por el cliente con fórmulas |
-| AutoML | `vieraschiavi/MV-Machine-Learning` | El cliente entrena con su propio dataset |
-| Consultas SQL | `vieraschiavi/Mv-Sql` | (alcance a definir con el repo a la vista) |
+| Gobernanza de datos | construido acá + `Mv-Data-Governance` | ✅ con enforcement DDL y glosario portados |
+| Medidas calculadas (DAX) | construido acá | ✅ — el repo `Power-bi` nunca llegó |
+| AutoML | construido acá | ✅ — el repo `MV-Machine-Learning` nunca llegó |
+| Consultas SQL | ya existía en Kobra | ✅ mejorado con 3 arreglos de `Mv-Sql` |
 
 Más un **dashboard conversacional** nuevo: buscador en lenguaje natural,
 tarjetas de KPI, secciones de Advertencias/Sugerencias/Acciones y tarjetas de
 Análisis por área, con la paleta de Kobra.
 
-## Cómo retomar
+## Cómo llegaron los repos
 
-El bloqueo de la sesión anterior: **el acceso a GitHub estaba restringido a
-`vieraschiavi/Kobra`**, y el alcance de repos se fija al crear la sesión — no se
-puede ampliar desde adentro. Para portar el código de verdad hace falta una
-sesión cuyo entorno incluya los cinco repos.
+El acceso a GitHub de la sesión estaba restringido a `vieraschiavi/Kobra`, y el
+alcance se fija al crearla — no se puede ampliar desde adentro, ni con `git
+clone` ni leyendo github.com por web, porque el límite es "esta sesión solo
+toca Kobra" y no "esta sesión solo usa la API de GitHub".
 
-Sin eso, la única alternativa es reescribir los módulos desde cero, que
-desperdicia código ya escrito y probado.
+Se destrabó **subiendo los repos como archivos ZIP**, que son archivos locales
+y no pasan por esa restricción. Es la vía si vuelve a pasar.
 
-## Lo que ya se sabe de Mv-Data-Governance
+Lo que llegó: `Mv-Data-Governance`, `Mv-Sql` (dos versiones), `Plania` y
+`Project-management-mv`. **No** llegaron `MV-Machine-Learning` ni `Power-bi`,
+así que el AutoML y las medidas siguen siendo los construidos acá, sin comparar
+contra el original.
 
-Leído de su sitio público (`mv-data-governance.vercel.app`), no del código:
+### Lo que aportaron
 
-* **Stack: Python + Streamlit + PyInstaller.** Es el mismo stack que Kobra, así
-  que el port debería ser directo y no una traducción entre tecnologías.
-* Nueve pestañas modulares: Overview (KPIs), Calidad, Linaje (grafo
-  interactivo), Catálogo, Glosario, Políticas, MDM/deduplicación, PII, Export BI.
-* Calidad medida sobre las seis dimensiones DAMA: completitud, unicidad,
-  validez, consistencia, oportunidad y exactitud, con motor de reglas y umbrales.
-* Linaje "de la fuente al dashboard", navegable en las dos direcciones.
-* Ya es trilingüe (ES/EN/PT) — igual que Kobra, lo que simplifica el i18n.
-* Exporta a Power BI, Tableau, Looker, Qlik vía CSV/Excel/JSON/Parquet/REST.
-* Diseñado para correr **on-premise**, sin nube, por requisitos de banca y salud.
+Menos de lo esperado en código nuevo y **más de lo esperado en bugs**: los dos
+motores que se superponían ya existían en Kobra, y compararlos contra la
+versión madura de cada repo destapó fallas que nadie había visto.
 
-Las URLs de los otros tres proyectos no se pudieron confirmar
-(`mv-machine-learning.vercel.app` y `mv-sql.vercel.app` dan 404, y
-`power-bi.vercel.app` es de otra empresa).
+* De `Mv-Data-Governance` se portaron `enforcement.py` (DDL de GRANT/REVOKE,
+  enmascarado y seguridad por fila) y `glossary.py` (adaptado a términos de
+  cobranzas). Lo demás de ese repo —MDM, sync con Purview/Collibra, perfilado,
+  etiquetas MIP, export a BI— **no está** en Kobra y sigue siendo terreno
+  disponible.
+* De `Mv-Sql` no hubo motor que portar: `kobra/consulta_bd.py` ya tenía la
+  misma arquitectura. Lo que se trajo fueron tres arreglos y el intervalo de
+  confianza (ver Fase 3).
+
+## Qué queda sin traer de Mv-Data-Governance
+
+Ese repo tiene 50 módulos en `mvdg/` y sigue siendo terreno disponible. Lo que
+**no** está en Kobra, en orden de valor aparente para un comprador empresarial:
+
+| Módulo de `mvdg/` | Qué haría en Kobra |
+|---|---|
+| `mdm.py` | Deduplicar deudores y armar el registro maestro |
+| `purview_*.py`, `collibra_*.py` | Sincronizar con el catálogo corporativo que la empresa ya tiene |
+| `profiler.py` | Perfilar una cartera nueva y sugerir reglas de calidad solo |
+| `policies.py`, `cobit_iso.py`, `dmbok.py` | Políticas verificadas contra el catálogo, marcos COBIT/ISO |
+| `mip_labels.py` | Etiquetas de Microsoft Information Protection |
+| `exporters.py`, `powerbi_meta.py`, `tableau_meta.py` | Export del catálogo a las herramientas de BI |
+| `remediation.py` | Qué hacer con cada falla de calidad, no solo reportarla |
+| `contracts.py` | Contratos de datos entre áreas |
+| `mcp_server.py` | Exponer el catálogo a un asistente por MCP |
+
+Nota de arquitectura útil: **solo 2 de sus 51 módulos importan Streamlit**. El
+núcleo está desacoplado de la UI, así que traer cualquiera de estos es copiar
+el módulo y escribirle la pantalla, no desenredarlo de su interfaz.
 
 ## El plan, en cinco fases
 
@@ -262,6 +284,41 @@ Referencia del frontend que se usó (sirve para las próximas pantallas):
 
 El buscador en lenguaje natural se apoya en `kobra/llm.py` y
 `kobra/consulta_bd.py`, que ya existen.
+
+### Consultas SQL en lenguaje natural — mejorado con lo de Mv-Sql
+
+No hubo port: `kobra/consulta_bd.py` ya tenía la misma arquitectura que el
+motor de `Mv-Sql` (RAG sobre el esquema, generación con el modelo, validación
+contra el catálogo). Comparar las dos versiones destapó **tres bugs en la de
+Kobra**, los tres verificados ejecutándolos antes de tocar nada:
+
+1. **Las consultas con CTE se rechazaban.** `WITH morosos AS (...) SELECT ...
+   FROM morosos` daba "tabla no existe en el catálogo", porque `morosos` lo
+   define la propia consulta. Se rechazaba justo el SQL que el prompt del
+   sistema pide generar.
+2. **Cualquier consulta comentada se rechazaba**, porque `--` estaba en la
+   lista de prohibidas. Un modelo comenta casi siempre. Lo que se quería
+   frenar era encadenar una segunda sentencia, y eso ahora lo corta un chequeo
+   de `;` — que además cubre el caso que `--` no cubría.
+3. **`sp_executesql` pasaba sin bloquearse.** Es ejecución de SQL arbitrario
+   en SQL Server; `exec ` tapaba el caso habitual de rebote, pero no ese.
+
+Los dos primeros son la falla que más se subestima en este tipo de función: no
+aparecen como agujero de seguridad, pero hacen que el cliente pruebe, no le
+ande, y no vuelva.
+
+Se trajo también el **intervalo de confianza** (`calcular_confianza`), que
+combina tres señales independientes — autoevaluación del modelo, similitud del
+esquema recuperado y validación estructural — y ensancha el margen cuando falta
+información. Reportar solo lo primero sería publicar la opinión del modelo
+sobre su propia respuesta, y un modelo equivocado suele estar seguro.
+
+`validar_sql` pasó a devolver `(valido, problemas, advertencias)`. Un problema
+invalida; una advertencia se muestra y deja correr — si una columna no
+reconocida invalidara, ningún alias de CTE pasaría, y son correctos.
+
+25 tests en `tests/test_consulta_bd_validador.py`.
+
 
 ### Fase 5 — AutoML ✅ HECHA
 

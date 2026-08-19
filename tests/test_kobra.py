@@ -867,13 +867,13 @@ def test_consulta_bd_validador_bloquea_dml_y_tablas_inventadas(tmp_path):
     url = _armar_db_prueba(tmp_path)
     catalogo = kcbd.extraer_catalogo(kcbd.conectar(url))
 
-    ok, problemas = kcbd.validar_sql("SELECT * FROM pagos", catalogo)
+    ok, problemas, _ = kcbd.validar_sql("SELECT * FROM pagos", catalogo)
     assert ok and not problemas
 
-    ok, problemas = kcbd.validar_sql("DELETE FROM pagos WHERE 1=1", catalogo)
+    ok, problemas, _ = kcbd.validar_sql("DELETE FROM pagos WHERE 1=1", catalogo)
     assert not ok and any("no permitida" in p for p in problemas)
 
-    ok, problemas = kcbd.validar_sql("SELECT * FROM tabla_fantasma", catalogo)
+    ok, problemas, _ = kcbd.validar_sql("SELECT * FROM tabla_fantasma", catalogo)
     assert not ok and any("no existe" in p for p in problemas)
 
 

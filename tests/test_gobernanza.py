@@ -306,3 +306,135 @@ def test_el_resumen_trae_todo_lo_que_muestra_la_pantalla(kgob, cartera):
     assert r["calidad"]["apto"] is True
     assert r["integridad_log"]["ok"] is True
     assert r["visibles"]["id_deudor"] is False
+
+
+# ---------------------------------------------------------------------------
+# Enforcement: el DDL para la base del cliente
+# ---------------------------------------------------------------------------
+# Portado de mvdg/enforcement.py. Lo que se prueba es que el DDL diga lo que
+# tiene que decir, porque acá un error no lo agarra nadie: Kobra no ejecuta
+# esto — lo copia un DBA y lo corre contra la base de producción.
+def test_el_ddl_arranca_cerrando_el_acceso_publico(kgob, cartera):
+    """En Postgres una tabla nueva queda legible por cualquiera con acceso a
+    la base. Sin el REVOKE inicial, todos los GRANT de abajo son decorativos."""
+    ddl = kgob.ddl_acceso("cartera", cartera.columns)
+    assert ddl[0].startswith("REVOKE ALL"), ddl[:2]
+
+
+def test_el_nivel_de_la_tabla_lo_fija_su_columna_mas_sensible(kgob, cartera):
+    """Alcanza una columna sensible para que la tabla entera la necesite: el
+    acceso se da a la tabla, no a la columna."""
+    ddl = "\n".join(kgob.ddl_acceso("cartera", cartera.columns))
+    assert "kobra_admin" in ddl
+    assert "sensible" in ddl
+
+
+def test_en_postgres_el_enmascarado_da_la_vista_y_no_la_tabla(kgob, cartera):
+    """Si al rol se le diera también la tabla, la vista no protegería nada:
+    consultaría la tabla directo."""
+    ddl = "\n".join(kgob.ddl_enmascarado("cartera", cartera.columns))
+    assert "CREATE OR REPLACE VIEW" in ddl
+    assert "cartera_enmascarada" in ddl
+    assert "GRANT SELECT ON \"cartera_enmascarada\"" in ddl
+    assert "GRANT SELECT ON \"cartera\" TO" not in ddl
+
+
+def test_el_enmascarado_tapa_lo_personal_y_deja_lo_operativo(kgob, cartera):
+    ddl = "\n".join(kgob.ddl_enmascarado("cartera", cartera.columns))
+    assert "'***' AS \"id_deudor\"" in ddl
+    assert "'***' AS \"score_buro\"" in ddl
+    assert "'***' AS \"monto_deuda\"" not in ddl, \
+        "enmascaró el monto: el gestor no podría cobrar ni desde la base"
+
+
+def test_sqlserver_usa_el_enmascarado_nativo(kgob, cartera):
+    ddl = "\n".join(kgob.ddl_enmascarado("cartera", cartera.columns,
+                                         motor="sqlserver"))
+    assert "ADD MASKED WITH" in ddl
+    assert "[id_deudor]" in ddl, "no citó el identificador con la sintaxis de SQL Server"
+
+
+def test_los_identificadores_van_citados(kgob):
+    """Una tabla que se llame `orden` o `user` —palabras reservadas— rompe el
+    DDL sin comillas, y en Postgres un nombre con mayúsculas se pliega a
+    minúsculas y deja de encontrar la tabla."""
+    pg = "\n".join(kgob.ddl_acceso("Orden", ["id_deudor"]))
+    assert '"Orden"' in pg
+    ms = "\n".join(kgob.ddl_acceso("Orden", ["id_deudor"], motor="sqlserver"))
+    assert "[Orden]" in ms
+
+
+def test_un_motor_no_soportado_avisa_cuales_si(kgob, cartera):
+    """Decir solo 'no soportado' obliga a ir a leer el código."""
+    import pytest as _pt
+    with _pt.raises(ValueError) as e:
+        kgob.ddl_enmascarado("cartera", cartera.columns, motor="oracle")
+    assert "postgresql" in str(e.value) and "sqlserver" in str(e.value)
+
+
+def test_la_seguridad_por_fila_sale_para_los_dos_motores(kgob):
+    pg = "\n".join(kgob.ddl_por_fila("cartera", "gestor_asignado", "kobra_gestor"))
+    assert "ENABLE ROW LEVEL SECURITY" in pg and "CREATE POLICY" in pg
+    ms = "\n".join(kgob.ddl_por_fila("cartera", "gestor_asignado", "kobra_gestor",
+                                     motor="sqlserver"))
+    assert "SECURITY POLICY" in ms and "FILTER PREDICATE" in ms
+
+
+def test_el_plan_avisa_que_kobra_no_lo_ejecuta(kgob, cartera):
+    """Es la promesa central del módulo: genera la receta, no toca la base.
+    Si el guion no lo dijera, alguien podría suponer que ya se aplicó."""
+    plan = kgob.plan_enforcement("cartera", cartera.columns)
+    assert "no ejecutado" in plan["guion"]
+    assert "Kobra nunca se conecta" in plan["guion"]
+    assert plan["sentencias_acceso"] > 0
+    assert plan["sentencias_enmascarado"] > 0
+
+
+def test_una_tabla_sin_datos_personales_no_inventa_enmascarado(kgob):
+    ddl = "\n".join(kgob.ddl_enmascarado("agregados", ["tramo_mora"]))
+    assert "ninguna columna personal" in ddl
+    assert "CREATE OR REPLACE VIEW" not in ddl
+
+
+# ---------------------------------------------------------------------------
+# Glosario
+# ---------------------------------------------------------------------------
+def test_el_glosario_esta_en_los_dos_idiomas(kgob):
+    es = kgob.glosario("es")
+    pt = kgob.glosario("pt-BR")
+    assert len(es) == len(pt) == len(kgob.GLOSARIO)
+    assert {t["id"] for t in es} == {t["id"] for t in pt}
+    assert es[0]["termino"] != pt[0]["termino"] or es[0]["definicion"] != pt[0]["definicion"]
+
+
+def test_cada_termino_tiene_dueno_y_definicion(kgob):
+    """Un glosario sin dueño no se mantiene: cuando la definición queda vieja
+    no hay a quién preguntarle."""
+    for t in kgob.glosario():
+        assert t["dueno"], f"{t['id']} no tiene dueño"
+        assert len(t["definicion"]) > 40, f"{t['id']} tiene una definición vacía de contenido"
+
+
+def test_el_glosario_se_ata_a_columnas_reales(kgob):
+    """Un glosario que define términos que no existen en los datos es un
+    documento suelto, no gobierno del dato.
+
+    Se valida contra `CATALOGO_CARTERA` —el esquema real— y no contra el
+    fixture `cartera`, que es un subconjunto armado para los tests de
+    enmascarado. Validar contra el fixture haría fallar cualquier término que
+    apunte a una columna real que el fixture no trae, que es exactamente lo
+    que pasó al escribir esto.
+    """
+    columnas = set(kgob.CATALOGO_CARTERA) | {"prob_pago"}
+    for t in kgob.glosario():
+        for col in t["columnas"]:
+            assert col in columnas, \
+                f"{t['id']} apunta a {col!r}, que no está en el esquema de la cartera"
+
+
+def test_desde_una_columna_se_llega_a_su_definicion(kgob):
+    """Es lo que lo hace vivo: mirar la columna y ver qué significa, en vez de
+    ir a buscarlo a un documento que nadie abre."""
+    t = kgob.termino_de("dias_mora")
+    assert t is not None and t["id"] == "mora"
+    assert kgob.termino_de("columna_que_no_existe") is None

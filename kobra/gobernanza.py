@@ -480,6 +480,260 @@ def aguas_abajo(origen: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# 5. Enforcement: DDL para la base del cliente
+# ---------------------------------------------------------------------------
+# Adaptado de `mvdg/enforcement.py` de MV Data Governance.
+#
+# Honestidad de arquitectura, y es lo que hace útil a esto: el enmascarado de
+# `enmascarar()` protege lo que sale POR KOBRA. No protege la base del cliente:
+# quien se conecte a su Postgres con un cliente SQL ve la tabla entera, y con
+# razón — Kobra no está parado en el camino de esa consulta y no puede estarlo.
+#
+# Lo que sí puede hacer, y es lo que hace acá, es traducir lo que el catálogo
+# ya sabe —qué columna es personal, qué rol la ve— al DDL que su DBA aplica en
+# la base. Kobra escribe la receta; quien tiene las llaves la ejecuta. **Nunca
+# se conecta a correr nada de esto**: devuelve texto.
+#
+# Postgres y SQL Server porque son los dos motores con enforcement declarativo
+# nativo bien establecido (RLS desde 9.5 y Dynamic Data Masking + RLS desde
+# 2016). Para MySQL/Oracle/Snowflake el patrón de GRANT/REVOKE aplica igual,
+# pero el enmascarado y RLS tienen sintaxis propia que todavía no está acá.
+MOTORES_DDL = ("postgresql", "sqlserver")
+
+# Qué rol de la base puede ver cada nivel. Es el espejo en la base de
+# VISIBILIDAD_POR_ROL, que rige dentro de Kobra.
+ROLES_POR_NIVEL_SUGERIDO = {
+    PUBLICO:  ["kobra_lectura"],
+    INTERNO:  ["kobra_lectura", "kobra_gestor"],
+    PERSONAL: ["kobra_admin"],
+    SENSIBLE: ["kobra_admin"],
+}
+
+
+def _ident(nombre: str, motor: str) -> str:
+    """Cita un identificador según el motor.
+
+    No es cosmético: sin comillas, una tabla que se llame `orden` o `user`
+    —palabras reservadas— rompe el DDL, y un nombre con mayúsculas en Postgres
+    se pliega a minúsculas y deja de encontrar la tabla.
+    """
+    return f"[{nombre}]" if motor == "sqlserver" else f'"{nombre}"'
+
+
+def _validar_motor(motor: str) -> None:
+    if motor not in MOTORES_DDL:
+        raise ValueError(
+            f"motor {motor!r} no soportado todavía — cubiertos: "
+            f"{', '.join(MOTORES_DDL)}")
+
+
+def ddl_acceso(tabla: str, columnas, roles_por_nivel: dict | None = None,
+               motor: str = "postgresql", catalogo: dict | None = None) -> list[str]:
+    """GRANT/REVOKE por nivel de sensibilidad.
+
+    Empieza con un REVOKE de PUBLIC: sin eso, una tabla nueva en Postgres
+    queda legible por cualquiera con acceso a la base, y todos los GRANT de
+    abajo serían decorativos.
+    """
+    _validar_motor(motor)
+    roles = roles_por_nivel or ROLES_POR_NIVEL_SUGERIDO
+    t = _ident(tabla, motor)
+    ddl = [f"REVOKE ALL ON {t} FROM PUBLIC;"]
+
+    # El acceso a la tabla lo manda su columna MÁS sensible: alcanza una
+    # columna personal para que la tabla entera necesite el rol de esa altura.
+    nivel_tabla = max((clasificar(c, catalogo) for c in columnas),
+                      key=lambda n: _ORDEN[n], default=INTERNO)
+    for rol in roles.get(nivel_tabla, []):
+        ddl.append(f"GRANT SELECT ON {t} TO {_ident(rol, motor)};")
+    ddl.append(f"-- nivel de la tabla: {nivel_tabla} "
+               f"(lo fija su columna más sensible)")
+    return ddl
+
+
+def ddl_enmascarado(tabla: str, columnas, motor: str = "postgresql",
+                    rol_sin_datos: str = "kobra_gestor",
+                    catalogo: dict | None = None) -> list[str]:
+    """Enmascara en la base las columnas personales y sensibles.
+
+    Postgres no tiene enmascarado nativo de columna, así que se genera una
+    vista con las columnas ofuscadas y se le da acceso al rol sobre la vista,
+    no sobre la tabla. SQL Server sí lo tiene (`ADD MASKED WITH`) y se usa
+    directo.
+    """
+    _validar_motor(motor)
+    protegidas = [c for c in columnas
+                  if _ORDEN[clasificar(c, catalogo)] > _ORDEN[INTERNO]]
+    if not protegidas:
+        return [f"-- {tabla}: ninguna columna personal ni sensible que enmascarar"]
+
+    ddl = []
+    if motor == "sqlserver":
+        t = _ident(tabla, motor)
+        for col in protegidas:
+            bajo = col.lower()
+            # `email()` conserva la forma (a***@dominio.com), que deja al
+            # gestor confirmar que es la casilla correcta sin poder leerla.
+            func = "email()" if ("mail" in bajo or "correo" in bajo) else "default()"
+            ddl.append(f"ALTER TABLE {t} ALTER COLUMN {_ident(col, motor)} "
+                       f"ADD MASKED WITH (FUNCTION = '{func}');")
+        ddl.append(f"-- para que un rol vea el dato real: GRANT UNMASK TO "
+                   f"{_ident('kobra_admin', motor)};")
+    else:
+        seleccion = ", ".join(
+            f"'***' AS {_ident(c, motor)}" if c in protegidas else _ident(c, motor)
+            for c in columnas)
+        vista = _ident(f"{tabla}_enmascarada", motor)
+        ddl.append(f"CREATE OR REPLACE VIEW {vista} AS "
+                   f"SELECT {seleccion} FROM {_ident(tabla, motor)};")
+        ddl.append(f"GRANT SELECT ON {vista} TO {_ident(rol_sin_datos, motor)};")
+        ddl.append(f"-- a {rol_sin_datos} se le da la VISTA, nunca la tabla: si "
+                   f"tuviera la tabla, la vista no protegería nada")
+    return ddl
+
+
+def ddl_por_fila(tabla: str, columna_politica: str, rol: str,
+                 motor: str = "postgresql") -> list[str]:
+    """Seguridad por fila: cada gestor ve solo su cartera asignada.
+
+    El valor con el que se compara en tiempo de ejecución lo define quien
+    administra la base (variable de sesión, `current_user`), porque depende de
+    cómo esa empresa identifica a sus gestores — Kobra no lo puede saber.
+    """
+    _validar_motor(motor)
+    t, c = _ident(tabla, motor), _ident(columna_politica, motor)
+    if motor == "postgresql":
+        return [
+            f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;",
+            f"CREATE POLICY {tabla}_rls ON {t} FOR SELECT "
+            f"TO {_ident(rol, motor)} "
+            f"USING ({c} = current_setting('kobra.gestor_actual', true));",
+        ]
+    fn = f"dbo.fn_{tabla}_predicado"
+    return [
+        f"CREATE FUNCTION {fn}(@valor AS sysname) RETURNS TABLE "
+        f"WITH SCHEMABINDING AS RETURN SELECT 1 AS resultado "
+        f"WHERE @valor = SESSION_CONTEXT(N'kobra_gestor_actual');",
+        f"CREATE SECURITY POLICY {tabla}_rls "
+        f"ADD FILTER PREDICATE {fn}({c}) ON {t};",
+    ]
+
+
+def plan_enforcement(tabla: str, columnas, motor: str = "postgresql",
+                     roles_por_nivel: dict | None = None,
+                     catalogo: dict | None = None) -> dict:
+    """El paquete completo, listo para copiar y pasarle al DBA."""
+    _validar_motor(motor)
+    columnas = list(columnas)
+    accesos = ddl_acceso(tabla, columnas, roles_por_nivel, motor, catalogo)
+    mascaras = ddl_enmascarado(tabla, columnas, motor, catalogo=catalogo)
+    guion = "\n".join([
+        "-- MV Kobra AI · DDL de gobernanza GENERADO, no ejecutado.",
+        "-- Kobra nunca se conecta a correr esto: revisalo y aplicalo vos.",
+        f"-- Motor: {motor} · Tabla: {tabla}",
+        "",
+        "-- 1) Acceso por nivel de sensibilidad",
+        *accesos,
+        "",
+        "-- 2) Enmascarado de columnas personales y sensibles",
+        *mascaras,
+    ])
+    return {"motor": motor, "tabla": tabla,
+            "sentencias_acceso": len(accesos),
+            "sentencias_enmascarado": len(mascaras),
+            "guion": guion}
+
+
+# ---------------------------------------------------------------------------
+# 6. Glosario de negocio
+# ---------------------------------------------------------------------------
+# Adaptado de `mvdg/glossary.py`, con los términos de cobranzas.
+#
+# Para qué sirve: que "mora" signifique lo mismo en el tablero, en el informe
+# al directorio y en la conversación con el gestor. Es el problema más común
+# y menos técnico del gobierno de datos — dos áreas reportan el mismo número
+# distinto porque cada una definió el término por su cuenta, y la reunión se
+# va en discutir cuál está bien.
+GLOSARIO = [
+    {"id": "mora", "es": "Mora", "pt": "Inadimplência",
+     "definicion_es": "Días transcurridos desde el primer vencimiento impago. "
+                      "Se cuenta desde la cuota más antigua sin pagar, no desde la última.",
+     "definicion_pt": "Dias desde o primeiro vencimento não pago. Conta-se a partir "
+                      "da parcela mais antiga em aberto, não da última.",
+     "dueno": "Gerencia de Cobranzas", "columnas": ["dias_mora", "tramo_mora"]},
+    {"id": "gestion", "es": "Gestión", "pt": "Ação de cobrança",
+     "definicion_es": "Cada acción de cobranza asistida por IA: una gestión del "
+                      "agente negociador, el análisis de una llamada o la evaluación "
+                      "de un audio. NO cuenta mirar el tablero ni exportar.",
+     "definicion_pt": "Cada ação de cobrança assistida por IA: uma ação do agente "
+                      "negociador, a análise de uma ligação ou a avaliação de um "
+                      "áudio. NÃO conta ver o painel nem exportar.",
+     "dueno": "Gerencia de Cobranzas", "columnas": ["gestiones_previas"]},
+    {"id": "promesa", "es": "Promesa de pago", "pt": "Promessa de pagamento",
+     "definicion_es": "Compromiso de pago con fecha y monto acordados en una gestión. "
+                      "Se considera cumplida si el pago entra dentro de los 3 días "
+                      "hábiles siguientes a la fecha prometida.",
+     "definicion_pt": "Compromisso de pagamento com data e valor acordados numa ação. "
+                      "Considera-se cumprida se o pagamento entrar em até 3 dias "
+                      "úteis após a data prometida.",
+     "dueno": "Gerencia de Cobranzas",
+     "columnas": ["promesas_cumplidas", "promesas_incumplidas"]},
+    {"id": "probpago", "es": "ProbPago", "pt": "ProbPago",
+     "definicion_es": "Probabilidad estimada de que un deudor pague en los próximos "
+                      "30 días. Sale del modelo, no de una regla: es una estimación "
+                      "con error, no una certeza.",
+     "definicion_pt": "Probabilidade estimada de que um devedor pague nos próximos "
+                      "30 dias. Vem do modelo, não de uma regra: é uma estimativa "
+                      "com erro, não uma certeza.",
+     "dueno": "Datos / Riesgo", "columnas": ["prob_pago"]},
+    {"id": "contactabilidad", "es": "Contactabilidad", "pt": "Contatabilidade",
+     "definicion_es": "Proporción de intentos de contacto que terminaron en una "
+                      "conversación efectiva, sobre los últimos 6 meses. Un teléfono "
+                      "que atiende y corta NO cuenta como efectivo.",
+     "definicion_pt": "Proporção de tentativas de contato que terminaram em conversa "
+                      "efetiva, nos últimos 6 meses. Um telefone que atende e desliga "
+                      "NÃO conta como efetivo.",
+     "dueno": "Operaciones", "columnas": ["contactabilidad"]},
+    {"id": "recupero", "es": "Recupero", "pt": "Recuperação",
+     "definicion_es": "Monto efectivamente cobrado en el período, imputado a la fecha "
+                      "en que entró el dinero — no a la fecha de la promesa ni a la "
+                      "de la gestión que lo originó.",
+     "definicion_pt": "Valor efetivamente recebido no período, lançado na data em que "
+                      "o dinheiro entrou — não na data da promessa nem na da ação "
+                      "que o originou.",
+     "dueno": "Finanzas", "columnas": ["pago"]},
+    {"id": "cartera", "es": "Cartera", "pt": "Carteira",
+     "definicion_es": "Conjunto de deudas vigentes bajo gestión. Excluye las dadas de "
+                      "baja contablemente (castigadas) aunque sigan siendo cobrables.",
+     "definicion_pt": "Conjunto de dívidas vigentes sob gestão. Exclui as baixadas "
+                      "contabilmente, mesmo que ainda sejam cobráveis.",
+     "dueno": "Gerencia de Cobranzas", "columnas": ["monto_deuda"]},
+]
+
+
+def glosario(idioma: str = "es") -> list[dict]:
+    """Los términos en el idioma pedido, con qué columnas los materializan."""
+    corto = "pt" if str(idioma).lower().startswith("pt") else "es"
+    return [{"id": t["id"], "termino": t[corto],
+             "definicion": t[f"definicion_{corto}"],
+             "dueno": t["dueno"], "columnas": t["columnas"]}
+            for t in GLOSARIO]
+
+
+def termino_de(columna: str, idioma: str = "es") -> dict | None:
+    """Qué término de negocio define esta columna.
+
+    Es lo que convierte al glosario en algo vivo: al mirar una columna del
+    catálogo se ve su definición oficial, en vez de tener que ir a buscarla a
+    un documento que nadie abre.
+    """
+    for t in glosario(idioma):
+        if columna in t["columnas"]:
+            return t
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Resumen para la interfaz
 # ---------------------------------------------------------------------------
 def resumen(df: pd.DataFrame, rol: str = "admin") -> dict:

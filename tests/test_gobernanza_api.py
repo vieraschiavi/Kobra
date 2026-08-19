@@ -252,3 +252,54 @@ def test_los_endpoints_piden_sesion(tmp_path, monkeypatch, ruta):
     api = _montar(tmp_path, monkeypatch, "enterprise")
     _cliente_y_cartera(api, tmp_path)
     assert TestClient(api.app).get(ruta).status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Enforcement y glosario (portados de MV Data Governance)
+# ---------------------------------------------------------------------------
+def test_el_enforcement_es_solo_para_admin(tmp_path, monkeypatch):
+    """Devuelve el mapa de qué columna es sensible y qué rol debería verla —
+    justo lo que le sirve a alguien para saber dónde apuntar."""
+    api = _montar(tmp_path, monkeypatch, "enterprise")
+    cli, _ = _cliente_y_cartera(api, tmp_path, rol="gestor")
+    assert cli.get("/api/gobernanza/enforcement").status_code == 403
+
+
+def test_el_admin_obtiene_el_ddl_listo_para_el_dba(tmp_path, monkeypatch):
+    api = _montar(tmp_path, monkeypatch, "enterprise")
+    cli, _ = _cliente_y_cartera(api, tmp_path, rol="admin")
+
+    d = cli.get("/api/gobernanza/enforcement").json()
+    assert "REVOKE ALL" in d["guion"]
+    assert "no ejecutado" in d["guion"], \
+        "el guion no aclara que Kobra no lo aplica: alguien puede creer que ya está hecho"
+    assert d["sentencias_acceso"] > 0
+
+
+def test_un_motor_no_soportado_da_400_y_no_500(tmp_path, monkeypatch):
+    """Es un pedido inválido del cliente, no una falla del servidor."""
+    api = _montar(tmp_path, monkeypatch, "enterprise")
+    cli, _ = _cliente_y_cartera(api, tmp_path, rol="admin")
+
+    r = cli.get("/api/gobernanza/enforcement", params={"motor": "oracle"})
+    assert r.status_code == 400
+    assert "postgresql" in r.json()["detail"]
+
+
+def test_el_glosario_sale_en_los_dos_idiomas(tmp_path, monkeypatch):
+    api = _montar(tmp_path, monkeypatch, "enterprise")
+    cli, _ = _cliente_y_cartera(api, tmp_path, rol="gestor")
+
+    es = cli.get("/api/gobernanza/glosario").json()["terminos"]
+    pt = cli.get("/api/gobernanza/glosario", params={"idioma": "pt-BR"}).json()["terminos"]
+    assert len(es) == len(pt) > 0
+    assert {t["id"] for t in es} == {t["id"] for t in pt}
+
+
+def test_sin_el_modulo_tampoco_hay_enforcement_ni_glosario(tmp_path, monkeypatch):
+    api = _montar(tmp_path, monkeypatch, "basico")
+    cli, _ = _cliente_y_cartera(api, tmp_path, rol="admin")
+    for ruta in ("/api/gobernanza/glosario", "/api/gobernanza/enforcement"):
+        r = cli.get(ruta)
+        assert r.status_code == 403
+        assert r.json()["motivo"] == "feature_no_incluida", ruta
