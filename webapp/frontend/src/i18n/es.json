@@ -21,7 +21,8 @@
       "calidad": "Calidad de gestión",
       "portal_cobros": "Portal de cobros",
       "cxc": "Cuentas por cobrar",
-      "demo_vivo": "Demo en vivo"
+      "demo_vivo": "Demo en vivo",
+      "gobernanza": "Gobernanza"
     },
     "sidebar": {
       "rol_admin": "Administrador",
@@ -751,5 +752,58 @@
     "guardar": "Usar esta carpeta",
     "guardado": "Guardado.",
     "forzada_env": "La carpeta viene fijada por la variable de entorno KOBRA_DATA_DIR, así que lo que elijas acá no se aplica hasta que la saques."
+  },
+  "gobernanza": {
+    "titulo": "Gobernanza de datos",
+    "subtitulo": "Qué dato es personal, quién lo ve, si sirve y de dónde salió.",
+    "kpi_columnas": "Columnas",
+    "kpi_filas": "Filas",
+    "kpi_sensibles": "Datos protegidos",
+    "kpi_sensibles_sub": "personales y sensibles",
+    "kpi_calidad": "Calidad de los datos",
+    "apto": "Apto",
+    "con_fallas": "Con fallas",
+    "reglas_corridas": "{{n}} reglas evaluadas",
+    "dimensiones_titulo": "Las seis dimensiones",
+    "dimensiones_sub": "El estándar DAMA: el vocabulario que ya usa un área de datos.",
+    "fallas_titulo": "Reglas que no se cumplen",
+    "col_regla": "Regla",
+    "col_dimension": "Dimensión",
+    "col_filas_malas": "Filas con problema",
+    "col_por_que": "Por qué importa",
+    "clasificacion_titulo": "Columnas por sensibilidad",
+    "catalogo_titulo": "Catálogo de columnas",
+    "catalogo_sub": "Según tu rol, algunas se muestran enmascaradas.",
+    "col_columna": "Columna",
+    "col_nivel": "Nivel",
+    "col_ves": "Cómo la ves",
+    "en_claro": "En claro",
+    "enmascarada": "Enmascarada",
+    "integridad_titulo": "Integridad del registro",
+    "integridad_sub": "Cada asiento encadena el hash del anterior: editar o borrar una línea se detecta.",
+    "integridad_ok": "Cadena íntegra — no hubo alteraciones",
+    "integridad_rota": "Cadena rota — el registro fue alterado",
+    "no_aplican": "{{n}} reglas no aplican a estas columnas.",
+    "no_incluido_titulo": "Gobernanza de datos no está en tu plan",
+    "no_incluido_sub": "Es el módulo que una empresa pide antes de dejar entrar sus datos reales.",
+    "venta_clasificacion": "Clasifica cada columna: qué es personal y qué es sensible.",
+    "venta_enmascarado": "Enmascara por rol, también en las exportaciones.",
+    "venta_calidad": "Reglas de calidad sobre las seis dimensiones DAMA.",
+    "venta_linaje": "Linaje: de dónde salió cada número y qué se rompe si cambia.",
+    "ver_planes": "Ver planes",
+    "nivel": {
+      "publico": "Público",
+      "interno": "Interno",
+      "personal": "Personal",
+      "sensible": "Sensible"
+    },
+    "dim": {
+      "completitud": "Completitud",
+      "unicidad": "Unicidad",
+      "validez": "Validez",
+      "consistencia": "Consistencia",
+      "oportunidad": "Oportunidad",
+      "exactitud": "Exactitud"
+    }
   }
 }

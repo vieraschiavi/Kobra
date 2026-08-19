@@ -21,7 +21,8 @@
       "calidad": "Qualidade de atendimento",
       "portal_cobros": "Portal de cobranças",
       "cxc": "Contas a receber",
-      "demo_vivo": "Demo ao vivo"
+      "demo_vivo": "Demo ao vivo",
+      "gobernanza": "Governança"
     },
     "sidebar": {
       "rol_admin": "Administrador",
@@ -751,5 +752,59 @@
     "guardar": "Usar esta pasta",
     "guardado": "Salvo.",
     "forzada_env": "A pasta está fixada pela variável de ambiente KOBRA_DATA_DIR, então o que você escolher aqui só vale depois de removê-la."
+  },
+  "gobernanza": {
+    "titulo": "Governança de dados",
+    "subtitulo": "Qual dado é pessoal, quem o vê, se serve e de onde veio.",
+    "kpi_columnas": "Colunas",
+    "kpi_filas": "Linhas",
+    "kpi_sensibles": "Dados protegidos",
+    "kpi_sensibles_sub": "pessoais e sensíveis",
+    "kpi_calidad": "Qualidade dos dados",
+    "apto": "Apto",
+    "con_fallas": "Com falhas",
+    "reglas_corridas": "{{n}} regras avaliadas",
+    "dimensiones_titulo": "As seis dimensões",
+    "dimensiones_sub": "O padrão DAMA: o vocabulário que uma área de dados já usa.",
+    "fallas_titulo": "Regras não cumpridas",
+    "col_regla": "Regra",
+    "col_dimension": "Dimensão",
+    "col_filas_malas": "Linhas com problema",
+    "col_por_que": "Por que importa",
+    "clasificacion_titulo": "Colunas por sensibilidade",
+    "catalogo_titulo": "Catálogo de colunas",
+    "catalogo_sub": "Conforme seu papel, algumas aparecem mascaradas.",
+    "col_columna": "Coluna",
+    "col_nivel": "Nível",
+    "col_ves": "Como você vê",
+    "en_claro": "Aberto",
+    "enmascarada": "Mascarada",
+    "integridad_titulo": "Integridade do registro",
+    "integridad_sub": "Cada lançamento encadeia o hash do anterior: editar ou apagar uma linha é detectado.",
+    "integridad_ok": "Cadeia íntegra — sem alterações",
+    "integridad_rota": "Cadeia rompida — o registro foi alterado",
+    "no_aplican": "{{n}} regras não se aplicam a estas colunas.",
+    "no_incluido_titulo": "Governança de dados não está no seu plano",
+    "no_incluido_sub": "É o módulo que uma empresa pede antes de deixar entrar seus dados reais.",
+    "venta_clasificacion": "Classifica cada coluna: o que é pessoal e o que é sensível.",
+    "venta_enmascarado": "Mascara por papel, também nas exportações.",
+    "venta_calidad": "Regras de qualidade sobre as seis dimensões DAMA.",
+    "venta_linaje": "Linhagem: de onde veio cada número e o que quebra se mudar.",
+    "ver_planes": "Ver planos",
+    "nivel": {
+      "publico": "Público",
+      "interno": "Interno",
+      "personal": "Pessoal",
+      "sensible": "Sensível"
+    },
+    "dim": {
+      "completitud": "Completude",
+      "unicidade": "Unicidade",
+      "unicidad": "Unicidade",
+      "validez": "Validade",
+      "consistencia": "Consistência",
+      "oportunidad": "Oportunidade",
+      "exactitud": "Exatidão"
+    }
   }
 }

@@ -111,9 +111,44 @@ Superficies a tocar, todas mapeadas:
 | `webapp/frontend/src/i18n/{es,pt-BR}.json` | Textos de los módulos |
 | `tests/test_licencia_puente.py` | Ya cruza Python↔Node: extenderlo |
 
-### Fase 2 — Gobernanza de datos
+### Fase 2 — Gobernanza de datos ✅ HECHA
 
-Portar desde `Mv-Data-Governance`. Kobra ya tiene piezas para engancharse:
+Construida dentro de Kobra (`kobra/gobernanza.py`), **no portada** — los repos
+de origen nunca estuvieron accesibles. Si más adelante se abre
+`Mv-Data-Governance`, conviene comparar: lo de allá tiene glosario, MDM y
+export a Power BI/Tableau, que acá no están.
+
+Qué quedó implementado:
+
+* **Clasificación** en cuatro niveles (`publico` / `interno` / `personal` /
+  `sensible`). El catálogo de la cartera se declara a mano, porque adivinar por
+  nombre falla justo donde importa: `score_buro` no dice "personal" en ninguna
+  parte y es dato crediticio. Hay heurística de respaldo para las carteras que
+  sube un cliente, y ante la duda clasifica de más, nunca de menos.
+* **Enmascarado por rol** que conserva el valor operativo: un identificador se
+  vuelve seudónimo estable (HMAC con sal propia de la instalación, así que dos
+  empresas no pueden cruzar sus carteras), y un dato patrimonial se vuelve
+  tramo. El gestor sigue viendo deuda, mora y canal — puede cobrar; lo que no
+  puede es llevarse una lista nominal.
+* **Reglas de calidad** sobre las seis dimensiones DAMA, con un informe que
+  nunca lanza: un dato malo tiene que poder mostrarse, no tumbar el proceso.
+* **Linaje** escrito en el log append-only con cadena de hashes que ya existía
+  (`kobra/auditoria.py`), con recorrido aguas arriba y aguas abajo, y corte de
+  ciclos.
+
+Integración: cuatro endpoints (`/api/gobernanza/{resumen,catalogo,calidad,linaje}`)
+gateados con `plan.exigir`, más el enmascarado aplicado a `/api/cartera` **y al
+export CSV** — si la pantalla enmascara y el CSV sale en claro, la protección
+es decorativa. La pantalla nueva es `webapp/frontend/src/pages/Gobernanza.jsx`,
+en el diseño de Kobra y traducida a los dos idiomas.
+
+Decisión de diseño importante: **sin el módulo, nada cambia.** Quien no compró
+gobernanza sigue viendo su cartera como siempre. Un módulo que al no comprarse
+empeora el producto es un rehén, no un upsell.
+
+45 tests (`tests/test_gobernanza.py` + `tests/test_gobernanza_api.py`).
+
+Kobra ya tenía piezas que sirvieron de base:
 
 * `kobra/auditoria.py` — log append-only con cadena de hashes SHA-256, ya
   registra logins, cambios de config, gestiones y exportes. Es la base del

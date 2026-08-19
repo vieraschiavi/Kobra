@@ -54,9 +54,11 @@ from kobra import ayuda as kayuda  # noqa: E402
 from kobra import cartera_manual as kcartera  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
 from kobra import cuentas_por_cobrar as kcxc  # noqa: E402
+from kobra import gobernanza as kgob  # noqa: E402
 from kobra import informe_ejecutivo as kinforme  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
 from kobra import llm as kllm  # noqa: E402
+from kobra import medidas as kmedidas  # noqa: E402
 from kobra import owner as kowner  # noqa: E402
 from kobra import paises as kpaises  # noqa: E402
 from kobra import plan as kplan  # noqa: E402
@@ -217,6 +219,31 @@ def _scored(empresa: str) -> pd.DataFrame:
 def _gestiones(empresa: str) -> pd.DataFrame | None:
     ruta = _datos_de(empresa)["gestiones"]
     return pd.read_csv(ruta) if os.path.exists(ruta) else None
+
+
+# ---------------------------------------------------------------------------
+# Gobernanza de datos (módulo de la suite)
+# ---------------------------------------------------------------------------
+def _hay_gobernanza() -> bool:
+    """¿El plan incluye el módulo?
+
+    Se consulta con `permite` y no con `exigir` porque acá NO se quiere cortar:
+    quien no compró gobernanza tiene que seguir viendo su cartera igual que
+    siempre. El módulo agrega protección, no la condiciona.
+    """
+    return kplan.permite("gobernanza")
+
+
+def _proteger(df: pd.DataFrame, rol: str) -> pd.DataFrame:
+    """Enmascara según el rol, si el plan incluye gobernanza.
+
+    Sin el módulo devuelve los datos tal cual, que es como Kobra se comportó
+    siempre: activar la protección para quien no la compró le cambiaría el
+    producto de golpe sin haber pedido nada.
+    """
+    if not _hay_gobernanza():
+        return df
+    return kgob.enmascarar(df, rol)
 
 
 def _archivo_pais(empresa: str) -> str:
@@ -962,8 +989,10 @@ def cartera(u: Usuario = Depends(usuario_actual), pagina: int = 1, tamano: int =
     total = len(f)
     ini = (max(1, pagina) - 1) * tamano
     filas = f.iloc[ini:ini + tamano][[c for c in _COLS_CARTERA if c in f.columns]]
+    filas = _proteger(filas, u.rol)
     return {"total": total, "pagina": pagina, "tamano": tamano,
-            "filas": filas.to_dict("records")}
+            "filas": filas.to_dict("records"),
+            "enmascarado": _hay_gobernanza() and u.rol != "admin"}
 
 
 @app.get("/api/cartera/export.csv")
@@ -978,11 +1007,142 @@ def cartera_export(u: Usuario = Depends(usuario_actual), segmento: str | None = 
                          producto, departamento, monto_min, monto_max,
                          dias_min, dias_max, anio, mes)
     f = _ordenar_cartera(f)
+    # El export es la vía por la que un dato se va del programa y ya no vuelve.
+    # Si la pantalla enmascara y el CSV no, la protección es decorativa: alcanza
+    # con apretar "Exportar" para llevarse la cartera nominal completa.
+    f = _proteger(f, u.rol)
     buf = io.StringIO()
     f.to_csv(buf, index=False)
+    if _hay_gobernanza():
+        kgob.registrar_linaje("export_cartera_csv", ["cartera_scoreada"],
+                              "export", filas=len(f),
+                              detalle={"rol": u.rol, "empresa": u.empresa})
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition":
                              "attachment; filename=cartera_priorizada.csv"})
+
+
+# ---------------------------------------------------------------------------
+# Gobernanza de datos — endpoints del módulo
+# ---------------------------------------------------------------------------
+# Estos SÍ usan `exigir`: son el módulo que se paga. Si el plan no lo incluye,
+# el handler de FeatureNoIncluida responde con el mensaje y el link para
+# mejorar el plan, en vez de un 404 que parecería un error del programa.
+_MODULO_GOB = "la gobernanza de datos"
+
+
+@app.get("/api/gobernanza/resumen")
+def gobernanza_resumen(u: Usuario = Depends(usuario_actual)):
+    """Todo lo que muestra la pantalla de gobernanza, en una llamada."""
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    return kgob.resumen(_scored(u.empresa), rol=u.rol)
+
+
+@app.get("/api/gobernanza/catalogo")
+def gobernanza_catalogo(u: Usuario = Depends(usuario_actual)):
+    """Qué es cada columna y quién la ve en claro."""
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    df = _scored(u.empresa)
+    return {"clasificacion": kgob.clasificar_tabla(df),
+            "visibles": kgob.columnas_visibles(u.rol, df.columns),
+            "niveles": list(kgob.NIVELES)}
+
+
+@app.get("/api/gobernanza/calidad")
+def gobernanza_calidad(u: Usuario = Depends(usuario_actual)):
+    """Informe de calidad sobre las seis dimensiones DAMA."""
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    return kgob.evaluar_calidad(_scored(u.empresa))
+
+
+@app.get("/api/gobernanza/linaje")
+def gobernanza_linaje(destino: str | None = None,
+                      u: Usuario = Depends(usuario_actual)):
+    """De dónde salió un dato y qué se rompe si cambia."""
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    return {"asientos": kgob.linaje(destino),
+            "aguas_arriba": kgob.aguas_arriba(destino) if destino else [],
+            "aguas_abajo": kgob.aguas_abajo(destino) if destino else []}
+
+
+# ---------------------------------------------------------------------------
+# Medidas calculadas (módulo de la suite)
+# ---------------------------------------------------------------------------
+_MODULO_DAX = "las medidas calculadas"
+_CLAVE_MEDIDAS = "MEDIDAS"
+
+
+class MedidaIn(BaseModel):
+    nombre: str
+    formula: str
+    descripcion: str = ""
+    formato: str = "numero"
+
+
+def _clave_medidas(empresa: str) -> str:
+    # Por empresa: en hosted multi-tenant, las medidas de una no son de otra.
+    return f"{_CLAVE_MEDIDAS}_{empresa}"
+
+
+def _medidas_guardadas(empresa: str) -> list:
+    crudo = kconfig.leer_extra(_clave_medidas(empresa))
+    if not crudo:
+        return kmedidas.medidas_de_ejemplo()
+    try:
+        return [kmedidas.Medida.de_dict(d) for d in json.loads(crudo)]
+    except (ValueError, TypeError, KeyError):
+        # Una configuración corrupta no puede dejar sin tablero al cliente:
+        # se vuelve a los ejemplos, que siempre funcionan.
+        return kmedidas.medidas_de_ejemplo()
+
+
+@app.get("/api/medidas")
+def medidas_listar(u: Usuario = Depends(usuario_actual)):
+    """Las medidas definidas y su valor actual sobre la cartera."""
+    kplan.exigir("dax", _MODULO_DAX)
+    ms = _medidas_guardadas(u.empresa)
+    df = _proteger(_scored(u.empresa), u.rol)
+    return {"medidas": [m.a_dict() for m in ms],
+            "valores": kmedidas.calcular_todas(ms, df),
+            "columnas": sorted(df.columns),
+            "funciones": sorted(kmedidas.NOMBRES_FUNCION)}
+
+
+@app.post("/api/medidas/validar")
+def medidas_validar(m: MedidaIn, u: Usuario = Depends(usuario_actual)):
+    """Prueba la fórmula sin guardarla — para el botón 'Probar'."""
+    kplan.exigir("dax", _MODULO_DAX)
+    df = _proteger(_scored(u.empresa), u.rol)
+    revision = kmedidas.validar(m.formula, df.columns)
+    if not revision["ok"]:
+        return revision
+    return {**revision, "vista_previa": kmedidas.Medida(
+        m.nombre or "prueba", m.formula, m.descripcion, m.formato).calcular(df)}
+
+
+@app.post("/api/medidas")
+def medidas_guardar(lista: list[MedidaIn], u: Usuario = Depends(solo_admin)):
+    """Reemplaza el juego de medidas.
+
+    `solo_admin` no es decorativo: una medida es una definición de negocio que
+    después ve todo el equipo en el tablero. Que cualquiera la cambie es que
+    nadie sepa qué está mirando.
+    """
+    kplan.exigir("dax", _MODULO_DAX)
+    df = _scored(u.empresa)
+    invalidas = []
+    for m in lista:
+        r = kmedidas.validar(m.formula, df.columns)
+        if not r["ok"]:
+            invalidas.append({"nombre": m.nombre, "error": r["error"]})
+    if invalidas:
+        # Se rechaza el lote entero: guardar la mitad deja al cliente sin saber
+        # cuáles quedaron.
+        raise HTTPException(400, {"detail": "Hay fórmulas inválidas.",
+                                  "invalidas": invalidas})
+    kconfig.guardar_extra(_clave_medidas(u.empresa),
+                          json.dumps([m.model_dump() for m in lista]))
+    return {"ok": True, "guardadas": len(lista)}
 
 
 @app.get("/api/informe/ejecutivo.pdf")
