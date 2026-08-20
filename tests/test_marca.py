@@ -94,8 +94,13 @@ def test_existe_el_svg_y_es_svg_de_verdad(nombre):
 
 
 def test_el_isotipo_tiene_las_tres_capas_con_sus_colores():
+    """El fondo es un degradado, no un color plano: se comprueban sus dos
+    paradas dentro del <linearGradient>, y la M y la V como relleno sólido."""
     svg = open(os.path.join(BRAND, "mv_icon.svg"), encoding="utf-8").read()
-    for clave in ("fondo", "m", "v"):
+    for clave in ("fondo", "fondo_inferior"):
+        assert f'stop-color="{M.LOGO[clave]}"' in svg, f"falta la parada {clave}"
+    assert "linearGradient" in svg, "el fondo dejó de ser degradado"
+    for clave in ("m", "v"):
         assert f'fill="{M.LOGO[clave]}"' in svg, f"falta la capa {clave}"
 
 

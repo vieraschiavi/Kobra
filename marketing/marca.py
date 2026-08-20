@@ -72,7 +72,12 @@ ACENTOS = ("green", "blue", "amber")
 # Colores propios del isotipo. No son intercambiables con los de arriba: son
 # la identidad gráfica, y cambiarlos es rehacer el logo.
 LOGO = {
-    "fondo": "#121E3A",   # cuadrado redondeado
+    # El cuadrado dejó de ser un color plano: el ícono de MV Software —el mismo
+    # para los trece productos— lleva un degradado vertical. Se conservan las
+    # dos paradas y `fondo` queda apuntando a la de arriba, para el código que
+    # necesite un color sólido de referencia (bordes, placeholders).
+    "fondo": "#1C3F63",        # parada superior del degradado
+    "fondo_inferior": "#0D2440",  # parada inferior
     "m": "#FFFFFF",       # la "M"
     "v": "#82C544",       # la "V" — ver la nota del encabezado
     "lienzo": "#0E1117",  # fondo incrustado en el PNG del logotipo
