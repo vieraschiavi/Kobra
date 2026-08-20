@@ -1,54 +1,76 @@
 # MV Kobra AI — Plan de la suite con módulos escalables
 
-> **Estado: planificado, no implementado.** Este documento es el traspaso de una
-> sesión que mapeó el terreno pero no pudo portar el código, porque los repos de
-> origen no estaban en su alcance. Quien retome: leé "Cómo retomar" primero.
+> **Estado: implementado.** Las cinco fases están hechas, con tests. Lo que
+> queda abierto es qué más traer de los repos de origen, y la decisión de
+> producto sobre fusionar o no `Plania` y `Project-management-mv`.
 
 ## El objetivo
 
 Kobra deja de ser un producto único y pasa a ser una **suite con precios
-escalables según los módulos incluidos**. Sobre el producto de cobranzas actual
-se suman tres módulos que hoy viven en repos separados del dueño:
+escalables según los módulos incluidos**. Sobre el producto de cobranzas se
+suman tres módulos vendibles por separado:
 
-| Módulo | Repo de origen | Qué agrega |
+| Módulo | Origen | Estado |
 |---|---|---|
-| Gobernanza de datos | `vieraschiavi/Mv-Data-Governance` | Catálogo, linaje, calidad, PII, RBAC |
-| Medidas calculadas (DAX) | `vieraschiavi/Power-bi` | KPIs definidos por el cliente con fórmulas |
-| AutoML | `vieraschiavi/MV-Machine-Learning` | El cliente entrena con su propio dataset |
-| Consultas SQL | `vieraschiavi/Mv-Sql` | (alcance a definir con el repo a la vista) |
+| Gobernanza de datos | construido acá + `Mv-Data-Governance` | ✅ con enforcement DDL y glosario portados |
+| Medidas calculadas (DAX) | construido acá | ✅ — el repo `Power-bi` nunca llegó |
+| AutoML | construido acá | ✅ — el repo `MV-Machine-Learning` nunca llegó |
+| Consultas SQL | ya existía en Kobra | ✅ mejorado con 3 arreglos de `Mv-Sql` |
 
 Más un **dashboard conversacional** nuevo: buscador en lenguaje natural,
 tarjetas de KPI, secciones de Advertencias/Sugerencias/Acciones y tarjetas de
 Análisis por área, con la paleta de Kobra.
 
-## Cómo retomar
+## Cómo llegaron los repos
 
-El bloqueo de la sesión anterior: **el acceso a GitHub estaba restringido a
-`vieraschiavi/Kobra`**, y el alcance de repos se fija al crear la sesión — no se
-puede ampliar desde adentro. Para portar el código de verdad hace falta una
-sesión cuyo entorno incluya los cinco repos.
+El acceso a GitHub de la sesión estaba restringido a `vieraschiavi/Kobra`, y el
+alcance se fija al crearla — no se puede ampliar desde adentro, ni con `git
+clone` ni leyendo github.com por web, porque el límite es "esta sesión solo
+toca Kobra" y no "esta sesión solo usa la API de GitHub".
 
-Sin eso, la única alternativa es reescribir los módulos desde cero, que
-desperdicia código ya escrito y probado.
+Se destrabó **subiendo los repos como archivos ZIP**, que son archivos locales
+y no pasan por esa restricción. Es la vía si vuelve a pasar.
 
-## Lo que ya se sabe de Mv-Data-Governance
+Lo que llegó: `Mv-Data-Governance`, `Mv-Sql` (dos versiones), `Plania` y
+`Project-management-mv`. **No** llegaron `MV-Machine-Learning` ni `Power-bi`,
+así que el AutoML y las medidas siguen siendo los construidos acá, sin comparar
+contra el original.
 
-Leído de su sitio público (`mv-data-governance.vercel.app`), no del código:
+### Lo que aportaron
 
-* **Stack: Python + Streamlit + PyInstaller.** Es el mismo stack que Kobra, así
-  que el port debería ser directo y no una traducción entre tecnologías.
-* Nueve pestañas modulares: Overview (KPIs), Calidad, Linaje (grafo
-  interactivo), Catálogo, Glosario, Políticas, MDM/deduplicación, PII, Export BI.
-* Calidad medida sobre las seis dimensiones DAMA: completitud, unicidad,
-  validez, consistencia, oportunidad y exactitud, con motor de reglas y umbrales.
-* Linaje "de la fuente al dashboard", navegable en las dos direcciones.
-* Ya es trilingüe (ES/EN/PT) — igual que Kobra, lo que simplifica el i18n.
-* Exporta a Power BI, Tableau, Looker, Qlik vía CSV/Excel/JSON/Parquet/REST.
-* Diseñado para correr **on-premise**, sin nube, por requisitos de banca y salud.
+Menos de lo esperado en código nuevo y **más de lo esperado en bugs**: los dos
+motores que se superponían ya existían en Kobra, y compararlos contra la
+versión madura de cada repo destapó fallas que nadie había visto.
 
-Las URLs de los otros tres proyectos no se pudieron confirmar
-(`mv-machine-learning.vercel.app` y `mv-sql.vercel.app` dan 404, y
-`power-bi.vercel.app` es de otra empresa).
+* De `Mv-Data-Governance` se portaron `enforcement.py` (DDL de GRANT/REVOKE,
+  enmascarado y seguridad por fila) y `glossary.py` (adaptado a términos de
+  cobranzas). Lo demás de ese repo —MDM, sync con Purview/Collibra, perfilado,
+  etiquetas MIP, export a BI— **no está** en Kobra y sigue siendo terreno
+  disponible.
+* De `Mv-Sql` no hubo motor que portar: `kobra/consulta_bd.py` ya tenía la
+  misma arquitectura. Lo que se trajo fueron tres arreglos y el intervalo de
+  confianza (ver Fase 3).
+
+## Qué queda sin traer de Mv-Data-Governance
+
+Ese repo tiene 50 módulos en `mvdg/` y sigue siendo terreno disponible. Lo que
+**no** está en Kobra, en orden de valor aparente para un comprador empresarial:
+
+| Módulo de `mvdg/` | Qué haría en Kobra |
+|---|---|
+| `mdm.py` | Deduplicar deudores y armar el registro maestro |
+| `purview_*.py`, `collibra_*.py` | Sincronizar con el catálogo corporativo que la empresa ya tiene |
+| `profiler.py` | Perfilar una cartera nueva y sugerir reglas de calidad solo |
+| `policies.py`, `cobit_iso.py`, `dmbok.py` | Políticas verificadas contra el catálogo, marcos COBIT/ISO |
+| `mip_labels.py` | Etiquetas de Microsoft Information Protection |
+| `exporters.py`, `powerbi_meta.py`, `tableau_meta.py` | Export del catálogo a las herramientas de BI |
+| `remediation.py` | Qué hacer con cada falla de calidad, no solo reportarla |
+| `contracts.py` | Contratos de datos entre áreas |
+| `mcp_server.py` | Exponer el catálogo a un asistente por MCP |
+
+Nota de arquitectura útil: **solo 2 de sus 51 módulos importan Streamlit**. El
+núcleo está desacoplado de la UI, así que traer cualquiera de estos es copiar
+el módulo y escribirle la pantalla, no desenredarlo de su interfaz.
 
 ## El plan, en cinco fases
 
@@ -111,9 +133,44 @@ Superficies a tocar, todas mapeadas:
 | `webapp/frontend/src/i18n/{es,pt-BR}.json` | Textos de los módulos |
 | `tests/test_licencia_puente.py` | Ya cruza Python↔Node: extenderlo |
 
-### Fase 2 — Gobernanza de datos
+### Fase 2 — Gobernanza de datos ✅ HECHA
 
-Portar desde `Mv-Data-Governance`. Kobra ya tiene piezas para engancharse:
+Construida dentro de Kobra (`kobra/gobernanza.py`), **no portada** — los repos
+de origen nunca estuvieron accesibles. Si más adelante se abre
+`Mv-Data-Governance`, conviene comparar: lo de allá tiene glosario, MDM y
+export a Power BI/Tableau, que acá no están.
+
+Qué quedó implementado:
+
+* **Clasificación** en cuatro niveles (`publico` / `interno` / `personal` /
+  `sensible`). El catálogo de la cartera se declara a mano, porque adivinar por
+  nombre falla justo donde importa: `score_buro` no dice "personal" en ninguna
+  parte y es dato crediticio. Hay heurística de respaldo para las carteras que
+  sube un cliente, y ante la duda clasifica de más, nunca de menos.
+* **Enmascarado por rol** que conserva el valor operativo: un identificador se
+  vuelve seudónimo estable (HMAC con sal propia de la instalación, así que dos
+  empresas no pueden cruzar sus carteras), y un dato patrimonial se vuelve
+  tramo. El gestor sigue viendo deuda, mora y canal — puede cobrar; lo que no
+  puede es llevarse una lista nominal.
+* **Reglas de calidad** sobre las seis dimensiones DAMA, con un informe que
+  nunca lanza: un dato malo tiene que poder mostrarse, no tumbar el proceso.
+* **Linaje** escrito en el log append-only con cadena de hashes que ya existía
+  (`kobra/auditoria.py`), con recorrido aguas arriba y aguas abajo, y corte de
+  ciclos.
+
+Integración: cuatro endpoints (`/api/gobernanza/{resumen,catalogo,calidad,linaje}`)
+gateados con `plan.exigir`, más el enmascarado aplicado a `/api/cartera` **y al
+export CSV** — si la pantalla enmascara y el CSV sale en claro, la protección
+es decorativa. La pantalla nueva es `webapp/frontend/src/pages/Gobernanza.jsx`,
+en el diseño de Kobra y traducida a los dos idiomas.
+
+Decisión de diseño importante: **sin el módulo, nada cambia.** Quien no compró
+gobernanza sigue viendo su cartera como siempre. Un módulo que al no comprarse
+empeora el producto es un rehén, no un upsell.
+
+45 tests (`tests/test_gobernanza.py` + `tests/test_gobernanza_api.py`).
+
+Kobra ya tenía piezas que sirvieron de base:
 
 * `kobra/auditoria.py` — log append-only con cadena de hashes SHA-256, ya
   registra logins, cambios de config, gestiones y exportes. Es la base del
@@ -129,18 +186,85 @@ enmascarado de PII, RBAC sobre datos y reportes, y reglas de calidad al ingerir.
 > siempre sintéticos. Las reglas de PII se prueban contra datos generados, nunca
 > contra datos reales de clientes.
 
-### Fase 3 — Motor de medidas calculadas (tipo DAX)
+### Fase 3 — Motor de medidas calculadas (tipo DAX) ✅ HECHA
 
-El cliente define sus propios KPIs con fórmulas sobre las columnas existentes.
+`kobra/medidas.py`. El cliente define sus KPIs con fórmulas sobre las columnas
+de su cartera:
 
-**Requisito de seguridad, no negociable:** las fórmulas se evalúan con un parser
-propio de lista blanca, nunca con `eval()` ni `exec()`. Una fórmula la escribe
-un usuario, y en la edición instalada corre en la máquina del cliente con sus
-permisos.
+    promedio(monto_deuda)
+    suma(monto_deuda) / contar()
+    contar_si(dias_mora > 90) / contar() * 100
 
-### Fase 4 — Dashboard conversacional
+**El parser es lista blanca sobre `ast`, nunca `eval`.** No es una preferencia
+de estilo: se comprobó ejecutando los mismos ataques contra las dos
+implementaciones. Con `eval`, las cuatro pruebas pasaron — corrió un comando
+del sistema, leyó `/etc/passwd`, llegó a `__subclasses__()` y escribió un
+archivo en disco. El parser real las rechazó todas. `eval` no se arregla con
+una lista negra: desde cualquier expresión se llega a `__builtins__`.
 
-Página nueva con el diseño de Kobra. Todo lo necesario ya está mapeado:
+Se recorre el árbol y se rechaza todo nodo que no esté explícitamente
+permitido; `generic_visit` es el rechazo, así que un tipo de nodo que nadie
+previó (walrus, f-string, comprensión) falla cerrado. 18 tests cubren ese
+vector — si empiezan a fallar, alguien aflojó la lista blanca.
+
+Detalles que importan en uso real:
+
+* Dividir por cero da "sin datos", no `inf` ni 0 — es el caso más común de una
+  medida recién escrita, y `0` sería una mentira ("la tasa es cero").
+* Una medida rota no deja el tablero en blanco: se muestra con su error y las
+  demás siguen calculando.
+* Guardar valida el lote entero o no guarda nada: guardar la mitad deja al
+  cliente sin saber cuáles quedaron.
+* Las medidas se calculan sobre los datos **ya enmascarados**. Una medida es
+  una vía de lectura como cualquier otra: sin esto, un gestor podría averiguar
+  el dato exacto de un deudor con `maximo(...)` y el filtro bien puesto.
+* Solo un admin cambia las definiciones — es el KPI que después mira todo el
+  equipo.
+
+Pantalla: `webapp/frontend/src/pages/Medidas.jsx`, con botón "Probar" por
+fórmula (el error tiene que aparecerle a quien la escribe, no a quien abre el
+tablero) y referencia desplegable de funciones y columnas.
+
+49 tests (`tests/test_medidas.py` + `tests/test_medidas_api.py`).
+
+### Fase 4 — Dashboard conversacional ✅ HECHA
+
+`kobra/analista.py` + `webapp/frontend/src/pages/Tablero.jsx`. Buscador en
+lenguaje natural, KPIs, y las tres listas de Advertencias / Sugerencias /
+Acciones.
+
+**La regla que lo hace usable: pandas calcula, el modelo solo redacta.** Si el
+modelo estimara las cifras, cada respuesta sería plausible y algunas falsas, y
+no habría forma de saber cuál es cuál sin rehacer la cuenta a mano — o sea, sin
+usar el tablero. Concretamente: `hechos()` calcula un resumen exacto, ese
+resumen y nada más va al modelo, y el system prompt le prohíbe inventar,
+estimar y proyectar. La respuesta incluye los hechos usados, desplegables en la
+pantalla, para que quien lee pueda verificar sin creernos.
+
+Decisiones que importan:
+
+* **No está detrás de ningún módulo pago.** Es la pantalla de inicio: cobrarle
+  al cliente por ver sus propios indicadores sería sacarle producto.
+* **Abre sin proveedor de IA configurado**, que es como llega toda instalación
+  nueva. KPIs, advertencias y acciones son determinísticos; lo único que se
+  pierde sin IA es la pregunta libre.
+* Advertencias y acciones salen de **reglas explícitas**, no del modelo. Una
+  advertencia que aparece y desaparece según lo que alucinó el modelo esa vez
+  no es una advertencia.
+* La pregunta libre corre sobre los datos **ya enmascarados**: sin eso, sería
+  la puerta para sacar por texto lo que la tabla protege.
+* Las preguntas sugeridas se arman según las columnas que la cartera realmente
+  tiene.
+
+Un bug que encontraron los tests: la alerta de concentración usaba un umbral
+fijo del 35%, y con dos segmentos marcaba como concentrado un reparto 50/50 —
+que es *el más equilibrado posible*. Una alerta que aparece siempre se deja de
+mirar. Ahora se compara contra el reparto parejo (1/n) y se piden al menos tres
+categorías.
+
+25 tests (`tests/test_analista.py` + `tests/test_tablero_api.py`).
+
+Referencia del frontend que se usó (sirve para las próximas pantallas):
 
 * **Router:** `HashRouter` en `src/main.jsx`; rutas en `src/App.jsx` (~línea 259)
   y el array `NAV` (~línea 31) que arma el sidebar.
@@ -161,16 +285,84 @@ Página nueva con el diseño de Kobra. Todo lo necesario ya está mapeado:
 El buscador en lenguaje natural se apoya en `kobra/llm.py` y
 `kobra/consulta_bd.py`, que ya existen.
 
-### Fase 5 — AutoML
+### Consultas SQL en lenguaje natural — mejorado con lo de Mv-Sql
 
-Portar desde `MV-Machine-Learning`. El cliente sube su dataset y Kobra prueba
-varios algoritmos e hiperparámetros.
+No hubo port: `kobra/consulta_bd.py` ya tenía la misma arquitectura que el
+motor de `Mv-Sql` (RAG sobre el esquema, generación con el modelo, validación
+contra el catálogo). Comparar las dos versiones destapó **tres bugs en la de
+Kobra**, los tres verificados ejecutándolos antes de tocar nada:
 
-**Requisito de honestidad, heredado de cómo se entrena ProbPago** (`kobra/train.py`):
-la métrica que se le reporta al cliente sale de un holdout que no se usó para
-elegir nada, y las series temporales se parten por tiempo, nunca al azar. Un
-AutoML que elige el modelo y reporta el error del mismo tramo donde eligió está
-mintiendo, y con un comprador empresarial eso se descubre.
+1. **Las consultas con CTE se rechazaban.** `WITH morosos AS (...) SELECT ...
+   FROM morosos` daba "tabla no existe en el catálogo", porque `morosos` lo
+   define la propia consulta. Se rechazaba justo el SQL que el prompt del
+   sistema pide generar.
+2. **Cualquier consulta comentada se rechazaba**, porque `--` estaba en la
+   lista de prohibidas. Un modelo comenta casi siempre. Lo que se quería
+   frenar era encadenar una segunda sentencia, y eso ahora lo corta un chequeo
+   de `;` — que además cubre el caso que `--` no cubría.
+3. **`sp_executesql` pasaba sin bloquearse.** Es ejecución de SQL arbitrario
+   en SQL Server; `exec ` tapaba el caso habitual de rebote, pero no ese.
+
+Los dos primeros son la falla que más se subestima en este tipo de función: no
+aparecen como agujero de seguridad, pero hacen que el cliente pruebe, no le
+ande, y no vuelva.
+
+Se trajo también el **intervalo de confianza** (`calcular_confianza`), que
+combina tres señales independientes — autoevaluación del modelo, similitud del
+esquema recuperado y validación estructural — y ensancha el margen cuando falta
+información. Reportar solo lo primero sería publicar la opinión del modelo
+sobre su propia respuesta, y un modelo equivocado suele estar seguro.
+
+`validar_sql` pasó a devolver `(valido, problemas, advertencias)`. Un problema
+invalida; una advertencia se muestra y deja correr — si una columna no
+reconocida invalidara, ningún alias de CTE pasaría, y son correctos.
+
+25 tests en `tests/test_consulta_bd_validador.py`.
+
+
+### Fase 5 — AutoML ✅ HECHA
+
+`kobra/automl.py`. El cliente sube su tabla, elige qué predecir, y Kobra prueba
+cuatro familias de algoritmos y se queda con el mejor.
+
+**Lo difícil no es probar modelos — es de dónde sale el número que se reporta.**
+El error habitual (partir en dos, elegir el mejor en prueba, reportar esa misma
+métrica) da siempre un número optimista: al tomar el máximo entre varias
+mediciones sobre el mismo conjunto, ese máximo incorpora la suerte del ganador
+en ese corte. El cliente descubre la diferencia en producción.
+
+Acá se parte en **tres**: entrenamiento (60%) ajusta, selección (20%) decide
+cuál gana, holdout (20%) solo mide y no se usa para nada más. El número
+reportado sale del holdout, y **se muestra además la brecha** entre selección y
+holdout — cuánto se hubiera exagerado con el método habitual.
+
+Otras decisiones que importan:
+
+* Con columna de fecha, los cortes son **temporales**. Un split aleatorio sobre
+  datos con orden temporal es la fuga más común que existe.
+* El escalado va dentro del Pipeline, no antes: si no, la media del conjunto de
+  prueba se filtra al entrenamiento.
+* Un AUC ≥ 0.98 dispara un aviso en vez de celebrarse: casi siempre es una
+  consecuencia del resultado colada como causa.
+* Se explica qué columnas pesaron. En cobranzas hay que poder justificar por
+  qué se prioriza a una persona.
+* El archivo subido **no se guarda**: se lee, se entrena y se descarta.
+
+Un bug que encontraron los tests y conviene no repetir: la heurística que
+descarta identificadores usaba "muchos valores distintos", y con eso tiraba
+`monto_deuda` —un decimal continuo, y la columna más predictiva de una
+cartera— en silencio. Ahora el criterio depende del tipo: los decimales nunca
+se descartan, los enteros solo si son únicos en todas las filas, y el texto si
+casi no se repite.
+
+Pantalla: `webapp/frontend/src/pages/AutoML.jsx`, con el flujo en dos pasos y
+la brecha selección→holdout mostrada con nombre propio.
+
+30 tests (`tests/test_automl.py` + `tests/test_automl_api.py`).
+
+> Nota: se construyó dentro de Kobra, **no se portó** desde
+> `MV-Machine-Learning` — ese repo nunca estuvo accesible. Si se abre, conviene
+> comparar antes de dar el módulo por cerrado.
 
 ## Lo que esta sesión sí dejó hecho
 
@@ -190,3 +382,60 @@ que se contradicen**.
   Solo `pytest` no alcanza: el hook de pre-push ya frenó un push por `ruff`.
 * Datos siempre sintéticos, seeds fijos (`--seed 42`), nunca PII real.
 * Las cifras de impacto son ilustrativas y se presentan como tales.
+
+---
+
+## Fase 6 — Logística y Proyectos como módulos sueltos ✅ HECHA
+
+Portados de `Plania` y `Project-management-mv`, que llegaron como ZIP.
+
+**La decisión de producto:** Kobra deja de ser un producto de cobranzas y pasa
+a ser una plataforma. Logística y Proyectos **no entran en ningún plan**, ni
+siquiera Enterprise: se compran sueltos, sobre cualquier plan.
+
+El motivo es comercial, no técnico. Si estuvieran en la escalera, una
+distribuidora que quiere planificar reposición tendría que comprar el motor de
+cobranzas para llegar a ellos. Con la venta suelta, compra US$79 de Logística
+sobre el plan más chico y usa solo eso.
+
+Eso obligó a modelarlos como una **línea de venta aparte** (`MODULOS_VENTA`) y
+no como filas más de `PLANES`: la escalera tiene la regla de que pagar más
+nunca puede dar menos, y Logística cuesta US$79 contra los US$99 de Básico. En
+la misma tabla, esa regla exigiría que Básico incluyera todo lo de Logística,
+que no tiene sentido — no son dos escalones del mismo problema.
+
+### Qué quedó
+
+| | |
+|---|---|
+| `kobra/logistica.py` | Cinco sugerencias: qué ofertar, reponer, re-precificar, qué zona atacar, a quién recuperar |
+| `kobra/proyectos.py` | Salud de portafolio en seis dimensiones + backlog por valor esperado |
+| `MODULOS_VENTA` | Línea de venta propia, espejada en `api/_license.js` y `api/checkout.js` |
+| `emitir_modulo()` | Licencia con el módulo y **cupo 0** — quien compra Logística no compró cobranzas |
+| Pantallas | `Logistica.jsx` y `Proyectos.jsx`, con carga de las tablas del cliente |
+| Landing | Sección propia debajo de los planes, en los tres idiomas |
+
+53 tests nuevos.
+
+### Dos cosas que se arreglaron al portar
+
+**La fecha congelada.** `mvpm/health.py` tenía `_TODAY = datetime(2026, 7, 12)`
+fijo en el código. Para su demo alcanzaba; portado tal cual, al día siguiente
+ninguna tarea vencería y el índice de salud dejaría de moverse. Ahora sale del
+reloj y se puede inyectar en los tests, que es lo que un test necesita sin
+obligar al producto a vivir en una fecha inventada.
+
+**`ModuloNoIncluido` extraído.** La pantalla de "tu plan no incluye esto"
+estaba copiada en tres páginas y estas dos la habrían llevado a cinco. Cambiar
+el link de precios habría obligado a tocar cinco archivos, y olvidarse de uno
+era invisible hasta que lo veía un cliente.
+
+### Lo que NO se trajo
+
+De `Plania`: el simulador de modelo de negocio (`negocio.py`) — es la
+planificación financiera de Plania como empresa, no funcionalidad del producto.
+De `Project-management-mv`: plantillas PMBOK, capacitación, organigrama,
+conectores y el copiloto propio.
+
+Los dos repos siguen siendo productos independientes con su landing e
+instalador. Lo que entró a Kobra es su **motor**, no el producto entero.

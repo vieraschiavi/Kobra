@@ -48,18 +48,24 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, ROOT)
 
 from backend_venta import licencias as klicencias  # noqa: E402
+from kobra import analista as kanalista  # noqa: E402
 from kobra import analitica as kanalitica  # noqa: E402
 from kobra import autenticacion as kauth  # noqa: E402
+from kobra import automl as kautoml  # noqa: E402
 from kobra import ayuda as kayuda  # noqa: E402
 from kobra import cartera_manual as kcartera  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
 from kobra import cuentas_por_cobrar as kcxc  # noqa: E402
+from kobra import gobernanza as kgob  # noqa: E402
 from kobra import informe_ejecutivo as kinforme  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
 from kobra import llm as kllm  # noqa: E402
+from kobra import logistica as klog  # noqa: E402
+from kobra import medidas as kmedidas  # noqa: E402
 from kobra import owner as kowner  # noqa: E402
 from kobra import paises as kpaises  # noqa: E402
 from kobra import plan as kplan  # noqa: E402
+from kobra import proyectos as kpro  # noqa: E402
 from kobra import rutas as krutas  # noqa: E402
 from kobra import seguimiento as kseg  # noqa: E402
 
@@ -217,6 +223,31 @@ def _scored(empresa: str) -> pd.DataFrame:
 def _gestiones(empresa: str) -> pd.DataFrame | None:
     ruta = _datos_de(empresa)["gestiones"]
     return pd.read_csv(ruta) if os.path.exists(ruta) else None
+
+
+# ---------------------------------------------------------------------------
+# Gobernanza de datos (módulo de la suite)
+# ---------------------------------------------------------------------------
+def _hay_gobernanza() -> bool:
+    """¿El plan incluye el módulo?
+
+    Se consulta con `permite` y no con `exigir` porque acá NO se quiere cortar:
+    quien no compró gobernanza tiene que seguir viendo su cartera igual que
+    siempre. El módulo agrega protección, no la condiciona.
+    """
+    return kplan.permite("gobernanza")
+
+
+def _proteger(df: pd.DataFrame, rol: str) -> pd.DataFrame:
+    """Enmascara según el rol, si el plan incluye gobernanza.
+
+    Sin el módulo devuelve los datos tal cual, que es como Kobra se comportó
+    siempre: activar la protección para quien no la compró le cambiaría el
+    producto de golpe sin haber pedido nada.
+    """
+    if not _hay_gobernanza():
+        return df
+    return kgob.enmascarar(df, rol)
 
 
 def _archivo_pais(empresa: str) -> str:
@@ -962,8 +993,10 @@ def cartera(u: Usuario = Depends(usuario_actual), pagina: int = 1, tamano: int =
     total = len(f)
     ini = (max(1, pagina) - 1) * tamano
     filas = f.iloc[ini:ini + tamano][[c for c in _COLS_CARTERA if c in f.columns]]
+    filas = _proteger(filas, u.rol)
     return {"total": total, "pagina": pagina, "tamano": tamano,
-            "filas": filas.to_dict("records")}
+            "filas": filas.to_dict("records"),
+            "enmascarado": _hay_gobernanza() and u.rol != "admin"}
 
 
 @app.get("/api/cartera/export.csv")
@@ -978,11 +1011,377 @@ def cartera_export(u: Usuario = Depends(usuario_actual), segmento: str | None = 
                          producto, departamento, monto_min, monto_max,
                          dias_min, dias_max, anio, mes)
     f = _ordenar_cartera(f)
+    # El export es la vía por la que un dato se va del programa y ya no vuelve.
+    # Si la pantalla enmascara y el CSV no, la protección es decorativa: alcanza
+    # con apretar "Exportar" para llevarse la cartera nominal completa.
+    f = _proteger(f, u.rol)
     buf = io.StringIO()
     f.to_csv(buf, index=False)
+    if _hay_gobernanza():
+        kgob.registrar_linaje("export_cartera_csv", ["cartera_scoreada"],
+                              "export", filas=len(f),
+                              detalle={"rol": u.rol, "empresa": u.empresa})
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition":
                              "attachment; filename=cartera_priorizada.csv"})
+
+
+# ---------------------------------------------------------------------------
+# Gobernanza de datos — endpoints del módulo
+# ---------------------------------------------------------------------------
+# Estos SÍ usan `exigir`: son el módulo que se paga. Si el plan no lo incluye,
+# el handler de FeatureNoIncluida responde con el mensaje y el link para
+# mejorar el plan, en vez de un 404 que parecería un error del programa.
+_MODULO_GOB = "la gobernanza de datos"
+
+
+@app.get("/api/gobernanza/resumen")
+def gobernanza_resumen(u: Usuario = Depends(usuario_actual)):
+    """Todo lo que muestra la pantalla de gobernanza, en una llamada."""
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    return kgob.resumen(_scored(u.empresa), rol=u.rol)
+
+
+@app.get("/api/gobernanza/catalogo")
+def gobernanza_catalogo(u: Usuario = Depends(usuario_actual)):
+    """Qué es cada columna y quién la ve en claro."""
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    df = _scored(u.empresa)
+    return {"clasificacion": kgob.clasificar_tabla(df),
+            "visibles": kgob.columnas_visibles(u.rol, df.columns),
+            "niveles": list(kgob.NIVELES)}
+
+
+@app.get("/api/gobernanza/calidad")
+def gobernanza_calidad(u: Usuario = Depends(usuario_actual)):
+    """Informe de calidad sobre las seis dimensiones DAMA."""
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    return kgob.evaluar_calidad(_scored(u.empresa))
+
+
+@app.get("/api/gobernanza/linaje")
+def gobernanza_linaje(destino: str | None = None,
+                      u: Usuario = Depends(usuario_actual)):
+    """De dónde salió un dato y qué se rompe si cambia."""
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    return {"asientos": kgob.linaje(destino),
+            "aguas_arriba": kgob.aguas_arriba(destino) if destino else [],
+            "aguas_abajo": kgob.aguas_abajo(destino) if destino else []}
+
+
+@app.get("/api/gobernanza/glosario")
+def gobernanza_glosario(idioma: str = "es",
+                        u: Usuario = Depends(usuario_actual)):
+    """Las definiciones oficiales, atadas a las columnas que las materializan."""
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    return {"terminos": kgob.glosario(idioma)}
+
+
+@app.get("/api/gobernanza/enforcement")
+def gobernanza_enforcement(tabla: str = "cartera", motor: str = "postgresql",
+                           u: Usuario = Depends(solo_admin)):
+    """DDL para aplicar la clasificación en la base del cliente.
+
+    `solo_admin` y no `usuario_actual`: esto devuelve el mapa de qué columna es
+    sensible y qué rol debería verla — o sea, exactamente lo que le sirve a
+    alguien para saber dónde apuntar. Un gestor no tiene por qué tenerlo.
+    """
+    kplan.exigir("gobernanza", _MODULO_GOB)
+    try:
+        return kgob.plan_enforcement(tabla, _scored(u.empresa).columns, motor)
+    except ValueError as e:
+        # Motor no soportado: es un pedido inválido del cliente, no una falla
+        # del servidor. El mensaje ya dice cuáles sí están cubiertos.
+        raise HTTPException(400, str(e)) from e
+
+
+# ---------------------------------------------------------------------------
+# Tablero conversacional
+# ---------------------------------------------------------------------------
+# NO va detrás de un módulo de la suite: es la pantalla de inicio, y cobrarle
+# aparte al cliente por ver sus propios indicadores sería sacarle producto.
+# Lo que sí consume cupo es la pregunta libre, que llama al modelo.
+class PreguntaTableroIn(BaseModel):
+    pregunta: str
+
+
+@app.get("/api/tablero")
+def tablero(u: Usuario = Depends(usuario_actual)):
+    """Indicadores, advertencias, sugerencias y acciones. Sin llamar a la IA.
+
+    Es determinístico a propósito: la pantalla de inicio tiene que abrir y
+    mostrar lo mismo siempre, haya o no proveedor de IA configurado.
+    """
+    return kanalista.tablero(_proteger(_scored(u.empresa), u.rol))
+
+
+@app.post("/api/tablero/preguntar")
+def tablero_preguntar(datos: PreguntaTableroIn, u: Usuario = Depends(usuario_actual)):
+    """Contesta una pregunta sobre la cartera, con los números ya calculados."""
+    try:
+        r = kanalista.responder(datos.pregunta,
+                                _proteger(_scored(u.empresa), u.rol))
+    except kanalista.SinModelo as e:
+        # 409 y no 500: no está roto, falta configurarlo, y el mensaje dice
+        # exactamente dónde.
+        raise HTTPException(409, str(e)) from e
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return r
+
+
+# ---------------------------------------------------------------------------
+# Medidas calculadas (módulo de la suite)
+# ---------------------------------------------------------------------------
+_MODULO_DAX = "las medidas calculadas"
+_CLAVE_MEDIDAS = "MEDIDAS"
+
+
+class MedidaIn(BaseModel):
+    nombre: str
+    formula: str
+    descripcion: str = ""
+    formato: str = "numero"
+
+
+def _clave_medidas(empresa: str) -> str:
+    # Por empresa: en hosted multi-tenant, las medidas de una no son de otra.
+    return f"{_CLAVE_MEDIDAS}_{empresa}"
+
+
+def _medidas_guardadas(empresa: str) -> list:
+    crudo = kconfig.leer_extra(_clave_medidas(empresa))
+    if not crudo:
+        return kmedidas.medidas_de_ejemplo()
+    try:
+        return [kmedidas.Medida.de_dict(d) for d in json.loads(crudo)]
+    except (ValueError, TypeError, KeyError):
+        # Una configuración corrupta no puede dejar sin tablero al cliente:
+        # se vuelve a los ejemplos, que siempre funcionan.
+        return kmedidas.medidas_de_ejemplo()
+
+
+@app.get("/api/medidas")
+def medidas_listar(u: Usuario = Depends(usuario_actual)):
+    """Las medidas definidas y su valor actual sobre la cartera."""
+    kplan.exigir("dax", _MODULO_DAX)
+    ms = _medidas_guardadas(u.empresa)
+    df = _proteger(_scored(u.empresa), u.rol)
+    return {"medidas": [m.a_dict() for m in ms],
+            "valores": kmedidas.calcular_todas(ms, df),
+            "columnas": sorted(df.columns),
+            "funciones": sorted(kmedidas.NOMBRES_FUNCION)}
+
+
+@app.post("/api/medidas/validar")
+def medidas_validar(m: MedidaIn, u: Usuario = Depends(usuario_actual)):
+    """Prueba la fórmula sin guardarla — para el botón 'Probar'."""
+    kplan.exigir("dax", _MODULO_DAX)
+    df = _proteger(_scored(u.empresa), u.rol)
+    revision = kmedidas.validar(m.formula, df.columns)
+    if not revision["ok"]:
+        return revision
+    return {**revision, "vista_previa": kmedidas.Medida(
+        m.nombre or "prueba", m.formula, m.descripcion, m.formato).calcular(df)}
+
+
+@app.post("/api/medidas")
+def medidas_guardar(lista: list[MedidaIn], u: Usuario = Depends(solo_admin)):
+    """Reemplaza el juego de medidas.
+
+    `solo_admin` no es decorativo: una medida es una definición de negocio que
+    después ve todo el equipo en el tablero. Que cualquiera la cambie es que
+    nadie sepa qué está mirando.
+    """
+    kplan.exigir("dax", _MODULO_DAX)
+    df = _scored(u.empresa)
+    invalidas = []
+    for m in lista:
+        r = kmedidas.validar(m.formula, df.columns)
+        if not r["ok"]:
+            invalidas.append({"nombre": m.nombre, "error": r["error"]})
+    if invalidas:
+        # Se rechaza el lote entero: guardar la mitad deja al cliente sin saber
+        # cuáles quedaron.
+        raise HTTPException(400, {"detail": "Hay fórmulas inválidas.",
+                                  "invalidas": invalidas})
+    kconfig.guardar_extra(_clave_medidas(u.empresa),
+                          json.dumps([m.model_dump() for m in lista]))
+    return {"ok": True, "guardadas": len(lista)}
+
+
+# ---------------------------------------------------------------------------
+# AutoML (módulo de la suite)
+# ---------------------------------------------------------------------------
+_MODULO_AUTOML = "el entrenamiento con tus propios datos"
+MAX_MB_DATASET = 50
+
+
+@app.post("/api/automl/columnas")
+async def automl_columnas(archivo: UploadFile = File(...),
+                          u: Usuario = Depends(solo_admin)):
+    """Lee el encabezado del archivo para que el usuario elija qué predecir.
+
+    `solo_admin`: entrenar un modelo con datos de la empresa es una decisión
+    de quien responde por esos datos, no de cualquiera con una sesión abierta.
+    """
+    kplan.exigir("automl", _MODULO_AUTOML)
+    df = await _leer_dataset(archivo)
+    return {"columnas": list(df.columns), "filas": len(df),
+            "vista": df.head(5).astype(str).to_dict("records")}
+
+
+class EntrenarIn(BaseModel):
+    objetivo: str
+    columna_fecha: str | None = None
+
+
+@app.post("/api/automl/entrenar")
+async def automl_entrenar(objetivo: str, columna_fecha: str | None = None,
+                          archivo: UploadFile = File(...),
+                          u: Usuario = Depends(solo_admin)):
+    """Entrena, elige el mejor modelo y devuelve el informe.
+
+    El archivo NO se guarda: se lee, se entrena y se descarta. Lo que persiste
+    son las métricas, que es lo que el cliente necesita revisar después.
+    """
+    kplan.exigir("automl", _MODULO_AUTOML)
+    df = await _leer_dataset(archivo)
+    try:
+        resultado = kautoml.entrenar(df, objetivo, columna_fecha)
+    except kautoml.DatosInsuficientes as e:
+        # 400 y no 500: el problema está en los datos que subió, no en el
+        # programa, y el mensaje le dice exactamente qué corregir.
+        raise HTTPException(400, str(e)) from e
+
+    if kplan.permite("gobernanza"):
+        kgob.registrar_linaje(
+            f"modelo_automl_{objetivo}", [archivo.filename or "dataset_subido"],
+            "entrenamiento automl", filas=len(df),
+            detalle={"modelo": resultado["modelo_elegido"],
+                     "auc_holdout": resultado["holdout"]["auc"],
+                     "usuario": u.rol})
+
+    return {**kautoml.informe(resultado),
+            "importancias": kautoml.importancias(resultado)}
+
+
+async def _leer_dataset(archivo: UploadFile) -> pd.DataFrame:
+    """CSV o Excel subido por el cliente, con tope de tamaño."""
+    contenido = await archivo.read()
+    if len(contenido) > MAX_MB_DATASET * 1024 * 1024:
+        raise HTTPException(
+            413, f"El archivo supera los {MAX_MB_DATASET} MB.")
+    nombre = (archivo.filename or "").lower()
+    try:
+        if nombre.endswith((".xlsx", ".xls")):
+            return pd.read_excel(io.BytesIO(contenido))
+        return pd.read_csv(io.BytesIO(contenido))
+    except Exception as e:                              # noqa: BLE001
+        raise HTTPException(
+            400, "No se pudo leer el archivo. Tiene que ser un CSV o un Excel."
+        ) from e
+
+
+# ---------------------------------------------------------------------------
+# Logística y Proyectos — módulos de otro rubro, se venden sueltos
+# ---------------------------------------------------------------------------
+# No son de cobranzas: trabajan sobre tablas que sube el cliente (productos y
+# ventas; proyectos y tareas), no sobre la cartera. Por eso guardan sus datos
+# en archivos propios de la empresa y no tocan nada del núcleo.
+_MODULO_LOG = "el módulo de logística"
+_MODULO_PRO = "el módulo de proyectos"
+
+
+def _archivo_modulo(empresa: str, modulo: str, tabla: str) -> str:
+    base = os.path.dirname(_datos_de(empresa)["scored"])
+    return os.path.join(base, f"{modulo}_{tabla}.csv")
+
+
+def _tabla_modulo(empresa: str, modulo: str, tabla: str,
+                  obligatoria: bool = True) -> pd.DataFrame:
+    ruta = _archivo_modulo(empresa, modulo, tabla)
+    if not os.path.exists(ruta):
+        if not obligatoria:
+            return pd.DataFrame()
+        raise HTTPException(
+            404, f"Todavía no cargaste la tabla de {tabla}. Subila desde la "
+                 f"pantalla del módulo para empezar a usarlo.")
+    return pd.read_csv(ruta)
+
+
+@app.post("/api/modulo/{modulo}/cargar/{tabla}")
+async def modulo_cargar(modulo: str, tabla: str,
+                        archivo: UploadFile = File(...),
+                        u: Usuario = Depends(solo_admin)):
+    """Sube una de las tablas que necesita un módulo (CSV o Excel).
+
+    `solo_admin`: define los datos sobre los que después va a decidir toda la
+    empresa. Un gestor los consulta, no los reemplaza.
+    """
+    if modulo not in ("logistica", "proyectos"):
+        raise HTTPException(404, f"Módulo desconocido: {modulo}")
+    kplan.exigir(modulo, _MODULO_LOG if modulo == "logistica" else _MODULO_PRO)
+
+    permitidas = {"logistica": ("productos", "ventas", "clientes"),
+                  "proyectos": ("proyectos", "tareas", "equipo")}[modulo]
+    if tabla not in permitidas:
+        raise HTTPException(
+            400, f"Tabla desconocida para {modulo}: {tabla}. "
+                 f"Se esperan: {', '.join(permitidas)}.")
+
+    contenido = await archivo.read()
+    nombre = (archivo.filename or "").lower()
+    try:
+        df = (pd.read_excel(io.BytesIO(contenido))
+              if nombre.endswith((".xlsx", ".xls"))
+              else pd.read_csv(io.BytesIO(contenido)))
+    except Exception as e:
+        raise HTTPException(400, f"No se pudo leer el archivo: {e}") from e
+
+    ruta = _archivo_modulo(u.empresa, modulo, tabla)
+    os.makedirs(os.path.dirname(ruta), exist_ok=True)
+    df.to_csv(ruta, index=False)
+    kgob.registrar_linaje(f"{modulo}_{tabla}", [nombre or "carga_manual"],
+                          "carga", filas=len(df),
+                          detalle={"empresa": u.empresa, "rol": u.rol})
+    return {"tabla": tabla, "filas": len(df), "columnas": list(df.columns)}
+
+
+@app.get("/api/logistica/resumen")
+def logistica_resumen(u: Usuario = Depends(usuario_actual)):
+    """Indicadores + las cinco listas de sugerencias."""
+    kplan.exigir("logistica", _MODULO_LOG)
+    productos = _tabla_modulo(u.empresa, "logistica", "productos")
+    ventas = _tabla_modulo(u.empresa, "logistica", "ventas")
+    clientes = _tabla_modulo(u.empresa, "logistica", "clientes", obligatoria=False)
+    try:
+        d = klog.todas(productos, ventas, clientes if len(clientes) else None)
+    except klog.DatosIncompletos as e:
+        # Le falta una columna al archivo del cliente: es lo único que él puede
+        # arreglar, así que el mensaje va tal cual, no como error genérico.
+        raise HTTPException(400, str(e)) from e
+    return {
+        "indicadores": d["indicadores"],
+        **{k: v.to_dict("records") for k, v in d.items() if k != "indicadores"},
+    }
+
+
+@app.get("/api/proyectos/resumen")
+def proyectos_resumen(top: int = 10, u: Usuario = Depends(usuario_actual)):
+    """Salud del portafolio y backlog priorizado."""
+    kplan.exigir("proyectos", _MODULO_PRO)
+    proyectos = _tabla_modulo(u.empresa, "proyectos", "proyectos")
+    tareas = _tabla_modulo(u.empresa, "proyectos", "tareas")
+    equipo = _tabla_modulo(u.empresa, "proyectos", "equipo", obligatoria=False)
+    try:
+        r = kpro.resumen(proyectos, tareas, equipo if len(equipo) else None,
+                         top=max(1, min(top, 100)))
+    except kpro.DatosIncompletos as e:
+        raise HTTPException(400, str(e)) from e
+    return {**{k: v for k, v in r.items() if k not in ("salud", "backlog")},
+            "salud": r["salud"].to_dict("records"),
+            "backlog": r["backlog"].to_dict("records")}
 
 
 @app.get("/api/informe/ejecutivo.pdf")

@@ -44,12 +44,43 @@ _CLAVE_SECRETO = "LICENSE_SECRET"
 #   gobernanza — catálogo, linaje, calidad, PII y RBAC sobre los datos.
 #   dax        — medidas calculadas: el cliente define sus propios KPIs.
 #   automl     — el cliente entrena un modelo con su propio dataset.
+#   logistica  — stock, reposición, ofertas y precios (motor de Plania).
+#   proyectos  — salud de portafolio y backlog priorizado (motor de MV PM).
+#
+# Los dos últimos NO son de cobranzas, y por eso se venden sueltos y no entran
+# en ningún plan: un distribuidor que quiere planificar reparto no tiene por
+# qué pagar el motor de cobranzas para llegar a ellos. Kobra pasa a ser la
+# plataforma; el rubro lo elige el cliente comprando el módulo que le sirve.
 #
 # Se listan acá y no sueltos en cada plan para que agregar un módulo nuevo sea
 # un solo lugar, y para que se pueda distinguir un módulo de la suite de una
 # capacidad del núcleo (`voz`, `whatsapp`) al armar el mensaje de "tu plan no
 # incluye esto". Lo cuida tests/test_modulos_suite.py.
-MODULOS = ("gobernanza", "dax", "automl")
+MODULOS = ("gobernanza", "dax", "automl", "logistica", "proyectos")
+
+# Módulos que se venden SOLO sueltos: no entran en ningún plan por más caro
+# que sea, porque resuelven otro rubro. Lo cuida tests/test_modulos_suite.py.
+MODULOS_SUELTOS = ("logistica", "proyectos")
+
+# Catálogo de venta de esos módulos. Es una línea de producto APARTE de
+# `PLANES`, no una fila más de la misma tabla, y la diferencia importa:
+#
+#   * Los planes forman una escalera donde pagar más nunca puede dar menos
+#     (lo verifica tests/test_plan_diferenciado.py). Logística cuesta US$79 y
+#     Básico US$99: si estuvieran en la misma tabla, esa regla diría que
+#     Básico tiene que incluir todo lo de Logística, y no tiene sentido —
+#     resuelven problemas distintos, no son dos escalones del mismo.
+#   * Un comprador de Logística no está comprando "menos Kobra": está
+#     comprando otro producto que corre en la misma plataforma.
+#
+# `cupo_mensual: 0` porque estas licencias no habilitan gestiones de cobranza.
+# No es un castigo: es que no compraron eso.
+MODULOS_VENTA = {
+    "logistica": {"precio": 79.0, "dias": 30, "feature": "logistica",
+                  "nombre": "Logística y reposición"},
+    "proyectos": {"precio": 69.0, "dias": 30, "feature": "proyectos",
+                  "nombre": "Proyectos"},
+}
 
 # Capacidades del núcleo de cobranzas: van en todos los planes, incluido el
 # trial. Son lo que Kobra ya hacía antes de la suite.
@@ -138,6 +169,25 @@ def emitir_licencia(cliente_id: str, plan: str, edicion: str = "venta",
         # instalada sin repartir ningún secreto. Ver licencia_clave.py.
         return jwt.encode(payload, privada, algorithm=kclave.ALGORITMO)
     return jwt.encode(payload, secreto or secreto_firma(), algorithm="HS256")
+
+
+def emitir_modulo(cliente_id: str, modulo: str, edicion: str = "venta",
+                  dias: int | None = None, secreto: str | None = None) -> str:
+    """Licencia de un módulo suelto, sin plan de cobranzas.
+
+    Es lo que recibe una distribuidora que compra solo Logística: entra al
+    programa, usa su módulo, y no tiene cupo de gestiones porque no compró
+    cobranzas. El `plan` del token lleva el nombre del módulo — sirve para
+    mostrarlo y para soporte; lo que habilita son las `features`.
+    """
+    if modulo not in MODULOS_VENTA:
+        raise ValueError(f"módulo desconocido: {modulo!r} "
+                         f"(válidos: {list(MODULOS_VENTA)})")
+    cfg = MODULOS_VENTA[modulo]
+    return emitir_licencia(cliente_id, "basico", edicion=edicion,
+                           cupo_mensual=0, features=[cfg["feature"]],
+                           dias=dias if dias is not None else cfg["dias"],
+                           secreto=secreto)
 
 
 def validar_licencia(token: str, secreto: str | None = None) -> dict:

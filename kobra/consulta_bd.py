@@ -251,29 +251,133 @@ def generar_sql_claude(pregunta: str, fichas_relevantes: list[dict], dialecto: s
 # ---------------------------------------------------------------------------
 # 4) Validador — cero columnas inventadas, solo lectura
 # ---------------------------------------------------------------------------
+# `--` y `;--` salieron de la lista: son comentarios, y prohibirlos rechazaba
+# todo SQL comentado —que es casi todo el que genera un modelo— sin aportar
+# seguridad. Lo que se buscaba frenar con ellos era encadenar una segunda
+# sentencia, y eso ahora lo corta el chequeo de `;` en validar_sql.
+#
+# `xp_` y `sp_executesql` entraron: son los dos caminos de SQL Server para
+# ejecutar comandos arbitrarios, y solo el primero quedaba cubierto de rebote
+# por `exec `. Traídos del motor de MV SQL.
 _PROHIBIDAS = ("insert ", "update ", "delete ", "drop ", "alter ", "truncate ",
-              "create ", "exec ", "execute ", "merge ", "grant ", "--", ";--")
+               "create ", "exec ", "execute ", "merge ", "grant ", "revoke ",
+               "xp_", "sp_executesql")
 
 
-def validar_sql(sql: str, catalogo: dict) -> tuple[bool, list[str]]:
-    """(es_valido, problemas). Bloquea todo lo que no sea SELECT/WITH de solo lectura."""
-    problemas = []
-    sql_lower = sql.lower()
+# Palabras que el extractor de tablas confunde con nombres de tabla. Sin esta
+# lista, `FROM generate_series(...)` o `FROM (VALUES ...)` se reportan como
+# "tabla inexistente" y se rechaza una consulta perfectamente válida.
+_PALABRAS_SQL = {
+    "select", "where", "group", "order", "having", "limit", "offset", "union",
+    "unnest", "generate_series", "dual", "values", "lateral",
+}
+
+
+def _sin_comentarios(sql: str) -> str:
+    """Saca los comentarios antes de analizar la consulta.
+
+    Antes `--` estaba en la lista de prohibidas, o sea que **cualquier SQL con
+    un comentario se rechazaba** — y un modelo comenta casi siempre. El
+    problema real nunca fue el comentario en sí sino lo que se esconde detrás
+    para colar una segunda sentencia; eso lo corta el chequeo de `;`, no
+    prohibir el guion doble.
+    """
+    sin_linea = re.sub(r"--[^\n]*", " ", sql)
+    return re.sub(r"/\*.*?\*/", " ", sin_linea, flags=re.DOTALL)
+
+
+def validar_sql(sql: str, catalogo: dict) -> tuple[bool, list[str], list[str]]:
+    """(es_valido, problemas, advertencias).
+
+    Un problema invalida la consulta; una advertencia se muestra pero deja
+    correr. La distinción importa: si una columna no reconocida invalidara,
+    ningún alias de CTE pasaría, y son correctos.
+
+    Incorpora tres arreglos traídos del motor de MV SQL:
+
+    * **CTEs.** `WITH morosos AS (...) SELECT ... FROM morosos` se rechazaba
+      con "tabla inexistente", porque `morosos` no está en el catálogo — es un
+      nombre que define la propia consulta. Se rechazaba justo el SQL más
+      profesional, que es el que el prompt del sistema pide generar.
+    * **Comentarios.** Ver `_sin_comentarios`.
+    * **`sp_executesql`.** No estaba en la lista de prohibidas: `exec ` tapaba
+      el caso habitual, pero no todos.
+    """
+    problemas, advertencias = [], []
+    limpio = _sin_comentarios(sql)
+    s = limpio.lower()
 
     for p in _PROHIBIDAS:
-        if p in sql_lower:
+        if p in s:
             problemas.append(f"Operación no permitida detectada: '{p.strip()}'")
-    if not sql_lower.lstrip().startswith(("select", "with")):
+    if not s.lstrip().startswith(("select", "with")):
         problemas.append("La consulta debe empezar con SELECT (o WITH).")
+    # Una segunda sentencia encadenada es la forma clásica de colar escritura.
+    if ";" in s.rstrip().rstrip(";"):
+        problemas.append("No se permite más de una sentencia en la misma consulta.")
 
-    tablas_catalogo = {t.lower() for t in catalogo["tablas"]} | {v.lower() for v in catalogo.get("vistas", {})}
-    tablas_en_sql = set(re.findall(r"(?:from|join)\s+\"?\[?([a-zA-Z_][a-zA-Z0-9_]*)\]?\"?", sql_lower))
+    # Los nombres que la consulta define para sí misma cuentan como tablas.
+    nombres_cte = set(re.findall(
+        r"(?:with|,)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+as\s*\(", s))
+
+    tablas_catalogo = ({t.lower() for t in catalogo["tablas"]}
+                       | {v.lower() for v in catalogo.get("vistas", {})})
+    tablas_en_sql = set(re.findall(
+        r"(?:from|join)\s+\"?\[?([a-zA-Z_][a-zA-Z0-9_.]*)\]?\"?", s))
     for t in tablas_en_sql:
-        if t not in tablas_catalogo:
+        simple = t.split(".")[-1]
+        if simple in _PALABRAS_SQL or simple in nombres_cte:
+            continue
+        if simple not in tablas_catalogo:
             problemas.append(f"Tabla no existe en el catálogo: '{t}'")
 
-    graves = [p for p in problemas if "no existe" in p or "no permitida" in p or "debe empezar" in p]
-    return (len(graves) == 0, problemas)
+    # Columnas: advertencia, nunca problema. Un `alias.columna` puede referirse
+    # a un CTE cuyas columnas no están en el catálogo y ser correcto.
+    columnas_catalogo = set()
+    for info in catalogo["tablas"].values():
+        for c in info.get("columnas", []):
+            columnas_catalogo.add(str(c.get("columna", "")).lower())
+    for col in set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*\.([a-zA-Z_][a-zA-Z0-9_]*)", s)):
+        if col not in columnas_catalogo and col not in _PALABRAS_SQL:
+            advertencias.append(
+                f"Columna no reconocida en el catálogo: '{col}' "
+                "(puede ser un alias de CTE)")
+
+    return (len(problemas) == 0, problemas, advertencias)
+
+
+def calcular_confianza(conf_modelo: float | None, similitud: float | None,
+                       es_valido: bool, n_advertencias: int,
+                       usa_cte: bool = False) -> dict:
+    """Cuánta confianza merece esta respuesta, con intervalo.
+
+    Traído de MV SQL. Combina tres señales **independientes** entre sí, que es
+    lo que hace que el número signifique algo: si solo se reportara lo que el
+    modelo dice de sí mismo, sería su opinión sobre su propia respuesta, y un
+    modelo equivocado suele estar seguro.
+
+      55%  autoevaluación del modelo
+      25%  qué tan parecido era el esquema recuperado a la pregunta
+      20%  validación estructural contra el catálogo
+
+    El intervalo se ensancha cuando falta información: sin autoevaluación del
+    modelo no se puede ser tan preciso, y decirlo es más honesto que inventar
+    un número redondo.
+    """
+    base = conf_modelo if conf_modelo is not None else 60
+    senal_rag = min(1.0, (similitud or 0) * 3.0) * 100
+    senal_val = (100 if es_valido else 20) - min(30, n_advertencias * 10)
+
+    puntaje = 0.55 * base + 0.25 * senal_rag + 0.20 * max(0, senal_val)
+    if usa_cte:
+        puntaje = min(100, puntaje + 2)       # estructura explícita
+
+    margen = 5 if conf_modelo is not None else 12
+    if not es_valido:
+        margen += 8
+    puntaje = max(0, min(100, round(puntaje)))
+    return {"puntaje": puntaje, "margen": margen,
+            "desde": max(0, puntaje - margen), "hasta": min(100, puntaje + margen)}
 
 
 # ---------------------------------------------------------------------------
@@ -332,9 +436,16 @@ class MotorConsultaBD:
             return resultado
 
         resultado["sql"] = sql
-        es_valido, problemas = validar_sql(sql, self.catalogo)
+        es_valido, problemas, advertencias = validar_sql(sql, self.catalogo)
         resultado["valido"] = es_valido
         resultado["problemas"] = problemas
+        resultado["advertencias"] = advertencias
+        # Cuánta confianza merece la respuesta, con intervalo. Un número sin
+        # margen se lee como certeza, y esto es una estimación.
+        resultado["confianza"] = calcular_confianza(
+            resultado.get("confianza_modelo"), resultado.get("similitud"),
+            es_valido, len(advertencias),
+            usa_cte=sql.lower().lstrip().startswith("with"))
 
         if es_valido:
             try:

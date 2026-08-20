@@ -19,6 +19,18 @@ const PLANS = {
   pro:     { title: "MV Kobra AI · Pro (todo incluido)", price: 349.0 },
   starter: { title: "MV Kobra AI · Starter (licencia)",  price: 690.0 },
 };
+
+// Módulos que se venden sueltos, sobre cualquier plan. Van en un catálogo
+// aparte y no como una fila más de PLANS porque no son escalones de la misma
+// escalera: Logística cuesta menos que Básico y no es "menos Kobra", es otro
+// producto. Espejo de backend_venta/licencias.py::MODULOS_VENTA.
+const MODULOS = {
+  logistica: { title: "MV Kobra AI · Logística y reposición", price: 79.0 },
+  proyectos: { title: "MV Kobra AI · Proyectos",              price: 69.0 },
+};
+
+// Lo que se puede comprar: planes y módulos, con el mismo flujo de pago.
+const COMPRABLES = { ...PLANS, ...MODULOS };
 // La cuenta de cobro (collector) de Mercado Pago 1007782272006 es de Uruguay (site MLU),
 // que solo acepta preferencias en UYU: mandar "USD" hace que la API rechace la preferencia
 // (no llega init_point) y el checkout falla con "No se pudo iniciar el pago". Los precios en
@@ -38,7 +50,7 @@ module.exports = async (req, res) => {
 
   const body = typeof req.body === "string" ? safeJson(req.body) : (req.body || {});
   const plan = String(body.plan || "").toLowerCase();
-  const p = PLANS[plan];
+  const p = COMPRABLES[plan];
   if (!p) { res.status(400).json({ error: "plan_invalido" }); return; }
 
   const base = "https://" + (req.headers.host || "mvkobranzaia.com");

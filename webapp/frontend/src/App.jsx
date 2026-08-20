@@ -14,6 +14,12 @@ import CuentasPorCobrar from "./pages/CuentasPorCobrar.jsx";
 import Agenda from "./pages/Agenda.jsx";
 import Gestores from "./pages/Gestores.jsx";
 import Calidad from "./pages/Calidad.jsx";
+import Gobernanza from "./pages/Gobernanza.jsx";
+import Logistica from "./pages/Logistica.jsx";
+import Proyectos from "./pages/Proyectos.jsx";
+import AutoML from "./pages/AutoML.jsx";
+import Tablero from "./pages/Tablero.jsx";
+import Medidas from "./pages/Medidas.jsx";
 import Asistente from "./pages/Asistente.jsx";
 import Roi from "./pages/Roi.jsx";
 import Configuracion from "./pages/Configuracion.jsx";
@@ -30,16 +36,22 @@ import {
 // sistemas operativos y con el acabado sobrio que pide una plataforma B2B.
 const NAV = [
   { ruta: "/", ico: <IcoGrafica />, clave: "app.nav.vision_general" },
+  { ruta: "/tablero", ico: <IcoAsistente />, clave: "app.nav.tablero" },
   { ruta: "/originacion", ico: <IcoBanco />, clave: "app.nav.originacion" },
   { ruta: "/cartera", ico: <IcoLista />, clave: "app.nav.cartera" },
   { ruta: "/cuentas-por-cobrar", ico: <IcoBanco />, clave: "app.nav.cxc" },
   { ruta: "/agenda", ico: <IcoCalendario />, clave: "app.nav.agenda" },
   { ruta: "/gestores", ico: <IcoEquipo />, clave: "app.nav.gestores" },
   { ruta: "/calidad", ico: <IcoCalidad />, clave: "app.nav.calidad" },
+  { ruta: "/gobernanza", ico: <IcoEscudo />, clave: "app.nav.gobernanza" },
+  { ruta: "/medidas", ico: <IcoTendencia />, clave: "app.nav.medidas" },
+  { ruta: "/automl", ico: <IcoCalidad />, clave: "app.nav.automl", admin: true },
   { ruta: "/asistente", ico: <IcoAsistente />, clave: "app.nav.asistente" },
   { ruta: "/roi", ico: <IcoTendencia />, clave: "app.nav.roi" },
   { ruta: "/portal-cobros", ico: <IcoPago />, clave: "app.nav.portal_cobros", admin: true },
   { ruta: "/demo-vivo", ico: <IcoAsistente />, clave: "app.nav.demo_vivo", admin: true },
+  { ruta: "/logistica", ico: <IcoLista />, clave: "app.nav.logistica" },
+  { ruta: "/proyectos", ico: <IcoCalendario />, clave: "app.nav.proyectos" },
   { ruta: "/configuracion", ico: <IcoAjustes />, clave: "app.nav.configuracion", admin: true },
 ];
 
@@ -264,6 +276,12 @@ export default function App() {
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/gestores" element={<Gestores />} />
           <Route path="/calidad" element={<Calidad />} />
+          <Route path="/gobernanza" element={<Gobernanza />} />
+          <Route path="/logistica" element={<Logistica />} />
+          <Route path="/proyectos" element={<Proyectos />} />
+          <Route path="/medidas" element={<Medidas />} />
+          <Route path="/automl" element={<AutoML />} />
+          <Route path="/tablero" element={<Tablero />} />
           <Route path="/asistente" element={<Asistente />} />
           <Route path="/roi" element={<Roi />} />
           <Route path="/portal-cobros" element={<PortalCobros />} />

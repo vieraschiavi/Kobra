@@ -171,6 +171,18 @@ nav .wrap{display:flex;align-items:center;gap:16px;height:60px}
 .plan .btn{width:100%}
 .btn-d{background:var(--ink-d);color:#fff}.btn-d:hover{background:#0a1626}
 .btn-od{background:#fff;color:var(--ink-d);border-color:var(--line-d)}.btn-od:hover{border-color:var(--amber);color:var(--amber2)}
+.sueltos{margin-top:34px;padding-top:28px;border-top:1px solid var(--line-d)}
+.sueltos h3{font-size:20px;color:var(--ink-d);margin:0 0 4px}
+.sueltos .who{margin-bottom:18px;min-height:0}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.mcard{background:var(--paper);border:1px solid var(--line-d);border-radius:18px;padding:22px;display:flex;flex-direction:column}
+.mcard h4{font-size:17px;color:var(--ink-d);margin:0 0 8px}
+.mcard .amt{font-size:30px;font-weight:850;color:var(--ink-d);line-height:1;letter-spacing:-.02em}
+.mcard .amt small{font-size:14px;color:var(--muted-d);font-weight:600}
+.mcard ul{list-style:none;padding:0;margin:14px 0 18px;flex:1}
+.mcard li{font-size:13px;color:var(--muted-d);padding:6px 0 6px 20px;position:relative}
+.mcard li::before{content:"◆";position:absolute;left:0;font-size:11px;color:var(--amber2)}
+.mcard .btn{width:100%}
 .paynote{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-top:24px;color:var(--muted-d);font-size:13px}
 .paybadge{background:var(--tint);border:1px solid var(--line-d);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--ink-d)}
 
@@ -486,7 +498,7 @@ nav{background:rgba(8,19,36,.62);
       <div class="pais-precio" data-pais-precio="p1"></div>
       <ul><li data-i="p1a">App de PC completa</li><li data-i="p1b">Voz · WhatsApp · copiloto · ERP</li>
         <li data-i="p1c">Usás tus propias claves</li><li data-i="p1d">Actualizaciones incluidas</li>
-        <li class="mod" data-i="p1mod">Suite: Gobernanza de datos + Medidas propias · próximamente</li></ul>
+        <li class="mod" data-i="p1mod">Suite: Gobernanza de datos + Medidas propias</li></ul>
       <button class="btn btn-od" data-pay="starter" data-i="p1cta">Comprar Starter</button>
     </div>
     <div class="plan pop">
@@ -498,7 +510,7 @@ nav{background:rgba(8,19,36,.62);
       <div class="pais-precio" data-pais-precio="p2"></div>
       <ul><li data-i="p2a">APIs embebidas y medidas</li><li data-i="p2b">Voz neural incluida (sin costo/min)</li>
         <li data-i="p2c">Cupo mensual + excedente por gestión</li><li data-i="p2d">Soporte prioritario</li>
-        <li class="mod" data-i="p2mod">Suite: Gobernanza de datos · próximamente</li></ul>
+        <li class="mod" data-i="p2mod">Suite: Gobernanza de datos</li></ul>
       <button class="btn btn-a" data-pay="pro" data-i="p2cta">Suscribirme al Pro</button>
     </div>
     <div class="plan">
@@ -509,10 +521,37 @@ nav{background:rgba(8,19,36,.62);
       <div class="pais-precio" data-pais-precio="p3"></div>
       <ul><li data-i="p3a">Usuarios ilimitados · SSO</li><li data-i="p3b">Auditoría con cadena de hashes</li>
         <li data-i="p3c">ERP a medida · SLA</li><li data-i="p3d">Onboarding dedicado</li>
-        <li class="mod" data-i="p3mod">Suite completa: Gobernanza + Medidas + AutoML · próximamente</li></ul>
+        <li class="mod" data-i="p3mod">Suite completa: Gobernanza + Medidas + AutoML</li></ul>
       <button class="btn btn-od" data-pay="enterprise" data-i="p3cta">Hablar con ventas</button>
     </div>
   </div>
+  <!-- Modulos de otro rubro: se compran sueltos, sobre cualquier plan.
+       Van despues de la tabla de planes y no dentro, a proposito: meterlos en
+       una columna los haria parecer parte de la escalera de cobranzas, y son
+       otra cosa — una distribuidora compra logistica sin comprar cobranzas. -->
+  <div class="sueltos">
+    <h3 data-i="msueltos">Módulos que se compran aparte</h3>
+    <p class="who" data-i="msueltossub">Funcionan sobre cualquier plan, incluso el más chico. Si tu negocio no es cobranzas, comprás solo el que te sirve.</p>
+    <div class="mgrid">
+      <div class="mcard">
+        <h4 data-i="mlogt">Logística y reposición</h4>
+        <div class="amt">US$79<small>/mes</small></div>
+        <ul><li data-i="mloga">Qué ofertar, sin perforar tu margen</li>
+          <li data-i="mlogb">Qué reponer antes de quedarte sin stock</li>
+          <li data-i="mlogc">Qué re-precificar y a qué cliente recuperar</li></ul>
+        <button class="btn btn-od" data-pay="logistica" data-i="mlogcta">Comprar Logística</button>
+      </div>
+      <div class="mcard">
+        <h4 data-i="mprot">Proyectos</h4>
+        <div class="amt">US$69<small>/mes</small></div>
+        <ul><li data-i="mproa">Salud de portafolio en seis dimensiones</li>
+          <li data-i="mprob">Backlog priorizado por valor esperado</li>
+          <li data-i="mproc">Alerta de presupuesto antes del 100%</li></ul>
+        <button class="btn btn-od" data-pay="proyectos" data-i="mprocta">Comprar Proyectos</button>
+      </div>
+    </div>
+  </div>
+
   <div class="paynote">
     <span data-i="paylead">Medios de pago:</span>
     <span class="paybadge">Tarjeta</span><span class="paybadge">MercadoPago</span>
@@ -635,9 +674,9 @@ var I18N={
     f6t:"Contas a receber, calculado",f6p:"Aging de saldos, DSO, efetividade de cobrança, conciliação de pagamentos e detecção de pagamentos duplicados ou mal aplicados — sobre sua carteira real, sem colar tabelas em lugar nenhum. São cálculos: os mesmos dados dão sempre o mesmo número, e por isso servem para fechar um mês.",f6a:"Concilia um pagamento contra suas faturas abertas",f6b:"Se houver mais de uma opção possível, avisa e não escolhe",f5t:"Portal de pagamentos para o devedor",f5p:"Cobranças centralizadas: o devedor entra com um QR, um link de pagamento ou usuário e código, vê suas faturas pendentes e paga total ou parcial por transferência bancária ou MercadoPago. Cada pagamento é registrado automaticamente no seu ERP/CRM (webhook + API).",vnuevo:"Novo na plataforma: contas a receber calculado — aging de saldos, DSO, efetividade de cobrança e conciliação de pagamentos sobre sua carteira real; mais o portal de pagamentos para o devedor, que cobra sozinho com QR, link ou usuário.",
     ey3:"Planos",st3:"Escolha seu plano e comece hoje",sl3:"Preço de referência em dólares; cobrado em pesos uruguaios (MercadoPago, cartão ou transferência) na cotação do dia. Assim que o pagamento é confirmado você baixa o programa com tudo incluído e a licença é emitida na hora: mesmo que feche a aba ou fique sem sinal, ela não se perde — nós a fazemos chegar até você.",
     p0t:"Básico",p0w:"Para começar pequeno, sem pagamento grande de entrada.",p0per:"300 gestões incluídas",p0uyu:"≈ $U 3.960/mês · cobrado em pesos uruguaios",p0a:"Voz · WhatsApp · copiloto · ERP",p0b:"Sem instalar nada técnico",p0c:"Cota mensal · sem fidelidade",p0d:"Ideal para PMEs e escritórios pequenos",p0mod:"Módulos da suíte: a partir do Pro",p0cta:"Começar com Básico",
-    p1t:"Starter",p1w:"Traga suas próprias APIs. Ideal para técnicos.",p1per:"licença + US$49/mês suporte",p1uyu:"≈ $U 27.600 + $U 1.960/mês · cobrado em pesos uruguaios",p1a:"App de PC completo",p1b:"Voz · WhatsApp · copiloto · ERP",p1c:"Use suas próprias chaves",p1d:"Atualizações incluídas",p1mod:"Suíte: Governança de dados + Medidas próprias · em breve",p1cta:"Comprar Starter",
-    poptag:"Recomendado",p2t:"Pro · Tudo incluído",p2w:"Abra e use. Sem configurar nada técnico.",p2per:"+ uso · 1.000 gestões incluídas",p2uyu:"≈ $U 13.960/mês · cobrado em pesos uruguaios",p2a:"APIs embutidas e medidas",p2b:"Voz neural incluída (sem custo/min)",p2c:"Cota mensal + excedente por gestão",p2d:"Suporte prioritário",p2mod:"Suíte: Governança de dados · em breve",p2cta:"Assinar o Pro",
-    p3t:"Enterprise",p3w:"Bancos, grandes escritórios.",p3amt:"Sob medida",p3per:"a partir de US$1.500/mês",p3uyu:"≈ desde $U 60.000/mês · cobrado em pesos uruguaios",p3a:"Usuários ilimitados · SSO",p3b:"Auditoria com cadeia de hashes",p3c:"ERP sob medida · SLA",p3d:"Onboarding dedicado",p3mod:"Suíte completa: Governança + Medidas + AutoML · em breve",p3cta:"Falar com vendas",
+    p1t:"Starter",p1w:"Traga suas próprias APIs. Ideal para técnicos.",p1per:"licença + US$49/mês suporte",p1uyu:"≈ $U 27.600 + $U 1.960/mês · cobrado em pesos uruguaios",p1a:"App de PC completo",p1b:"Voz · WhatsApp · copiloto · ERP",p1c:"Use suas próprias chaves",p1d:"Atualizações incluídas",p1mod:"Suíte: Governança de dados + Medidas próprias",p1cta:"Comprar Starter",
+    poptag:"Recomendado",p2t:"Pro · Tudo incluído",p2w:"Abra e use. Sem configurar nada técnico.",p2per:"+ uso · 1.000 gestões incluídas",p2uyu:"≈ $U 13.960/mês · cobrado em pesos uruguaios",p2a:"APIs embutidas e medidas",p2b:"Voz neural incluída (sem custo/min)",p2c:"Cota mensal + excedente por gestão",p2d:"Suporte prioritário",p2mod:"Suíte: Governança de dados",p2cta:"Assinar o Pro",
+    p3t:"Enterprise",p3w:"Bancos, grandes escritórios.",p3amt:"Sob medida",p3per:"a partir de US$1.500/mês",p3uyu:"≈ desde $U 60.000/mês · cobrado em pesos uruguaios",p3a:"Usuários ilimitados · SSO",p3b:"Auditoria com cadeia de hashes",p3c:"ERP sob medida · SLA",p3d:"Onboarding dedicado",p3mod:"Suíte completa: Governança + Medidas + AutoML",p3cta:"Falar com vendas",msueltos:"Módulos que se compram à parte",msueltossub:"Funcionam em qualquer plano, mesmo o menor. Se o seu negócio não é cobrança, você compra só o que serve.",mlogt:"Logística e reposição",mloga:"O que ofertar, sem furar sua margem",mlogb:"O que repor antes de ficar sem estoque",mlogc:"O que reprecificar e qual cliente recuperar",mlogcta:"Comprar Logística",mprot:"Projetos",mproa:"Saúde de portfólio em seis dimensões",mprob:"Backlog priorizado por valor esperado",mproc:"Alerta de orçamento antes dos 100%",mprocta:"Comprar Projetos",
     paylead:"Meios de pagamento:",payb1:"Transferência",paysec:"Pagamento seguro · o dinheiro cai na sua conta configurada",
     dey:"Demo ao vivo",bandt:"Teste a MV Kobra AI agora mesmo",bandp:"Abra o painel interativo e veja como prioriza a carteira, negocia e registra cada gestão.",bandcta:"▶ Abrir a demo",
     eyr:"Confiança",str:"Avaliações e compromissos verificáveis",
@@ -675,9 +714,9 @@ var I18N={
     f6t:"Accounts receivable, computed",f6p:"Aging report, DSO, collection effectiveness, payment reconciliation and detection of duplicate or misapplied payments — on your real portfolio, without pasting tables anywhere. These are calculations: the same data always yields the same number, which is why they hold up at month-end close.",f6a:"Reconciles a payment against your open invoices",f6b:"If more than one match is possible, it says so and does not pick",f5t:"Debtor payment portal",f5p:"Centralized collections: the debtor signs in with a QR code, a payment link, or a user and code, sees their outstanding invoices and pays in full or partially by bank transfer or MercadoPago. Every payment is posted automatically to your ERP/CRM (webhook + API).",vnuevo:"New in the platform: accounts receivable, computed — aging report, DSO, collection effectiveness and payment reconciliation on your real portfolio; plus the debtor payment portal, which collects on its own via QR, link or user login.",
     ey3:"Plans",st3:"Pick your plan and start today",sl3:"Reference price in US dollars; charged in Uruguayan pesos (MercadoPago, card or bank transfer) at the day's exchange rate. Once the payment clears you download the program with everything included and your licence is issued right there: even if you close the tab or lose signal, it is not lost — we get it to you anyway.",
     p0t:"Basic",p0w:"Start small, no big upfront payment.",p0per:"300 cases included",p0uyu:"≈ $U 3,960/mo · charged in Uruguayan pesos",p0a:"Voice · WhatsApp · copilot · ERP",p0b:"No technical setup",p0c:"Monthly quota · no lock-in",p0d:"Ideal for SMBs and small firms",p0mod:"Suite modules: from Pro up",p0cta:"Start with Basic",
-    p1t:"Starter",p1w:"Bring your own APIs. Ideal for technical teams.",p1per:"license + US$49/mo support",p1uyu:"≈ $U 27,600 + $U 1,960/mo · charged in Uruguayan pesos",p1a:"Full PC app",p1b:"Voice · WhatsApp · copilot · ERP",p1c:"Use your own keys",p1d:"Updates included",p1mod:"Suite: Data governance + Custom measures · coming soon",p1cta:"Buy Starter",
-    poptag:"Recommended",p2t:"Pro · All-inclusive",p2w:"Open and use. No technical setup.",p2per:"+ usage · 1,000 cases included",p2uyu:"≈ $U 13,960/mo · charged in Uruguayan pesos",p2a:"Embedded, metered APIs",p2b:"Neural voice included (no per-min cost)",p2c:"Monthly quota + overage per case",p2d:"Priority support",p2mod:"Suite: Data governance · coming soon",p2cta:"Subscribe to Pro",
-    p3t:"Enterprise",p3w:"Banks, large firms.",p3amt:"Custom",p3per:"from US$1,500/mo",p3uyu:"≈ from $U 60,000/mo · charged in Uruguayan pesos",p3a:"Unlimited users · SSO",p3b:"Hash-chained audit log",p3c:"Custom ERP · SLA",p3d:"Dedicated onboarding",p3mod:"Full suite: Governance + Measures + AutoML · coming soon",p3cta:"Talk to sales",
+    p1t:"Starter",p1w:"Bring your own APIs. Ideal for technical teams.",p1per:"license + US$49/mo support",p1uyu:"≈ $U 27,600 + $U 1,960/mo · charged in Uruguayan pesos",p1a:"Full PC app",p1b:"Voice · WhatsApp · copilot · ERP",p1c:"Use your own keys",p1d:"Updates included",p1mod:"Suite: Data governance + Custom measures",p1cta:"Buy Starter",
+    poptag:"Recommended",p2t:"Pro · All-inclusive",p2w:"Open and use. No technical setup.",p2per:"+ usage · 1,000 cases included",p2uyu:"≈ $U 13,960/mo · charged in Uruguayan pesos",p2a:"Embedded, metered APIs",p2b:"Neural voice included (no per-min cost)",p2c:"Monthly quota + overage per case",p2d:"Priority support",p2mod:"Suite: Data governance",p2cta:"Subscribe to Pro",
+    p3t:"Enterprise",p3w:"Banks, large firms.",p3amt:"Custom",p3per:"from US$1,500/mo",p3uyu:"≈ from $U 60,000/mo · charged in Uruguayan pesos",p3a:"Unlimited users · SSO",p3b:"Hash-chained audit log",p3c:"Custom ERP · SLA",p3d:"Dedicated onboarding",p3mod:"Full suite: Governance + Measures + AutoML",p3cta:"Talk to sales",msueltos:"Modules sold separately",msueltossub:"They work on any plan, even the smallest. If your business is not collections, you buy only what you need.",mlogt:"Logistics and restocking",mloga:"What to discount, without breaking your margin",mlogb:"What to reorder before you run out of stock",mlogc:"What to reprice and which customer to win back",mlogcta:"Buy Logistics",mprot:"Projects",mproa:"Portfolio health across six dimensions",mprob:"Backlog ranked by expected value",mproc:"Budget alert before hitting 100%",mprocta:"Buy Projects",
     paylead:"Payment methods:",payb1:"Bank transfer",paysec:"Secure payment · money lands in your configured account",
     dey:"Live demo",bandt:"Try MV Kobra AI right now",bandp:"Open the interactive dashboard and see how it prioritizes the portfolio, negotiates and logs every case.",bandcta:"▶ Open the demo",
     eyr:"Trust",str:"Reviews and verifiable commitments",
