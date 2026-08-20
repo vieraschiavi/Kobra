@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { getSesion } from "../api.js";
+import { api, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
 import ModuloNoIncluido, { esFaltaDePlan } from "../components/ModuloNoIncluido.jsx";
 
@@ -138,7 +138,15 @@ function Resultado({ r }) {
   );
 }
 
+// Campos de conexión por motor. SQLite es un archivo: no pide red ni usuario.
+const MOTORES = ["postgresql", "mysql", "mssql", "sqlite"];
+
 export default function AutoML() {
+  const [fuente, setFuente] = useState("archivo");        // archivo | bd
+  const [bd, setBd] = useState({ motor: "postgresql", servidor: "", puerto: "",
+                                 base: "", usuario: "", contrasena: "" });
+  const [tablas, setTablas] = useState(null);
+  const [tabla, setTabla] = useState("");
   const [archivo, setArchivo] = useState(null);
   const [previa, setPrevia] = useState(null);
   const [objetivo, setObjetivo] = useState("");
@@ -167,12 +175,46 @@ export default function AutoML() {
     } catch (e) { manejarError(e); } finally { setOcupado(false); }
   };
 
+  // La conexión viaja en cada pedido y NUNCA se guarda en el navegador:
+  // localStorage sobrevive a la sesión, y una credencial de la base de la
+  // empresa no puede quedar en la máquina de quien la escribió.
+  const conexion = () => ({ ...bd, puerto: bd.puerto ? Number(bd.puerto) : null });
+
+  const conectarBd = async () => {
+    setOcupado(true); setError(null); setTablas(null); setPrevia(null);
+    setResultado(null);
+    try {
+      const d = await api("/api/automl/bd/tablas", { metodo: "POST", cuerpo: conexion() });
+      setTablas([...d.tablas, ...d.vistas]);
+    } catch (e) { manejarError(e); } finally { setOcupado(false); }
+  };
+
+  const elegirTabla = async (nombre) => {
+    setTabla(nombre); setPrevia(null); setResultado(null);
+    if (!nombre) return;
+    setOcupado(true);
+    try {
+      const d = await api("/api/automl/bd/columnas",
+                          { metodo: "POST", cuerpo: { ...conexion(), tabla: nombre } });
+      setPrevia(d);
+      setObjetivo(d.columnas[d.columnas.length - 1] || "");
+    } catch (e) { manejarError(e); } finally { setOcupado(false); }
+  };
+
   const entrenar = async () => {
     setOcupado(true); setError(null); setResultado(null);
     try {
-      const params = { objetivo };
-      if (fecha) params.columna_fecha = fecha;
-      setResultado(await subir("/api/automl/entrenar", archivo, params));
+      if (fuente === "bd") {
+        setResultado(await api("/api/automl/bd/entrenar", {
+          metodo: "POST",
+          cuerpo: { ...conexion(), tabla, objetivo,
+                    columna_fecha: fecha || null },
+        }));
+      } else {
+        const params = { objetivo };
+        if (fecha) params.columna_fecha = fecha;
+        setResultado(await subir("/api/automl/entrenar", archivo, params));
+      }
     } catch (e) { manejarError(e); } finally { setOcupado(false); }
   };
 
@@ -188,6 +230,18 @@ export default function AutoML() {
       <h2 className="page-title">{t("automl.titulo")}</h2>
       <p className="page-sub">{t("automl.subtitulo")}</p>
 
+      <div className="toolbar" style={{ marginBottom: 12 }}>
+        <button className={`btn ${fuente === "archivo" ? "" : "ghost"}`}
+                onClick={() => { setFuente("archivo"); setPrevia(null); setResultado(null); }}>
+          {t("automl.fuente_archivo")}
+        </button>
+        <button className={`btn ${fuente === "bd" ? "" : "ghost"}`}
+                onClick={() => { setFuente("bd"); setPrevia(null); setResultado(null); }}>
+          {t("automl.fuente_bd")}
+        </button>
+      </div>
+
+      {fuente === "archivo" && (
       <div className="card">
         <h3 style={{ marginTop: 0 }}>{t("automl.paso1")}</h3>
         <input type="file" accept=".csv,.xlsx,.xls"
@@ -196,6 +250,68 @@ export default function AutoML() {
           {t("automl.nota_archivo")}
         </p>
       </div>
+      )}
+
+      {fuente === "bd" && (
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>{t("automl.paso1_bd")}</h3>
+        <div className="grid-2" style={{ gap: 12 }}>
+          <label>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>{t("automl.bd_motor")}</span>
+            <select value={bd.motor}
+                    onChange={(e) => setBd({ ...bd, motor: e.target.value })}>
+              {MOTORES.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </label>
+          <label>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+              {bd.motor === "sqlite" ? t("automl.bd_archivo") : t("automl.bd_base")}
+            </span>
+            <input value={bd.base}
+                   onChange={(e) => setBd({ ...bd, base: e.target.value })} />
+          </label>
+          {bd.motor !== "sqlite" && (<>
+            <label>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>{t("automl.bd_servidor")}</span>
+              <input value={bd.servidor} placeholder="127.0.0.1"
+                     onChange={(e) => setBd({ ...bd, servidor: e.target.value })} />
+            </label>
+            <label>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>{t("automl.bd_puerto")}</span>
+              <input value={bd.puerto} inputMode="numeric"
+                     onChange={(e) => setBd({ ...bd, puerto: e.target.value })} />
+            </label>
+            <label>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>{t("automl.bd_usuario")}</span>
+              <input value={bd.usuario} autoComplete="off"
+                     onChange={(e) => setBd({ ...bd, usuario: e.target.value })} />
+            </label>
+            <label>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>{t("automl.bd_contrasena")}</span>
+              <input type="password" value={bd.contrasena} autoComplete="new-password"
+                     onChange={(e) => setBd({ ...bd, contrasena: e.target.value })} />
+            </label>
+          </>)}
+        </div>
+        <p style={{ color: "var(--faint)", fontSize: 12 }}>{t("automl.bd_nota")}</p>
+        <button className="btn" onClick={conectarBd}
+                disabled={ocupado || !bd.base}>
+          {ocupado ? t("automl.conectando") : t("automl.conectar")}
+        </button>
+
+        {tablas && (
+          <div style={{ marginTop: 14 }}>
+            <label>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>{t("automl.bd_tabla")}</span>
+              <select value={tabla} onChange={(e) => elegirTabla(e.target.value)}>
+                <option value="">—</option>
+                {tablas.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
+      </div>
+      )}
 
       {previa && (
         <div className="card" style={{ marginTop: 16 }}>

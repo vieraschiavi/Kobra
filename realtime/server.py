@@ -699,6 +699,8 @@ def pagina_llamar():
 _HTML_LLAMAR = """<!doctype html><html lang=es><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>MV Kobra AI · Llamar</title>
+<link rel="icon" type="image/png" href="/mv_icon.png">
+<link rel="apple-touch-icon" href="/mv_icon.png">
 <style>
  body{font-family:Segoe UI,system-ui,sans-serif;background:#0E1117;color:#e9edf5;
    margin:0;padding:32px;display:flex;justify-content:center}
