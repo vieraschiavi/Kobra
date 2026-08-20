@@ -280,7 +280,14 @@ tfoot .fila-total td {
   display: flex; justify-content: space-between; align-items: center;
   padding: 16px 26px; border-bottom: 1px solid var(--line);
 }
-.portal-marca { font-weight: 800; letter-spacing: .01em; font-size: 15px; }
+/* El deudor llega acá por un link o un QR, sin haber visto nunca la marca:
+   el isotipo es lo que le dice que la pantalla donde va a poner plata es de
+   quien dice ser. Por eso va en el header y no solo el texto. */
+.portal-marca {
+  display: flex; align-items: center; gap: 9px;
+  font-weight: 800; letter-spacing: .01em; font-size: 15px;
+}
+.portal-marca img { width: 26px; height: 26px; border-radius: 6px; }
 .portal-seguro {
   display: flex; align-items: center; gap: 6px;
   color: var(--green-deep); font-size: 12px; font-weight: 700;

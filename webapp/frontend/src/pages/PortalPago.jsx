@@ -142,7 +142,10 @@ export default function PortalPago() {
   return (
     <div className="portal-fondo">
       <header className="portal-header">
-        <span className="portal-marca">{t("portal.header.titulo")}</span>
+        <span className="portal-marca">
+          <img src="/mv_icon.png" alt="" />
+          {t("portal.header.titulo")}
+        </span>
         <span className="portal-seguro"><IcoCandado size={13} /> {t("portal.header.seguro")}</span>
       </header>
 
