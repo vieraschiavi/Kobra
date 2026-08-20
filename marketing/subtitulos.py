@@ -122,6 +122,48 @@ CUES = [
 ]
 
 
+# Subtítulos del screencast de la suite (MVKobraAI_Suite_Demo.webm).
+# Los tiempos siguen el RECORRIDO de marketing/screencast_suite.py: cada
+# pantalla dura lo que declara ahí (más ~1 s de navegación). Si se cambia el
+# recorrido, se cambian estos tiempos — son la misma decisión en dos archivos,
+# y el guion de la voz (marketing/voz_suite.py) lee estos mismos textos, así
+# que subtítulo y narración no se pueden desincronizar.
+SUITE_CUES = [
+    (0.0, 6.0, {
+        "es": "MV Kobra AI ya no es un producto: es una plataforma.\nEsto es lo que se sumó.",
+        "pt": "A MV Kobra AI já não é um produto: é uma plataforma.\nIsto é o que foi adicionado.",
+        "en": "MV Kobra AI is no longer one product: it is a platform.\nHere is what was added."}),
+    (6.0, 14.5, {
+        "es": "El tablero conversacional: preguntá en tu idioma.\nLos números salen de tus datos, no de una estimación.",
+        "pt": "O painel conversacional: pergunte no seu idioma.\nOs números vêm dos seus dados, não de uma estimativa.",
+        "en": "The conversational board: ask in your own words.\nEvery number comes from your data, not a guess."}),
+    (14.5, 23.0, {
+        "es": "Gobernanza de datos: qué es personal, quién lo ve,\ncalidad en las seis dimensiones DAMA y linaje auditable.",
+        "pt": "Governança de dados: o que é pessoal, quem vê,\nqualidade nas seis dimensões DAMA e linhagem auditável.",
+        "en": "Data governance: what is personal, who can see it,\nquality across the six DAMA dimensions and auditable lineage."}),
+    (23.0, 30.5, {
+        "es": "Medidas propias: definí tus KPIs con fórmulas,\nsin tocar una línea de código.",
+        "pt": "Medidas próprias: defina seus KPIs com fórmulas,\nsem tocar numa linha de código.",
+        "en": "Custom measures: define your KPIs with formulas,\nwithout touching a line of code."}),
+    (30.5, 38.0, {
+        "es": "AutoML: entrená un modelo con tu propio dataset.\nLa métrica sale de un holdout que no se usó para elegir nada.",
+        "pt": "AutoML: treine um modelo com o seu próprio dataset.\nA métrica vem de um holdout que não foi usado para escolher nada.",
+        "en": "AutoML: train a model on your own dataset.\nThe metric comes from a holdout never used to choose anything."}),
+    (38.0, 46.5, {
+        "es": "Logística, un módulo que se compra aparte:\nqué ofertar, qué reponer y a qué cliente recuperar.",
+        "pt": "Logística, um módulo comprado à parte:\no que ofertar, o que repor e qual cliente recuperar.",
+        "en": "Logistics, a module sold separately:\nwhat to discount, what to restock, which customer to win back."}),
+    (46.5, 55.0, {
+        "es": "Y Proyectos: salud del portafolio en seis dimensiones\ny el backlog ordenado por valor esperado.",
+        "pt": "E Projetos: saúde do portfólio em seis dimensões\ne o backlog ordenado por valor esperado.",
+        "en": "And Projects: portfolio health across six dimensions\nand the backlog ranked by expected value."}),
+    (55.0, 58.0, {
+        "es": "Cada módulo, con tu plan o suelto. mvkobranzaia.com",
+        "pt": "Cada módulo, com o seu plano ou avulso. mvkobranzaia.com",
+        "en": "Each module, with your plan or on its own. mvkobranzaia.com"}),
+]
+
+
 def _marca(segundos: float) -> str:
     """Segundos → `HH:MM:SS.mmm`, el formato que exige WebVTT."""
     ms = int(round(segundos * 1000))
@@ -131,32 +173,34 @@ def _marca(segundos: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
 
 
-def vtt(idioma: str) -> str:
+def vtt(idioma: str, cues=None) -> str:
     """Pista WebVTT completa para un idioma."""
-    faltan = [i for i, c in enumerate(CUES) if idioma not in c[2]]
+    cues = CUES if cues is None else cues
+    faltan = [i for i, c in enumerate(cues) if idioma not in c[2]]
     if faltan:
         raise ValueError(f"faltan cues en {idioma!r}: {faltan}")
     partes = ["WEBVTT", ""]
-    for n, (ini, fin, textos) in enumerate(CUES, start=1):
+    for n, (ini, fin, textos) in enumerate(cues, start=1):
         partes += [str(n), f"{_marca(ini)} --> {_marca(fin)}",
                    textos[idioma], ""]
     return "\n".join(partes)
 
 
 def generar(destino: str | None = None) -> dict[str, str]:
-    """Escribe `copiloto.<idioma>.vtt` en `landing/video/`."""
+    """Escribe `copiloto.*.vtt` y `suite.*.vtt` en `landing/video/`."""
     destino = destino or VIDEO_DIR
     os.makedirs(destino, exist_ok=True)
     salida = {}
-    for idioma in IDIOMAS:
-        ruta = os.path.join(destino, f"copiloto.{idioma}.vtt")
-        with open(ruta, "w", encoding="utf-8") as f:
-            f.write(vtt(idioma))
-        salida[idioma] = ruta
+    for nombre, cues in (("copiloto", CUES), ("suite", SUITE_CUES)):
+        for idioma in IDIOMAS:
+            ruta = os.path.join(destino, f"{nombre}.{idioma}.vtt")
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(vtt(idioma, cues))
+            salida[f"{nombre}.{idioma}"] = ruta
     return salida
 
 
 if __name__ == "__main__":
-    for idioma, ruta in generar().items():
-        print(f"[OK] {idioma}  {len(CUES)} subtítulos  "
-              f"{os.path.relpath(ruta, ROOT)}")
+    for clave, ruta in generar().items():
+        n = len(SUITE_CUES if clave.startswith("suite") else CUES)
+        print(f"[OK] {clave}  {n} subtítulos  {os.path.relpath(ruta, ROOT)}")
