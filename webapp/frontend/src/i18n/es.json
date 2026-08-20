@@ -875,7 +875,21 @@
     "solo_admin": "Solo un administrador puede entrenar modelos con los datos de la empresa.",
     "no_incluido_titulo": "El entrenamiento con tus datos no está en tu plan",
     "no_incluido_sub": "Subí tu propia tabla y Kobra entrena un modelo a medida, con una métrica que no exagera.",
-    "ver_planes": "Ver planes"
+    "ver_planes": "Ver planes",
+    "fuente_archivo": "Desde un archivo",
+    "fuente_bd": "Desde tu base de datos",
+    "paso1_bd": "1. Conectate a tu base",
+    "bd_motor": "Motor",
+    "bd_servidor": "Servidor",
+    "bd_puerto": "Puerto",
+    "bd_base": "Base de datos",
+    "bd_archivo": "Ruta del archivo .db",
+    "bd_usuario": "Usuario",
+    "bd_contrasena": "Contraseña",
+    "bd_tabla": "Tabla para entrenar",
+    "bd_nota": "Las credenciales viajan solo en este pedido: no se guardan en el navegador ni en el servidor, y nunca aparecen en la auditoría.",
+    "conectar": "Conectar",
+    "conectando": "Conectando…"
   },
   "tablero": {
     "titulo": "¿Qué querés analizar hoy?",

@@ -1266,6 +1266,148 @@ async def automl_entrenar(objetivo: str, columna_fecha: str | None = None,
             "importancias": kautoml.importancias(resultado)}
 
 
+# --- AutoML sobre la base de datos del cliente ------------------------------
+# La otra fuente además del archivo: conectarse al servidor del cliente
+# (Postgres, MySQL, SQL Server, SQLite…) y entrenar directo sobre una tabla.
+# Reutiliza la conexión de kobra/consulta_bd.py — el mismo motor que ya usa
+# el asistente de consultas, con el mismo criterio: la URL con usuario y
+# contraseña NUNCA se loguea ni se persiste; vive lo que dura el pedido.
+class AutomlBdIn(BaseModel):
+    motor: str                       # postgresql | mysql | mssql | sqlite
+    servidor: str = ""
+    puerto: int | None = None
+    base: str = ""
+    usuario: str = ""
+    contrasena: str = ""
+    tabla: str | None = None
+    objetivo: str | None = None
+    columna_fecha: str | None = None
+
+
+_MOTORES_BD = {
+    # dialecto+driver de SQLAlchemy y puerto por defecto de cada motor
+    "postgresql": ("postgresql", 5432),
+    "mysql": ("mysql+pymysql", 3306),
+    "mssql": ("mssql+pyodbc", 1433),
+    "sqlite": ("sqlite", None),
+}
+
+
+def _url_bd(datos: AutomlBdIn) -> str:
+    """Arma la URL de conexión a partir de los campos del formulario.
+
+    La contraseña se escapa (`quote_plus`): una con `@` o `:` —comunes en
+    contraseñas fuertes— rompería el parseo de la URL y el error resultante
+    ("could not translate host name") no le diría al cliente qué pasó.
+    """
+    from urllib.parse import quote_plus
+    if datos.motor not in _MOTORES_BD:
+        raise HTTPException(
+            400, f"Motor desconocido: {datos.motor}. "
+                 f"Soportados: {', '.join(_MOTORES_BD)}.")
+    dialecto, puerto_default = _MOTORES_BD[datos.motor]
+    if datos.motor == "sqlite":
+        return f"sqlite:///{datos.base}"
+    puerto = datos.puerto or puerto_default
+    cred = ""
+    if datos.usuario:
+        cred = quote_plus(datos.usuario)
+        if datos.contrasena:
+            cred += ":" + quote_plus(datos.contrasena)
+        cred += "@"
+    return f"{dialecto}://{cred}{datos.servidor}:{puerto}/{datos.base}"
+
+
+def _conectar_bd(datos: AutomlBdIn):
+    from kobra import consulta_bd as kcbd
+    try:
+        eng = kcbd.conectar(_url_bd(datos))
+        with eng.connect():
+            pass                     # probar la conexión ANTES de usarla
+        return eng
+    except HTTPException:
+        raise
+    except Exception as e:           # noqa: BLE001
+        # Credenciales malas, host inalcanzable, driver faltante: problemas
+        # del lado de la conexión, no del programa. El mensaje va casi crudo
+        # porque es lo único que le permite al cliente corregir lo suyo —
+        # pero sin la URL, que llevaría la contraseña al navegador y a logs.
+        raise HTTPException(400, f"No se pudo conectar a la base: {e}") from e
+
+
+def _tabla_bd(eng, tabla: str, limite: int) -> pd.DataFrame:
+    """Lee `tabla` con tope de filas, citada por SQLAlchemy.
+
+    El nombre se valida contra el inspector ANTES de tocarlo: viene del
+    pedido HTTP y termina dentro de una consulta — sin esta lista blanca
+    sería inyección de SQL con las credenciales que el cliente cargó.
+    """
+    from sqlalchemy import MetaData, Table, inspect, select
+    insp = inspect(eng)
+    disponibles = set(insp.get_table_names()) | set(insp.get_view_names())
+    if tabla not in disponibles:
+        raise HTTPException(
+            400, f"La tabla {tabla!r} no existe en esa base. "
+                 f"Disponibles: {', '.join(sorted(disponibles)[:20])}")
+    t = Table(tabla, MetaData(), autoload_with=eng)
+    return pd.read_sql(select(t).limit(limite), eng)
+
+
+@app.post("/api/automl/bd/tablas")
+def automl_bd_tablas(datos: AutomlBdIn, u: Usuario = Depends(solo_admin)):
+    """Conecta y lista las tablas, para que el usuario elija cuál entrenar."""
+    kplan.exigir("automl", _MODULO_AUTOML)
+    eng = _conectar_bd(datos)
+    from sqlalchemy import inspect
+    insp = inspect(eng)
+    return {"tablas": sorted(insp.get_table_names()),
+            "vistas": sorted(insp.get_view_names())}
+
+
+@app.post("/api/automl/bd/columnas")
+def automl_bd_columnas(datos: AutomlBdIn, u: Usuario = Depends(solo_admin)):
+    """Las columnas de la tabla elegida — la misma forma que la vía archivo,
+    así la pantalla usa un solo flujo río abajo."""
+    kplan.exigir("automl", _MODULO_AUTOML)
+    if not datos.tabla:
+        raise HTTPException(400, "Falta elegir la tabla.")
+    df = _tabla_bd(_conectar_bd(datos), datos.tabla, limite=200)
+    return {"columnas": list(df.columns), "filas": len(df),
+            "vista": df.head(5).astype(str).to_dict("records")}
+
+
+@app.post("/api/automl/bd/entrenar")
+def automl_bd_entrenar(datos: AutomlBdIn, u: Usuario = Depends(solo_admin)):
+    """Entrena directo desde la base del cliente.
+
+    Se leen hasta MAX_FILAS del propio motor de AutoML: traer una tabla de
+    millones de filas enteras al proceso para después recortarla sería pagar
+    la transferencia dos veces.
+    """
+    kplan.exigir("automl", _MODULO_AUTOML)
+    if not datos.tabla or not datos.objetivo:
+        raise HTTPException(400, "Faltan la tabla y/o la columna objetivo.")
+    df = _tabla_bd(_conectar_bd(datos), datos.tabla, limite=kautoml.MAX_FILAS)
+    try:
+        resultado = kautoml.entrenar(df, datos.objetivo, datos.columna_fecha)
+    except kautoml.DatosInsuficientes as e:
+        raise HTTPException(400, str(e)) from e
+
+    if kplan.permite("gobernanza"):
+        # El origen del linaje lleva motor/servidor/base/tabla — NUNCA las
+        # credenciales: el log de auditoría se lee y se exporta.
+        origen = f"{datos.motor}://{datos.servidor or 'local'}/{datos.base}.{datos.tabla}"
+        kgob.registrar_linaje(
+            f"modelo_automl_{datos.objetivo}", [origen],
+            "entrenamiento automl (base de datos)", filas=len(df),
+            detalle={"modelo": resultado["modelo_elegido"],
+                     "auc_holdout": resultado["holdout"]["auc"],
+                     "usuario": u.rol})
+
+    return {**kautoml.informe(resultado),
+            "importancias": kautoml.importancias(resultado)}
+
+
 async def _leer_dataset(archivo: UploadFile) -> pd.DataFrame:
     """CSV o Excel subido por el cliente, con tope de tamaño."""
     contenido = await archivo.read()
