@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { api } from "../api.js";
 import { t } from "../i18n/index.js";
+import ModuloNoIncluido, { esFaltaDePlan } from "../components/ModuloNoIncluido.jsx";
 
 // Recharts no lee variables CSS, así que los colores van literales — mismo
 // criterio que el resto de las páginas (ver Dashboard.jsx).
@@ -32,27 +33,6 @@ const estiloTooltip = {
   color: "#eaf1fb",
 };
 
-// ── El plan no incluye el módulo ─────────────────────────────────────────────
-// No es una pantalla de error: es el único momento en que el cliente ve qué se
-// está perdiendo, así que se explica y se ofrece, no se disculpa.
-function NoIncluido({ detalle }) {
-  return (
-    <div className="card" style={{ maxWidth: 640, margin: "40px auto", textAlign: "center" }}>
-      <h3 style={{ marginTop: 0 }}>{t("gobernanza.no_incluido_titulo")}</h3>
-      <p style={{ color: "var(--muted)", fontSize: 14 }}>{t("gobernanza.no_incluido_sub")}</p>
-      <ul style={{ textAlign: "left", color: "var(--muted)", fontSize: 13.5, lineHeight: 1.9 }}>
-        <li>{t("gobernanza.venta_clasificacion")}</li>
-        <li>{t("gobernanza.venta_enmascarado")}</li>
-        <li>{t("gobernanza.venta_calidad")}</li>
-        <li>{t("gobernanza.venta_linaje")}</li>
-      </ul>
-      {detalle ? <p style={{ color: "var(--faint)", fontSize: 12 }}>{detalle}</p> : null}
-      <a className="btn" href="https://mvkobranzaia.com/#precios"
-         target="_blank" rel="noreferrer">{t("gobernanza.ver_planes")}</a>
-    </div>
-  );
-}
-
 // ── Semáforo de una dimensión de calidad ─────────────────────────────────────
 function Dimension({ nombre, pct }) {
   const color = pct >= 100 ? VERDE : pct >= 80 ? AMBAR : ROJO;
@@ -73,18 +53,14 @@ export default function Gobernanza() {
     api("/api/gobernanza/resumen")
       .then(setDatos)
       .catch((e) => {
-        // 403 con motivo feature_no_incluida = el plan no lo trae. Es
-        // distinto de un error: no hay nada roto que arreglar.
-        const msg = String(e.message || e);
-        if (msg.includes("mvkobranzaia.com") || msg.toLowerCase().includes("no incluye")) {
-          setSinPlan(msg);
-        } else {
-          setError(msg);
-        }
+          // 403 con el link de compra = falta el módulo en el plan.
+          // Es distinto de un error: no hay nada roto que arreglar.
+          const msg = String(e.message || e);
+          (esFaltaDePlan(e) ? setSinPlan : setError)(msg);
       });
   }, []);
 
-  if (sinPlan) return <NoIncluido detalle={sinPlan} />;
+  if (sinPlan) return <ModuloNoIncluido modulo="gobernanza" detalle={sinPlan} ventas={["venta_clasificacion", "venta_enmascarado", "venta_calidad", "venta_linaje"]} />;
   if (error) return <div className="empty">{error}</div>;
   if (!datos) return <div className="empty">{t("common.cargando")}</div>;
 

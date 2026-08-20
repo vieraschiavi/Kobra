@@ -28,6 +28,10 @@ const crypto = require("crypto");
 // Capacidades del núcleo de cobranzas, en todos los planes. Los módulos de la
 // suite que se venden aparte —"gobernanza", "dax", "automl"— se suman a partir
 // de Pro y arman la escalera de precios (ver el detalle en licencias.py).
+//
+// "logistica" y "proyectos" NO aparecen en ningún plan a propósito: resuelven
+// otro rubro y se venden sueltos, así que se agregan por cliente al emitir la
+// licencia, nunca por catálogo.
 const NUCLEO = ["voz", "whatsapp", "copiloto", "erp"];
 
 const PLANES = {
@@ -38,6 +42,15 @@ const PLANES = {
   starter:    { cupo_mensual: null, dias: 365, features: [...NUCLEO, "gobernanza", "dax"] },
   pro:        { cupo_mensual: 1000, dias: 30,  features: [...NUCLEO, "excedente", "gobernanza"] },
   enterprise: { cupo_mensual: null, dias: 30,  features: [...NUCLEO, "excedente", "white_label", "sso", "gobernanza", "dax", "automl"] },
+};
+
+// Módulos que se venden sueltos. Espejo de
+// backend_venta/licencias.py::MODULOS_VENTA. `sign()` los acepta como si
+// fueran un plan: emite una licencia con ese módulo y sin cupo de gestiones,
+// porque quien compra Logística no compró cobranzas.
+const MODULOS_VENTA = {
+  logistica: { dias: 30, feature: "logistica" },
+  proyectos: { dias: 30, feature: "proyectos" },
 };
 
 function b64u(buf) {
@@ -81,10 +94,17 @@ function firmarRS256(headerB64, payloadB64, privada) {
  */
 function sign(datos, secret) {
   const plan = datos.plan;
-  if (!PLANES[plan]) {
-    throw new Error("plan desconocido: " + JSON.stringify(plan) + " (válidos: " + Object.keys(PLANES).join(", ") + ")");
+  // Un módulo suelto se compra con el mismo flujo que un plan, así que llega
+  // acá igual. Se emite con su feature y cupo 0: sin esto, el webhook de un
+  // pago de Logística tiraría "plan desconocido" y el cliente pagaría sin
+  // recibir nada.
+  const esModulo = !!MODULOS_VENTA[plan];
+  if (!PLANES[plan] && !esModulo) {
+    throw new Error("plan desconocido: " + JSON.stringify(plan) + " (válidos: " + Object.keys(PLANES).concat(Object.keys(MODULOS_VENTA)).join(", ") + ")");
   }
-  const cfg = PLANES[plan];
+  const cfg = esModulo
+    ? { cupo_mensual: 0, dias: MODULOS_VENTA[plan].dias, features: [MODULOS_VENTA[plan].feature] }
+    : PLANES[plan];
   const ahora = Math.floor(Date.now() / 1000);
   const dias = datos.dias != null ? datos.dias : cfg.dias;
 
@@ -151,4 +171,4 @@ function verify(license, secret) {
   return claims;
 }
 
-module.exports = { sign, verify, secretoActivo, PLANES };
+module.exports = { sign, verify, secretoActivo, PLANES, MODULOS_VENTA };

@@ -382,3 +382,60 @@ que se contradicen**.
   Solo `pytest` no alcanza: el hook de pre-push ya frenó un push por `ruff`.
 * Datos siempre sintéticos, seeds fijos (`--seed 42`), nunca PII real.
 * Las cifras de impacto son ilustrativas y se presentan como tales.
+
+---
+
+## Fase 6 — Logística y Proyectos como módulos sueltos ✅ HECHA
+
+Portados de `Plania` y `Project-management-mv`, que llegaron como ZIP.
+
+**La decisión de producto:** Kobra deja de ser un producto de cobranzas y pasa
+a ser una plataforma. Logística y Proyectos **no entran en ningún plan**, ni
+siquiera Enterprise: se compran sueltos, sobre cualquier plan.
+
+El motivo es comercial, no técnico. Si estuvieran en la escalera, una
+distribuidora que quiere planificar reposición tendría que comprar el motor de
+cobranzas para llegar a ellos. Con la venta suelta, compra US$79 de Logística
+sobre el plan más chico y usa solo eso.
+
+Eso obligó a modelarlos como una **línea de venta aparte** (`MODULOS_VENTA`) y
+no como filas más de `PLANES`: la escalera tiene la regla de que pagar más
+nunca puede dar menos, y Logística cuesta US$79 contra los US$99 de Básico. En
+la misma tabla, esa regla exigiría que Básico incluyera todo lo de Logística,
+que no tiene sentido — no son dos escalones del mismo problema.
+
+### Qué quedó
+
+| | |
+|---|---|
+| `kobra/logistica.py` | Cinco sugerencias: qué ofertar, reponer, re-precificar, qué zona atacar, a quién recuperar |
+| `kobra/proyectos.py` | Salud de portafolio en seis dimensiones + backlog por valor esperado |
+| `MODULOS_VENTA` | Línea de venta propia, espejada en `api/_license.js` y `api/checkout.js` |
+| `emitir_modulo()` | Licencia con el módulo y **cupo 0** — quien compra Logística no compró cobranzas |
+| Pantallas | `Logistica.jsx` y `Proyectos.jsx`, con carga de las tablas del cliente |
+| Landing | Sección propia debajo de los planes, en los tres idiomas |
+
+53 tests nuevos.
+
+### Dos cosas que se arreglaron al portar
+
+**La fecha congelada.** `mvpm/health.py` tenía `_TODAY = datetime(2026, 7, 12)`
+fijo en el código. Para su demo alcanzaba; portado tal cual, al día siguiente
+ninguna tarea vencería y el índice de salud dejaría de moverse. Ahora sale del
+reloj y se puede inyectar en los tests, que es lo que un test necesita sin
+obligar al producto a vivir en una fecha inventada.
+
+**`ModuloNoIncluido` extraído.** La pantalla de "tu plan no incluye esto"
+estaba copiada en tres páginas y estas dos la habrían llevado a cinco. Cambiar
+el link de precios habría obligado a tocar cinco archivos, y olvidarse de uno
+era invisible hasta que lo veía un cliente.
+
+### Lo que NO se trajo
+
+De `Plania`: el simulador de modelo de negocio (`negocio.py`) — es la
+planificación financiera de Plania como empresa, no funcionalidad del producto.
+De `Project-management-mv`: plantillas PMBOK, capacitación, organigrama,
+conectores y el copiloto propio.
+
+Los dos repos siguen siendo productos independientes con su landing e
+instalador. Lo que entró a Kobra es su **motor**, no el producto entero.

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { api, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
+import ModuloNoIncluido, { esFaltaDePlan } from "../components/ModuloNoIncluido.jsx";
 
 const VERDE = "#00c896";
 const ROJO = "#ff7675";
@@ -16,19 +17,6 @@ function formatear(valor, formato) {
   return Math.abs(valor) >= 1000
     ? Math.round(valor).toLocaleString("es-UY")
     : valor.toFixed(2).replace(/\.00$/, "");
-}
-
-// ── El plan no incluye el módulo ─────────────────────────────────────────────
-function NoIncluido({ detalle }) {
-  return (
-    <div className="card" style={{ maxWidth: 620, margin: "40px auto", textAlign: "center" }}>
-      <h3 style={{ marginTop: 0 }}>{t("medidas.no_incluido_titulo")}</h3>
-      <p style={{ color: "var(--muted)", fontSize: 14 }}>{t("medidas.no_incluido_sub")}</p>
-      {detalle ? <p style={{ color: "var(--faint)", fontSize: 12 }}>{detalle}</p> : null}
-      <a className="btn" href="https://mvkobranzaia.com/#precios"
-         target="_blank" rel="noreferrer">{t("medidas.ver_planes")}</a>
-    </div>
-  );
 }
 
 // ── Tarjeta de una medida ────────────────────────────────────────────────────
@@ -177,18 +165,16 @@ export default function Medidas() {
     api("/api/medidas")
       .then(setDatos)
       .catch((e) => {
-        const msg = String(e.message || e);
-        if (msg.includes("mvkobranzaia.com") || msg.toLowerCase().includes("no incluye")) {
-          setSinPlan(msg);
-        } else {
-          setError(msg);
-        }
+          // 403 con el link de compra = falta el módulo en el plan.
+          // Es distinto de un error: no hay nada roto que arreglar.
+          const msg = String(e.message || e);
+          (esFaltaDePlan(e) ? setSinPlan : setError)(msg);
       });
   };
 
   useEffect(cargar, []);
 
-  if (sinPlan) return <NoIncluido detalle={sinPlan} />;
+  if (sinPlan) return <ModuloNoIncluido modulo="medidas" detalle={sinPlan} />;
   if (error) return <div className="empty">{error}</div>;
   if (!datos) return <div className="empty">{t("common.cargando")}</div>;
 

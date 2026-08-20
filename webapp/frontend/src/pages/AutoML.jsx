@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
+import ModuloNoIncluido, { esFaltaDePlan } from "../components/ModuloNoIncluido.jsx";
 
 const VERDE = "#00c896";
 const AMBAR = "#f2b441";
@@ -32,18 +33,6 @@ async function subir(ruta, archivo, params = {}) {
   const cuerpo = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(cuerpo.detail || cuerpo.message || `Error ${r.status}`);
   return cuerpo;
-}
-
-function NoIncluido({ detalle }) {
-  return (
-    <div className="card" style={{ maxWidth: 620, margin: "40px auto", textAlign: "center" }}>
-      <h3 style={{ marginTop: 0 }}>{t("automl.no_incluido_titulo")}</h3>
-      <p style={{ color: "var(--muted)", fontSize: 14 }}>{t("automl.no_incluido_sub")}</p>
-      {detalle ? <p style={{ color: "var(--faint)", fontSize: 12 }}>{detalle}</p> : null}
-      <a className="btn" href="https://mvkobranzaia.com/#precios"
-         target="_blank" rel="noreferrer">{t("automl.ver_planes")}</a>
-    </div>
-  );
 }
 
 // ── El resultado ─────────────────────────────────────────────────────────────
@@ -161,12 +150,10 @@ export default function AutoML() {
   const esAdmin = (getSesion() || {}).rol === "admin";
 
   const manejarError = (e) => {
-    const msg = String(e.message || e);
-    if (msg.includes("mvkobranzaia.com") || msg.toLowerCase().includes("no incluye")) {
-      setSinPlan(msg);
-    } else {
-      setError(msg);
-    }
+      // 403 con el link de compra = falta el módulo en el plan.
+      // Es distinto de un error: no hay nada roto que arreglar.
+      const msg = String(e.message || e);
+      (esFaltaDePlan(e) ? setSinPlan : setError)(msg);
   };
 
   const elegirArchivo = async (f) => {
@@ -189,7 +176,7 @@ export default function AutoML() {
     } catch (e) { manejarError(e); } finally { setOcupado(false); }
   };
 
-  if (sinPlan) return <NoIncluido detalle={sinPlan} />;
+  if (sinPlan) return <ModuloNoIncluido modulo="automl" detalle={sinPlan} />;
   if (!esAdmin) {
     return (
       <div className="empty">{t("automl.solo_admin")}</div>

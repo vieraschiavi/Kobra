@@ -60,10 +60,12 @@ from kobra import gobernanza as kgob  # noqa: E402
 from kobra import informe_ejecutivo as kinforme  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
 from kobra import llm as kllm  # noqa: E402
+from kobra import logistica as klog  # noqa: E402
 from kobra import medidas as kmedidas  # noqa: E402
 from kobra import owner as kowner  # noqa: E402
 from kobra import paises as kpaises  # noqa: E402
 from kobra import plan as kplan  # noqa: E402
+from kobra import proyectos as kpro  # noqa: E402
 from kobra import rutas as krutas  # noqa: E402
 from kobra import seguimiento as kseg  # noqa: E402
 
@@ -1279,6 +1281,107 @@ async def _leer_dataset(archivo: UploadFile) -> pd.DataFrame:
         raise HTTPException(
             400, "No se pudo leer el archivo. Tiene que ser un CSV o un Excel."
         ) from e
+
+
+# ---------------------------------------------------------------------------
+# Logística y Proyectos — módulos de otro rubro, se venden sueltos
+# ---------------------------------------------------------------------------
+# No son de cobranzas: trabajan sobre tablas que sube el cliente (productos y
+# ventas; proyectos y tareas), no sobre la cartera. Por eso guardan sus datos
+# en archivos propios de la empresa y no tocan nada del núcleo.
+_MODULO_LOG = "el módulo de logística"
+_MODULO_PRO = "el módulo de proyectos"
+
+
+def _archivo_modulo(empresa: str, modulo: str, tabla: str) -> str:
+    base = os.path.dirname(_datos_de(empresa)["scored"])
+    return os.path.join(base, f"{modulo}_{tabla}.csv")
+
+
+def _tabla_modulo(empresa: str, modulo: str, tabla: str,
+                  obligatoria: bool = True) -> pd.DataFrame:
+    ruta = _archivo_modulo(empresa, modulo, tabla)
+    if not os.path.exists(ruta):
+        if not obligatoria:
+            return pd.DataFrame()
+        raise HTTPException(
+            404, f"Todavía no cargaste la tabla de {tabla}. Subila desde la "
+                 f"pantalla del módulo para empezar a usarlo.")
+    return pd.read_csv(ruta)
+
+
+@app.post("/api/modulo/{modulo}/cargar/{tabla}")
+async def modulo_cargar(modulo: str, tabla: str,
+                        archivo: UploadFile = File(...),
+                        u: Usuario = Depends(solo_admin)):
+    """Sube una de las tablas que necesita un módulo (CSV o Excel).
+
+    `solo_admin`: define los datos sobre los que después va a decidir toda la
+    empresa. Un gestor los consulta, no los reemplaza.
+    """
+    if modulo not in ("logistica", "proyectos"):
+        raise HTTPException(404, f"Módulo desconocido: {modulo}")
+    kplan.exigir(modulo, _MODULO_LOG if modulo == "logistica" else _MODULO_PRO)
+
+    permitidas = {"logistica": ("productos", "ventas", "clientes"),
+                  "proyectos": ("proyectos", "tareas", "equipo")}[modulo]
+    if tabla not in permitidas:
+        raise HTTPException(
+            400, f"Tabla desconocida para {modulo}: {tabla}. "
+                 f"Se esperan: {', '.join(permitidas)}.")
+
+    contenido = await archivo.read()
+    nombre = (archivo.filename or "").lower()
+    try:
+        df = (pd.read_excel(io.BytesIO(contenido))
+              if nombre.endswith((".xlsx", ".xls"))
+              else pd.read_csv(io.BytesIO(contenido)))
+    except Exception as e:
+        raise HTTPException(400, f"No se pudo leer el archivo: {e}") from e
+
+    ruta = _archivo_modulo(u.empresa, modulo, tabla)
+    os.makedirs(os.path.dirname(ruta), exist_ok=True)
+    df.to_csv(ruta, index=False)
+    kgob.registrar_linaje(f"{modulo}_{tabla}", [nombre or "carga_manual"],
+                          "carga", filas=len(df),
+                          detalle={"empresa": u.empresa, "rol": u.rol})
+    return {"tabla": tabla, "filas": len(df), "columnas": list(df.columns)}
+
+
+@app.get("/api/logistica/resumen")
+def logistica_resumen(u: Usuario = Depends(usuario_actual)):
+    """Indicadores + las cinco listas de sugerencias."""
+    kplan.exigir("logistica", _MODULO_LOG)
+    productos = _tabla_modulo(u.empresa, "logistica", "productos")
+    ventas = _tabla_modulo(u.empresa, "logistica", "ventas")
+    clientes = _tabla_modulo(u.empresa, "logistica", "clientes", obligatoria=False)
+    try:
+        d = klog.todas(productos, ventas, clientes if len(clientes) else None)
+    except klog.DatosIncompletos as e:
+        # Le falta una columna al archivo del cliente: es lo único que él puede
+        # arreglar, así que el mensaje va tal cual, no como error genérico.
+        raise HTTPException(400, str(e)) from e
+    return {
+        "indicadores": d["indicadores"],
+        **{k: v.to_dict("records") for k, v in d.items() if k != "indicadores"},
+    }
+
+
+@app.get("/api/proyectos/resumen")
+def proyectos_resumen(top: int = 10, u: Usuario = Depends(usuario_actual)):
+    """Salud del portafolio y backlog priorizado."""
+    kplan.exigir("proyectos", _MODULO_PRO)
+    proyectos = _tabla_modulo(u.empresa, "proyectos", "proyectos")
+    tareas = _tabla_modulo(u.empresa, "proyectos", "tareas")
+    equipo = _tabla_modulo(u.empresa, "proyectos", "equipo", obligatoria=False)
+    try:
+        r = kpro.resumen(proyectos, tareas, equipo if len(equipo) else None,
+                         top=max(1, min(top, 100)))
+    except kpro.DatosIncompletos as e:
+        raise HTTPException(400, str(e)) from e
+    return {**{k: v for k, v in r.items() if k not in ("salud", "backlog")},
+            "salud": r["salud"].to_dict("records"),
+            "backlog": r["backlog"].to_dict("records")}
 
 
 @app.get("/api/informe/ejecutivo.pdf")
