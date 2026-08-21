@@ -38,10 +38,39 @@ SCRIPTS = {
 }
 
 
-@pytest.fixture(scope="module", params=sorted(SCRIPTS), ids=sorted(SCRIPTS))
-def script(request):
-    with open(SCRIPTS[request.param], encoding="utf-8", errors="replace") as f:
-        return f.read()
+@pytest.fixture()
+def bat_owner(sello_owner, tmp_path):
+    """Los bytes crudos de un Owner.bat recién generado."""
+    env = dict(os.environ, KOBRA_OWNER_SELLO=sello_owner["token_owner"])
+    r = subprocess.run([sys.executable, "packaging/generar_owner_bat.py"],
+                       cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr
+    ruta = os.path.join(ROOT, "packaging", "Owner.bat")
+    with open(ruta, "rb") as f:
+        crudo = f.read()
+    os.replace(ruta, tmp_path / "Owner.bat")
+    return crudo
+
+
+@pytest.fixture(params=sorted(SCRIPTS), ids=sorted(SCRIPTS))
+def script(request, sello_owner, tmp_path):
+    ruta = SCRIPTS[request.param]
+    generado = False
+    if request.param == "packaging/Owner.bat":
+        # Ya no está versionado: su sello lleva el token firmado del dueño, y
+        # un .bat con sello válido dentro del repo es la herramienta lista
+        # para convertir cualquier instalación. Se genera con uno de prueba.
+        env = dict(os.environ, KOBRA_OWNER_SELLO=sello_owner["token_owner"])
+        r = subprocess.run([sys.executable, "packaging/generar_owner_bat.py"],
+                           cwd=ROOT, env=env, capture_output=True, text=True,
+                           timeout=60)
+        assert r.returncode == 0, f"el generador falla:\n{r.stdout}\n{r.stderr}"
+        generado = True
+    with open(ruta, encoding="utf-8", errors="replace") as f:
+        texto = f.read()
+    if generado:
+        os.replace(ruta, tmp_path / "Owner.bat")
+    return texto
 
 
 def test_le_pregunta_al_registro_donde_quedo(script):
@@ -93,36 +122,30 @@ def test_busca_antes_de_darse_por_vencido(script):
 
 
 # --- El generador y su salida no se pueden separar -------------------------
-def test_owner_bat_esta_regenerado(tmp_path):
-    """`packaging/Owner.bat` se genera; si alguien edita el generador y no lo
-    corre, el .bat versionado queda viejo y nadie se entera hasta que un
-    cliente lo ejecuta."""
-    guardado = os.path.join(ROOT, "packaging", "Owner.bat")
-    with open(guardado, "rb") as f:
-        antes = f.read()
+def test_el_generador_de_owner_bat_corre(tmp_path, sello_owner):
+    """Ya no se compara contra un archivo versionado: `packaging/Owner.bat`
+    salió del repo porque su sello lleva el token firmado del dueño. Lo que
+    sí tiene que seguir valiendo es que el generador corra."""
+    env = dict(os.environ, KOBRA_OWNER_SELLO=sello_owner["token_owner"])
     r = subprocess.run([sys.executable, "packaging/generar_owner_bat.py"],
-                       cwd=ROOT, capture_output=True, text=True, timeout=60)
+                       cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, f"el generador falla:\n{r.stdout}\n{r.stderr}"
-    with open(guardado, "rb") as f:
-        despues = f.read()
-    assert antes == despues, (
-        "packaging/Owner.bat no coincide con lo que genera "
-        "packaging/generar_owner_bat.py — correlo y commiteá el resultado")
+    salida = os.path.join(ROOT, "packaging", "Owner.bat")
+    assert os.path.exists(salida)
+    os.replace(salida, tmp_path / "Owner.bat")
 
 
-def test_el_bat_generado_es_ascii_puro():
+def test_el_bat_generado_es_ascii_puro(bat_owner):
     """Se escribe con `encoding="ascii"`: una tilde en el texto rompe la
     generación. Y `cmd.exe` no abre un archivo con BOM."""
-    with open(os.path.join(ROOT, "packaging", "Owner.bat"), "rb") as f:
-        crudo = f.read()
+    crudo = bat_owner
     assert not crudo.startswith(b"\xef\xbb\xbf"), "quedó con BOM"
     crudo.decode("ascii")   # lanza si se coló un carácter no-ASCII
 
 
-def test_el_bat_generado_usa_crlf():
+def test_el_bat_generado_usa_crlf(bat_owner):
     """Saltos de línea de Windows: con LF solo, `cmd.exe` se confunde."""
-    with open(os.path.join(ROOT, "packaging", "Owner.bat"), "rb") as f:
-        crudo = f.read()
+    crudo = bat_owner
     assert b"\r\n" in crudo
     assert crudo.count(b"\n") == crudo.count(b"\r\n"), "hay saltos sueltos sin \\r"
 

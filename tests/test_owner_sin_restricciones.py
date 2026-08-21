@@ -33,17 +33,23 @@ RUTAS = [
 ]
 
 
-def _levantar(owner: bool, datos: str):
-    """Recarga la app con el modo pedido: MODO_OWNER se lee al importar."""
+def _levantar(owner, datos: str):
+    """Recarga la app con el modo pedido.
+
+    `owner` es el TOKEN firmado del sello (o falsy para copia de cliente):
+    desde que el sello se verifica, un booleano no alcanza."""
     for k in list(sys.modules):
         if k.startswith(("webapp", "kobra")):
             del sys.modules[k]
     os.environ["KOBRA_DATA_DIR"] = datos
     os.environ["KOBRA_MODO_STANDALONE"] = "1"
     if owner:
-        os.environ["KOBRA_OWNER"] = "1"
+        # El launcher exporta el token FIRMADO, no un booleano: un
+        # `set KOBRA_OWNER=1` lo hacía cualquiera antes de abrir el programa.
+        os.environ["KOBRA_OWNER_TOKEN"] = owner
     else:
-        os.environ.pop("KOBRA_OWNER", None)
+        os.environ.pop("KOBRA_OWNER_TOKEN", None)
+    os.environ.pop("KOBRA_OWNER", None)
     from fastapi.testclient import TestClient
 
     from webapp.backend import api
@@ -68,7 +74,8 @@ def datos(tmp_path):
 @pytest.fixture(autouse=True)
 def _restaurar_entorno():
     previo = {k: os.environ.get(k) for k in
-              ("KOBRA_OWNER", "KOBRA_MODO_STANDALONE", "KOBRA_DATA_DIR")}
+              ("KOBRA_OWNER", "KOBRA_OWNER_TOKEN", "KOBRA_MODO_STANDALONE",
+               "KOBRA_DATA_DIR")}
     yield
     for k, v in previo.items():
         if v is None:
@@ -80,15 +87,15 @@ def _restaurar_entorno():
             del sys.modules[k]
 
 
-def test_el_dueno_entra_sin_licencia_ni_password(datos):
-    _, c = _levantar(True, datos)
+def test_el_dueno_entra_sin_licencia_ni_password(datos, sello_owner):
+    _, c = _levantar(sello_owner['token_owner'], datos)
     r = c.post("/api/licencia/owner-login")
     assert r.status_code == 200, "la entrada directa del dueño dejó de funcionar"
     assert r.json()["rol"] == "admin"
 
 
-def test_la_licencia_del_dueno_no_vence(datos):
-    _, c = _levantar(True, datos)
+def test_la_licencia_del_dueno_no_vence(datos, sello_owner):
+    _, c = _levantar(sello_owner['token_owner'], datos)
     lic = c.get("/api/licencia/estado").json()
     assert lic["activa"] is True and lic["owner"] is True
     assert lic["plan"] == "owner"
@@ -96,8 +103,8 @@ def test_la_licencia_del_dueno_no_vence(datos):
     assert lic["dias_restantes"] is None, "al dueño le quedó un contador de días"
 
 
-def test_el_dueno_llega_a_todas_las_pantallas(datos):
-    _, c = _levantar(True, datos)
+def test_el_dueno_llega_a_todas_las_pantallas(datos, sello_owner):
+    _, c = _levantar(sello_owner['token_owner'], datos)
     token = c.post("/api/licencia/owner-login").json()["token"]
     h = {"Authorization": f"Bearer {token}"}
     cerradas = [(r, c.get(r, headers=h).status_code) for r in RUTAS]
@@ -108,7 +115,7 @@ def test_el_dueno_llega_a_todas_las_pantallas(datos):
 def test_la_copia_de_un_cliente_sigue_pidiendo_licencia(datos):
     """El control. Sin esto, el test de arriba pasaría igual si un día se
     abrieran TODAS las copias — que es exactamente el bug opuesto y peor."""
-    _, c = _levantar(False, datos)
+    _, c = _levantar(None, datos)
     assert c.post("/api/licencia/owner-login").status_code == 404, \
         "la entrada del dueño quedó expuesta en la copia de un cliente"
     assert c.post("/api/auth/setup", json={"password": "Admin12345"}).status_code == 404, \

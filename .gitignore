@@ -75,3 +75,8 @@ data/tenants/*/portal_config.json
 uso_plan.json
 uso_plan.json.lock
 data/cartera_entrante.csv
+
+# Generado por packaging/generar_owner_bat.py con el token firmado del dueño.
+# No se commitea: un Owner.bat con sello válido convierte cualquier instalación
+# en la edición sin límites.
+packaging/Owner.bat

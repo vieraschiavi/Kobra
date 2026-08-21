@@ -59,7 +59,7 @@ def es_credencial_de_prueba(access_token: str) -> bool:
 def crear_preferencia(access_token: str, referencia: str, monto: float,
                       descripcion: str, base_url: str = "",
                       moneda: str = "UYU", email_pagador: str = "",
-                      timeout: int = 30) -> dict:
+                      url_retorno: str = "", timeout: int = 30) -> dict:
     """Crea el checkout de MercadoPago para una deuda concreta.
 
     Devuelve `{"ok", "url", "id", "es_prueba", "detalle"}`. `url` es el
@@ -99,10 +99,20 @@ def crear_preferencia(access_token: str, referencia: str, monto: float,
         # A dónde vuelve el deudor después de pagar. `auto_return` solo se
         # manda si hay `back_urls`: MercadoPago rechaza la preferencia entera
         # si se pide el retorno automático sin decirle a dónde volver.
+        # A dónde vuelve tiene que ser el portal REAL del deudor. Antes esto
+        # apuntaba a `{base}/portal`, una ruta que no existe (el portal vive
+        # en `/#/pagar?t=<token>`) y encima sin el token, así que el deudor
+        # terminaba de pagar y caía en una página en blanco, sin comprobante y
+        # sin forma de volver salvo buscar el link original en WhatsApp.
+        #
+        # `url_retorno` lo arma quien conoce el token; si no lo pasan, se cae
+        # a la raíz, que al menos existe.
+        destino = url_retorno or base
+        sep = "&" if "?" in destino else "?"
         pref["back_urls"] = {
-            "success": f"{base}/portal?pago={referencia}&estado=aprobado",
-            "pending": f"{base}/portal?pago={referencia}&estado=pendiente",
-            "failure": f"{base}/portal?pago={referencia}&estado=rechazado",
+            "success": f"{destino}{sep}pago={referencia}&estado=aprobado",
+            "pending": f"{destino}{sep}pago={referencia}&estado=pendiente",
+            "failure": f"{destino}{sep}pago={referencia}&estado=rechazado",
         }
         pref["auto_return"] = "approved"
         # Aviso server-to-server: llega aunque el deudor cierre la pestaña o

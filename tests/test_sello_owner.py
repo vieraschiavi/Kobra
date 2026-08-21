@@ -28,12 +28,15 @@ sys.path.insert(0, ROOT)
 
 from kobra import edicion as kedicion  # noqa: E402
 
-SELLO_OWNER = {"edition": "Owner", "plan": None, "dias": None, "owner": True}
+# El sello ya no es una constante: lleva un token firmado con la privada del
+# dueño. Lo arma el fixture `sello_owner` (tests/conftest.py) con un par de
+# prueba. Sin firma, `owner: true` no vale nada — que es el punto.
 
 
 @pytest.fixture(autouse=True)
 def _sin_owner_heredado(monkeypatch):
     """Cada caso arranca sin la variable puesta por otro test."""
+    monkeypatch.delenv("KOBRA_OWNER_TOKEN", raising=False)
     monkeypatch.delenv("KOBRA_OWNER", raising=False)
 
 
@@ -42,16 +45,16 @@ def test_sin_sello_la_copia_es_de_cliente(tmp_path):
     """Una instalación de cliente no trae `edicion.json`: no hay nada que
     activar y la app queda pidiendo licencia."""
     assert kedicion.activar(str(tmp_path)) is None
-    assert os.environ.get("KOBRA_OWNER") is None
+    assert os.environ.get("KOBRA_OWNER_TOKEN") is None
 
 
-def test_con_el_sello_entra_como_owner(tmp_path):
+def test_con_el_sello_entra_como_owner(tmp_path, sello_owner):
     """Y con el archivo puesto —lo único que hace Owner.bat— la misma
     instalación pasa a ser la del dueño: sin clave y sin vencimiento."""
-    (tmp_path / "edicion.json").write_text(json.dumps(SELLO_OWNER), encoding="utf-8")
+    (tmp_path / "edicion.json").write_text(json.dumps(sello_owner), encoding="utf-8")
     ed = kedicion.activar(str(tmp_path))
     assert ed["owner"] is True
-    assert os.environ["KOBRA_OWNER"] == "1"
+    assert os.environ["KOBRA_OWNER_TOKEN"]
     v = kedicion.vigencia()
     assert v["ok"] and v["owner"] and v["dias_restantes"] is None
 
@@ -61,7 +64,7 @@ def test_un_sello_corrupto_no_rompe_el_arranque(tmp_path):
     (como copia de cliente) y no morir con una excepción de JSON."""
     (tmp_path / "edicion.json").write_text('{"owner": tru', encoding="utf-8")
     assert kedicion.activar(str(tmp_path)) is None
-    assert os.environ.get("KOBRA_OWNER") is None
+    assert os.environ.get("KOBRA_OWNER_TOKEN") is None
 
 
 # --- La herramienta escribe el mismo sello que el CI ------------------------
@@ -70,26 +73,58 @@ def _texto(ruta):
         return f.read()
 
 
-@pytest.fixture(scope="module")
-def owner_bat():
-    ruta = os.path.join(ROOT, "packaging", "Owner.bat")
-    if not os.path.exists(ruta):
-        pytest.skip("falta packaging/Owner.bat")
-    return _texto(ruta)
+@pytest.fixture()
+def owner_bat(sello_owner, monkeypatch, tmp_path):
+    """El .bat generado con un sello de prueba.
+
+    Ya no se lee de `packaging/Owner.bat`: ese archivo dejó de estar
+    commiteado a propósito. Un Owner.bat con sello válido dentro del repo es
+    una herramienta lista para convertir cualquier instalación en la del
+    dueño — que es justo lo que este cambio vino a cerrar. Ahora lo genera la
+    release con el token firmado, y acá se genera con uno de prueba.
+    """
+    import subprocess
+    import sys as _sys
+    salida = tmp_path / "Owner.bat"
+    env = dict(os.environ,
+               KOBRA_OWNER_SELLO=sello_owner["token_owner"])
+    guion = os.path.join(ROOT, "packaging", "generar_owner_bat.py")
+    r = subprocess.run([_sys.executable, guion], env=env, capture_output=True,
+                       text=True, cwd=ROOT)
+    assert r.returncode == 0, f"no se pudo generar Owner.bat: {r.stderr}"
+    generado = os.path.join(ROOT, "packaging", "Owner.bat")
+    texto = _texto(generado)
+    os.replace(generado, salida)          # no dejarlo suelto en el repo
+    return texto
+
+
+def test_generar_owner_bat_sin_token_no_produce_nada(tmp_path, monkeypatch):
+    """Sin el token firmado no se puede fabricar la herramienta: es la
+    diferencia entre "cualquiera con el repo" y "solo el dueño"."""
+    import subprocess
+    import sys as _sys
+    env = {k: v for k, v in os.environ.items() if k != "KOBRA_OWNER_SELLO"}
+    r = subprocess.run([_sys.executable,
+                        os.path.join(ROOT, "packaging", "generar_owner_bat.py")],
+                       env=env, capture_output=True, text=True, cwd=ROOT)
+    assert r.returncode != 0, "generó la herramienta sin el token del dueño"
+    assert "KOBRA_OWNER_SELLO" in (r.stderr + r.stdout)
 
 
 def test_el_sello_de_la_herramienta_es_el_del_ci(owner_bat):
     """Si el CI y la herramienta escribieran sellos distintos, la conversión
     andaría hoy y se rompería en la próxima release sin que nadie lo note."""
     ci = _texto(os.path.join(ROOT, ".github", "workflows", "release_owner.yml"))
-    m = re.search(r"'(\{\"edition\":\"Owner\".*?\})'", ci)
-    assert m, "no encontré el sello owner en el workflow"
-    del_ci = json.loads(m.group(1))
-    assert del_ci == SELLO_OWNER
-
-    # Y el .bat escribe ese MISMO string, carácter por carácter.
-    assert m.group(1) in owner_bat, (
-        "el sello del .bat no es idéntico al del CI")
+    # Los dos arman el sello con las mismas claves y los dos toman el token
+    # del mismo secret. Ya no se comparan strings: el sello lleva un token
+    # firmado, así que dejó de ser una constante.
+    for clave in ("edition", "owner", "token_owner"):
+        assert clave in ci, f"el workflow no arma la clave {clave!r} del sello"
+    assert "OWNER_SELLO_TOKEN" in ci, "el workflow no toma el token del secret"
+    assert "KOBRA_OWNER_SELLO" in ci, "el workflow no se lo pasa al generador"
+    # Y el .bat escribe un sello con esas mismas claves.
+    for clave in ("edition", "owner", "token_owner"):
+        assert clave in owner_bat, f"el .bat no escribe {clave!r}"
 
 
 def test_la_herramienta_apunta_a_la_carpeta_correcta(owner_bat):
@@ -112,7 +147,7 @@ def test_la_herramienta_es_auditable(owner_bat):
     assert "FromBase64String" not in owner_bat
 
 
-def test_el_sello_que_escribe_echo_lo_lee_el_programa(tmp_path, owner_bat):
+def test_el_sello_que_escribe_echo_lo_lee_el_programa(tmp_path, owner_bat, sello_owner):
     """La prueba de fondo: se reproduce EXACTAMENTE lo que `echo` de cmd.exe
     deja en disco (mismo texto, CRLF al final, sin BOM) y se comprueba con el
     código real que la copia queda en modo owner."""
@@ -123,7 +158,7 @@ def test_el_sello_que_escribe_echo_lo_lee_el_programa(tmp_path, owner_bat):
 
     ed = kedicion.activar(str(tmp_path))
     assert ed["owner"] is True
-    assert os.environ["KOBRA_OWNER"] == "1"
+    assert os.environ["KOBRA_OWNER_TOKEN"]
     v = kedicion.vigencia()
     assert v["ok"] and v["owner"] and v["dias_restantes"] is None
 
@@ -141,7 +176,7 @@ def test_el_bat_es_ejecutable_por_cmd():
 
 
 # --- La copia owner no pide clave por NINGUNA de las dos vías ---------------
-def test_el_dashboard_no_pide_clave_en_la_edicion_owner(monkeypatch):
+def test_el_dashboard_no_pide_clave_en_la_edicion_owner(monkeypatch, sello_owner):
     """La app de escritorio ya entraba sola con el sello owner, pero el
     dashboard Streamlit seguía pidiendo crear una contraseña: la misma copia
     se comportaba distinto según por dónde se abriera. `render_gate` devuelve
@@ -149,7 +184,7 @@ def test_el_dashboard_no_pide_clave_en_la_edicion_owner(monkeypatch):
     pytest.importorskip("streamlit")
     from kobra import autenticacion as kauth
 
-    monkeypatch.setenv("KOBRA_OWNER", "1")
+    monkeypatch.setenv("KOBRA_OWNER_TOKEN", sello_owner["token_owner"])
     assert kauth.render_gate() == "admin"
 
 
@@ -162,7 +197,7 @@ def test_sin_sello_el_dashboard_sigue_pidiendo_acceso(monkeypatch, tmp_path):
     from kobra import autenticacion as kauth
     from kobra import config as kconfig
 
-    monkeypatch.delenv("KOBRA_OWNER", raising=False)
+    monkeypatch.delenv("KOBRA_OWNER_TOKEN", raising=False)
     monkeypatch.delenv("KOBRA_DASHBOARD_SIN_LOGIN", raising=False)
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path))
     importlib.reload(kconfig)
@@ -187,7 +222,7 @@ def test_sin_sello_el_dashboard_sigue_pidiendo_acceso(monkeypatch, tmp_path):
     ([], "base_library.zip"),                                     # dentro de _internal
 ])
 def test_la_herramienta_funciona_copiada_al_lado_del_programa(tmp_path, owner_bat,
-                                                              subdirs, marcador):
+                                                              subdirs, marcador, sello_owner):
     """Lo más simple para el usuario es copiar el .bat a la carpeta del
     programa y hacer doble clic. Según a qué altura lo copie, `%~dp0` cae en
     un lugar distinto — las tres tienen que terminar en el mismo `_internal`.
@@ -226,7 +261,7 @@ def test_la_herramienta_busca_primero_su_propia_carpeta(owner_bat):
 
 # --- Después del sello, el programa entra sin ninguna traba ----------------
 def test_despues_del_sello_la_app_entra_sin_clave_y_sin_cupo(tmp_path, monkeypatch,
-                                                             owner_bat):
+                                                             owner_bat, sello_owner):
     """El recorrido completo del pedido: se instaló la versión CLIENTE, se
     ejecuta `Owner.bat` y a partir de ahí el programa tiene que entrar solo,
     sin licencia, sin vencimiento y sin tope de gestiones.
@@ -244,7 +279,7 @@ def test_despues_del_sello_la_app_entra_sin_clave_y_sin_cupo(tmp_path, monkeypat
 
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.setenv("KOBRA_MODO_STANDALONE", "1")
-    monkeypatch.delenv("KOBRA_OWNER", raising=False)
+    monkeypatch.delenv("KOBRA_OWNER_TOKEN", raising=False)
     from kobra import config as kconfig
     importlib.reload(kconfig)
 

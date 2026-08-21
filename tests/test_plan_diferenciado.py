@@ -36,10 +36,11 @@ def _entorno(tmp_path, monkeypatch, plan=None, owner=False, sub="cliente-1",
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.setenv("KOBRA_DATA_DIR", str(tmp_path / "datos"))
     monkeypatch.setenv("KOBRA_LICENSE_SECRET", SECRETO)
+    # `owner` es el TOKEN firmado del sello, no un booleano.
     if owner:
-        monkeypatch.setenv("KOBRA_OWNER", "1")
+        monkeypatch.setenv("KOBRA_OWNER_TOKEN", owner)
     else:
-        monkeypatch.delenv("KOBRA_OWNER", raising=False)
+        monkeypatch.delenv("KOBRA_OWNER_TOKEN", raising=False)
 
     from kobra import config as kconfig
     importlib.reload(kconfig)
@@ -103,8 +104,9 @@ def test_sin_licencia_no_hay_tope(tmp_path, monkeypatch):
     assert kplan.estado()["bloqueado"] is False
 
 
-def test_el_dueno_no_tiene_cupo(tmp_path, monkeypatch):
-    kplan = _entorno(tmp_path, monkeypatch, plan="basico", owner=True)
+def test_el_dueno_no_tiene_cupo(tmp_path, monkeypatch, sello_owner):
+    kplan = _entorno(tmp_path, monkeypatch, plan="basico",
+                     owner=sello_owner["token_owner"])
     assert kplan.estado()["ilimitado"] is True
     assert kplan.permite("white_label") is True
     for _ in range(400):                    # muy por encima de las 300 de Básico
@@ -300,11 +302,18 @@ def test_el_contador_queda_en_un_json_valido(tmp_path, monkeypatch):
 
 
 def test_una_licencia_vencida_no_deja_el_cupo_abierto(tmp_path, monkeypatch):
-    """Con la licencia vencida no hay claims: el estado no puede pasar a
-    'ilimitado' por la puerta de atrás. El vencimiento lo aplica la pantalla
-    de activación (kobra/edicion.py), pero acá no se puede blanquear el cupo."""
+    """Con la licencia vencida el estado no puede pasar a 'ilimitado' por la
+    puerta de atrás.
+
+    Este test pedía `claims() is None`, y eso era justamente el agujero: None
+    significa "este programa no está gobernado por una licencia" (copia del
+    repo, hosted, desarrollo), así que devolvía True en `permite()` y None en
+    `cupo()`. Una demo vencida quedaba con todo habilitado y sin tope. Ahora
+    una licencia que existe y no vale se distingue de no tener ninguna."""
     kplan = _entorno(tmp_path, monkeypatch, plan="basico", dias=-1)
-    assert kplan.claims() is None
+    assert kplan.claims() is kplan.SIN_PLAN
+    assert kplan.cupo() == 0, "una licencia vencida no puede quedar sin tope"
+    assert kplan.permite("gobernanza") is False
 
 
 # --- Las dos vías de arranque aplican el mismo plan -------------------------
@@ -378,3 +387,118 @@ def test_la_api_niega_lo_que_el_plan_no_incluye(tmp_path, monkeypatch):
     # Y lo que sí incluye, sigue funcionando.
     assert cliente.post("/api/gestor-ia/demo", json={"canal": "WhatsApp"},
                         headers=cab).status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Una licencia vencida no puede significar "sin límites"
+#
+# `claims()` devolvía None tanto si no había licencia como si la que había
+# estaba vencida o adulterada. Y None significa "este programa no está
+# gobernado por una licencia" — copia del repo, hosted, desarrollo. Así que al
+# vencerse la demo el cliente pasaba de 50 gestiones y cuatro features a TODO
+# habilitado y sin tope: exactamente al revés de lo que tiene que pasar.
+# ---------------------------------------------------------------------------
+def test_una_licencia_vencida_no_habilita_todo(tmp_path, monkeypatch):
+    import time as _t
+
+    import jwt
+    kplan = _entorno(tmp_path, monkeypatch, plan="trial")
+    from kobra import config as kconfig
+    from kobra.edicion import CLAVE_TOKEN
+    ahora = int(_t.time())
+    vencida = jwt.encode({"sub": "cliente-1", "plan": "enterprise",
+                          "cupo_mensual": None,
+                          "features": ["gobernanza", "dax", "automl"],
+                          "iat": ahora - 40 * 86400, "exp": ahora - 3600},
+                         SECRETO, algorithm="HS256")
+    kconfig.guardar_extra(CLAVE_TOKEN, vencida)
+    kplan.invalidar_cache()
+
+    for feature in ("gobernanza", "dax", "automl", "white_label", "sso"):
+        assert kplan.permite(feature) is False, \
+            f"una licencia vencida habilitó {feature}"
+    assert kplan.cupo() == 0, "una licencia vencida quedó sin tope de gestiones"
+
+
+def test_una_licencia_adulterada_tampoco(tmp_path, monkeypatch):
+    """Firmada con otro secreto: mismo tratamiento que la vencida."""
+    import time as _t
+
+    import jwt
+    kplan = _entorno(tmp_path, monkeypatch, plan="trial")
+    from kobra import config as kconfig
+    from kobra.edicion import CLAVE_TOKEN
+    ahora = int(_t.time())
+    falsa = jwt.encode({"sub": "yo", "plan": "enterprise", "cupo_mensual": None,
+                        "features": ["gobernanza", "dax", "automl"],
+                        "iat": ahora, "exp": ahora + 10 ** 7},
+                       "otro-secreto-cualquiera", algorithm="HS256")
+    kconfig.guardar_extra(CLAVE_TOKEN, falsa)
+    kplan.invalidar_cache()
+    assert kplan.permite("automl") is False
+    assert kplan.cupo() == 0
+
+
+def test_sin_licencia_configurada_sigue_sin_gobierno(tmp_path, monkeypatch):
+    """El otro lado de la moneda: correr desde el repo o en hosted no puede
+    quedar limitado por un tope que nadie configuró."""
+    kplan = _entorno(tmp_path, monkeypatch, plan=None)
+    assert kplan.permite("gobernanza") is True
+    assert kplan.cupo() is None
+
+
+# ---------------------------------------------------------------------------
+# Endpoints que llaman al modelo y no cobraban
+# ---------------------------------------------------------------------------
+def test_la_pregunta_libre_del_tablero_consume_cupo():
+    """El comentario de `api.py` ya lo prometía —"lo que sí consume cupo es la
+    pregunta libre"— pero el código no lo hacía: un Trial con cupo 50 podía
+    hacer 5.000 preguntas sin mover el contador, y en hosted ese consumo lo
+    paga la API key del dueño."""
+    import inspect
+
+    from webapp.backend import api
+    fuente = inspect.getsource(api.tablero_preguntar)
+    assert "kplan.verificar_cupo()" in fuente, "no chequea el cupo"
+    assert "kplan.registrar_gestion()" in fuente, "no descuenta la gestión"
+
+
+def test_evaluar_calidad_cobra_igual_que_su_gemelo_de_audio():
+    """`/api/calidad/evaluar` y `/api/calidad/evaluar-audio` hacen lo mismo y
+    los dos llaman al modelo. Uno cobraba y el otro no."""
+    import inspect
+
+    from webapp.backend import api
+    for nombre in ("calidad_evaluar", "calidad_evaluar_audio"):
+        fuente = inspect.getsource(getattr(api, nombre))
+        assert "kplan.verificar_cupo()" in fuente, f"{nombre} no chequea cupo"
+        assert "kplan.registrar_gestion()" in fuente, f"{nombre} no descuenta"
+
+
+# ---------------------------------------------------------------------------
+# SSO se vende solo en Enterprise
+# ---------------------------------------------------------------------------
+def test_sso_no_se_activa_en_un_plan_que_no_lo_incluye(tmp_path, monkeypatch):
+    """Un cliente de Básico (US$99) cargaba Issuer/Client ID/Secret/Redirect en
+    Configuración y tenía login corporativo por OIDC, que es de otro plan."""
+    kplan = _entorno(tmp_path, monkeypatch, plan="basico")
+    from kobra import config as kconfig
+    from kobra import sso_oidc
+    for clave in sso_oidc._CLAVES:
+        kconfig.guardar_extra(clave, "valor-de-prueba")
+    kplan.invalidar_cache()
+    assert kplan.permite("sso") is False
+    assert sso_oidc.configurado() is False, \
+        "SSO quedó activo en un plan que no lo incluye"
+
+
+def test_sso_si_se_activa_en_enterprise(tmp_path, monkeypatch):
+    """El candado no puede volverse un muro para quien sí lo pagó."""
+    kplan = _entorno(tmp_path, monkeypatch, plan="enterprise")
+    from kobra import config as kconfig
+    from kobra import sso_oidc
+    for clave in sso_oidc._CLAVES:
+        kconfig.guardar_extra(clave, "valor-de-prueba")
+    kplan.invalidar_cache()
+    assert kplan.permite("sso") is True
+    assert sso_oidc.configurado() is True

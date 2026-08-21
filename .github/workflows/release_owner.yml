@@ -324,12 +324,27 @@ jobs:
         # Inyectarla acá equivale a haberla empaquetado desde el spec, sin
         # pagar una segunda compilación completa.
         shell: pwsh
+        env:
+          # El sello lleva un token firmado con la privada del dueño: sin él,
+          # `owner: true` no vale nada (kobra/edicion.py lo verifica contra la
+          # pública embebida). Emitirlo una vez con
+          # `backend_venta.licencias.emitir_sello_owner()` y guardarlo como
+          # secret OWNER_SELLO_TOKEN.
+          KOBRA_OWNER_SELLO: ${{ secrets.OWNER_SELLO_TOKEN }}
         run: |
+          if (-not $env:KOBRA_OWNER_SELLO) {
+            Write-Error "Falta el secret OWNER_SELLO_TOKEN: sin el token firmado el build Owner saldria pidiendo licencia como el de un cliente."
+            exit 1
+          }
           $dest = "dist/MVKobraAI/_internal"
           if (-Not (Test-Path $dest)) { $dest = "dist/MVKobraAI" }
-          '{"edition":"Owner","plan":null,"dias":null,"owner":true}' |
+          $sello = @{ edition = "Owner"; plan = $null; dias = $null;
+                      owner = $true; token_owner = $env:KOBRA_OWNER_SELLO }
+          ($sello | ConvertTo-Json -Compress) |
             Set-Content -Path "$dest/edicion.json" -Encoding utf8
-          Get-Content "$dest/edicion.json"
+          # Sin volcar el contenido: el token es una credencial y el log del
+          # workflow queda guardado.
+          Write-Host "edicion.json escrito ($((Get-Item "$dest/edicion.json").Length) bytes)"
 
       - name: Verificar que el bundle quedó marcado como Owner
         # Si edicion.json no viajó, el instalador Owner pediría licencia como
@@ -446,6 +461,11 @@ jobs:
           # la del dueño (escribe el sello en _internal). Va acá y además suelto
           # en la release, para poder bajar un solo archivo de 2 KB en vez de un
           # ZIP de 270 MB cuando el programa ya está instalado.
+          # `generar_owner_bat.py` exige KOBRA_OWNER_SELLO: el .bat escribe un
+          # sello que lleva el token firmado del dueño. Por eso el .bat NO está
+          # commiteado — un Owner.bat con sello válido dentro del repo es una
+          # herramienta lista para convertir cualquier instalación.
+          $env:KOBRA_OWNER_SELLO = "${{ secrets.OWNER_SELLO_TOKEN }}"
           python packaging/generar_owner_bat.py
           Copy-Item packaging/Owner.bat stage/INSTALADOR/
           $leeme = @(

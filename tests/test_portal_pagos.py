@@ -12,6 +12,7 @@ contra la app real (TestClient), incluyendo los controles que hacen que esto
 sea vendible: token firmado, código con freno a fuerza bruta, monto que no
 puede superar el saldo, imputación idempotente y API key del ERP.
 """
+import inspect
 import os
 import sys
 
@@ -354,3 +355,71 @@ def test_mercadopago_nunca_se_auto_aprueba_sin_verificar(cliente):
     assert r.json()["estado"] == "informado", (
         "sin verificación real, el estado tiene que ser el mismo que una "
         "transferencia declarada: informado, pendiente de conciliar")
+
+
+# ---------------------------------------------------------------------------
+# Verificado y NO aprobado no puede imputarse
+#
+# `/confirmar` llamaba a verificar_pago y, si MercadoPago decía que el pago no
+# correspondía, se quedaba igual con `estado = "informado"` — que está en
+# _ESTADOS_IMPUTABLES, así que descontaba del saldo y disparaba el webhook al
+# ERP del cliente con plata que no entró. `kobra/demo_vivo.py::acreditar` ya
+# hacía lo contrario y lo documentaba: las dos rutas del mismo dominio hacían
+# cosas opuestas.
+# ---------------------------------------------------------------------------
+def test_el_endpoint_no_imputa_un_pago_que_mercadopago_rechaza(cliente, monkeypatch):
+    """El escenario: el deudor debe 1000, crea el pago por MercadoPago, y
+    manda un payment_id de OTRA cosa. MercadoPago responde que no corresponde
+    ni por monto ni por referencia — y el saldo no se puede mover."""
+    api, c, admin = cliente
+    r = c.post("/api/portal/config", headers=admin,
+               json={"mercadopago": {"habilitado": True,
+                                     "access_token": "TEST-token-de-prueba"}})
+    assert r.status_code == 200, r.text
+
+    token = c.get("/api/portal/acceso/KB-1", headers=admin).json()["token"]
+
+    r = c.post("/api/portal/public/pagar",
+               json={"t": token, "monto": 1000.0, "metodo": "mercadopago"})
+    assert r.status_code == 200, r.text
+    ref = r.json()["referencia"]
+
+    from kobra import mercadopago as kmp
+    monkeypatch.setattr(kmp, "verificar_pago", lambda *a, **k: {
+        "aprobado": False, "estado": "approved",
+        "detalle": "El pago es por 500.00 y se esperaba 1000.00"})
+
+    saldo_antes = c.get("/api/portal/public/estado",
+                        params={"t": token}).json()["saldo"]
+    r = c.post("/api/portal/public/confirmar",
+               json={"t": token, "referencia": ref, "payment_id": "123456"})
+    assert r.status_code == 200, r.text
+    assert r.json()["estado"] != "aprobado"
+
+    saldo_despues = c.get("/api/portal/public/estado",
+                          params={"t": token}).json()["saldo"]
+    assert saldo_despues == saldo_antes, (
+        "MercadoPago dijo que el pago no corresponde y el saldo bajó igual: "
+        "eso imputa al ERP plata que no entró")
+
+
+def test_la_url_de_retorno_lleva_al_portal_del_deudor():
+    """Las back_urls apuntaban a `{base}/portal`, una ruta que no existe —el
+    portal vive en `/#/pagar?t=<token>`— y encima sin el token: el deudor
+    terminaba de pagar y caía en una página en blanco."""
+    from kobra import mercadopago as kmp
+    fuente = inspect.getsource(kmp.crear_preferencia)
+    assert "url_retorno" in fuente, "no se puede decir a dónde vuelve el deudor"
+    assert '/portal?pago=' not in fuente, \
+        "sigue apuntando a la ruta inexistente"
+
+
+def test_el_frontend_manda_el_payment_id():
+    """Sin esto, `verificar_pago` no corría NUNCA desde la UI: alcanzaba con
+    apretar 'ya pagué' para que el saldo bajara."""
+    ruta = os.path.join(ROOT, "webapp", "frontend", "src", "pages", "PortalPago.jsx")
+    with open(ruta, encoding="utf-8") as f:
+        jsx = f.read()
+    confirmar = jsx.split("const confirmar")[1].split("const otroPago")[0]
+    assert "payment_id" in confirmar, \
+        "el frontend confirma el pago sin mandar el id que permite verificarlo"

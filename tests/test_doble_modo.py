@@ -23,6 +23,7 @@ que estos tests fijan para que no vuelvan:
    solo usar el otro acceso directo.
 """
 import importlib.util
+import json
 import os
 import sys
 import zipfile
@@ -148,8 +149,8 @@ def test_las_dos_vias_aplican_la_misma_edicion():
             f"{script} no aplica la edición del paquete")
 
 
-def test_owner_no_vence_nunca(tmp_path, monkeypatch):
-    monkeypatch.setenv("KOBRA_OWNER", "1")
+def test_owner_no_vence_nunca(tmp_path, monkeypatch, sello_owner):
+    monkeypatch.setenv("KOBRA_OWNER_TOKEN", sello_owner["token_owner"])
     v = kedicion.vigencia()
     assert v["ok"] and v["owner"] and v["dias_restantes"] is None
 
@@ -162,11 +163,16 @@ def test_una_edicion_vencida_bloquea_el_programa(tmp_path, monkeypatch):
 
     import jwt
 
-    from kobra import config as kconfig
-
+    monkeypatch.delenv("KOBRA_OWNER_TOKEN", raising=False)
     monkeypatch.delenv("KOBRA_OWNER", raising=False)
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path))
     monkeypatch.setenv("KOBRA_LICENSE_SECRET", "secreto-de-la-edicion")
+    # `import_module` y no `reload` a secas: otros tests de la suite borran
+    # los módulos `kobra.*` de sys.modules para releer la app con otro
+    # entorno, y entonces recargar la referencia vieja explota con
+    # "module not in sys.modules" — pero solo al correr la suite entera, no
+    # el archivo aislado.
+    kconfig = importlib.import_module("kobra.config")
     importlib.reload(kconfig)
 
     # La licencia de la evaluación, pero ya vencida hace una hora.
@@ -176,20 +182,36 @@ def test_una_edicion_vencida_bloquea_el_programa(tmp_path, monkeypatch):
          "iat": ahora - 20 * 86400, "exp": ahora - 3600},
         "secreto-de-la-edicion", algorithm="HS256")
 
-    kconfig.guardar_extra(kedicion.CLAVE_TOKEN, vencida)
-    importlib.reload(kedicion)
-    v = kedicion.vigencia()
+    ked = importlib.import_module("kobra.edicion")
+    kconfig.guardar_extra(ked.CLAVE_TOKEN, vencida)
+    importlib.reload(ked)
+    v = ked.vigencia()
     assert not v["ok"] and v["motivo"] == "licencia_expirada"
 
 
-def test_activar_owner_no_necesita_licencia(tmp_path, monkeypatch):
+def test_activar_owner_no_necesita_licencia(tmp_path, monkeypatch, sello_owner):
+    monkeypatch.delenv("KOBRA_OWNER_TOKEN", raising=False)
     monkeypatch.delenv("KOBRA_OWNER", raising=False)
     (tmp_path / "edicion.json").write_text(
-        '{"edition":"Owner","plan":null,"dias":null,"owner":true}', encoding="utf-8")
+        json.dumps(sello_owner), encoding="utf-8")
     ed = kedicion.activar(str(tmp_path))
     assert ed["owner"] is True
-    assert os.environ.get("KOBRA_OWNER") == "1"
+    assert os.environ.get("KOBRA_OWNER_TOKEN"), \
+        "el launcher tiene que exportar el token firmado, no un booleano"
+
+
+def test_un_sello_sin_firma_no_activa_owner(tmp_path, monkeypatch):
+    """63 bytes de JSON convertían cualquier instalación en la edición sin
+    límites. `edicion.json` vive del lado del cliente: creerle es regalarlo."""
+    monkeypatch.delenv("KOBRA_OWNER_TOKEN", raising=False)
     monkeypatch.delenv("KOBRA_OWNER", raising=False)
+    (tmp_path / "edicion.json").write_text(
+        json.dumps({"edition": "Owner", "plan": None, "dias": None,
+                    "owner": True}), encoding="utf-8")
+    ed = kedicion.activar(str(tmp_path))
+    assert not (ed or {}).get("owner"), "un sello sin firma activó owner"
+    assert os.environ.get("KOBRA_OWNER_TOKEN") is None
+    assert kedicion.es_owner() is False
 
 
 def test_sin_edicion_no_se_inventa_un_bloqueo(tmp_path):

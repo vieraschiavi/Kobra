@@ -218,7 +218,29 @@ jobs:
         id: pub
         shell: pwsh
         run: |
-          "TIENE_TOKEN=${{ secrets.RELEASES_TOKEN != '' }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          $tiene = "${{ secrets.RELEASES_TOKEN != '' }}"
+          "TIENE_TOKEN=$tiene" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          if ($tiene -ne 'true') {
+            # Ruidoso a propósito. Este paso se salteaba en silencio con el
+            # build en verde, así que el instalador quedaba publicado SOLO en
+            # este repo -que es privado- mientras la landing y el mail
+            # post-pago apuntaban al repo público. Resultado: el cliente paga,
+            # recibe el link y le da 404. Nadie se enteraba porque el check
+            # daba verde.
+            Write-Output "::warning title=La descarga para clientes NO se actualizó::Falta el secret RELEASES_TOKEN. El instalador quedó solo en el repo privado; el link de la landing y el del mail post-pago siguen sirviendo la versión anterior (o 404 si nunca se publicó). Ver docs/DISTRIBUCION_INSTALADOR.md."
+            @(
+              "## La descarga para clientes NO se actualizó",
+              "",
+              "Falta el secret ``RELEASES_TOKEN``, así que el instalador se publicó",
+              "**solo en este repo privado**. La landing (``landing/descarga.html``) y el",
+              "mail post-pago (``api/webhook-mercadopago.js``) apuntan a",
+              "``mv-kobra-ai-releases``, que no recibió nada.",
+              "",
+              "Un cliente que pague hoy recibe un link que no le sirve.",
+              "",
+              "Cómo se arregla: ``docs/DISTRIBUCION_INSTALADOR.md``."
+            ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          }
 
       - name: Publicar en el repo público de releases (para clientes finales)
         # Este repo (vieraschiavi/Kobra) es privado: el link de Releases de acá

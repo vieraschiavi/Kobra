@@ -56,6 +56,7 @@ from kobra import ayuda as kayuda  # noqa: E402
 from kobra import cartera_manual as kcartera  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
 from kobra import cuentas_por_cobrar as kcxc  # noqa: E402
+from kobra import edicion as kedicion  # noqa: E402
 from kobra import gobernanza as kgob  # noqa: E402
 from kobra import informe_ejecutivo as kinforme  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
@@ -90,28 +91,32 @@ MODO_STANDALONE = os.getenv("KOBRA_MODO_STANDALONE", "").lower() in ("1", "true"
 # tiene efecto combinado con MODO_STANDALONE (el server local del launcher,
 # que escucha únicamente en 127.0.0.1); en el despliegue hosted esta variable
 # no se setea nunca y no cambia nada.
-MODO_OWNER = os.getenv("KOBRA_OWNER", "").lower() in ("1", "true", "si", "sí")
 _CLAVE_LICENCIA = "LICENCIA_TOKEN"
-# Marca persistida cuando el dueño desbloquea con su credencial (ver
+# La credencial del dueño, persistida para revalidarla en cada arranque (ver
 # kobra/owner.py). Sin esto, el desbloqueo duraría solo hasta cerrar la app.
-_CLAVE_OWNER = "KOBRA_OWNER_ACTIVADO"
+# Se guarda la credencial y no un "ya es owner": un booleano en la config lo
+# escribe el propio usuario, y era una de las tres formas de activar la
+# edición sin límites sin pagar nada.
+_CLAVE_OWNER = kedicion.CLAVE_OWNER_CREDENCIAL
 
 
 def _es_owner() -> bool:
     """¿Corre como la copia del dueño?
 
     Dos vías, y las dos tienen que valer en caliente:
-      * `KOBRA_OWNER=1` — lo exporta el launcher cuando el paquete es la
-        edición Owner (decisión de build).
+      * el token firmado que exporta el launcher cuando el paquete es la
+        edición Owner (decisión de build, verificada contra la pública);
       * la credencial `mail|codigo` activada desde la propia app, que queda
         guardada en la config del usuario. Esta es la que permite tener una
         copia 100% operativa a partir del instalador PÚBLICO, sin un build
         aparte.
 
     Se consulta en cada llamada y no una vez al importar: si fuera una
-    constante, desbloquear owner no surtiría efecto hasta reiniciar la app.
+    constante, desbloquear owner no surtiría efecto hasta reiniciar la app —
+    y además `KOBRA_OWNER` leído al importar convertía un `set` del usuario en
+    edición del dueño.
     """
-    return MODO_OWNER or bool(kconfig.leer_extra(_CLAVE_OWNER))
+    return kedicion.es_owner()
 
 
 # ---------------------------------------------------------------------------
@@ -797,7 +802,7 @@ def licencia_activar(datos: LicenciaIn, request: Request):
     # entre un cliente y el producto completo, así que tantearlo tiene que
     # costar lo mismo que tantear una licencia.
     if kowner.verificar(datos.token):
-        kconfig.guardar_extra(_CLAVE_OWNER, "1")
+        kconfig.guardar_extra(_CLAVE_OWNER, datos.token)
         kplan.invalidar_cache()
         _LIMITE_LICENCIA.perdonar(clave)
         return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
@@ -1117,7 +1122,15 @@ def tablero(u: Usuario = Depends(usuario_actual)):
 
 @app.post("/api/tablero/preguntar")
 def tablero_preguntar(datos: PreguntaTableroIn, u: Usuario = Depends(usuario_actual)):
-    """Contesta una pregunta sobre la cartera, con los números ya calculados."""
+    """Contesta una pregunta sobre la cartera, con los números ya calculados.
+
+    Consume cupo: llama al modelo. El comentario de arriba ya lo prometía
+    ("lo que sí consume cupo es la pregunta libre") pero el código no lo
+    hacía, así que un Trial con cupo 50 podía hacer 5.000 preguntas sin que
+    el contador se moviera — y en modo hosted ese consumo lo paga la API key
+    del dueño.
+    """
+    kplan.verificar_cupo()
     try:
         r = kanalista.responder(datos.pregunta,
                                 _proteger(_scored(u.empresa), u.rol))
@@ -1127,6 +1140,8 @@ def tablero_preguntar(datos: PreguntaTableroIn, u: Usuario = Depends(usuario_act
         raise HTTPException(409, str(e)) from e
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+    # Después de que el modelo respondió: si falla antes, no se cobra.
+    kplan.registrar_gestion()
     return r
 
 
@@ -1863,12 +1878,21 @@ class EvaluarGestionIn(BaseModel):
 def calidad_evaluar(datos: EvaluarGestionIn, u: Usuario = Depends(usuario_actual)):
     """Evalúa la calidad de una gestión (transcripción de llamada o chat de
     WhatsApp) contra la rúbrica de 14 criterios (100 pts). Núcleo offline; si
-    hay proveedor de IA configurado, recalibra como un supervisor real."""
+    hay proveedor de IA configurado, recalibra como un supervisor real.
+
+    Consume cupo igual que su gemelo `/api/calidad/evaluar-audio`, que sí lo
+    hacía: los dos evalúan una gestión y los dos llaman al modelo para
+    recalibrar. Que uno cobrara y el otro no era una inconsistencia entre
+    hermanos, no una decisión.
+    """
     from kobra import calidad_gestion as kcalidad
     texto = (datos.transcripcion or "").strip()
     if len(texto) < 15:
         raise HTTPException(422, "Pegá una transcripción más larga para evaluar.")
-    return kcalidad.evaluar(texto, canal=datos.canal)
+    kplan.verificar_cupo()
+    r = kcalidad.evaluar(texto, canal=datos.canal)
+    kplan.registrar_gestion()
+    return r
 
 
 def _transcript_desde_turnos(turnos) -> str:
@@ -2784,10 +2808,15 @@ def portal_public_pagar(datos: PortalPagoIn):
         out["transferencia"] = {k: v for k, v in cfg["transferencia"].items()
                                 if k != "habilitado"}
     else:
+        _base = os.environ.get("PUBLIC_BASE_URL", "")
         out["url_pago"] = kportal.link_mercadopago(
             cfg, pago["referencia"], pago["monto"],
             descripcion=f"Deuda {id_deudor} · {empresa}",
-            base_url=os.environ.get("PUBLIC_BASE_URL", ""))
+            base_url=_base,
+            # El deudor tiene que volver a SU portal, con su token: es la
+            # misma URL que se le mandó por link o QR. Sin esto caía en una
+            # ruta inexistente y perdía el comprobante.
+            url_retorno=f"{_base}/#/pagar?t={datos.t}" if _base else "")
         # Con access token cargado el checkout es real; si además es una
         # credencial TEST, el que paga usa tarjetas ficticias. El portal lo
         # dice en pantalla para que nadie confunda un ensayo con un cobro.
@@ -2843,6 +2872,19 @@ def portal_public_confirmar(datos: PortalConfirmarIn):
         verificacion = {"estado_mp": v["estado"], "detalle": v["detalle"]}
         if v["aprobado"]:
             estado = "aprobado"
+        else:
+            # Verificado y NO aprobado: no se imputa nada. Mismo criterio que
+            # `kobra/demo_vivo.py::acreditar`, que ya lo documenta — dejarlo en
+            # `informado` descuenta del saldo (está en _ESTADOS_IMPUTABLES) y
+            # dispara el webhook al ERP del cliente con plata que no entró,
+            # pese a que MercadoPago acaba de decir que ese pago no
+            # corresponde a esta deuda.
+            #
+            # Las dos rutas del mismo dominio hacían cosas opuestas: esta se
+            # quedaba con "informado" y la otra cortaba.
+            return {"referencia": pago["referencia"], "estado": pago["estado"],
+                    "monto": pago["monto"], "verificacion": verificacion,
+                    "detalle": v["detalle"]}
 
     registro = kportal.confirmar_pago(d, datos.referencia, estado,
                                       webhook_url=cfg["erp"]["webhook_url"])

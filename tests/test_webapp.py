@@ -13,17 +13,28 @@ sys.path.insert(0, ROOT)
 
 @pytest.fixture()
 def cliente(tmp_path, monkeypatch):
-    """TestClient con config aislada y contraseñas admin/gestor propias."""
+    """TestClient con config aislada y contraseñas admin/gestor propias.
+
+    Recarga `api` a propósito: `MODO_STANDALONE` se lee al importar, así que
+    sin esto el fixture heredaba el valor que hubiera dejado el último test
+    que recargó el módulo. Estos casos pasaban de casualidad — quedaban en
+    standalone, donde la contraseña no es puerta, y lo compensaba un
+    `MODO_OWNER` también heredado. Al volverse dinámica la detección de owner
+    el equilibrio se rompió y el fixture quedó a la vista.
+    """
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config"))
+    monkeypatch.delenv("KOBRA_MODO_STANDALONE", raising=False)
     from kobra import config as kconfig
     importlib.reload(kconfig)
     from kobra import autenticacion as kauth
+    importlib.reload(kauth)
     kauth.establecer_password("admin", "AdminTest123!")
     kauth.establecer_password("gestor", "GestorTest123!")
 
     from fastapi.testclient import TestClient
 
     from webapp.backend import api
+    importlib.reload(api)
     return TestClient(api.app)
 
 
@@ -110,11 +121,11 @@ def test_standalone_no_permite_saltear_la_licencia_con_password(tmp_path, monkey
     assert c.get("/api/auth/estado").json()["por_licencia"] is True
 
 
-def test_owner_conserva_su_entrada_directa(tmp_path, monkeypatch):
+def test_owner_conserva_su_entrada_directa(tmp_path, monkeypatch, sello_owner):
     """La copia del dueño (owner) no se ve afectada por el cierre de arriba."""
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "cfg-owner"))
     monkeypatch.setenv("KOBRA_MODO_STANDALONE", "1")
-    monkeypatch.setenv("KOBRA_OWNER", "1")
+    monkeypatch.setenv("KOBRA_OWNER_TOKEN", sello_owner["token_owner"])
     from kobra import config as kconfig
     importlib.reload(kconfig)
     from kobra import autenticacion as kauth

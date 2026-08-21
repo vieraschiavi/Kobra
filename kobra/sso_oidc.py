@@ -47,7 +47,27 @@ _discovery_cache: dict = {}
 
 
 def configurado() -> bool:
-    return all(kconfig.leer_extra(c) for c in _CLAVES)
+    """¿Hay SSO activo? Requiere las cuatro claves Y el plan que lo incluye.
+
+    `sso` se vende solo en Enterprise, pero no lo gateaba nadie: un cliente de
+    Básico (US$99) abría Configuración, cargaba Issuer / Client ID / Secret /
+    Redirect y tenía login corporativo por OIDC, que es una capacidad de otro
+    plan. No es un agujero de seguridad —es su propio proveedor de identidad—
+    pero sí producto regalado.
+
+    Se chequea acá y no en cada llamador porque esta función es la única
+    puerta: si devuelve False no aparece el botón, no se arma la URL de
+    autorización y no se procesa el callback.
+    """
+    if not all(kconfig.leer_extra(c) for c in _CLAVES):
+        return False
+    try:
+        from kobra import plan as kplan
+        return kplan.permite("sso")
+    except Exception:
+        # Sin el módulo de planes (copia suelta, tests de otra cosa) no se
+        # inventa un bloqueo: la configuración manda.
+        return True
 
 
 def _cfg() -> dict:

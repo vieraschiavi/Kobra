@@ -47,6 +47,7 @@ from kobra import (
 from kobra import concurrencia as kconc  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
+from kobra import plan as kplan  # noqa: E402
 from realtime import connectors  # noqa: E402
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
@@ -95,6 +96,26 @@ app = FastAPI(title="MV Kobra AI · Copiloto en Vivo", lifespan=_lifespan)
 # cierra rápido nunca toca el tope de concurrencia. Cubre HTTP y los
 # WebSockets (/ws, /ws_audio, /twilio) por igual: ver LimitadorGeneral.
 app.add_middleware(klimite.LimitadorGeneral)
+
+
+# Este servicio hace las tres acciones que `kobra/plan.py` define como gestión
+# facturable —transcribir, copilotar y llamar— y hasta acá no miraba el plan ni
+# descontaba cupo. Un cliente con la demo vencida, o con un plan que no incluye
+# `voz`, levantaba `python -m realtime.server` desde su propia carpeta y tenía
+# el producto completo gratis. Mismos códigos y mismo cuerpo que
+# `webapp/backend/api.py`, para que el frontend los trate igual.
+@app.exception_handler(kplan.FeatureNoIncluida)
+def _feature_no_incluida(request, exc):
+    return JSONResponse(status_code=403,
+                        content={"detail": exc.mensaje, "plan": exc.estado,
+                                 "motivo": "feature_no_incluida"})
+
+
+@app.exception_handler(kplan.CupoAgotado)
+def _cupo_agotado(request, exc):
+    return JSONResponse(status_code=402,
+                        content={"detail": exc.mensaje, "plan": exc.estado,
+                                 "motivo": "cupo_agotado"})
 
 
 @app.get("/")
@@ -156,6 +177,8 @@ def _borrar(ruta: str) -> None:
 @app.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
     """Transcribe un chunk de audio con Whisper (si hay OPENAI_API_KEY)."""
+    kplan.exigir("voz", "el análisis de voz")
+    kplan.verificar_cupo()
     tmp = _guardar_temporal(await audio.read(), audio.filename, "chunk.webm")
     texto = await run_in_threadpool(
         copiloto.transcribir_audio, tmp, idioma=copiloto.idioma_configurado())
@@ -170,6 +193,8 @@ async def transcribe(audio: UploadFile = File(...)):
 @app.post("/analizar_audio")
 async def analizar_audio(audio: UploadFile = File(...)):
     """Diarización + emoción acústica de una grabación (.wav)."""
+    kplan.exigir("voz", "el análisis de voz")
+    kplan.verificar_cupo()
     tmp = _guardar_temporal(await audio.read(), audio.filename, "call.wav")
     try:
         return await run_in_threadpool(voz.analizar_llamada, tmp)
@@ -218,6 +243,8 @@ async def copiloto_audio(audio: UploadFile = File(...), transcript: str = Form("
     diarización + transcripción por hablante (Whisper si hay key, o alineación
     del texto provisto) + emoción acústica + asesoría del copiloto.
     """
+    kplan.exigir("copiloto", "el Copiloto IA")
+    kplan.verificar_cupo()
     tmp = _guardar_temporal(await audio.read(), audio.filename, "call.wav")
     tt = None
     if transcript.strip():
@@ -657,6 +684,8 @@ _LIMITE_LLAMADA = klimite.Limitador(permitidos=5, ventana_seg=600)
 @app.post("/voz/llamar")
 async def voz_llamar(request: Request):
     """Dispara una llamada saliente real vía la API de Twilio."""
+    kplan.exigir("voz", "las llamadas con el Gestor IA")
+    kplan.verificar_cupo()
     try:
         _LIMITE_LLAMADA.intentar(f"voz_llamar:{klimite.ip_de(request)}")
     except klimite.LimiteIntentos as e:
@@ -897,15 +926,27 @@ if __name__ == "__main__":
     # 5 s, 0 caídas con 120 s (mismo servidor, misma carga, misma prueba).
     keep_alive = int(os.getenv("KOBRA_KEEPALIVE_SEG", "120"))
     workers = int(os.getenv("KOBRA_WORKERS", "1"))
+    # Escucha solo en loopback salvo que se pida lo contrario A PROPÓSITO.
+    #
+    # Antes ataba siempre 0.0.0.0, y este servicio no tiene autenticación: en
+    # una red corporativa cualquiera con la IP de la máquina llegaba al
+    # copiloto, a la transcripción y a `/voz/llamar`, que dispara una llamada
+    # telefónica real. Para Twilio o un despliegue expuesto hace falta
+    # 0.0.0.0, pero eso tiene que ser una decisión explícita y no el default
+    # de quien abre el programa en su notebook.
+    host = os.getenv("KOBRA_REALTIME_HOST", "127.0.0.1")
     cap = kconc.capacidad_total(workers)
     print(f"[MV Kobra AI] Copiloto en Vivo → http://localhost:{port}")
+    if host != "127.0.0.1":
+        print(f"[MV Kobra AI] ATENCION: escuchando en {host} — este servicio no "
+              f"pide credenciales. Exponelo solo detrás de un proxy con auth.")
     print(f"[MV Kobra AI] Capacidad: {cap['simultaneas']} conversaciones "
           f"simultáneas ({cap['por_worker']} × {cap['workers']} worker/s) · "
           f"keep-alive {keep_alive}s")
     if workers > 1:
         # Con varios workers uvicorn necesita la app por string (reimporta en
         # cada proceso); `app` como objeto no es picklable.
-        uvicorn.run("realtime.server:app", host="0.0.0.0", port=port,
+        uvicorn.run("realtime.server:app", host=host, port=port,
                     workers=workers, timeout_keep_alive=keep_alive)
     else:
-        uvicorn.run(app, host="0.0.0.0", port=port, timeout_keep_alive=keep_alive)
+        uvicorn.run(app, host=host, port=port, timeout_keep_alive=keep_alive)

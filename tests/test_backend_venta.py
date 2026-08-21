@@ -10,6 +10,8 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 
+from kobra import auditoria as kauditoria
+
 
 @pytest.fixture
 def entorno(tmp_path, monkeypatch):
@@ -278,13 +280,16 @@ def test_webhook_pago_aprobado_emite_licencia_y_token(entorno, monkeypatch):
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
-    assert body["plan"] == "pro"
-    assert body["licencia"], "un pago aprobado tiene que emitir una licencia"
-    assert body["token_descarga"], "y un token de descarga de un solo uso"
-    # la licencia emitida tiene que ser una de verdad, no un string cualquiera
-    r2 = licencias.licencia_activa(body["licencia"])
-    assert r2["ok"] is True
-    assert r2["claims"]["plan"] == "pro"
+    assert body["licencia"] is True, "un pago aprobado tiene que emitir una licencia"
+    # La licencia ya NO vuelve en la respuesta: este endpoint es público y sin
+    # firma, así que el que la recibiría es quien hizo el POST. Se emite, se
+    # manda por mail y se deja rastro en la auditoría — eso es lo que se
+    # verifica acá.
+    assert "token_descarga" not in body
+    entradas = kauditoria.leer()
+    emitidas = [e for e in entradas if e.get("accion") == "licencia_emitida_pago"]
+    assert emitidas, "el pago aprobado no dejó asiento de licencia emitida"
+    assert emitidas[-1]["detalle"]["plan"] == "pro"
 
 
 @pytest.mark.parametrize("estado", ["pending", "rejected", "in_process"])
@@ -315,10 +320,14 @@ def test_webhook_mercadopago_responde_error_http(entorno, monkeypatch):
     assert r.status_code == 502
 
 
-def test_webhook_plan_desconocido_cae_a_starter(entorno, monkeypatch):
-    """Si `metadata.plan` trae algo que no está en `licencias.PLANES` (un bug
-    del lado de checkout, o alguien mandando un webhook a mano), emitir
-    starter es más seguro que reventar o inventar un plan."""
+def test_webhook_plan_desconocido_no_emite_nada(entorno, monkeypatch):
+    """Si `metadata.plan` trae algo que no está en el catálogo, no se emite.
+
+    Este test decía lo contrario: que caer a `starter` era "más seguro que
+    reventar". No lo era — `starter` es el plan de US$690, así que el fallback
+    convertía cualquier pago no reconocido (un módulo de US$79, un link suelto
+    por cualquier monto) en la licencia más cara del catálogo. El lado Node ya
+    hacía lo correcto; este era el que regalaba."""
     app_mod, licencias, uso, descargas = entorno
     monkeypatch.setenv("MP_ACCESS_TOKEN", "TEST-token")
     monkeypatch.setattr(
@@ -328,7 +337,9 @@ def test_webhook_plan_desconocido_cae_a_starter(entorno, monkeypatch):
     client = TestClient(app_mod.app)
     r = client.post("/webhooks/mercadopago", json={"type": "payment", "data": {"id": "666"}})
     assert r.status_code == 200
-    assert r.json()["plan"] == "starter"
+    d = r.json()
+    assert d["licencia"] is False
+    assert d["motivo"] == "plan_no_licenciable"
 
 
 def test_emitir_licencia_con_plan_invalido_da_400(entorno):
@@ -339,3 +350,87 @@ def test_emitir_licencia_con_plan_invalido_da_400(entorno):
                     json={"cliente_id": "x@mail.com", "plan": "plan-inventado"},
                     headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# El webhook de pago: qué licencia emite y a quién se la da
+#
+# Este endpoint es público y no lleva firma. Antes de estos tests emitía plan
+# `starter` (US$690) ante cualquier metadata que no reconociera —incluida la
+# de un módulo de US$79 y la de un pago sin metadata— y devolvía la licencia
+# en el cuerpo de la respuesta, o sea a quien hiciera el POST.
+# ---------------------------------------------------------------------------
+def _pago(monkeypatch, app_mod, **campos):
+    """Simula la respuesta de la API de MercadoPago para un pago aprobado."""
+    base = {"status": "approved", "metadata": {}}
+    base.update(campos)
+
+    class _R:
+        ok = True
+
+        @staticmethod
+        def json():
+            return base
+
+    monkeypatch.setenv("MP_ACCESS_TOKEN", "TEST-token-de-prueba")
+    monkeypatch.setattr(app_mod.requests, "get", lambda *a, **k: _R())
+
+
+def test_un_pago_de_modulo_no_emite_el_plan_caro(entorno, monkeypatch):
+    """Logística son US$79 y vive en MODULOS_VENTA, no en PLANES. El fallback
+    a `starter` convertía esa compra en una licencia de US$690 con gobernanza
+    y dax, por 365 días."""
+    app_mod, licencias, uso, descargas = entorno
+    _pago(monkeypatch, app_mod,
+          metadata={"plan": "logistica", "email": "distribuidora@ejemplo.com"})
+    r = TestClient(app_mod.app).post(
+        "/webhooks/mercadopago", json={"type": "payment", "data": {"id": "5001"}})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["licencia"] is True
+    assert "starter" not in str(d)
+
+
+def test_un_pago_sin_plan_no_regala_una_licencia(entorno, monkeypatch):
+    """Sin metadata —un link de pago suelto, por cualquier monto— antes salía
+    `starter`. Ahora se avisa y se resuelve a mano."""
+    app_mod, licencias, uso, descargas = entorno
+    _pago(monkeypatch, app_mod, metadata={})
+    r = TestClient(app_mod.app).post(
+        "/webhooks/mercadopago", json={"type": "payment", "data": {"id": "5002"}})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["licencia"] is False, "un pago sin plan no puede llevarse una licencia"
+    assert d["motivo"] == "plan_no_licenciable"
+
+
+def test_la_licencia_nunca_vuelve_en_la_respuesta(entorno, monkeypatch):
+    """El endpoint no está autenticado: quien recibe la respuesta es quien hizo
+    el POST, no necesariamente el comprador."""
+    app_mod, licencias, uso, descargas = entorno
+    _pago(monkeypatch, app_mod,
+          metadata={"plan": "basico", "email": "comprador@ejemplo.com"})
+    r = TestClient(app_mod.app).post(
+        "/webhooks/mercadopago", json={"type": "payment", "data": {"id": "5003"}})
+    cuerpo = r.json()
+    assert "licencia" in cuerpo
+    assert cuerpo["licencia"] is True, "tiene que decir que emitió, no qué emitió"
+    # Ningún JWT en la respuesta: un token tiene tres partes separadas por punto.
+    for valor in cuerpo.values():
+        assert not (isinstance(valor, str) and valor.count(".") == 2 and len(valor) > 60), \
+            f"la licencia volvió en la respuesta: {valor!r}"
+    assert "token_descarga" not in cuerpo
+
+
+def test_el_mismo_pago_avisado_dos_veces_emite_una_sola_licencia(entorno, monkeypatch):
+    """MercadoPago reintenta. Sin deduplicación, cada reintento emitía otra
+    licencia (con otro vencimiento) y otro token de descarga."""
+    app_mod, licencias, uso, descargas = entorno
+    _pago(monkeypatch, app_mod,
+          metadata={"plan": "basico", "email": "comprador@ejemplo.com"})
+    cli = TestClient(app_mod.app)
+    aviso = {"type": "payment", "data": {"id": "5004"}}
+    primera = cli.post("/webhooks/mercadopago", json=aviso).json()
+    segunda = cli.post("/webhooks/mercadopago", json=aviso).json()
+    assert primera["licencia"] is True
+    assert segunda.get("repetido") is True, "el reintento volvió a emitir"

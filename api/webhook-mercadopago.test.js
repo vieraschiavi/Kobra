@@ -367,3 +367,56 @@ test("sin privada Y sin secreto: avisa en vez de emitir", async () => {
   assert.ok(erroresLogueados.join("\n").includes("9201"),
     "si no se puede emitir, el payment_id tiene que quedar en el log para resolverlo a mano");
 });
+
+// ---------------------------------------------------------------------------
+// Plata que se va DESPUÉS de haber entregado la licencia.
+//
+// `refunded` y `charged_back` caían en el mismo `else` que `pending` y se
+// respondía 200 sin hacer nada. Un cliente compraba Starter (365 días), pedía
+// contracargo a los 20, y seguía usando el producto 345 días más con la plata
+// devuelta. Revocar de verdad exige una lista de revocación y chequeo online
+// —otra arquitectura—, pero el dueño tiene que enterarse.
+// ---------------------------------------------------------------------------
+for (const estado of ["refunded", "charged_back", "cancelled"]) {
+  test(`${estado}: avisa al dueño en vez de responder 200 en silencio`, async () => {
+    process.env.MP_ACCESS_TOKEN = "TEST-token";
+    process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
+    process.env.RESEND_API_KEY = "re_prueba";
+    let avisoAlDueno = null;
+    mockFetch(async (url, opts) => {
+      if (String(url).includes("resend")) {
+        avisoAlDueno = JSON.parse(opts.body);
+        return { ok: true };
+      }
+      return { ok: true, json: async () => ({
+        status: estado, transaction_amount: 690,
+        metadata: { plan: "starter" },
+        payer: { email: "comprador@ejemplo.com" } }) };
+    });
+    const wh = require("./webhook-mercadopago");
+    const r = res();
+    await wh(req({ type: "payment", "data.id": "9300" }), r);
+
+    assert.equal(r.statusCode, 200);
+    assert.equal(r.body.avisado, true, "no avisó a nadie");
+    assert.ok(avisoAlDueno, "no salió el mail al dueño");
+    assert.ok(avisoAlDueno.subject.includes("9300"),
+      "el aviso no dice de qué pago se trata");
+    assert.ok(erroresLogueados.join("\n").includes("9300"),
+      "no queda rastro en el log para resolverlo a mano");
+  });
+}
+
+test("un refund NO emite una licencia nueva", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.LICENSE_SECRET = CLAVE_LICENCIA_PRUEBA;
+  delete process.env.RESEND_API_KEY;
+  mockFetch(async () => ({ ok: true, json: async () => ({
+    status: "refunded", metadata: { plan: "starter" },
+    payer: { email: "x@y.com" } }) }));
+  const wh = require("./webhook-mercadopago");
+  const r = res();
+  await wh(req({ type: "payment", "data.id": "9301" }), r);
+  assert.notEqual(r.body.license, true,
+    "un pago devuelto no puede entregar producto");
+});
