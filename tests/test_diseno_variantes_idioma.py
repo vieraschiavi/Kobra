@@ -109,14 +109,21 @@ def test_la_demo_generada_no_referencia_ninguna_ruta_relativa_propia():
 
 
 def test_vercel_json_tiene_un_rewrite_para_cada_variante():
+    """Las variantes de la LANDING siguen publicándose. Las de la demo no.
+
+    La demo interactiva dejó de servirse: lo que había en `/demo/` no era una
+    maqueta sino el modelo ProbPago entrenado y los guiones de negociación.
+    Este test pedía los rewrites de `/demo/en/` y `/demo/pt/`; ahora exige lo
+    contrario, para que nadie los reponga sin decidirlo.
+    """
     import json
     with open(os.path.join(gen.krutas.ROOT_REPO, "vercel.json"), encoding="utf-8") as f:
         cfg = json.load(f)
     fuentes = {r["source"] for r in cfg["rewrites"]}
-    for esperada in ("/en/", "/pt/", "/demo/en/", "/demo/pt/"):
+    for esperada in ("/en/", "/pt/"):
         assert esperada in fuentes, f"falta el rewrite de {esperada} en vercel.json"
-    # Y que /demo/en//demo/pt/ estén ANTES del catch-all /demo/:path*, si no
-    # el catch-all los intercepta primero.
-    orden = [r["source"] for r in cfg["rewrites"]]
-    assert orden.index("/demo/en/") < orden.index("/demo/:path*")
-    assert orden.index("/demo/pt/") < orden.index("/demo/:path*")
+    de_demo = [f for f in fuentes if f.startswith("/demo")]
+    assert not de_demo, f"la demo volvió a publicarse: {de_demo}"
+    assert "/pedir-demo" in fuentes, "no hay dónde pedir la demo"
+
+

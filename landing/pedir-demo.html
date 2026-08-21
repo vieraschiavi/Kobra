@@ -1,0 +1,219 @@
+<!doctype html>
+<!-- © 2026 Martín Viera. Todos los derechos reservados. -->
+<!--
+  Pedido de demo. Reemplaza a la demo pública.
+
+  La demo interactiva dejó de publicarse: lo que se servía en `/demo/` no era
+  una maqueta sino el modelo ProbPago entrenado (`modelo_web.js`) y los guiones
+  de negociación. Se muestra el resultado, no el artefacto.
+-->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MV Kobra AI · Pedir una demo</title>
+<link rel="icon" type="image/png" href="/landing/mv_icon.png">
+<link rel="apple-touch-icon" href="/landing/mv_icon.png">
+<meta name="description" content="Pedí una demostración en vivo de MV Kobra AI: cartera priorizada por probabilidad de pago, agente negociador y copiloto de calidad.">
+<link rel="canonical" href="https://mvkobranzaia.com/pedir-demo">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MV Kobra AI · Pedir una demo">
+<meta property="og:description" content="Una demostración en vivo, uno a uno, sobre tu propia operación de cobranzas.">
+<meta property="og:image" content="https://mvkobranzaia.com/landing/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://mvkobranzaia.com/pedir-demo">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MV Kobra AI · Pedir una demo">
+<meta name="twitter:description" content="Una demostración en vivo, uno a uno, sobre tu propia operación de cobranzas.">
+<meta name="twitter:image" content="https://mvkobranzaia.com/landing/og.png">
+<style>
+  :root {
+    --navy:#0B1220; --panel:#131F33; --linea:#24334D;
+    --texto:#E6ECF5; --suave:#93A5C0; --verde:#82C544; --rojo:#FF8A80;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--navy); color:var(--texto);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.6;
+  }
+  a { color:var(--verde); }
+  a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
+    outline:2px solid var(--verde); outline-offset:2px;
+  }
+  .hoja { max-width:640px; margin:0 auto; padding:2.5rem 1.25rem 4rem; }
+  header { display:flex; align-items:center; gap:.7rem; margin-bottom:2.25rem; }
+  header img { width:32px; height:32px; border-radius:8px; }
+  header b { font-size:1.05rem; }
+  header span { color:var(--verde); }
+
+  h1 { font-size:1.6rem; line-height:1.25; margin:0 0 .6rem; }
+  .bajada { color:var(--suave); margin:0 0 1.75rem; }
+
+  .caja { background:var(--panel); border:1px solid var(--linea);
+          border-radius:12px; padding:1.5rem; }
+  label { display:block; font-size:.85rem; color:var(--suave);
+          margin:0 0 .3rem; }
+  .campo { margin-bottom:1rem; }
+  input, textarea {
+    width:100%; font:inherit; font-size:.95rem; color:var(--texto);
+    background:#0F1726; border:1px solid var(--linea); border-radius:9px;
+    padding:.65rem .8rem;
+  }
+  textarea { resize:vertical; min-height:78px; }
+  button {
+    width:100%; font:inherit; font-size:.98rem; font-weight:700;
+    background:var(--verde); color:#08210A; border:0; border-radius:10px;
+    padding:.8rem; cursor:pointer; margin-top:.35rem;
+  }
+  button:disabled { opacity:.55; cursor:default; }
+
+  .nota { color:var(--suave); font-size:.82rem; margin-top:1rem; }
+  .error { color:var(--rojo); font-size:.88rem; margin-top:.9rem; }
+  .ok { background:#14291A; border:1px solid #2F5B38; border-radius:12px;
+        padding:1.75rem 1.5rem; text-align:center; }
+  .ok h2 { margin:0 0 .5rem; font-size:1.2rem; color:var(--verde); }
+  .ok p { margin:0; color:var(--suave); }
+
+  .porque { margin-top:2rem; color:var(--suave); font-size:.88rem; }
+  .porque h3 { color:var(--texto); font-size:.95rem; margin:0 0 .5rem; }
+  .porque ul { margin:0; padding-left:1.1rem; }
+  .porque li { margin-bottom:.3rem; }
+</style>
+</head>
+<body>
+<div class="hoja">
+
+  <header>
+    <img src="/landing/mv_icon.png" alt="">
+    <b>MV KOBRA <span>AI</span></b>
+  </header>
+
+  <h1>Pedí una demostración en vivo</h1>
+  <p class="bajada">
+    La hacemos uno a uno, sobre tu operación de cobranzas y con tus números en
+    la mano. Escribinos y coordinamos día y hora.
+  </p>
+
+  <div id="caja" class="caja">
+    <form id="form" novalidate>
+      <div class="campo">
+        <label for="nombre">Nombre completo</label>
+        <input id="nombre" name="nombre" autocomplete="name" required>
+      </div>
+      <div class="campo">
+        <label for="empresa">Empresa</label>
+        <input id="empresa" name="empresa" autocomplete="organization" required>
+      </div>
+      <div class="campo">
+        <label for="pais">País</label>
+        <input id="pais" name="pais" autocomplete="country-name" required>
+      </div>
+      <div class="campo">
+        <label for="email">Mail de contacto</label>
+        <input id="email" name="email" type="email" autocomplete="email" required>
+      </div>
+      <div class="campo">
+        <label for="mensaje">Contanos brevemente tu operación (opcional)</label>
+        <textarea id="mensaje" name="mensaje"
+                  placeholder="Cuántas cuentas gestionan, con qué equipo, qué sistema usan hoy…"></textarea>
+      </div>
+      <button id="btn" type="submit">Pedir la demo</button>
+      <div id="error" class="error" hidden></div>
+    </form>
+    <p class="nota">
+      Te contactamos a ese mail para coordinar. No se comparte con nadie.
+    </p>
+  </div>
+
+  <div class="porque">
+    <h3>Por qué no hay una demo abierta</h3>
+    <ul>
+      <li>La demostración se hace sobre tu caso, no sobre datos genéricos.</li>
+      <li>El modelo de probabilidad de pago es el producto: se muestra
+          funcionando, no se entrega.</li>
+      <li>En vivo se responden las preguntas que a nadie se le ocurren mirando
+          una pantalla solo.</li>
+    </ul>
+    <p style="margin-top:1rem">
+      Mientras tanto, en la <a href="/">página principal</a> hay un video del
+      producto funcionando, grabado en vivo.
+    </p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var form = document.getElementById("form");
+  var btn = document.getElementById("btn");
+  var err = document.getElementById("error");
+  var caja = document.getElementById("caja");
+  var CONTACTO = "vieraschiavi@gmail.com";
+
+  function fallar(msg) {
+    err.textContent = msg;
+    err.hidden = false;
+    btn.disabled = false;
+    btn.textContent = "Pedir la demo";
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    err.hidden = true;
+
+    var d = {
+      nombre: form.nombre.value.trim(),
+      empresa: form.empresa.value.trim(),
+      pais: form.pais.value.trim(),
+      email: form.email.value.trim(),
+      mensaje: form.mensaje.value.trim()
+    };
+    var faltan = ["nombre", "empresa", "pais", "email"].filter(function (k) {
+      return !d[k];
+    });
+    if (faltan.length) {
+      form[faltan[0]].focus();
+      return fallar("Completá nombre, empresa, país y mail.");
+    }
+    if (d.email.indexOf("@") < 0) {
+      form.email.focus();
+      return fallar("Revisá el mail: parece que le falta algo.");
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Enviando…";
+
+    fetch("/api/solicitar-demo", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(d)
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; })
+        .then(function (b) { return { ok: r.ok, status: r.status, b: b }; });
+    }).then(function (x) {
+      if (x.ok) {
+        caja.innerHTML =
+          '<div class="ok"><h2>Pedido enviado</h2>' +
+          '<p>Te escribimos a <b>' + d.email.replace(/[<>&]/g, "") +
+          '</b> para coordinar día y hora.</p></div>';
+        return;
+      }
+      if (x.status === 429) {
+        return fallar("Demasiados pedidos desde esta conexión. " +
+                      "Probá en un rato o escribinos a " + CONTACTO + ".");
+      }
+      // Si el envío falla por algo nuestro, el prospecto no se puede perder:
+      // se le da la dirección directa en vez de un error y nada más.
+      return fallar("No pudimos enviar el pedido. Escribinos directo a " +
+                    CONTACTO + " y lo coordinamos igual.");
+    }).catch(function () {
+      return fallar("No pudimos enviar el pedido. Escribinos directo a " +
+                    CONTACTO + " y lo coordinamos igual.");
+    });
+  });
+})();
+</script>
+</body>
+</html>

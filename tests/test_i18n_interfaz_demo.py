@@ -282,8 +282,16 @@ def test_la_landing_tambien_respeta_el_lang_de_la_url():
         "URL > ruta (/en//pt/) > guardado > navegador > castellano")
 
 
-def test_la_landing_le_pasa_el_idioma_al_demo():
-    """Son dos páginas distintas: si el link no lleva el idioma, elegir inglés
-    en la landing y entrar al demo lo abre igual en castellano."""
+def test_la_landing_ya_no_manda_a_una_demo_publica():
+    """Antes este test exigía que el link a `/demo/` llevara el idioma.
+
+    Ya no hay demo pública: se servía el modelo ProbPago entrenado
+    (`modelo_web.js`) y 41 KB de guiones de negociación, descargables por
+    cualquiera. Ahora el llamado a la acción va a `/pedir-demo`, que es una
+    sola página y no necesita variante por idioma.
+    """
     html = open(LANDING, encoding="utf-8").read()
-    assert "'/demo/?lang=' + lang" in html
+    assert "/demo/" not in html, "la landing volvió a mandar a la demo pública"
+    assert "/pedir-demo" in html, "la landing no ofrece pedir una demo"
+
+
