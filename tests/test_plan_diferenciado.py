@@ -302,11 +302,18 @@ def test_el_contador_queda_en_un_json_valido(tmp_path, monkeypatch):
 
 
 def test_una_licencia_vencida_no_deja_el_cupo_abierto(tmp_path, monkeypatch):
-    """Con la licencia vencida no hay claims: el estado no puede pasar a
-    'ilimitado' por la puerta de atrás. El vencimiento lo aplica la pantalla
-    de activación (kobra/edicion.py), pero acá no se puede blanquear el cupo."""
+    """Con la licencia vencida el estado no puede pasar a 'ilimitado' por la
+    puerta de atrás.
+
+    Este test pedía `claims() is None`, y eso era justamente el agujero: None
+    significa "este programa no está gobernado por una licencia" (copia del
+    repo, hosted, desarrollo), así que devolvía True en `permite()` y None en
+    `cupo()`. Una demo vencida quedaba con todo habilitado y sin tope. Ahora
+    una licencia que existe y no vale se distingue de no tener ninguna."""
     kplan = _entorno(tmp_path, monkeypatch, plan="basico", dias=-1)
-    assert kplan.claims() is None
+    assert kplan.claims() is kplan.SIN_PLAN
+    assert kplan.cupo() == 0, "una licencia vencida no puede quedar sin tope"
+    assert kplan.permite("gobernanza") is False
 
 
 # --- Las dos vías de arranque aplican el mismo plan -------------------------
@@ -380,3 +387,61 @@ def test_la_api_niega_lo_que_el_plan_no_incluye(tmp_path, monkeypatch):
     # Y lo que sí incluye, sigue funcionando.
     assert cliente.post("/api/gestor-ia/demo", json={"canal": "WhatsApp"},
                         headers=cab).status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Una licencia vencida no puede significar "sin límites"
+#
+# `claims()` devolvía None tanto si no había licencia como si la que había
+# estaba vencida o adulterada. Y None significa "este programa no está
+# gobernado por una licencia" — copia del repo, hosted, desarrollo. Así que al
+# vencerse la demo el cliente pasaba de 50 gestiones y cuatro features a TODO
+# habilitado y sin tope: exactamente al revés de lo que tiene que pasar.
+# ---------------------------------------------------------------------------
+def test_una_licencia_vencida_no_habilita_todo(tmp_path, monkeypatch):
+    import time as _t
+
+    import jwt
+    kplan = _entorno(tmp_path, monkeypatch, plan="trial")
+    from kobra import config as kconfig
+    from kobra.edicion import CLAVE_TOKEN
+    ahora = int(_t.time())
+    vencida = jwt.encode({"sub": "cliente-1", "plan": "enterprise",
+                          "cupo_mensual": None,
+                          "features": ["gobernanza", "dax", "automl"],
+                          "iat": ahora - 40 * 86400, "exp": ahora - 3600},
+                         SECRETO, algorithm="HS256")
+    kconfig.guardar_extra(CLAVE_TOKEN, vencida)
+    kplan.invalidar_cache()
+
+    for feature in ("gobernanza", "dax", "automl", "white_label", "sso"):
+        assert kplan.permite(feature) is False, \
+            f"una licencia vencida habilitó {feature}"
+    assert kplan.cupo() == 0, "una licencia vencida quedó sin tope de gestiones"
+
+
+def test_una_licencia_adulterada_tampoco(tmp_path, monkeypatch):
+    """Firmada con otro secreto: mismo tratamiento que la vencida."""
+    import time as _t
+
+    import jwt
+    kplan = _entorno(tmp_path, monkeypatch, plan="trial")
+    from kobra import config as kconfig
+    from kobra.edicion import CLAVE_TOKEN
+    ahora = int(_t.time())
+    falsa = jwt.encode({"sub": "yo", "plan": "enterprise", "cupo_mensual": None,
+                        "features": ["gobernanza", "dax", "automl"],
+                        "iat": ahora, "exp": ahora + 10 ** 7},
+                       "otro-secreto-cualquiera", algorithm="HS256")
+    kconfig.guardar_extra(CLAVE_TOKEN, falsa)
+    kplan.invalidar_cache()
+    assert kplan.permite("automl") is False
+    assert kplan.cupo() == 0
+
+
+def test_sin_licencia_configurada_sigue_sin_gobierno(tmp_path, monkeypatch):
+    """El otro lado de la moneda: correr desde el repo o en hosted no puede
+    quedar limitado por un tope que nadie configuró."""
+    kplan = _entorno(tmp_path, monkeypatch, plan=None)
+    assert kplan.permite("gobernanza") is True
+    assert kplan.cupo() is None

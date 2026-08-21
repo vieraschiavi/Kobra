@@ -144,6 +144,14 @@ def claims() -> dict | None:
     return valor
 
 
+# Una licencia que existe pero no vale (vencida, adulterada, firmada con otro
+# secreto) NO es lo mismo que no tener licencia. Antes las dos daban None, y
+# None significa "sin gobierno" — así que al vencerse la demo el programa
+# pasaba a permitir TODO y sin tope, que es lo contrario de lo que tiene que
+# pasar. Este centinela distingue los dos casos.
+SIN_PLAN: dict = {}
+
+
 def _claims_sin_cache() -> dict | None:
     try:
         from backend_venta import licencias as klicencias
@@ -153,9 +161,14 @@ def _claims_sin_cache() -> dict | None:
         return None
     token = kconfig.leer_extra(CLAVE_TOKEN)
     if not token:
+        # No hay licencia configurada: copia del repo, hosted, desarrollo. No
+        # se inventa un tope que nadie puso.
         return None
     r = klicencias.licencia_activa(token)
-    return r["claims"] if r["ok"] else None
+    if r["ok"]:
+        return r["claims"]
+    # Hay licencia y no vale: plan mínimo, no barra libre.
+    return SIN_PLAN
 
 
 def _cliente_id(c: dict | None) -> str:
@@ -196,6 +209,8 @@ def cupo() -> int | None:
     c = claims()
     if c is None:
         return None
+    if c is SIN_PLAN:
+        return 0        # licencia vencida o inválida: no se gestiona
     valor = c.get("cupo_mensual")
     if valor is None:
         return None

@@ -205,3 +205,64 @@ def test_el_portal_del_deudor_muestra_la_marca():
         jsx = f.read()
     assert 'src="/mv_icon.png"' in jsx, \
         "el portal del deudor no muestra el isotipo en su header"
+
+
+# ---------------------------------------------------------------------------
+# La descarga: que la URL que ve el cliente y la que publica CI sean la misma
+#
+# El instalador se publicaba solo en el repo privado porque el paso que copia
+# al repo público está condicionado a un secret que no estaba configurado —
+# y el build salía verde igual. La landing y el mail post-pago apuntaban a un
+# repo que nunca recibió nada. Nadie puede descargar lo que compró.
+# ---------------------------------------------------------------------------
+def _repo_de(url: str) -> str:
+    m = re.search(r"github\.com/([^/]+/[^/]+)/releases", url)
+    return m.group(1) if m else ""
+
+
+def test_la_landing_y_el_mail_bajan_del_mismo_repo_al_que_publica_ci():
+    """Tres lugares tienen que nombrar el mismo repo. Si alguien lo renombra
+    en uno solo, la descarga se rompe sin que falle ningún build."""
+    wf = open(os.path.join(ROOT, ".github", "workflows", "build_windows.yml"),
+              encoding="utf-8").read()
+    m = re.search(r"repository:\s*([^\s]+)", wf)
+    assert m, "el workflow no declara a qué repo público publica"
+    destino = m.group(1).strip()
+
+    landing = _html(os.path.join("landing", "descarga.html"))
+    m2 = re.search(r"INSTALADOR_URL\s*=\s*'([^']+)'", landing)
+    assert m2, "no encontré INSTALADOR_URL en la página de descarga"
+    assert _repo_de(m2.group(1)) == destino, (
+        f"la landing baja de {_repo_de(m2.group(1))!r} y CI publica en "
+        f"{destino!r}: el cliente descarga de un repo que nadie actualiza")
+
+    mail = open(os.path.join(ROOT, "api", "webhook-mercadopago.js"),
+                encoding="utf-8").read()
+    urls = re.findall(r"https://github\.com/[^\"'\s]+/releases/[^\"'\s]+", mail)
+    assert urls, "el mail post-pago no lleva link de descarga"
+    for u in urls:
+        assert _repo_de(u) == destino, (
+            f"el mail manda a {_repo_de(u)!r} y CI publica en {destino!r}")
+
+
+def test_el_asset_que_pide_la_web_es_el_que_sube_ci():
+    """El nombre del archivo también: `.../download/<archivo>` tiene que ser
+    uno de los que el workflow sube."""
+    wf = open(os.path.join(ROOT, ".github", "workflows", "build_windows.yml"),
+              encoding="utf-8").read()
+    landing = _html(os.path.join("landing", "descarga.html"))
+    m = re.search(r"INSTALADOR_URL\s*=\s*'[^']*/download/([^'/]+)'", landing)
+    assert m, "la URL de descarga no nombra un archivo"
+    archivo = m.group(1)
+    assert f"dist/{archivo}" in wf, (
+        f"la web pide {archivo!r} y el workflow no lo sube con ese nombre")
+
+
+def test_ci_avisa_fuerte_si_no_puede_publicar_la_descarga():
+    """El fallo era silencioso: paso `skipped`, build verde, descarga rota.
+    Ahora tiene que quedar anotado en el resumen del run."""
+    wf = open(os.path.join(ROOT, ".github", "workflows", "build_windows.yml"),
+              encoding="utf-8").read()
+    assert "::warning" in wf, "no hay anotación visible cuando falta el secret"
+    assert "GITHUB_STEP_SUMMARY" in wf, \
+        "el aviso no queda en el resumen del run, donde se lo ve sin abrir logs"
