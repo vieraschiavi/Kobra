@@ -1,23 +1,80 @@
 {
   "redirects": [
-    { "source": "/demo", "destination": "/demo/", "permanent": false },
-    { "source": "/en", "destination": "/en/", "permanent": false },
-    { "source": "/pt", "destination": "/pt/", "permanent": false },
-    { "source": "/demo/en", "destination": "/demo/en/", "permanent": false },
-    { "source": "/demo/pt", "destination": "/demo/pt/", "permanent": false }
+    {
+      "source": "/demo",
+      "destination": "/demo/",
+      "permanent": false
+    },
+    {
+      "source": "/en",
+      "destination": "/en/",
+      "permanent": false
+    },
+    {
+      "source": "/pt",
+      "destination": "/pt/",
+      "permanent": false
+    },
+    {
+      "source": "/demo/en",
+      "destination": "/demo/en/",
+      "permanent": false
+    },
+    {
+      "source": "/demo/pt",
+      "destination": "/demo/pt/",
+      "permanent": false
+    }
   ],
   "rewrites": [
-    { "source": "/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3/a-4-a/c.js", "destination": "https://api.vercel.com/bot-protection/v1/challenge" },
-    { "source": "/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3/:path*", "destination": "https://api.vercel.com/bot-protection/v1/proxy/:path*" },
-    { "source": "/", "destination": "/landing/index.html" },
-    { "source": "/descarga", "destination": "/landing/descarga.html" },
-    { "source": "/video/:path*", "destination": "/landing/video/:path*" },
-    { "source": "/en/", "destination": "/landing/en/index.html" },
-    { "source": "/pt/", "destination": "/landing/pt/index.html" },
-    { "source": "/demo/en/", "destination": "/dashboard_estatico/en/index.html" },
-    { "source": "/demo/pt/", "destination": "/dashboard_estatico/pt/index.html" },
-    { "source": "/demo/", "destination": "/dashboard_estatico/index.html" },
-    { "source": "/demo/:path*", "destination": "/dashboard_estatico/:path*" }
+    {
+      "source": "/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3/a-4-a/c.js",
+      "destination": "https://api.vercel.com/bot-protection/v1/challenge"
+    },
+    {
+      "source": "/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3/:path*",
+      "destination": "https://api.vercel.com/bot-protection/v1/proxy/:path*"
+    },
+    {
+      "source": "/",
+      "destination": "/landing/index.html"
+    },
+    {
+      "source": "/descarga",
+      "destination": "/landing/descarga.html"
+    },
+    {
+      "source": "/monitor",
+      "destination": "/landing/monitor.html"
+    },
+    {
+      "source": "/video/:path*",
+      "destination": "/landing/video/:path*"
+    },
+    {
+      "source": "/en/",
+      "destination": "/landing/en/index.html"
+    },
+    {
+      "source": "/pt/",
+      "destination": "/landing/pt/index.html"
+    },
+    {
+      "source": "/demo/en/",
+      "destination": "/dashboard_estatico/en/index.html"
+    },
+    {
+      "source": "/demo/pt/",
+      "destination": "/dashboard_estatico/pt/index.html"
+    },
+    {
+      "source": "/demo/",
+      "destination": "/dashboard_estatico/index.html"
+    },
+    {
+      "source": "/demo/:path*",
+      "destination": "/dashboard_estatico/:path*"
+    }
   ],
   "headers": [
     {
@@ -27,16 +84,31 @@
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self'; connect-src 'self' https://api.vercel.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
         },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "geolocation=(), camera=(), payment=(), usb=()" },
-        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "geolocation=(), camera=(), payment=(), usb=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        }
       ]
     },
     {
       "source": "/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3/:path*",
       "headers": [
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
       ]
     }
   ]

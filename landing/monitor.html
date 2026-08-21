@@ -1,0 +1,215 @@
+<!doctype html>
+<!-- © 2026 Martín Viera. Todos los derechos reservados. -->
+<!--
+  Monitor del negocio. NO es parte del producto que se vende: es la pantalla
+  del dueño para ver cuánto entró. Se abre con la misma credencial
+  `mail|código` que desbloquea el programa, así no hay una contraseña más que
+  recordar ni un secreto más que configurar.
+
+  La credencial no se guarda en localStorage a propósito: sobrevive a la
+  sesión y esta pantalla muestra la facturación completa. Se pide cada vez.
+-->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MV Kobra AI · Monitor</title>
+<link rel="icon" type="image/png" href="/landing/mv_icon.png">
+<link rel="apple-touch-icon" href="/landing/mv_icon.png">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root {
+    --navy: #0B1220; --panel: #131F33; --linea: #24334D;
+    --texto: #E6ECF5; --suave: #93A5C0; --verde: #82C544; --rojo: #FF8A80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--navy); color: var(--texto);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.55;
+  }
+  .hoja { max-width: 1000px; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }
+  header { display: flex; align-items: center; gap: .75rem; margin-bottom: 2rem; }
+  header img { width: 34px; height: 34px; border-radius: 8px; }
+  header b { font-size: 1.1rem; letter-spacing: .01em; }
+  header span { color: var(--verde); }
+
+  .entrar { background: var(--panel); border: 1px solid var(--linea);
+            border-radius: 12px; padding: 1.5rem; max-width: 440px; }
+  .entrar h1 { font-size: 1.15rem; margin: 0 0 .4rem; }
+  .entrar p { color: var(--suave); font-size: .9rem; margin: 0 0 1rem; }
+  input, button {
+    width: 100%; font-size: .95rem; font-family: inherit;
+    padding: .7rem .85rem; border-radius: 9px; border: 1px solid var(--linea);
+  }
+  input { background: #0F1726; color: var(--texto); }
+  input:focus-visible, button:focus-visible {
+    outline: 2px solid var(--verde); outline-offset: 2px;
+  }
+  button { margin-top: .8rem; background: var(--verde); color: #08210A;
+           font-weight: 700; border: 0; cursor: pointer; }
+  button:disabled { opacity: .55; cursor: default; }
+  .error { color: var(--rojo); font-size: .88rem; margin-top: .75rem; }
+
+  .tarjetas { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .t { background: var(--panel); border: 1px solid var(--linea);
+       border-radius: 12px; padding: 1.1rem 1.25rem; }
+  .t .rot { color: var(--suave); font-size: .76rem; letter-spacing: .06em;
+            text-transform: uppercase; }
+  .t .val { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums;
+            margin-top: .2rem; }
+  .t .val.verde { color: var(--verde); }
+  .t .pie { color: var(--suave); font-size: .8rem; margin-top: .15rem; }
+
+  h2 { font-size: 1rem; margin: 2.25rem 0 .75rem; color: var(--suave);
+       text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+  .tabla { overflow-x: auto; border: 1px solid var(--linea); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; background: var(--panel); }
+  th, td { text-align: left; padding: .7rem .9rem; border-bottom: 1px solid var(--linea);
+           font-size: .9rem; white-space: nowrap; }
+  th { color: var(--suave); font-size: .75rem; text-transform: uppercase;
+       letter-spacing: .05em; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+
+  .aviso { background: #2C2113; border: 1px solid #574421; color: #F0B354;
+           border-radius: 10px; padding: .9rem 1.1rem; font-size: .88rem;
+           margin-top: 1.25rem; }
+  .pie-pag { color: var(--suave); font-size: .8rem; margin-top: 2.5rem;
+             border-top: 1px solid var(--linea); padding-top: 1rem; }
+</style>
+</head>
+<body>
+<div class="hoja">
+
+  <header>
+    <img src="/landing/mv_icon.png" alt="">
+    <b>MV KOBRA <span>AI</span> · Monitor</b>
+  </header>
+
+  <div id="entrar" class="entrar">
+    <h1>Entrar</h1>
+    <p>La misma credencial que desbloquea el programa.</p>
+    <input id="cred" type="password" placeholder="mail|código"
+           autocomplete="off" spellcheck="false">
+    <button id="btn">Ver el negocio</button>
+    <div id="err" class="error" hidden></div>
+  </div>
+
+  <div id="datos" hidden></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  function fmt(n, moneda) {
+    if (n === null || n === undefined) return "—";
+    return (moneda ? moneda + " " : "") +
+      Math.round(n).toLocaleString("es-UY");
+  }
+
+  function fila(celdas) {
+    return "<tr>" + celdas.map(function (c, i) {
+      return "<td" + (i ? ' class="num"' : "") + ">" + c + "</td>";
+    }).join("") + "</tr>";
+  }
+
+  function pintar(d) {
+    var m = d.moneda || "";
+    var h = '<div class="tarjetas">' +
+      '<div class="t"><div class="rot">Clientes</div><div class="val">' +
+        d.clientes + '</div><div class="pie">compradores únicos</div></div>' +
+      '<div class="t"><div class="rot">Ventas</div><div class="val">' +
+        d.ventas + '</div><div class="pie">pagos aprobados</div></div>' +
+      '<div class="t"><div class="rot">Neto acreditado</div><div class="val verde">' +
+        fmt(d.neto, m) + '</div><div class="pie">después de la comisión</div></div>' +
+      '<div class="t"><div class="rot">Descargas</div><div class="val">' +
+        (d.descargas.disponible ? d.descargas.total : "—") +
+        '</div><div class="pie">del instalador</div></div>' +
+      '</div>';
+
+    h += '<h2>Por plan</h2><div class="tabla"><table><thead><tr>' +
+      '<th>Plan</th><th class="num">Ventas</th><th class="num">Bruto</th>' +
+      '<th class="num">Neto</th></tr></thead><tbody>';
+    h += d.por_plan.length
+      ? d.por_plan.map(function (p) {
+          return fila([p.plan, p.ventas, fmt(p.bruto, m), fmt(p.neto, m)]);
+        }).join("")
+      : '<tr><td colspan="4">Todavía no hay ventas.</td></tr>';
+    h += '</tbody></table></div>';
+
+    if (d.por_mes.length) {
+      h += '<h2>Por mes</h2><div class="tabla"><table><thead><tr>' +
+        '<th>Mes</th><th class="num">Ventas</th><th class="num">Neto</th>' +
+        '</tr></thead><tbody>' +
+        d.por_mes.map(function (x) {
+          return fila([x.mes, x.ventas, fmt(x.neto, m)]);
+        }).join("") + '</tbody></table></div>';
+    }
+
+    if (d.descargas.disponible && d.descargas.por_version.length) {
+      h += '<h2>Descargas por versión</h2><div class="tabla"><table><thead><tr>' +
+        '<th>Versión</th><th class="num">Descargas</th></tr></thead><tbody>' +
+        d.descargas.por_version.map(function (v) {
+          return fila([v.version, v.descargas]);
+        }).join("") + '</tbody></table></div>';
+    } else if (!d.descargas.disponible) {
+      h += '<div class="aviso"><b>No se pueden contar las descargas.</b> ' +
+        (d.descargas.motivo || "") + '. Mientras el instalador no esté ' +
+        'publicado en el repo público, nadie puede bajar el producto.</div>';
+    }
+
+    if (d.truncado) {
+      h += '<div class="aviso">Hay más de 2.000 pagos: estos números son ' +
+        'un parcial de los más recientes.</div>';
+    }
+
+    h += '<div class="pie-pag">La plata sale de MercadoPago y las descargas ' +
+      'de GitHub — no de un contador propio, que se desincroniza cuando un ' +
+      'aviso se reintenta. El neto es lo que MercadoPago dice que acreditó, ' +
+      'no una estimación. <b>No incluye impuestos.</b><br>Generado: ' +
+      new Date(d.generado).toLocaleString("es-UY") + '</div>';
+
+    $("datos").innerHTML = h;
+    $("datos").hidden = false;
+    $("entrar").hidden = true;
+  }
+
+  function pedir() {
+    var cred = $("cred").value.trim();
+    if (!cred) return;
+    $("btn").disabled = true;
+    $("err").hidden = true;
+    fetch("/api/monitor", {
+      headers: { Authorization: "Bearer " + cred },
+    }).then(function (r) {
+      return r.json().then(function (b) { return { ok: r.ok, b: b }; });
+    }).then(function (x) {
+      if (!x.ok) {
+        throw new Error(
+          x.b.error === "credencial_invalida"
+            ? "Esa credencial no es válida."
+            : (x.b.detalle || x.b.error || "No se pudo cargar."));
+      }
+      // La credencial no se guarda: esta pantalla muestra la facturación.
+      $("cred").value = "";
+      pintar(x.b);
+    }).catch(function (e) {
+      $("err").textContent = e.message;
+      $("err").hidden = false;
+    }).finally(function () {
+      $("btn").disabled = false;
+    });
+  }
+
+  $("btn").addEventListener("click", pedir);
+  $("cred").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") pedir();
+  });
+})();
+</script>
+</body>
+</html>
