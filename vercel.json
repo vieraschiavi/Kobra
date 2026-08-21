@@ -1,11 +1,6 @@
 {
   "redirects": [
     {
-      "source": "/demo",
-      "destination": "/demo/",
-      "permanent": false
-    },
-    {
       "source": "/en",
       "destination": "/en/",
       "permanent": false
@@ -13,16 +8,6 @@
     {
       "source": "/pt",
       "destination": "/pt/",
-      "permanent": false
-    },
-    {
-      "source": "/demo/en",
-      "destination": "/demo/en/",
-      "permanent": false
-    },
-    {
-      "source": "/demo/pt",
-      "destination": "/demo/pt/",
       "permanent": false
     }
   ],
@@ -44,6 +29,10 @@
       "destination": "/landing/descarga.html"
     },
     {
+      "source": "/pedir-demo",
+      "destination": "/landing/pedir-demo.html"
+    },
+    {
       "source": "/monitor",
       "destination": "/landing/monitor.html"
     },
@@ -58,22 +47,6 @@
     {
       "source": "/pt/",
       "destination": "/landing/pt/index.html"
-    },
-    {
-      "source": "/demo/en/",
-      "destination": "/dashboard_estatico/en/index.html"
-    },
-    {
-      "source": "/demo/pt/",
-      "destination": "/dashboard_estatico/pt/index.html"
-    },
-    {
-      "source": "/demo/",
-      "destination": "/dashboard_estatico/index.html"
-    },
-    {
-      "source": "/demo/:path*",
-      "destination": "/dashboard_estatico/:path*"
     }
   ],
   "headers": [

@@ -23,3 +23,19 @@ runtime.txt
 run.sh
 owner
 electron/
+
+# La demo interactiva NO se publica.
+#
+# No alcanza con sacar la ruta `/demo/` de vercel.json: Vercel sirve los
+# archivos del repo por su ruta real, así que `/dashboard_estatico/modelo_web.js`
+# seguía entregando el modelo aunque la ruta bonita ya no existiera. Se
+# comprobó contra el sitio en vivo: 200 y 15.626 bytes por las dos vías.
+#
+# Y lo que hay adentro no es una maqueta: `modelo_web.js` es el modelo ProbPago
+# ENTRENADO y exportado -tipo de modelo, variables y parámetros de escala- y
+# `guiones.js` son 41 KB de guiones de negociación. Cualquiera que baje esos
+# dos archivos reimplementa el núcleo del producto.
+#
+# Los archivos siguen en el repo (privado) porque la demo 1:1 se hace con
+# ellos. Lo que cambia es que dejan de servirse en internet.
+dashboard_estatico

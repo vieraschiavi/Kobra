@@ -91,9 +91,17 @@ def test_hay_selector_de_idioma_en_el_demo():
     assert 'id="langSel"' in html and ".langsel{" in html
 
 
-def test_la_landing_lleva_el_idioma_al_demo():
-    html = _leer(LANDING)
-    assert "'/demo/?lang=' + lang" in html
+def test_la_landing_ya_no_manda_a_una_demo_publica():
+    """Antes este test exigía que el link a `/demo/` llevara el idioma.
+
+    Ya no hay demo pública: se servía el modelo ProbPago entrenado
+    (`modelo_web.js`) y 41 KB de guiones de negociación, descargables por
+    cualquiera. Ahora el llamado a la acción va a `/pedir-demo`, que es una
+    sola página y no necesita variante por idioma.
+    """
+    html = open(LANDING, encoding="utf-8").read()
+    assert "/demo/" not in html, "la landing volvió a mandar a la demo pública"
+    assert "/pedir-demo" in html, "la landing no ofrece pedir una demo"
 
 
 # --- subtítulos del video --------------------------------------------------

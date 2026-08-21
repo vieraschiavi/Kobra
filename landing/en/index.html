@@ -398,7 +398,7 @@ nav{background:rgba(8,19,36,.62);
     <h1 data-i="h1">Tu cobranza gestionando <span class="am">24/7</span>, sin sumar gestores</h1>
     <p class="lead" data-i="lead">MV Kobra AI es el agente con Inteligencia Artificial que llama por teléfono —conectado a tu central (Avaya, Genesys, Cisco, Asterisk) o a Twilio—, negocia por WhatsApp, respeta la ley y vuelca cada resultado a tu ERP (PostgreSQL, MySQL, SQL Server o vía API) — mientras tu equipo se enfoca en lo que importa.</p>
     <div class="hcta">
-      <a href="/demo/" class="btn btn-a js-demo" data-i="hb1">▶ Ver la demo en vivo</a>
+      <a href="/pedir-demo" class="btn btn-a" data-i="hb1">Pedir una demo</a>
       <a href="#precios" class="btn btn-o" data-i="hb2">Planes desde USD 99</a>
     </div>
     <div class="metrics">
@@ -580,9 +580,9 @@ nav{background:rgba(8,19,36,.62);
 <!-- DEMO band -->
 <section id="demo"><div class="wrap"><div class="band">
   <div class="eyebrow" style="color:var(--amber)" data-i="dey">Demo en vivo</div>
-  <h2 data-i="bandt" style="margin-top:10px">Probá MV Kobra AI ahora mismo</h2>
-  <p data-i="bandp">Abrí el tablero interactivo y mirá cómo prioriza la cartera, negocia y registra cada gestión.</p>
-  <a href="/demo/" class="btn btn-a js-demo" data-i="bandcta">▶ Abrir la demo</a>
+  <h2 data-i="bandt" style="margin-top:10px">Veamos MV Kobra AI sobre tu cartera</h2>
+  <p data-i="bandp">Una demostración en vivo, uno a uno, con tus números y tus preguntas.</p>
+  <a href="/pedir-demo" class="btn btn-a" data-i="bandcta">Pedir una demo</a>
 </div></div></section>
 
 <!-- RESEÑAS Y CONFIANZA (white) -->
@@ -634,25 +634,6 @@ nav{background:rgba(8,19,36,.62);
     </div>
   </form>
 </div></section>
-
-<div class="modal-bg" id="regmodal" hidden>
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="regtitle">
-    <button class="modal-x" id="regclose" aria-label="Cerrar">&times;</button>
-    <div class="eyebrow" data-i="regey">Demo gratis · 3 días</div>
-    <h3 id="regtitle" data-i="regt">Activá tu demo completa</h3>
-    <p class="modal-sub" id="regsub" data-i="regsub">Registrate y probá MV Kobra AI completo por 3 días. Sin tarjeta.</p>
-    <form id="regform" novalidate>
-      <label><span data-i="cfn">Nombre</span><input name="nombre" required autocomplete="name"></label>
-      <label><span data-i="cfe">Email</span><input type="email" name="email" required autocomplete="email"></label>
-      <div class="frow2">
-        <label><span data-i="cft">Teléfono</span><input name="tel" autocomplete="tel" inputmode="tel"></label>
-        <label><span data-i="regemp">Empresa</span><input name="empresa" autocomplete="organization"></label>
-      </div>
-      <button type="submit" class="btn btn-a" style="width:100%" data-i="regcta">Activar demo de 3 días</button>
-      <p class="modal-note" data-i="regnote">Al registrarte aceptás recibir información de MV Kobra AI.</p>
-    </form>
-  </div>
-</div>
 
 <footer><div class="wrap">
   <div class="foot-top">
@@ -773,9 +754,6 @@ function setLang(lang){
   // El demo es otra página y hasta ahora se abría siempre en castellano: el
   // idioma viaja en la URL además de en localStorage, para que funcione
   // aunque el navegador tenga el almacenamiento bloqueado.
-  document.querySelectorAll('a[href^="/demo/"]').forEach(function(a){
-    a.setAttribute('href', '/demo/?lang=' + lang);
-  });
   // Y los subtítulos del video pasan al idioma elegido.
   document.querySelectorAll('video track').forEach(function(t){
     var activo = t.getAttribute('srclang') === lang;
@@ -936,42 +914,10 @@ if(btnResena){btnResena.addEventListener('click',function(){
   window.location.href="mailto:"+CONTACT_TO+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
 });}
 
-// Demo completa · 3 días por usuario registrado
-var TRIAL_MS=3*24*60*60*1000;
-function regGet(){try{return JSON.parse(localStorage.getItem('kobra_reg')||'null')}catch(e){return null}}
-function regValid(r){return !!(r&&r.ts&&(Date.now()-r.ts)<TRIAL_MS)}
-var modal=document.getElementById('regmodal');
-function openReg(expired){
-  var sub=document.getElementById('regsub');
-  if(expired&&sub){sub.textContent=(document.documentElement.lang==='en'?
-     "Your 3-day demo expired. Sign up again to keep testing.":
-     document.documentElement.lang==='pt'?
-     "Sua demo de 3 dias expirou. Cadastre-se de novo para continuar.":
-     "Tu demo de 3 días venció. Registrate de nuevo para seguir probando.");}
-  if(modal){modal.hidden=false;var f=modal.querySelector('input[name=nombre]');if(f)f.focus();}
-}
-function closeReg(){if(modal)modal.hidden=true;}
-if(modal){
-  document.getElementById('regclose').addEventListener('click',closeReg);
-  modal.addEventListener('click',function(e){if(e.target===modal)closeReg();});
-  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeReg();});
-}
-document.querySelectorAll('.js-demo').forEach(function(a){
-  a.addEventListener('click',function(e){
-    if(regValid(regGet()))return;          // demo vigente → pasa directo a /demo/
-    e.preventDefault();openReg(false);
-  });
-});
-var regform=document.getElementById('regform');
-if(regform){regform.addEventListener('submit',function(e){
-  e.preventDefault();
-  var d=new FormData(regform);
-  var reg={nombre:(d.get('nombre')||'').trim(),email:(d.get('email')||'').trim(),
-           tel:(d.get('tel')||'').trim(),empresa:(d.get('empresa')||'').trim(),ts:Date.now()};
-  if(!reg.email||reg.email.indexOf('@')<0){var em=regform.querySelector('input[name=email]');if(em)em.focus();return;}
-  try{localStorage.setItem('kobra_reg',JSON.stringify(reg));}catch(e){}
-  window.location.href='/demo/';
-});}
+// La demo interactiva ya no se publica. Lo que había acá era un registro que
+// guardaba nombre y mail en localStorage y NO los mandaba a ningún lado: no
+// llegaba un solo lead, y la demo se abría igual escribiendo la URL. Ahora el
+// pedido va a /pedir-demo, que sí avisa por mail.
 </script>
 
 <!-- ==========================================================================
