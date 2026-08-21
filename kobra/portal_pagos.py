@@ -376,7 +376,8 @@ def _webhook_async(url: str, imputacion: dict, intentos: int = 3) -> None:
 # MercadoPago (preconfigurado por la empresa; simulado en demo)
 # ---------------------------------------------------------------------------
 def link_mercadopago(cfg: dict, referencia: str, monto: float,
-                     descripcion: str = "", base_url: str = "") -> str:
+                     descripcion: str = "", base_url: str = "",
+                     url_retorno: str = "") -> str:
     """Link de pago de MercadoPago, en orden de preferencia:
 
     1. **Checkout real** con el monto exacto de esta deuda, si la empresa
@@ -397,7 +398,8 @@ def link_mercadopago(cfg: dict, referencia: str, monto: float,
         from kobra import mercadopago as kmp
         r = kmp.crear_preferencia(
             access_token=token, referencia=referencia, monto=monto,
-            descripcion=descripcion or "Pago de deuda", base_url=base_url)
+            descripcion=descripcion or "Pago de deuda", base_url=base_url,
+            url_retorno=url_retorno)
         if r["ok"]:
             return r["url"]
 

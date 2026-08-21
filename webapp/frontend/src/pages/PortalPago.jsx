@@ -121,11 +121,34 @@ export default function PortalPago() {
     }
   };
 
+  // MercadoPago devuelve al deudor con el id del pago en la URL. Sin
+  // mandarlo, el backend no tiene contra qué verificar y toda la
+  // comprobación server-side (kobra/mercadopago.py::verificar_pago) quedaba
+  // sin ejecutarse nunca desde la UI: alcanzaba con apretar "ya pagué" para
+  // que el saldo bajara y se disparara el webhook al ERP.
+  //
+  // El nombre del parámetro cambia según cómo vuelva: `payment_id` en el
+  // retorno del checkout, `collection_id` en algunas integraciones.
+  const idDePagoEnLaUrl = () => {
+    try {
+      const cruda = window.location.hash.includes("?")
+        ? window.location.hash.split("?")[1]
+        : window.location.search;
+      const q = new URLSearchParams(cruda);
+      const id = q.get("payment_id") || q.get("collection_id") || "";
+      return /^\d+$/.test(id) ? id : "";
+    } catch {
+      return "";
+    }
+  };
+
   const confirmar = async () => {
     setProcesando(true); setError("");
     try {
-      const r = await apiPublica("/api/portal/public/confirmar",
-                                 { t: token, referencia: pago.referencia });
+      const cuerpo = { t: token, referencia: pago.referencia };
+      const pid = idDePagoEnLaUrl();
+      if (pid) cuerpo.payment_id = pid;
+      const r = await apiPublica("/api/portal/public/confirmar", cuerpo);
       setConfirmado(r);
       cargar(token);
     } catch (e) {

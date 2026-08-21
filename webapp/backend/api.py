@@ -2789,10 +2789,15 @@ def portal_public_pagar(datos: PortalPagoIn):
         out["transferencia"] = {k: v for k, v in cfg["transferencia"].items()
                                 if k != "habilitado"}
     else:
+        _base = os.environ.get("PUBLIC_BASE_URL", "")
         out["url_pago"] = kportal.link_mercadopago(
             cfg, pago["referencia"], pago["monto"],
             descripcion=f"Deuda {id_deudor} · {empresa}",
-            base_url=os.environ.get("PUBLIC_BASE_URL", ""))
+            base_url=_base,
+            # El deudor tiene que volver a SU portal, con su token: es la
+            # misma URL que se le mandó por link o QR. Sin esto caía en una
+            # ruta inexistente y perdía el comprobante.
+            url_retorno=f"{_base}/#/pagar?t={datos.t}" if _base else "")
         # Con access token cargado el checkout es real; si además es una
         # credencial TEST, el que paga usa tarjetas ficticias. El portal lo
         # dice en pantalla para que nadie confunda un ensayo con un cobro.
@@ -2848,6 +2853,19 @@ def portal_public_confirmar(datos: PortalConfirmarIn):
         verificacion = {"estado_mp": v["estado"], "detalle": v["detalle"]}
         if v["aprobado"]:
             estado = "aprobado"
+        else:
+            # Verificado y NO aprobado: no se imputa nada. Mismo criterio que
+            # `kobra/demo_vivo.py::acreditar`, que ya lo documenta — dejarlo en
+            # `informado` descuenta del saldo (está en _ESTADOS_IMPUTABLES) y
+            # dispara el webhook al ERP del cliente con plata que no entró,
+            # pese a que MercadoPago acaba de decir que ese pago no
+            # corresponde a esta deuda.
+            #
+            # Las dos rutas del mismo dominio hacían cosas opuestas: esta se
+            # quedaba con "informado" y la otra cortaba.
+            return {"referencia": pago["referencia"], "estado": pago["estado"],
+                    "monto": pago["monto"], "verificacion": verificacion,
+                    "detalle": v["detalle"]}
 
     registro = kportal.confirmar_pago(d, datos.referencia, estado,
                                       webhook_url=cfg["erp"]["webhook_url"])
