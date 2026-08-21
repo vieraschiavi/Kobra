@@ -1122,7 +1122,15 @@ def tablero(u: Usuario = Depends(usuario_actual)):
 
 @app.post("/api/tablero/preguntar")
 def tablero_preguntar(datos: PreguntaTableroIn, u: Usuario = Depends(usuario_actual)):
-    """Contesta una pregunta sobre la cartera, con los números ya calculados."""
+    """Contesta una pregunta sobre la cartera, con los números ya calculados.
+
+    Consume cupo: llama al modelo. El comentario de arriba ya lo prometía
+    ("lo que sí consume cupo es la pregunta libre") pero el código no lo
+    hacía, así que un Trial con cupo 50 podía hacer 5.000 preguntas sin que
+    el contador se moviera — y en modo hosted ese consumo lo paga la API key
+    del dueño.
+    """
+    kplan.verificar_cupo()
     try:
         r = kanalista.responder(datos.pregunta,
                                 _proteger(_scored(u.empresa), u.rol))
@@ -1132,6 +1140,8 @@ def tablero_preguntar(datos: PreguntaTableroIn, u: Usuario = Depends(usuario_act
         raise HTTPException(409, str(e)) from e
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+    # Después de que el modelo respondió: si falla antes, no se cobra.
+    kplan.registrar_gestion()
     return r
 
 
@@ -1868,12 +1878,21 @@ class EvaluarGestionIn(BaseModel):
 def calidad_evaluar(datos: EvaluarGestionIn, u: Usuario = Depends(usuario_actual)):
     """Evalúa la calidad de una gestión (transcripción de llamada o chat de
     WhatsApp) contra la rúbrica de 14 criterios (100 pts). Núcleo offline; si
-    hay proveedor de IA configurado, recalibra como un supervisor real."""
+    hay proveedor de IA configurado, recalibra como un supervisor real.
+
+    Consume cupo igual que su gemelo `/api/calidad/evaluar-audio`, que sí lo
+    hacía: los dos evalúan una gestión y los dos llaman al modelo para
+    recalibrar. Que uno cobrara y el otro no era una inconsistencia entre
+    hermanos, no una decisión.
+    """
     from kobra import calidad_gestion as kcalidad
     texto = (datos.transcripcion or "").strip()
     if len(texto) < 15:
         raise HTTPException(422, "Pegá una transcripción más larga para evaluar.")
-    return kcalidad.evaluar(texto, canal=datos.canal)
+    kplan.verificar_cupo()
+    r = kcalidad.evaluar(texto, canal=datos.canal)
+    kplan.registrar_gestion()
+    return r
 
 
 def _transcript_desde_turnos(turnos) -> str:

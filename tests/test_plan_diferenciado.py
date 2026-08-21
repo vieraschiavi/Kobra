@@ -445,3 +445,60 @@ def test_sin_licencia_configurada_sigue_sin_gobierno(tmp_path, monkeypatch):
     kplan = _entorno(tmp_path, monkeypatch, plan=None)
     assert kplan.permite("gobernanza") is True
     assert kplan.cupo() is None
+
+
+# ---------------------------------------------------------------------------
+# Endpoints que llaman al modelo y no cobraban
+# ---------------------------------------------------------------------------
+def test_la_pregunta_libre_del_tablero_consume_cupo():
+    """El comentario de `api.py` ya lo prometía —"lo que sí consume cupo es la
+    pregunta libre"— pero el código no lo hacía: un Trial con cupo 50 podía
+    hacer 5.000 preguntas sin mover el contador, y en hosted ese consumo lo
+    paga la API key del dueño."""
+    import inspect
+
+    from webapp.backend import api
+    fuente = inspect.getsource(api.tablero_preguntar)
+    assert "kplan.verificar_cupo()" in fuente, "no chequea el cupo"
+    assert "kplan.registrar_gestion()" in fuente, "no descuenta la gestión"
+
+
+def test_evaluar_calidad_cobra_igual_que_su_gemelo_de_audio():
+    """`/api/calidad/evaluar` y `/api/calidad/evaluar-audio` hacen lo mismo y
+    los dos llaman al modelo. Uno cobraba y el otro no."""
+    import inspect
+
+    from webapp.backend import api
+    for nombre in ("calidad_evaluar", "calidad_evaluar_audio"):
+        fuente = inspect.getsource(getattr(api, nombre))
+        assert "kplan.verificar_cupo()" in fuente, f"{nombre} no chequea cupo"
+        assert "kplan.registrar_gestion()" in fuente, f"{nombre} no descuenta"
+
+
+# ---------------------------------------------------------------------------
+# SSO se vende solo en Enterprise
+# ---------------------------------------------------------------------------
+def test_sso_no_se_activa_en_un_plan_que_no_lo_incluye(tmp_path, monkeypatch):
+    """Un cliente de Básico (US$99) cargaba Issuer/Client ID/Secret/Redirect en
+    Configuración y tenía login corporativo por OIDC, que es de otro plan."""
+    kplan = _entorno(tmp_path, monkeypatch, plan="basico")
+    from kobra import config as kconfig
+    from kobra import sso_oidc
+    for clave in sso_oidc._CLAVES:
+        kconfig.guardar_extra(clave, "valor-de-prueba")
+    kplan.invalidar_cache()
+    assert kplan.permite("sso") is False
+    assert sso_oidc.configurado() is False, \
+        "SSO quedó activo en un plan que no lo incluye"
+
+
+def test_sso_si_se_activa_en_enterprise(tmp_path, monkeypatch):
+    """El candado no puede volverse un muro para quien sí lo pagó."""
+    kplan = _entorno(tmp_path, monkeypatch, plan="enterprise")
+    from kobra import config as kconfig
+    from kobra import sso_oidc
+    for clave in sso_oidc._CLAVES:
+        kconfig.guardar_extra(clave, "valor-de-prueba")
+    kplan.invalidar_cache()
+    assert kplan.permite("sso") is True
+    assert sso_oidc.configurado() is True

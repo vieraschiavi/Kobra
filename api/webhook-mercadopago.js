@@ -152,6 +152,38 @@ module.exports = async (req, res) => {
       return;
     }
 
+    // Plata que se va DESPUÉS de haber entregado la licencia. Las licencias
+    // son JWT sin estado y se validan sin red (RS256, ver _license.js), así
+    // que revocarlas de verdad exigiría una lista de revocación y un chequeo
+    // online — otra arquitectura, y una decisión que no se toma acá.
+    //
+    // Lo que sí se puede cerrar es que hoy no se entera NADIE: el aviso caía
+    // en el `else` de abajo y se respondía 200 como si nada. Un cliente
+    // compraba Starter (365 días), pedía contracargo a los 20, y seguía
+    // usando el producto 345 días más con la plata devuelta.
+    if (["refunded", "charged_back", "cancelled"].includes(data.status)) {
+      const monto = data.transaction_amount;
+      const email = (data.payer && data.payer.email) || "desconocido";
+      const plan = (data.metadata && data.metadata.plan) || "desconocido";
+      console.error("webhook-mp: PLATA DEVUELTA sobre un pago ya entregado —",
+                    "la licencia sigue siendo válida y hay que resolverlo a mano.",
+                    "estado:", data.status, "payment_id:", paymentId,
+                    "plan:", plan, "monto:", monto, "email:", email);
+      const clave = process.env.RESEND_API_KEY;
+      if (clave) {
+        await enviarUno(clave, AVISOS_AL_DUENO,
+          `MV Kobra AI · ${data.status} — revisar licencia del pago ${paymentId}`,
+          `MercadoPago informó "${data.status}" sobre un pago que ya recibió licencia.\n\n` +
+          `Nº de operación: ${paymentId}\nPlan: ${plan}\nMonto: ${monto}\n` +
+          `Comprador: ${email}\n\n` +
+          "La licencia emitida sigue siendo válida hasta su vencimiento: se " +
+          "firma con RS256 y se valida sin conexión, así que no hay forma de " +
+          "desactivarla a distancia. Si corresponde, contactá al comprador.");
+      }
+      res.status(200).json({ ok: true, status: data.status, avisado: true });
+      return;
+    }
+
     if (data.status !== "approved") {
       // Pendiente, rechazado, en proceso: nada que emitir todavía. Cuando se
       // apruebe, MercadoPago manda otro aviso.
