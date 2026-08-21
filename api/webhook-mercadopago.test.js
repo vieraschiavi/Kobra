@@ -308,3 +308,62 @@ test("el freno por IP corta una ráfaga contra la URL pública", async () => {
   }
   assert.ok(codigos.includes(429), "nunca frenó una ráfaga a una URL pública");
 });
+
+// ---------------------------------------------------------------------------
+// Mismo defecto que en verify-payment: el webhook preguntaba por el secreto
+// HS256 antes de firmar, pero `sign()` usa RS256 cuando hay clave privada y
+// ni mira el secreto. En el deploy recomendado —privada sola— el webhook
+// respondía `sin_secreto` y nadie recibía su licencia, con la plata cobrada.
+// ---------------------------------------------------------------------------
+test("solo RS256 configurado: el webhook emite y manda la licencia igual", async () => {
+  const { generateKeyPairSync } = require("node:crypto");
+  const { privateKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+    publicKeyEncoding: { type: "spki", format: "pem" },
+  });
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.KOBRA_LICENSE_PRIVATE_KEY = privateKey;
+  delete process.env.KOBRA_LICENSE_SECRET;
+  delete process.env.LICENSE_SECRET;
+
+  let licenciaEnviada = null;
+  mockFetch(async (url, opts) => {
+    if (String(url).includes("resend")) {
+      licenciaEnviada = JSON.parse(opts.body).text;
+      return { ok: true };
+    }
+    return { ok: true, json: async () => ({
+      status: "approved", metadata: { plan: "basico" },
+      payer: { email: "comprador@ejemplo.com" } }) };
+  });
+  process.env.RESEND_API_KEY = "re_prueba";
+  const wh = require("./webhook-mercadopago");
+  const r = res();
+  await wh(req({ type: "payment", "data.id": "9200" }), r);
+
+  assert.equal(r.body.license, true,
+    "pago cobrado y sin licencia emitida: es el peor resultado posible");
+  assert.notEqual(r.body.motivo, "sin_secreto");
+  assert.ok(licenciaEnviada, "no salió el mail con la licencia");
+  const token = licenciaEnviada.split("\n").find((l) => l.split(".").length === 3).trim();
+  const alg = JSON.parse(Buffer.from(token.split(".")[0], "base64url").toString()).alg;
+  assert.equal(alg, "RS256");
+});
+
+test("sin privada Y sin secreto: avisa en vez de emitir", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  delete process.env.KOBRA_LICENSE_PRIVATE_KEY;
+  delete process.env.KOBRA_LICENSE_SECRET;
+  delete process.env.LICENSE_SECRET;
+  mockFetch(async () => ({ ok: true, json: async () => ({
+    status: "approved", metadata: { plan: "basico" },
+    payer: { email: "x@y.com" } }) }));
+  const wh = require("./webhook-mercadopago");
+  const r = res();
+  await wh(req({ type: "payment", "data.id": "9201" }), r);
+  assert.equal(r.body.license, false);
+  assert.equal(r.body.motivo, "sin_secreto");
+  assert.ok(erroresLogueados.join("\n").includes("9201"),
+    "si no se puede emitir, el payment_id tiene que quedar en el log para resolverlo a mano");
+});

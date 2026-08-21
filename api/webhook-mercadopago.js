@@ -46,7 +46,7 @@
 //     Resend, que entrega solo a la casilla del titular de la cuenta: el mail
 //     al comprador va a rebotar hasta que haya un dominio propio verificado.
 
-const { sign, secretoActivo } = require("./_license");
+const { sign, secretoActivo, puedeFirmar } = require("./_license");
 const { limitar } = require("./_ratelimit");
 
 const AVISOS_AL_DUENO = "vieraschiavi@gmail.com";
@@ -161,8 +161,10 @@ module.exports = async (req, res) => {
 
     const plan = (data.metadata && data.metadata.plan) || null;
     const email = (data.payer && data.payer.email) || null;
+    // Ver `puedeFirmar()`: preguntar solo por el secreto HS256 dejaba sin
+    // licencia los deploys que usan RS256, que es el camino recomendado.
     const secret = secretoActivo();
-    if (!secret) {
+    if (!puedeFirmar()) {
       console.error("webhook-mp: PAGO APROBADO SIN SECRETO DE LICENCIA CONFIGURADO —",
                     "hay que emitir a mano. payment_id:", paymentId, "plan:", plan,
                     "email:", email);

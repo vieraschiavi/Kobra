@@ -13,7 +13,7 @@
 // `ref` y se compara contra lo que MercadoPago devuelve — sin la coincidencia,
 // no importa que el pago exista y esté aprobado: no es SU pago.
 
-const { sign, secretoActivo } = require("./_license");
+const { sign, secretoActivo, puedeFirmar } = require("./_license");
 const { limitar } = require("./_ratelimit");
 
 module.exports = async (req, res) => {
@@ -59,8 +59,10 @@ module.exports = async (req, res) => {
 
     let license = null;
     let licenseError = null;
+    // `puedeFirmar()` y no `secret`: con RS256 configurado, `sign()` no usa el
+    // secreto — preguntar por él dejaba sin licencia a quien acababa de pagar.
     const secret = secretoActivo();
-    if (approved && secret) {
+    if (approved && puedeFirmar()) {
       try {
         license = sign({
           plan: plan,
