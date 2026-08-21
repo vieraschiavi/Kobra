@@ -1,0 +1,250 @@
+# © 2026 Martín Viera. Todos los derechos reservados.
+#
+# Genera las claves de producción SIN que haya que correr Python a mano.
+#
+# Se dispara desde la web de GitHub: Actions → "Generar claves de producción"
+# → Run workflow. No corre solo nunca (`workflow_dispatch` únicamente): estas
+# claves se rotan a propósito, no en cada push.
+#
+# Por qué existe: hasta acá la única forma de emitir el par RS256 o el sello
+# Owner era `python -m backend_venta.licencia_clave --nuevo-par` en una máquina
+# con el repo y las dependencias instaladas. Quien vende el producto no tiene
+# por qué montar un entorno Python para poner el negocio en marcha.
+#
+# Qué NO hace: no toca ningún secret. GitHub no deja escribir secrets desde un
+# workflow sin darle a ese workflow un token con permiso de administración del
+# repo — que sería una llave más peligrosa que las que genera. El valor sale
+# por el resumen del run y se pega a mano, una sola vez.
+name: Generar claves de producción
+
+on:
+  workflow_dispatch:
+    inputs:
+      que_generar:
+        description: "Qué necesitás"
+        required: true
+        type: choice
+        default: par_rs256
+        options:
+          - par_rs256
+          - sello_owner
+          - codigo_owner
+      dias:
+        description: "Solo para sello_owner: días de validez"
+        required: false
+        default: "3650"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar lo mínimo
+        run: pip install --quiet cryptography PyJWT
+
+      # -------------------------------------------------------------------
+      # 1. Par RS256 — la clave que firma las licencias que se venden
+      # -------------------------------------------------------------------
+      - name: Generar el par RS256
+        if: inputs.que_generar == 'par_rs256'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, re
+          from cryptography.hazmat.primitives import serialization as ser
+          from cryptography.hazmat.primitives.asymmetric import rsa
+
+          k = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+          privada = k.private_bytes(ser.Encoding.PEM, ser.PrivateFormat.PKCS8,
+                                    ser.NoEncryption()).decode()
+          publica = k.public_key().public_bytes(
+              ser.Encoding.PEM, ser.PublicFormat.SubjectPublicKeyInfo).decode()
+
+          # La PÚBLICA se commitea: viaja dentro del programa y publicarla no
+          # habilita nada. La PRIVADA no toca el repo jamás.
+          ruta = "backend_venta/licencia_clave.py"
+          fuente = open(ruta, encoding="utf-8").read()
+          nuevo = re.sub(r'PUBLICA = """.*?"""',
+                         'PUBLICA = """' + publica + '"""',
+                         fuente, flags=re.S)
+          assert nuevo != fuente, "no se pudo reemplazar la constante PUBLICA"
+          open(ruta, "w", encoding="utf-8").write(nuevo)
+
+          # El valor sensible sale por el resumen del run, que solo ve quien
+          # tiene acceso al repo. `::add-mask::` evita que aparezca en el log.
+          for linea in privada.strip().splitlines():
+              print(f"::add-mask::{linea}")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("## Par RS256 generado\n\n")
+              f.write("**Copiá el bloque de abajo entero** (incluidas las dos "
+                      "líneas `-----`) y pegalo en Vercel como la variable "
+                      "`KOBRA_LICENSE_PRIVATE_KEY`.\n\n")
+              f.write("Después borrá este run: el valor queda guardado en el "
+                      "resumen hasta que lo elimines.\n\n")
+              f.write("```\n" + privada.strip() + "\n```\n\n")
+              f.write("La clave **pública** se commitea sola en el pull request "
+                      "que abre este workflow. No hace falta que hagas nada con ella.\n\n")
+              f.write("> Rotar este par invalida todas las licencias ya "
+                      "emitidas: cualquier cliente que haya comprado deja de "
+                      "poder activar. Si ya vendiste, no lo rotes sin avisarles.\n")
+          PY
+
+      - name: Abrir el pull request con la clave pública
+        if: inputs.que_generar == 'par_rs256'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: claves/rotar-par-rs256
+          title: "Rotar el par RS256 de licencias"
+          commit-message: |
+            Rotar la clave publica de firma de licencias
+
+            Generada por el workflow "Generar claves de produccion". La privada
+            correspondiente NO esta aca: sale por el resumen de ese run y va a
+            Vercel, en KOBRA_LICENSE_PRIVATE_KEY.
+
+            Mergear esto invalida las licencias emitidas con el par anterior.
+          body: |
+            Clave **pública** nueva, generada automáticamente.
+
+            La **privada** salió por el resumen del run que disparó esto y hay
+            que pegarla en Vercel (`KOBRA_LICENSE_PRIVATE_KEY`) **antes** de
+            mergear, o las compras nuevas quedan sin licencia.
+
+            > Mergear esto invalida las licencias emitidas con el par anterior.
+
+      # -------------------------------------------------------------------
+      # 2. Sello Owner — habilita la edición sin límites en el build propio
+      # -------------------------------------------------------------------
+      - name: Generar el sello Owner
+        if: inputs.que_generar == 'sello_owner'
+        shell: bash
+        env:
+          KOBRA_LICENSE_PRIVATE_KEY: ${{ secrets.KOBRA_LICENSE_PRIVATE_KEY }}
+          # Va por `env` y no interpolado dentro del script: en `run:` la
+          # expresión se pega como texto en el shell y una entrada del
+          # formulario podría inyectar comandos.
+          DIAS: ${{ inputs.dias }}
+        run: |
+          python - <<'PY'
+          import os, sys
+          priv = os.environ.get("KOBRA_LICENSE_PRIVATE_KEY", "")
+          if not priv.strip():
+              print("::error::Falta el secret KOBRA_LICENSE_PRIVATE_KEY. "
+                    "El sello Owner se firma con la MISMA privada que las "
+                    "licencias vendidas: sin ella no hay nada que firmar. "
+                    "Cargala como secret del repo y volvé a correr esto.")
+              sys.exit(1)
+
+          sys.path.insert(0, ".")
+          from cryptography.hazmat.primitives import serialization as ser
+          from backend_venta import licencia_clave as kc
+
+          # Si la privada no es la pareja de la pública embebida, el sello se
+          # genera igual y el programa lo rechaza al arrancar: fallo silencioso.
+          # Se corta acá, con el motivo.
+          k = ser.load_pem_private_key(priv.encode(), None)
+          mia = k.public_key().public_bytes(
+              ser.Encoding.PEM, ser.PublicFormat.SubjectPublicKeyInfo).decode()
+          if mia.strip() != kc.PUBLICA.strip():
+              print("::error::La privada cargada NO es la pareja de la pública "
+                    "que lleva el programa. El sello saldría bien formado y el "
+                    "programa lo rechazaría. Cargá la privada correcta, o "
+                    "generá un par nuevo con la opción par_rs256.")
+              sys.exit(1)
+
+          from backend_venta import licencias as klic
+          sello = klic.emitir_sello_owner(dias=int(os.environ.get("DIAS", "3650")))
+          print(f"::add-mask::{sello}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("## Sello Owner generado\n\n")
+              f.write("Pegalo como secret del repo con el nombre exacto "
+                      "`OWNER_SELLO_TOKEN` (Settings → Secrets and variables → "
+                      "Actions), y después borrá este run.\n\n")
+              f.write("```\n" + sello + "\n```\n\n")
+              f.write("Sirve para el **build Owner** (`release_owner.yml`). "
+                      "Para usar el producto como dueño en el instalador "
+                      "público NO hace falta: alcanza con tu credencial "
+                      "`mail|código` en la pantalla de activación.\n")
+          PY
+
+      # -------------------------------------------------------------------
+      # 3. Código Owner — la credencial que desbloquea CUALQUIER instalación
+      # -------------------------------------------------------------------
+      - name: Generar un código Owner nuevo
+        if: inputs.que_generar == 'codigo_owner'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, re, secrets, hashlib, sys
+          sys.path.insert(0, ".")
+
+          # Los parámetros de scrypt se toman del propio módulo en vez de
+          # parsearlos del fuente: están escritos como `_N, _R, _P, _DKLEN =
+          # 2 ** 15, 8, 1, 32`, y una regex sobre eso no los ve. Importando,
+          # además, no se pueden desincronizar del código real.
+          from kobra import owner as ko
+
+          # Mismo alfabeto que kobra/owner.py: sin los ambiguos (O/0, I/1/l),
+          # 25 posiciones, ~125 bits.
+          ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+          codigo = "".join(secrets.choice(ALFABETO) for _ in range(25))
+          sal = secrets.token_bytes(16)
+          h = hashlib.scrypt(codigo.encode("utf-8"), salt=sal, n=ko._N,
+                             r=ko._R, p=ko._P, dklen=ko._DKLEN,
+                             maxmem=ko._MAXMEM)
+
+          ruta = "kobra/owner.py"
+          fuente = open(ruta, encoding="utf-8").read()
+          fuente, n1 = re.subn(r'_SAL = bytes\.fromhex\("[0-9a-f]*"\)',
+                               f'_SAL = bytes.fromhex("{sal.hex()}")', fuente)
+          fuente, n2 = re.subn(r'_HASH = bytes\.fromhex\(\s*\n?\s*"[0-9a-f]*"\)',
+                               f'_HASH = bytes.fromhex(\n    "{h.hex()}")', fuente)
+          assert n1 == 1 and n2 == 1, f"no se pudo reemplazar sal/hash ({n1}, {n2})"
+          open(ruta, "w", encoding="utf-8").write(fuente)
+
+          print(f"::add-mask::{codigo}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("## Código Owner nuevo\n\n")
+              f.write("**Guardalo en tu gestor de contraseñas ahora**: no queda "
+                      "en ningún otro lado. Del código solo se commitea su "
+                      "hash scrypt, del que no se puede volver atrás.\n\n")
+              f.write("```\n" + codigo + "\n```\n\n")
+              f.write("Para entrar como dueño en cualquier instalación, incluido "
+                      "el instalador público, pegá esto en la pantalla de "
+                      "activación:\n\n")
+              f.write("```\n" + ko.EMAIL + "|" + codigo + "\n```\n\n")
+              f.write("El hash nuevo va en el pull request que abre este "
+                      "workflow. **El código anterior deja de servir cuando lo "
+                      "mergees.** Después borrá este run.\n")
+          PY
+
+      - name: Abrir el pull request con el hash del código nuevo
+        if: inputs.que_generar == 'codigo_owner'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: claves/rotar-codigo-owner
+          title: "Rotar el código de desbloqueo Owner"
+          commit-message: |
+            Rotar el codigo de desbloqueo Owner
+
+            Generado por el workflow "Generar claves de produccion". Se commitea
+            solo la sal y el hash scrypt; el codigo en claro salio por el
+            resumen de ese run y no esta en ningun archivo.
+
+            Mergear esto invalida el codigo anterior.
+          body: |
+            Sal y hash scrypt nuevos. El **código en claro** salió por el
+            resumen del run que disparó esto — si no lo guardaste, cancelá este
+            PR y volvé a correr el workflow.
+
+            > Mergear esto invalida el código Owner anterior.
