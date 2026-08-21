@@ -79,6 +79,20 @@ function clavePrivada() {
   return k ? k.replace(/\\n/g, "\n") : null;
 }
 
+/**
+ * ¿Hay con qué firmar una licencia?
+ *
+ * No alcanza con preguntar por el secreto HS256: `sign()` prefiere RS256
+ * cuando existe `KOBRA_LICENSE_PRIVATE_KEY` y en esa rama ni mira el secreto.
+ * Un deploy hecho como recomienda este mismo archivo —la privada acá y nada
+ * más— dejaba `secretoActivo()` en null, y quien pagaba no recibía licencia
+ * pese a que la firma habría funcionado perfecto. Entraba la plata y no salía
+ * el producto.
+ */
+function puedeFirmar() {
+  return !!(clavePrivada() || secretoActivo());
+}
+
 function firmarRS256(headerB64, payloadB64, privada) {
   return b64u(crypto.createSign("RSA-SHA256")
     .update(headerB64 + "." + payloadB64)
@@ -171,4 +185,4 @@ function verify(license, secret) {
   return claims;
 }
 
-module.exports = { sign, verify, secretoActivo, PLANES, MODULOS_VENTA };
+module.exports = { sign, verify, secretoActivo, puedeFirmar, PLANES, MODULOS_VENTA };

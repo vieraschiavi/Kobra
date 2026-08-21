@@ -281,3 +281,63 @@ test("el freno por IP corta después de varios intentos seguidos", async () => {
   }
   assert.ok(codigos.includes(429), `nunca frenó: ${codigos}`);
 });
+
+// ---------------------------------------------------------------------------
+// El deploy recomendado usa RS256: la privada vive solo en el servidor de
+// ventas y la pública viaja dentro del programa. Antes de este test,
+// `verify-payment` preguntaba por el secreto HS256 para decidir si firmaba —
+// y en ese deploy el secreto no existe. Resultado: pago aprobado,
+// `license: null`, y el comprador viendo "tu licencia se está generando"
+// para siempre. La firma habría funcionado perfecto.
+// ---------------------------------------------------------------------------
+function parRSA() {
+  const { generateKeyPairSync } = require("node:crypto");
+  return generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+    publicKeyEncoding: { type: "spki", format: "pem" },
+  });
+}
+
+test("solo RS256 configurado (sin el HS256 viejo): el que paga IGUAL recibe su licencia", async () => {
+  const { privateKey } = parRSA();
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.KOBRA_LICENSE_PRIVATE_KEY = privateKey;
+  delete process.env.KOBRA_LICENSE_SECRET;
+  delete process.env.LICENSE_SECRET;
+  mockFetch(async () => ({
+    ok: true,
+    json: async () => ({
+      status: "approved", metadata: { plan: "starter" },
+      external_reference: REF, payer: { email: "compro@ejemplo.com" },
+    }),
+  }));
+  const vp = require("./verify-payment");
+  const r = res();
+  await vp(req({ payment_id: "9100", ref: REF }), r);
+  assert.equal(r.body.approved, true);
+  assert.ok(r.body.license,
+    "pago aprobado y license=null: entró la plata y no salió el producto");
+  const alg = JSON.parse(Buffer.from(r.body.license.split(".")[0], "base64url").toString()).alg;
+  assert.equal(alg, "RS256");
+});
+
+test("sin privada Y sin secreto: no se inventa una licencia", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  delete process.env.KOBRA_LICENSE_PRIVATE_KEY;
+  delete process.env.KOBRA_LICENSE_SECRET;
+  delete process.env.LICENSE_SECRET;
+  mockFetch(async () => ({
+    ok: true,
+    json: async () => ({
+      status: "approved", metadata: { plan: "starter" },
+      external_reference: REF, payer: { email: "x@y.com" },
+    }),
+  }));
+  const vp = require("./verify-payment");
+  const r = res();
+  await vp(req({ payment_id: "9101", ref: REF }), r);
+  assert.equal(r.body.approved, true);
+  assert.equal(r.body.license, null,
+    "sin con qué firmar hay que avisar, no emitir algo que la app rechazaría");
+});
