@@ -23,10 +23,12 @@ def _cliente(tmp_path, monkeypatch, standalone, owner=False):
         monkeypatch.setenv("KOBRA_MODO_STANDALONE", "1")
     else:
         monkeypatch.delenv("KOBRA_MODO_STANDALONE", raising=False)
+    # `owner` es el TOKEN firmado del sello, no un booleano: desde que el
+    # sello se verifica, un `KOBRA_OWNER=1` puesto a mano no activa nada.
     if owner:
-        monkeypatch.setenv("KOBRA_OWNER", "1")
+        monkeypatch.setenv("KOBRA_OWNER_TOKEN", owner)
     else:
-        monkeypatch.delenv("KOBRA_OWNER", raising=False)
+        monkeypatch.delenv("KOBRA_OWNER_TOKEN", raising=False)
     from kobra import config as kconfig
     importlib.reload(kconfig)
     from fastapi.testclient import TestClient
@@ -104,8 +106,9 @@ def test_modo_standalone_licencia_vencida(standalone):
 
 # --- Modo OWNER (carpeta owner/: la copia del dueño, sin licencia ni trial) --
 @pytest.fixture()
-def owner(tmp_path, monkeypatch):
-    return _cliente(tmp_path, monkeypatch, standalone=True, owner=True)
+def owner(tmp_path, monkeypatch, sello_owner):
+    return _cliente(tmp_path, monkeypatch, standalone=True,
+                    owner=sello_owner["token_owner"])
 
 
 def test_modo_owner_activo_sin_licencia(owner):

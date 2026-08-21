@@ -70,8 +70,18 @@ def test_hay_un_job_que_arma_el_instalador_en_windows(wf):
 
 
 def test_el_bundle_se_marca_como_owner(wf_texto):
-    """`kobra_launcher.py::_activar_edicion` lee `edicion.json` al arrancar."""
-    assert '"owner":true' in wf_texto.replace(" ", "")
+    """`kobra_launcher.py::_activar_edicion` lee `edicion.json` al arrancar.
+
+    El sello dejó de ser un literal: `owner: true` a secas no activa nada
+    desde que se verifica la firma, así que el workflow lo arma con el token
+    del secret. Se verifica que estén las tres piezas."""
+    plano = wf_texto.replace(" ", "")
+    assert "owner=$true" in plano or '"owner":true' in plano, \
+        "el workflow no marca el bundle como owner"
+    assert "token_owner" in wf_texto, \
+        "el sello no lleva el token firmado: sería inerte"
+    assert "OWNER_SELLO_TOKEN" in wf_texto, \
+        "el workflow no toma el token del secret"
     assert "edicion.json" in wf_texto
 
 

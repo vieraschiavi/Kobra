@@ -36,10 +36,11 @@ def _entorno(tmp_path, monkeypatch, plan=None, owner=False, sub="cliente-1",
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.setenv("KOBRA_DATA_DIR", str(tmp_path / "datos"))
     monkeypatch.setenv("KOBRA_LICENSE_SECRET", SECRETO)
+    # `owner` es el TOKEN firmado del sello, no un booleano.
     if owner:
-        monkeypatch.setenv("KOBRA_OWNER", "1")
+        monkeypatch.setenv("KOBRA_OWNER_TOKEN", owner)
     else:
-        monkeypatch.delenv("KOBRA_OWNER", raising=False)
+        monkeypatch.delenv("KOBRA_OWNER_TOKEN", raising=False)
 
     from kobra import config as kconfig
     importlib.reload(kconfig)
@@ -103,8 +104,9 @@ def test_sin_licencia_no_hay_tope(tmp_path, monkeypatch):
     assert kplan.estado()["bloqueado"] is False
 
 
-def test_el_dueno_no_tiene_cupo(tmp_path, monkeypatch):
-    kplan = _entorno(tmp_path, monkeypatch, plan="basico", owner=True)
+def test_el_dueno_no_tiene_cupo(tmp_path, monkeypatch, sello_owner):
+    kplan = _entorno(tmp_path, monkeypatch, plan="basico",
+                     owner=sello_owner["token_owner"])
     assert kplan.estado()["ilimitado"] is True
     assert kplan.permite("white_label") is True
     for _ in range(400):                    # muy por encima de las 300 de Básico

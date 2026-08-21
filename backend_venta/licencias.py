@@ -171,6 +171,30 @@ def emitir_licencia(cliente_id: str, plan: str, edicion: str = "venta",
     return jwt.encode(payload, secreto or secreto_firma(), algorithm="HS256")
 
 
+def emitir_sello_owner(dias: int = 3650) -> str:
+    """Token que habilita la edición Owner. Solo el dueño puede emitirlo.
+
+    Va dentro de `edicion.json` como `token_owner`, y `kobra/edicion.py` lo
+    verifica contra la pública embebida en el programa antes de honrar
+    `owner: true`. Antes ese `owner: true` se creía sin más: escribir 63 bytes
+    convertía cualquier instalación en la edición sin límites.
+
+    Se firma con `KOBRA_LICENSE_PRIVATE_KEY` — la misma privada que firma las
+    licencias vendidas, que vive solo en el servidor del dueño. Sin esa
+    variable esto no puede emitir nada, que es exactamente lo que se busca:
+    nadie que tenga el código puede fabricarse un sello.
+    """
+    privada = os.environ.get("KOBRA_LICENSE_PRIVATE_KEY")
+    if not privada:
+        raise RuntimeError(
+            "falta KOBRA_LICENSE_PRIVATE_KEY: el sello Owner solo lo puede "
+            "emitir quien tiene la privada del dueño")
+    ahora = int(time.time())
+    return jwt.encode({"sub": "owner", "plan": "owner", "edition": "Owner",
+                       "iat": ahora, "exp": ahora + dias * 24 * 3600},
+                      privada, algorithm=kclave.ALGORITMO)
+
+
 def emitir_modulo(cliente_id: str, modulo: str, edicion: str = "venta",
                   dias: int | None = None, secreto: str | None = None) -> str:
     """Licencia de un módulo suelto, sin plan de cobranzas.

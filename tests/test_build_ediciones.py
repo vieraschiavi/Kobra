@@ -80,12 +80,22 @@ def test_cada_plan_lleva_sus_features(tmpdist):
     assert "white_label" in claims["features"] and "sso" in claims["features"]
 
 
-def test_launcher_activa_owner(tmp_path):
-    (tmp_path / "edicion.json").write_text(json.dumps({"edition": "Owner", "owner": True}))
-    os.environ.pop("KOBRA_OWNER", None)
+def test_launcher_activa_owner(tmp_path, sello_owner):
+    (tmp_path / "edicion.json").write_text(json.dumps(sello_owner))
+    os.environ.pop("KOBRA_OWNER_TOKEN", None)
     kl._activar_edicion(str(tmp_path))
-    assert os.environ.get("KOBRA_OWNER") == "1"
-    os.environ.pop("KOBRA_OWNER", None)
+    assert os.environ.get("KOBRA_OWNER_TOKEN"), \
+        "el launcher tiene que exportar el token firmado"
+    os.environ.pop("KOBRA_OWNER_TOKEN", None)
+
+
+def test_el_launcher_no_activa_owner_con_un_sello_sin_firma(tmp_path):
+    """El sello de 63 bytes que convertía cualquier instalación."""
+    (tmp_path / "edicion.json").write_text(
+        json.dumps({"edition": "Owner", "owner": True}))
+    os.environ.pop("KOBRA_OWNER_TOKEN", None)
+    kl._activar_edicion(str(tmp_path))
+    assert os.environ.get("KOBRA_OWNER_TOKEN") is None
 
 
 def test_launcher_siembra_licencia_demo_idempotente(tmp_path, monkeypatch):

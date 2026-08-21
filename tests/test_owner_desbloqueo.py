@@ -121,7 +121,7 @@ def test_compara_en_tiempo_constante():
 
 
 # --- Integración con la app -------------------------------------------------
-def _app(tmp_path, monkeypatch, owner_env=False):
+def _app(tmp_path, monkeypatch, sello_owner=None, owner_env=False):
     """Recarga la app standalone con datos Y CONFIG limpios.
 
     `KOBRA_CONFIG_DIR` además de `KOBRA_DATA_DIR`: el flag de owner se
@@ -137,9 +137,12 @@ def _app(tmp_path, monkeypatch, owner_env=False):
     monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.setenv("KOBRA_MODO_STANDALONE", "1")
     if owner_env:
-        monkeypatch.setenv("KOBRA_OWNER", "1")
+        # El launcher exporta el TOKEN firmado, no un "1": un booleano en el
+        # entorno lo pone cualquiera antes de abrir el programa.
+        monkeypatch.setenv("KOBRA_OWNER_TOKEN", sello_owner["token_owner"])
     else:
-        monkeypatch.delenv("KOBRA_OWNER", raising=False)
+        monkeypatch.delenv("KOBRA_OWNER_TOKEN", raising=False)
+    monkeypatch.delenv("KOBRA_OWNER", raising=False)
     from fastapi.testclient import TestClient
 
     from webapp.backend import api
@@ -197,8 +200,27 @@ def test_tantear_el_codigo_esta_frenado_por_ip(tmp_path, monkeypatch):
     assert 429 in codigos, "se puede tantear el codigo sin freno"
 
 
-def test_el_env_del_launcher_sigue_funcionando(tmp_path, monkeypatch):
-    """La edición Owner que se arma por build no cambia: sigue entrando sola."""
-    api, cli = _app(tmp_path, monkeypatch, owner_env=True)
+def test_el_env_del_launcher_sigue_funcionando(tmp_path, monkeypatch, sello_owner):
+    """La edición Owner que se arma por build no cambia: sigue entrando sola.
+
+    Lo que sí cambió es QUÉ exporta el launcher: el token firmado en vez de un
+    `1`. Ver `test_un_env_puesto_a_mano_no_alcanza`."""
+    api, cli = _app(tmp_path, monkeypatch, sello_owner, owner_env=True)
     assert cli.get("/api/licencia/estado").json()["owner"] is True
     assert cli.post("/api/licencia/owner-login").status_code == 200
+
+
+def test_un_env_puesto_a_mano_no_alcanza(tmp_path, monkeypatch):
+    """`set KOBRA_OWNER=1` antes de abrir el programa era una de las tres
+    formas de tener la edición sin límites sin pagar nada."""
+    monkeypatch.setenv("KOBRA_OWNER", "1")
+    api, cli = _app(tmp_path, monkeypatch)
+    assert cli.get("/api/licencia/estado").json().get("owner") is not True
+
+
+def test_un_token_inventado_tampoco(tmp_path, monkeypatch):
+    """Y poner cualquier cosa en la variable nueva tampoco: el token se
+    verifica contra la pública embebida en el programa."""
+    monkeypatch.setenv("KOBRA_OWNER_TOKEN", "no.es.un.token")
+    api, cli = _app(tmp_path, monkeypatch)
+    assert cli.get("/api/licencia/estado").json().get("owner") is not True

@@ -42,9 +42,25 @@ def _sin_rem(texto):
                      if not ln.strip().lower().startswith("rem"))
 
 
-@pytest.fixture(scope="module")
-def bat():
-    return _leer(BAT)
+@pytest.fixture()
+def bat(sello_owner, tmp_path):
+    """El .bat generado con un sello de prueba.
+
+    `packaging/Owner.bat` dejó de estar versionado: su sello lleva un token
+    firmado por el dueño, y un .bat con sello válido dentro del repo es una
+    herramienta lista para convertir cualquier instalación en la del dueño.
+    Lo genera la release con el secret; acá se genera con uno de prueba.
+    """
+    import subprocess
+    import sys as _sys
+    env = dict(os.environ, KOBRA_OWNER_SELLO=sello_owner["token_owner"])
+    r = subprocess.run([_sys.executable,
+                        os.path.join(ROOT, "packaging", "generar_owner_bat.py")],
+                       env=env, capture_output=True, text=True, cwd=ROOT)
+    assert r.returncode == 0, f"no se pudo generar Owner.bat: {r.stderr}"
+    texto = _leer(BAT)
+    os.replace(BAT, tmp_path / "Owner.bat")   # no dejarlo suelto en el repo
+    return texto
 
 
 # ---------------------------------------------------------------------------
@@ -119,10 +135,18 @@ def test_prueba_tambien_las_rutas_de_instalacion_para_todos_los_usuarios(bat):
         assert ruta in codigo, f"no busca en {ruta}"
 
 
-def test_el_bat_sigue_siendo_ascii_y_crlf():
+def test_el_bat_sigue_siendo_ascii_y_crlf(sello_owner, tmp_path):
     """Dos cosas que ya rompieron .bat de este repo: un BOM y cmd.exe no abre
     el archivo; \\n suelto y el parser se confunde."""
+    import subprocess
+    import sys as _sys
+    env = dict(os.environ, KOBRA_OWNER_SELLO=sello_owner["token_owner"])
+    r = subprocess.run([_sys.executable,
+                        os.path.join(ROOT, "packaging", "generar_owner_bat.py")],
+                       env=env, capture_output=True, text=True, cwd=ROOT)
+    assert r.returncode == 0, r.stderr
     crudo = open(BAT, "rb").read()
+    os.replace(BAT, tmp_path / "Owner.bat")
     assert not crudo.startswith(b"\xef\xbb\xbf"), "el .bat quedó con BOM"
     crudo.decode("ascii")            # lanza si alguien metió una tilde
     assert b"\r\n" in crudo, "el .bat no tiene saltos CRLF"
@@ -135,19 +159,21 @@ def test_el_bat_sigue_siendo_ascii_y_crlf():
         "hay saltos de línea que no son CRLF limpios"
 
 
-def test_el_bat_del_repo_es_el_que_genera_el_script():
-    """`Owner.bat` está versionado pero lo produce `generar_owner_bat.py`.
-    Editarlo a mano y olvidarse del generador deja los dos divergiendo hasta
-    que el próximo build pisa el arreglo."""
+def test_el_bat_no_esta_versionado():
+    """`Owner.bat` NO puede estar en el repo.
+
+    Antes sí lo estaba, y su sello era una constante que cualquiera copiaba:
+    `{"edition":"Owner",...,"owner":true}`, 63 bytes que convertían una demo
+    instalada en la edición sin límites. Ahora el sello lleva un token firmado
+    y el .bat se genera en la release con el secret — pero si alguien vuelve a
+    commitearlo (ya generado, con token válido adentro), estaría publicando la
+    herramienta otra vez."""
     import subprocess
-    import sys
-    antes = open(BAT, "rb").read()
-    subprocess.run([sys.executable, os.path.join(ROOT, "packaging", "generar_owner_bat.py")],
-                   check=True, capture_output=True)
-    despues = open(BAT, "rb").read()
-    assert antes == despues, (
-        "packaging/Owner.bat no coincide con lo que genera "
-        "packaging/generar_owner_bat.py — corré el generador y commiteá")
+    r = subprocess.run(["git", "ls-files", "--error-unmatch", "packaging/Owner.bat"],
+                       cwd=ROOT, capture_output=True, text=True)
+    assert r.returncode != 0, (
+        "packaging/Owner.bat volvió al repo: un .bat con sello válido "
+        "convierte cualquier instalación en la del dueño")
 
 
 # ---------------------------------------------------------------------------

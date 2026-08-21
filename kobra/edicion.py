@@ -29,6 +29,11 @@ import os
 
 ARCHIVO = "edicion.json"
 CLAVE_TOKEN = "LICENCIA_TOKEN"
+# El traspaso launcher → backend va por el entorno (son procesos distintos),
+# pero lleva el token firmado y no un booleano: ver `es_owner()`.
+ENV_SELLO_OWNER = "KOBRA_OWNER_TOKEN"
+# La credencial del dueño, guardada para revalidarla en cada arranque.
+CLAVE_OWNER_CREDENCIAL = "KOBRA_OWNER_CREDENCIAL"
 
 
 def leer(base: str) -> dict | None:
@@ -42,6 +47,31 @@ def leer(base: str) -> dict | None:
         return datos if isinstance(datos, dict) else None
     except (OSError, ValueError):
         return None
+
+
+def sello_owner_valido(ed: dict) -> bool:
+    """¿El sello Owner trae una firma que solo el dueño pudo poner?
+
+    El token va firmado con RS256 y se verifica contra la pública embebida en
+    el programa. Publicar esa pública no habilita nada — para eso existe. Lo
+    que no se puede falsificar sin la privada es el token.
+
+    Se exige `plan == "owner"` dentro de los claims: una licencia comprada
+    cualquiera (que también valida con esta pública) no sirve para activar la
+    edición del dueño.
+    """
+    token = ed.get("token_owner")
+    if not isinstance(token, str) or not token:
+        return False
+    try:
+        import jwt
+
+        from backend_venta import licencia_clave
+        claims = jwt.decode(token, licencia_clave.PUBLICA,
+                            algorithms=[licencia_clave.ALGORITMO])
+    except Exception:
+        return False
+    return claims.get("plan") == "owner"
 
 
 def activar(base: str) -> dict | None:
@@ -59,8 +89,29 @@ def activar(base: str) -> dict | None:
     if ed is None:
         return None
     if ed.get("owner"):
-        os.environ["KOBRA_OWNER"] = "1"
-        return ed
+        # `owner: true` NO alcanza por sí solo. Este archivo vive del lado del
+        # cliente y hasta acá se leía con `json.load` y se le creía: escribir
+        # 63 bytes convertía cualquier demo instalada en la edición sin
+        # límites, sin licencia y sin vencimiento. `packaging/Owner.bat` es
+        # exactamente esa herramienta, así que el formato tampoco había que
+        # adivinarlo.
+        #
+        # Ahora el sello tiene que traer un token firmado con la privada del
+        # dueño, que se verifica con la pública que ya viaja dentro del
+        # programa (`backend_venta/licencia_clave.py`). No hay criptografía
+        # nueva: es la misma que valida las licencias compradas.
+        if sello_owner_valido(ed):
+            # Se exporta el TOKEN, no un "1". El launcher y el backend son
+            # procesos distintos y el traspaso tiene que ir por el entorno,
+            # pero un `KOBRA_OWNER=1` puesto a mano por el usuario antes de
+            # abrir el programa valía tanto como el sello verificado. El token
+            # no se puede inventar sin la privada del dueño.
+            os.environ[ENV_SELLO_OWNER] = ed["token_owner"]
+            return ed
+        # Sello inválido o ausente: se ignora el `owner` y se sigue el camino
+        # normal. No se rompe el arranque — una instalación manipulada abre
+        # como lo que realmente es, no como la del dueño.
+        ed = {k: v for k, v in ed.items() if k != "owner"}
     secreto, token = ed.get("secreto"), ed.get("token")
     if secreto:
         os.environ.setdefault("KOBRA_LICENSE_SECRET", secreto)
@@ -78,12 +129,27 @@ def activar(base: str) -> dict | None:
 
 def es_owner() -> bool:
     """¿Es la copia del dueño? Pública: la consultan otros módulos (p. ej.
-    `kobra/plan.py`, para eximir al owner del cupo de cualquier plan)."""
-    if os.environ.get("KOBRA_OWNER", "").lower() in ("1", "true", "si", "sí"):
+    `kobra/plan.py`, para eximir al owner del cupo de cualquier plan).
+
+    Las dos vías que quedan exigen algo que el usuario no puede fabricar:
+
+      * el token firmado que `activar()` exporta tras validar el sello;
+      * la credencial `mail|codigo` del dueño, que se revalida acá.
+
+    Antes alcanzaba con `set KOBRA_OWNER=1` antes de lanzar el programa, o con
+    escribir un booleano en la config del propio usuario. Las dos cosas las
+    hacía cualquiera en diez segundos.
+    """
+    token = os.environ.get(ENV_SELLO_OWNER, "")
+    if token and sello_owner_valido({"token_owner": token}):
         return True
     try:
         from kobra import config as kconfig
-        return bool(kconfig.leer_extra("KOBRA_OWNER_ACTIVADO"))
+        from kobra import owner as kowner
+        # Se guarda la credencial y se revalida, en vez de un "ya es owner":
+        # un booleano en la config del usuario lo escribe el usuario.
+        guardada = kconfig.leer_extra(CLAVE_OWNER_CREDENCIAL)
+        return bool(guardada) and kowner.verificar(guardada)
     except Exception:
         return False
 

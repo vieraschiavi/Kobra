@@ -39,6 +39,7 @@ Uso:
 """
 from __future__ import annotations
 
+import json as _json
 import os
 import sys
 
@@ -55,7 +56,32 @@ SALIDA = os.path.join(ROOT, "packaging", "Owner.bat")
 
 # El MISMO sello que inyecta .github/workflows/release_owner.yml.
 # `tests/test_sello_owner.py` compara los dos y falla si se separan.
-SELLO = '{"edition":"Owner","plan":null,"dias":null,"owner":true}'
+#
+# El sello ya no es una constante: lleva un token firmado con la privada del
+# dueño (`token_owner`), porque `owner: true` a secas se lo escribía cualquiera
+# —63 bytes convertían una demo instalada en la edición sin límites—. El token
+# se emite una vez con `backend_venta.licencias.emitir_sello_owner()` y se
+# pasa acá por `KOBRA_OWNER_SELLO`.
+ENV_SELLO = "KOBRA_OWNER_SELLO"
+
+
+def sello(token: str) -> str:
+    """El JSON que se escribe en `edicion.json`, con el token adentro."""
+    return _json.dumps({"edition": "Owner", "plan": None, "dias": None,
+                        "owner": True, "token_owner": token},
+                       separators=(",", ":"))
+
+
+def _token_o_morir() -> str:
+    t = os.environ.get(ENV_SELLO, "").strip()
+    if not t:
+        raise SystemExit(
+            f"falta {ENV_SELLO}: el sello Owner lleva un token firmado con la "
+            "privada del dueño. Emitilo con\n"
+            "  KOBRA_LICENSE_PRIVATE_KEY=... python3 -c "
+            "'from backend_venta import licencias as l; print(l.emitir_sello_owner())'\n"
+            f"y pasalo en {ENV_SELLO}.")
+    return t
 
 
 def _bat() -> str:
@@ -152,7 +178,7 @@ def _bat() -> str:
         "rem congelado, que es de donde kobra\\edicion.py lo lee al arrancar.\n"
         "rem Se escribe con redireccion cruda: sin BOM (json.load falla con BOM)\n"
         "rem y sin que batch tenga que escapar nada del JSON.\n"
-        f">\"!INTERNO!\\edicion.json\" echo {SELLO}\n"
+        f">\"!INTERNO!\\edicion.json\" echo {sello(_token_o_morir())}\n"
         "\n"
         "rem Verificar lo que quedo escrito. Sin esto, un permiso denegado o el\n"
         "rem programa abierto terminarian en un \"listo\" que no es cierto.\n"

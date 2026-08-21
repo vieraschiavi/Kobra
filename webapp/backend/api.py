@@ -56,6 +56,7 @@ from kobra import ayuda as kayuda  # noqa: E402
 from kobra import cartera_manual as kcartera  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
 from kobra import cuentas_por_cobrar as kcxc  # noqa: E402
+from kobra import edicion as kedicion  # noqa: E402
 from kobra import gobernanza as kgob  # noqa: E402
 from kobra import informe_ejecutivo as kinforme  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
@@ -90,28 +91,32 @@ MODO_STANDALONE = os.getenv("KOBRA_MODO_STANDALONE", "").lower() in ("1", "true"
 # tiene efecto combinado con MODO_STANDALONE (el server local del launcher,
 # que escucha únicamente en 127.0.0.1); en el despliegue hosted esta variable
 # no se setea nunca y no cambia nada.
-MODO_OWNER = os.getenv("KOBRA_OWNER", "").lower() in ("1", "true", "si", "sí")
 _CLAVE_LICENCIA = "LICENCIA_TOKEN"
-# Marca persistida cuando el dueño desbloquea con su credencial (ver
+# La credencial del dueño, persistida para revalidarla en cada arranque (ver
 # kobra/owner.py). Sin esto, el desbloqueo duraría solo hasta cerrar la app.
-_CLAVE_OWNER = "KOBRA_OWNER_ACTIVADO"
+# Se guarda la credencial y no un "ya es owner": un booleano en la config lo
+# escribe el propio usuario, y era una de las tres formas de activar la
+# edición sin límites sin pagar nada.
+_CLAVE_OWNER = kedicion.CLAVE_OWNER_CREDENCIAL
 
 
 def _es_owner() -> bool:
     """¿Corre como la copia del dueño?
 
     Dos vías, y las dos tienen que valer en caliente:
-      * `KOBRA_OWNER=1` — lo exporta el launcher cuando el paquete es la
-        edición Owner (decisión de build).
+      * el token firmado que exporta el launcher cuando el paquete es la
+        edición Owner (decisión de build, verificada contra la pública);
       * la credencial `mail|codigo` activada desde la propia app, que queda
         guardada en la config del usuario. Esta es la que permite tener una
         copia 100% operativa a partir del instalador PÚBLICO, sin un build
         aparte.
 
     Se consulta en cada llamada y no una vez al importar: si fuera una
-    constante, desbloquear owner no surtiría efecto hasta reiniciar la app.
+    constante, desbloquear owner no surtiría efecto hasta reiniciar la app —
+    y además `KOBRA_OWNER` leído al importar convertía un `set` del usuario en
+    edición del dueño.
     """
-    return MODO_OWNER or bool(kconfig.leer_extra(_CLAVE_OWNER))
+    return kedicion.es_owner()
 
 
 # ---------------------------------------------------------------------------
@@ -797,7 +802,7 @@ def licencia_activar(datos: LicenciaIn, request: Request):
     # entre un cliente y el producto completo, así que tantearlo tiene que
     # costar lo mismo que tantear una licencia.
     if kowner.verificar(datos.token):
-        kconfig.guardar_extra(_CLAVE_OWNER, "1")
+        kconfig.guardar_extra(_CLAVE_OWNER, datos.token)
         kplan.invalidar_cache()
         _LIMITE_LICENCIA.perdonar(clave)
         return {"token": _emitir_token("admin", EMPRESA_DEFAULT), "rol": "admin",
