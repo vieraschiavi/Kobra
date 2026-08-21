@@ -225,6 +225,80 @@ async def gateway_whatsapp(payload: dict, claims: dict = Depends(requerir_licenc
 # ---------------------------------------------------------------------------
 # 3) Webhook de pago (MercadoPago) + descarga post-pago
 # ---------------------------------------------------------------------------
+_ESQUEMA_PAGOS = """
+CREATE TABLE IF NOT EXISTS pagos_procesados (
+    payment_id TEXT PRIMARY KEY,
+    procesado  TEXT NOT NULL
+)
+"""
+
+
+def _conn_pagos():
+    import sqlite3
+
+    from backend_venta.uso import DB_PATH
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(_ESQUEMA_PAGOS)
+    return conn
+
+
+def _ya_procesado(payment_id) -> bool:
+    conn = _conn_pagos()
+    try:
+        fila = conn.execute("SELECT 1 FROM pagos_procesados WHERE payment_id = ?",
+                            (str(payment_id),)).fetchone()
+        return fila is not None
+    finally:
+        conn.close()
+
+
+def _marcar_procesado(payment_id) -> None:
+    from datetime import datetime, timezone
+    conn = _conn_pagos()
+    try:
+        # `OR IGNORE`: si dos avisos del mismo pago entran a la vez, el segundo
+        # no explota con UNIQUE — simplemente no agrega nada.
+        conn.execute("INSERT OR IGNORE INTO pagos_procesados (payment_id, procesado) VALUES (?,?)",
+                     (str(payment_id), datetime.now(timezone.utc).isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _enviar_licencia(destino: str, plan: str, payment_id, licencia: str,
+                     token_descarga: str) -> bool:
+    """Manda la licencia por mail. Devuelve si salió.
+
+    El endpoint que llama a esto es público y no lleva firma, así que la
+    licencia NO puede volver en el cuerpo de la respuesta: la recibiría quien
+    hizo el POST, que no es necesariamente el comprador.
+    """
+    clave = os.environ.get("RESEND_API_KEY")
+    if not clave or "@" not in (destino or ""):
+        return False
+    cuerpo = (
+        "¡Gracias por tu compra!\n\n"
+        f"Tu licencia de MV Kobra AI (plan {plan}):\n\n{licencia}\n\n"
+        "Cómo activarla: abrí MV Kobra AI y pegala en la pantalla de activación.\n"
+        f"Token de descarga: {token_descarga}\n\n"
+        f"Nº de operación: {payment_id}\n"
+    )
+    try:
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {clave}",
+                     "Content-Type": "application/json"},
+            json={"from": os.environ.get("RESEND_FROM", "onboarding@resend.dev"),
+                  "to": destino,
+                  "subject": f"Tu licencia de MV Kobra AI (plan {plan})",
+                  "text": cuerpo},
+            timeout=15)
+        return r.ok
+    except requests.RequestException:
+        return False
+
+
 @app.post("/webhooks/mercadopago")
 async def webhook_mercadopago(payload: dict):
     """
@@ -251,19 +325,50 @@ async def webhook_mercadopago(payload: dict):
         return {"ok": True, "estado": pago.get("status")}
 
     md = pago.get("metadata") or {}
-    plan = md.get("plan", "starter")
     cliente_id = md.get("email") or md.get("cliente_id") or str(payment_id)
-    if plan not in licencias.PLANES:
-        plan = "starter"
 
-    lic = licencias.emitir_licencia(cliente_id, plan)
+    # El plan sale de la metadata de NUESTRA preferencia. Si no es uno que
+    # sepamos emitir, se avisa y se resuelve a mano.
+    #
+    # Antes esto caía a `starter` por defecto, y eso regalaba producto en dos
+    # direcciones a la vez: un pago de Logística (US$79) no está en `PLANES`
+    # —vive en `MODULOS_VENTA`— así que terminaba emitiendo Starter (US$690,
+    # 365 días, con gobernanza y dax), y un pago sin metadata hacía lo mismo
+    # por cualquier monto. El lado Node ya hacía lo correcto
+    # (`api/_license.js`: "plan desconocido" y no emite); este era el que
+    # regalaba.
+    plan = md.get("plan")
+    if plan in licencias.PLANES:
+        emitir = lambda: licencias.emitir_licencia(cliente_id, plan)  # noqa: E731
+    elif plan in licencias.MODULOS_VENTA:
+        emitir = lambda: licencias.emitir_modulo(cliente_id, plan)    # noqa: E731
+    else:
+        kauditoria.registrar("pago_sin_plan_licenciable",
+                             {"payment_id": payment_id, "plan": plan,
+                              "cliente": cliente_id})
+        return {"ok": True, "licencia": False, "motivo": "plan_no_licenciable"}
+
+    # MercadoPago reintenta el aviso: sin esto, un mismo pago emitía una
+    # licencia nueva (con otro vencimiento) y otro token de descarga en cada
+    # reintento.
+    if _ya_procesado(payment_id):
+        return {"ok": True, "licencia": True, "repetido": True}
+
+    lic = emitir()
     token_descarga = descargas.crear_token_descarga(cliente_id)
+    _marcar_procesado(payment_id)
     kauditoria.registrar("licencia_emitida_pago", {"cliente": cliente_id, "plan": plan,
                                                     "payment_id": payment_id})
-    # Nota: enviar esto por email (Resend, como en api/copiloto.js) es el
-    # siguiente paso — acá se devuelve en la respuesta para no fabricar un
-    # envío de mail sin poder probarlo contra una cuenta real.
-    return {"ok": True, "licencia": lic, "token_descarga": token_descarga, "plan": plan}
+    enviada = _enviar_licencia(cliente_id, plan, payment_id, lic, token_descarga)
+    if not enviada:
+        # La licencia no se pierde: queda en el log del servicio para
+        # reenviarla a mano. Lo que NO puede pasar es devolverla en el cuerpo
+        # de la respuesta — este endpoint es público y no lleva firma, así que
+        # el que recibe la respuesta es quien hizo el POST, no el comprador.
+        print(f"[venta] licencia emitida y NO enviada — recuperar de acá. "
+              f"payment_id={payment_id} plan={plan} cliente={cliente_id} "
+              f"licencia={lic}", flush=True)
+    return {"ok": True, "licencia": True, "enviada": enviada}
 
 
 @app.get("/descargar/{token}")
