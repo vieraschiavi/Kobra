@@ -18,6 +18,7 @@ import os
 import sys
 
 import pytest
+from conftest import CABECERA_REALTIME
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -47,7 +48,10 @@ def servidor(tmp_path, monkeypatch):
         from fastapi.testclient import TestClient
 
         from realtime import server
-        return server, TestClient(server.app)
+        # El servicio ya pide token (ver `realtime/acceso.py`); acá se prueba
+        # el candado del PLAN, así que el cliente entra autenticado y lo que
+        # se mide es lo otro.
+        return server, TestClient(server.app, headers=CABECERA_REALTIME)
 
     yield montar
     for k in list(sys.modules):
@@ -122,13 +126,17 @@ def test_no_escucha_en_toda_la_red_por_defecto():
     assert '"127.0.0.1"' in principal, "el default no es loopback"
 
 
-def test_exponerlo_a_la_red_avisa_de_que_no_pide_credenciales():
+def test_exponerlo_a_la_red_avisa_y_muestra_el_token():
+    """Antes este test pedía una ADVERTENCIA de que el servicio no tenía auth.
+    Ahora la tiene (`realtime/acceso.py`), así que lo que hay que proteger es
+    lo otro: que quien levanta el servicio vea con qué token entrar —si no, el
+    candado nuevo lo deja afuera a él— y que exponerlo siga avisando."""
     fuente = open(os.path.join(ROOT, "realtime", "server.py"),
                   encoding="utf-8").read()
     principal = fuente.split('if __name__ == "__main__":')[1]
-    assert "pide credenciales" in principal, \
-        "se puede exponer a la red sin que nada advierta que no hay auth"
-    assert "ATENCION" in principal
+    assert "acceso.token()" in principal, \
+        "el servicio no muestra el token: el dueño no puede entrar a su propio programa"
+    assert "ATENCION" in principal, "exponerlo a la red no advierte nada"
 
 
 def test_los_endpoints_que_facturan_estan_todos_gateados():

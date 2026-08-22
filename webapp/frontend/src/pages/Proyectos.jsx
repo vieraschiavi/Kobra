@@ -51,8 +51,11 @@ function Cargar({ onListo }) {
       {[["proyectos", "subir_proyectos"], ["tareas", "subir_tareas"],
         ["equipo", "subir_equipo"]].map(([tabla, clave]) => (
         <div key={tabla} style={{ marginTop: 12 }}>
+          {/* El `<label>` de arriba es HERMANO del input, no lo envuelve:
+              se ve, pero no le da nombre a nada. */}
           <label style={{ fontSize: 13, color: "var(--muted)" }}>{t(`proyectos.${clave}`)}</label>
           <input type="file" accept=".csv,.xlsx,.xls" style={{ display: "block", marginTop: 4 }}
+                 aria-label={t(`proyectos.${clave}`)}
                  onChange={(e) => subir(tabla, e.target.files[0])} />
         </div>
       ))}

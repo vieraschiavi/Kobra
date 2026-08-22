@@ -27,8 +27,17 @@ import sys
 import tempfile
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -48,7 +57,10 @@ from kobra import concurrencia as kconc  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
 from kobra import plan as kplan  # noqa: E402
-from realtime import connectors  # noqa: E402
+from realtime import (
+    acceso,  # noqa: E402
+    connectors,  # noqa: E402
+)
 
 kconfig.aplicar()   # carga API keys guardadas al entorno
 
@@ -90,12 +102,45 @@ async def _lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="MV Kobra AI · Copiloto en Vivo", lifespan=_lifespan)
+
+# El candado de entrada. Freno por IP y candado de plan son otra cosa: los dos
+# existían y este servicio seguía entregándole a cualquiera que llegara al
+# puerto la cartera completa del cliente (`GET /brief/{id}`, con ids
+# correlativos) y un botón para marcar un teléfono de verdad
+# (`POST /voz/llamar`). Ver `realtime/acceso.py` para el detalle de qué queda
+# abierto y por qué. Middleware y no dependencia en cada handler a propósito:
+# lo que se lista es lo ABIERTO, así un endpoint nuevo nace protegido.
+app.add_middleware(acceso.Candado)
+
 # Red de seguridad general. El tope de concurrencia (`kconc`) limita cuántas
 # sesiones están abiertas A LA VEZ; esto limita cuántas peticiones llegan por
 # IP EN EL TIEMPO — son cosas distintas, y sin esta un atacante que abre y
 # cierra rápido nunca toca el tope de concurrencia. Cubre HTTP y los
 # WebSockets (/ws, /ws_audio, /twilio) por igual: ver LimitadorGeneral.
+#
+# Va DESPUÉS del candado a propósito: `add_middleware` apila, así que el
+# último agregado es el primero en correr. El freno tiene que ir antes que la
+# comparación del token — si no, una ráfaga contra el token nunca se frena.
 app.add_middleware(klimite.LimitadorGeneral)
+
+
+def _es_twilio(request: Request, form: dict) -> bool:
+    """¿El webhook lo firmó Twilio? Ver `acceso.verificar_twilio`."""
+    return acceso.verificar_twilio(acceso.url_publica(request), form,
+                                   request.headers.get("x-twilio-signature"))
+
+
+def _rechazo_twiml() -> Response:
+    """Respuesta a un webhook que no vino de Twilio: TwiML válido que corta.
+
+    Un 403 pelado también sirve, pero si la firma falla por configuración
+    —`PUBLIC_BASE_URL` mal puesta detrás de un túnel— el que escucha es una
+    persona en el teléfono. Un mensaje corto y cortar es más digno que un
+    error de Twilio en el oído.
+    """
+    return Response(content='<?xml version="1.0" encoding="UTF-8"?>'
+                            "<Response><Hangup/></Response>",
+                    media_type="application/xml", status_code=403)
 
 
 # Este servicio hace las tres acciones que `kobra/plan.py` define como gestión
@@ -486,8 +531,7 @@ import secrets  # noqa: E402
 from collections import OrderedDict  # noqa: E402
 from urllib.parse import quote  # noqa: E402
 
-from fastapi import Request  # noqa: E402
-from fastapi.responses import HTMLResponse, Response  # noqa: E402
+from fastapi.responses import HTMLResponse  # noqa: E402
 
 _SESIONES_VOZ = kconc.RegistroSesiones("voz")
 # Voz por defecto: Polly Lupe (neural, es-US) — la voz latina más natural
@@ -613,6 +657,12 @@ async def voz_entrante(request: Request):
     from kobra.gestor_ia import SesionGestorIA
     qp = dict(request.query_params)
     form = dict(await request.form()) if request.method == "POST" else {}
+    # Este endpoint es público por necesidad —Twilio tiene que poder postearlo—
+    # así que la credencial es la firma de Twilio. Sin esto, cualquiera abre
+    # sesiones de conversación a nombre de deudores ajenos y las deja
+    # registradas como gestiones reales en la base del cliente.
+    if not _es_twilio(request, form):
+        return _rechazo_twiml()
     call_sid = form.get("CallSid") or qp.get("CallSid") or qp.get("call") or "sin-sid"
     id_deudor = qp.get("id_deudor", "") or form.get("id_deudor", "")
     gestor = qp.get("gestor", "IA01")
@@ -642,6 +692,11 @@ async def voz_entrante(request: Request):
 async def voz_turno(request: Request):
     """Cada turno: recibe lo que dijo el cliente (SpeechResult) y responde."""
     form = dict(await request.form())
+    # Sin firma, un tercero postea turnos inventados en una llamada en curso:
+    # el `call` va en la URL y el resultado de la negociación (promesa, monto,
+    # descuento aceptado) queda persistido como si lo hubiera dicho el deudor.
+    if not _es_twilio(request, form):
+        return _rechazo_twiml()
     call_sid = request.query_params.get("call") or form.get("CallSid") or "sin-sid"
     ses = _SESIONES_VOZ.obtener(call_sid)
     if ses is None:
@@ -811,7 +866,14 @@ async function llamar(){
   const r=await fetch('/voz/llamar',{method:'POST',body:d});
   const j=await r.json();
   if(j.ok){o.className='out ok';o.textContent='✅ Llamada iniciada. SID: '+j.sid;}
-  else{o.className='out err';o.textContent='⛔ '+(j.error||j.detalle||('HTTP '+j.status));}
+  else if(r.status===401){
+   // La página se abre sin token y el fetch rebota. Decirle "401" a quien
+   // quiere llamar por telefono no ayuda: se le dice qué hacer.
+   o.className='out err';
+   o.textContent='⛔ Falta el token de acceso. Abrí esta página con el link '+
+     'que muestra la consola al arrancar el servicio (termina en ?t=...), '+
+     'o pegalo vos: '+location.pathname+'?t=TU_TOKEN';}
+  else{o.className='out err';o.textContent='⛔ '+(j.error||j.detalle||('HTTP '+r.status));}
  }catch(e){o.className='out err';o.textContent='⛔ '+e;}
  b.disabled=false;
 }
@@ -961,18 +1023,25 @@ if __name__ == "__main__":
     workers = int(os.getenv("KOBRA_WORKERS", "1"))
     # Escucha solo en loopback salvo que se pida lo contrario A PROPÓSITO.
     #
-    # Antes ataba siempre 0.0.0.0, y este servicio no tiene autenticación: en
-    # una red corporativa cualquiera con la IP de la máquina llegaba al
-    # copiloto, a la transcripción y a `/voz/llamar`, que dispara una llamada
-    # telefónica real. Para Twilio o un despliegue expuesto hace falta
-    # 0.0.0.0, pero eso tiene que ser una decisión explícita y no el default
-    # de quien abre el programa en su notebook.
+    # Antes ataba siempre 0.0.0.0: en una red corporativa cualquiera con la IP
+    # de la máquina llegaba al copiloto, a la transcripción y a `/voz/llamar`,
+    # que dispara una llamada telefónica real. Para Twilio o un despliegue
+    # expuesto hace falta 0.0.0.0, pero eso tiene que ser una decisión
+    # explícita y no el default de quien abre el programa en su notebook.
     host = os.getenv("KOBRA_REALTIME_HOST", "127.0.0.1")
     cap = kconc.capacidad_total(workers)
-    print(f"[MV Kobra AI] Copiloto en Vivo → http://localhost:{port}")
+    # El token se imprime SIEMPRE, no solo cuando se expone: es la única forma
+    # de que quien levanta el servicio sepa con qué abrirlo. Se genera solo la
+    # primera vez y después es estable, así que el link sirve mañana también.
+    t = acceso.token()
+    print(f"[MV Kobra AI] Copiloto en Vivo → http://localhost:{port}/?t={t}")
+    print(f"[MV Kobra AI] Token de acceso: {t}")
+    print("[MV Kobra AI]   (fijalo con KOBRA_REALTIME_TOKEN si preferís uno propio)")
     if host != "127.0.0.1":
-        print(f"[MV Kobra AI] ATENCION: escuchando en {host} — este servicio no "
-              f"pide credenciales. Exponelo solo detrás de un proxy con auth.")
+        print(f"[MV Kobra AI] ATENCION: escuchando en {host}. Los pedidos piden "
+              f"token, y los webhooks de voz piden la firma de Twilio "
+              f"(TWILIO_AUTH_TOKEN): sin esa variable, /voz/entrante y "
+              f"/voz/turno rechazan todo.")
     print(f"[MV Kobra AI] Capacidad: {cap['simultaneas']} conversaciones "
           f"simultáneas ({cap['por_worker']} × {cap['workers']} worker/s) · "
           f"keep-alive {keep_alive}s")

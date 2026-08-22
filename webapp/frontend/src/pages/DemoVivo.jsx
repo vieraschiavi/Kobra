@@ -266,6 +266,7 @@ export default function DemoVivo() {
           {pago.estado === "pendiente" && (
             <div className="toolbar" style={{ marginTop: 14 }}>
               <input type="text" placeholder={t("demo.ph_payment_id")} value={paymentId}
+                     aria-label={t("demo.ph_payment_id")}
                      style={{ minWidth: 220 }}
                      onChange={(e) => setPaymentId(e.target.value)} />
               <button className="btn" onClick={acreditar} disabled={ocupado === "acreditar"}>

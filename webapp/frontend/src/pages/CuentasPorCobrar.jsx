@@ -200,7 +200,8 @@ function Conciliar() {
           {cargando ? t("common.cargando") : t("cxc.conciliar.buscar")}
         </button>
       </div>
-      <textarea rows={5} value={texto} onChange={(e) => setTexto(e.target.value)}
+      <textarea rows={5} aria-label={t("cxc.conciliar.placeholder")}
+                value={texto} onChange={(e) => setTexto(e.target.value)}
                 placeholder={t("cxc.conciliar.placeholder")}
                 style={{ width: "100%", marginTop: 10, fontFamily: "ui-monospace, monospace",
                          fontSize: 13 }} />

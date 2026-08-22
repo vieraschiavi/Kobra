@@ -58,13 +58,24 @@ def cargar_manual(contactos: list[dict], prefijo: str = "MP") -> pd.DataFrame:
     rows = []
     for k, c in enumerate(contactos, 1):
         row = dict(DEFAULTS)
+        traidas = set()
         for key, val in c.items():
             if val is not None:
                 row[key] = val
+                if key in DEFAULTS:
+                    traidas.add(key)
         row["id_deudor"] = str(c.get("id_deudor") or f"{prefijo}-{k:03d}")
         row["monto_deuda"] = float(c["monto_deuda"])
         row["nombre"] = str(c.get("nombre", "")).strip()
         row["telefono"] = str(c.get("telefono", "")).strip()
+        # Cuántas features salieron del archivo del cliente y cuántas de
+        # `DEFAULTS`. Sin esto, un ProbPago calculado a partir de UN dato real
+        # (el monto) y trece supuestos se muestra igual que uno calculado
+        # sobre la cartera completa del ERP — mismo número, misma pantalla,
+        # misma cara de certeza. El que decide a quién llamar merece saber
+        # sobre qué está decidiendo.
+        row["features_provistas"] = len(traidas)
+        row["supuestos"] = sorted(set(DEFAULTS) - traidas)
         rows.append(row)
 
     df = pd.DataFrame(rows)
@@ -83,7 +94,20 @@ def puntuar(model, df: pd.DataFrame) -> pd.DataFrame:
     out["segmento_propension"] = pd.cut(
         out["probpago"], bins=[-0.01, 0.35, 0.65, 1.01],
         labels=["Baja", "Media", "Alta"])
+    if "features_provistas" in out.columns:
+        out["calidad_datos"] = out["features_provistas"].map(_calidad_datos)
     return out
+
+
+# Con menos de un tercio de las features cargadas, el ProbPago dice más del
+# promedio de la cartera de referencia que de esta persona.
+def _calidad_datos(provistas: int) -> str:
+    total = len(DEFAULTS)
+    if provistas >= total * 0.75:
+        return "completa"
+    if provistas >= total / 3:
+        return "parcial"
+    return "estimada"
 
 
 def brief_desde_fila(fila) -> dict:
@@ -99,6 +123,11 @@ def brief_desde_fila(fila) -> dict:
         "plan_cuotas": int(fila["plan_cuotas"]),
         "segmento_propension": str(fila.get("segmento_propension", "Media")),
         "canal_recomendado": fila.get("canal_recomendado", "Llamada"),
+        # Viaja hasta el brief del Gestor IA a propósito: quien mira la
+        # pantalla antes de llamar tiene que poder ver si el ProbPago se
+        # calculó con datos o con supuestos.
+        "calidad_datos": str(fila.get("calidad_datos", "estimada")),
+        "features_provistas": int(fila.get("features_provistas", 0)),
     }
 
 

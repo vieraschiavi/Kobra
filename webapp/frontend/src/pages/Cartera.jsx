@@ -1,7 +1,7 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
 
 import React, { useEffect, useState } from "react";
-import { api, fmtPct, fmtUYU, getPais, getSesion } from "../api.js";
+import { api, descargar, fmtPct, fmtUYU, getPais } from "../api.js";
 import { t } from "../i18n/index.js";
 
 const CLAVE_PROPENSION = {
@@ -80,14 +80,11 @@ export default function Cartera() {
   }, [pagina, filtros]);
 
   async function exportar() {
-    const ses = getSesion();
-    const r = await fetch(`/api/cartera/export.csv?${qs()}`,
-                          { headers: { Authorization: `Bearer ${ses.token}` } });
-    const blob = await r.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "cartera_priorizada.csv";
-    a.click();
+    try {
+      await descargar(`/api/cartera/export.csv?${qs()}`, "cartera_priorizada.csv");
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   const totalPaginas = datos ? Math.max(1, Math.ceil(datos.total / datos.tamano)) : 1;
@@ -107,37 +104,48 @@ export default function Cartera() {
       <p className="page-sub">{t("cartera.subtitulo")}</p>
 
       <div className="toolbar" style={{ flexWrap: "wrap", gap: 8 }}>
+        {/* Toda esta barra son filtros sin `<label>`: se entienden mirando la
+            primera opción del desplegable, que es justo lo que no puede hacer
+            quien usa un lector de pantalla. */}
         <input type="text" placeholder={t("cartera.toolbar.buscar_placeholder")} value={filtros.busqueda}
+               aria-label={t("cartera.toolbar.buscar_placeholder")}
                onChange={setF("busqueda")} style={{ width: 130 }} />
-        <select value={filtros.segmento} onChange={setF("segmento")}>
+        <select aria-label={t("cartera.toolbar.segmento_todos")}
+                value={filtros.segmento} onChange={setF("segmento")}>
           <option value="">{t("cartera.toolbar.segmento_todos")}</option>
           {(o.segmentos || []).map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         {(o.productos || []).length > 0 && (
-          <select value={filtros.producto} onChange={setF("producto")}>
+          <select aria-label={t("cartera.toolbar.producto_todos")}
+                  value={filtros.producto} onChange={setF("producto")}>
             <option value="">{t("cartera.toolbar.producto_todos")}</option>
             {o.productos.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>)}
         {(o.departamentos || []).length > 0 && (
-          <select value={filtros.departamento} onChange={setF("departamento")}>
+          <select aria-label={t("cartera.toolbar.depto_todos")}
+                  value={filtros.departamento} onChange={setF("departamento")}>
             <option value="">{t("cartera.toolbar.depto_todos")}</option>
             {o.departamentos.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>)}
-        <select value={filtros.tramo} onChange={setF("tramo")}>
+        <select aria-label={t("cartera.toolbar.tramo_todos")}
+                value={filtros.tramo} onChange={setF("tramo")}>
           <option value="">{t("cartera.toolbar.tramo_todos")}</option>
           {(o.tramos || []).map((tr) => <option key={tr}>{tr}</option>)}
         </select>
-        <select value={filtros.propension} onChange={setF("propension")}>
+        <select aria-label={t("cartera.toolbar.propension_todas")}
+                value={filtros.propension} onChange={setF("propension")}>
           <option value="">{t("cartera.toolbar.propension_todas")}</option>
           {(o.propensiones || []).map((p) => <option key={p} value={p}>{tProp(p)}</option>)}
         </select>
         {o.tiene_fecha && (o.anios || []).length > 0 && (
-          <select value={filtros.anio} onChange={setF("anio")}>
+          <select aria-label={t("cartera.toolbar.anio_todos")}
+                  value={filtros.anio} onChange={setF("anio")}>
             <option value="">{t("cartera.toolbar.anio_todos")}</option>
             {o.anios.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>)}
         {o.tiene_fecha && (
-          <select value={filtros.mes} onChange={setF("mes")}>
+          <select aria-label={t("cartera.toolbar.mes_todos")}
+                  value={filtros.mes} onChange={setF("mes")}>
             <option value="">{t("cartera.toolbar.mes_todos")}</option>
             {MESES.slice(1).map((m) => <option key={m} value={parseInt(m, 10)}>{m}</option>)}
           </select>)}
@@ -151,9 +159,11 @@ export default function Cartera() {
         <div className="toolbar" style={{ flexWrap: "wrap", gap: 14, marginTop: 4 }}>
           <span style={{ color: "var(--muted)", fontSize: 13 }}>{t("cartera.toolbar.monto")}:</span>
           <input type="number" placeholder={String(o.monto.min)} value={filtros.monto_min}
+                 aria-label={t("cartera.toolbar.monto_min_aria")}
                  onChange={setF("monto_min")} style={{ width: 110 }} />
           <span style={{ color: "var(--muted)", fontSize: 12 }}>{t("cartera.toolbar.hasta")}</span>
           <input type="number" placeholder={String(o.monto.max)} value={filtros.monto_max}
+                 aria-label={t("cartera.toolbar.monto_max_aria")}
                  onChange={setF("monto_max")} style={{ width: 110 }} />
           {dm && (
             <>

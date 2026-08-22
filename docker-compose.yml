@@ -8,6 +8,11 @@
 #   1) variables de entorno / archivo .env (OPENAI_API_KEY, ANTHROPIC_API_KEY)
 #   2) desde el dashboard → pestaña "Configuración" (se guardan en el volumen kobra-config)
 #   3) sin keys: MV Kobra AI funciona igual (sin transcripción Whisper ni Claude)
+#
+# El servicio realtime pide credenciales (ver realtime/acceso.py). El token se
+# genera solo la primera vez y se imprime al arrancar:
+#   docker compose logs realtime | grep "Token de acceso"
+# Después se entra con  http://localhost:8000/?t=EL-TOKEN
 
 services:
   dashboard:
@@ -33,6 +38,17 @@ services:
     environment:
       - PORT=8000
       - KOBRA_CONFIG_DIR=/config
+      # El contenedor tiene su propia red: atado a su loopback, el servicio no
+      # responde por el puerto publicado abajo. Ver docker-entrypoint.sh.
+      - KOBRA_REALTIME_HOST=0.0.0.0
+      # El servicio pide token (realtime/acceso.py). Si no se fija acá, se
+      # genera solo en el primer arranque, queda en el volumen kobra-config y
+      # se imprime en el log: `docker compose logs realtime`.
+      - KOBRA_REALTIME_TOKEN=${KOBRA_REALTIME_TOKEN:-}
+      # Sin esto, los webhooks de voz de Twilio se rechazan: no se puede
+      # verificar la firma, y no verificar no puede significar aceptar.
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     ports:

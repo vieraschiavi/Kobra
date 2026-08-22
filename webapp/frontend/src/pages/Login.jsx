@@ -94,9 +94,20 @@ export default function Login() {
           <p style={{ color: "var(--muted)" }}>…</p>
         ) : esSetup ? (
           <form onSubmit={crear}>
-            <input type="password" placeholder={t("login.setup_placeholder")} value={password}
+            {/* `aria-label` y no un `<label>` visible: el diseño de esta
+                pantalla es de campos con placeholder. Pero el placeholder NO
+                es un nombre accesible — desaparece al escribir y los lectores
+                de pantalla lo tratan distinto según cuál sea. Sin esto, la
+                primera pantalla del producto tiene dos campos sin nombre.
+                `autoComplete` además le dice al gestor de contraseñas qué es
+                cada uno, que es la diferencia entre que ofrezca guardarla o no. */}
+            <input type="password" placeholder={t("login.setup_placeholder")}
+                   aria-label={t("login.setup_placeholder")}
+                   autoComplete="new-password" value={password}
                    onChange={(e) => setPassword(e.target.value)} autoFocus />
-            <input type="password" placeholder={t("login.setup_placeholder2")} value={password2}
+            <input type="password" placeholder={t("login.setup_placeholder2")}
+                   aria-label={t("login.setup_placeholder2")}
+                   autoComplete="new-password" value={password2}
                    onChange={(e) => setPassword2(e.target.value)} />
             <button className="btn" disabled={cargando || !password || !password2}>
               {cargando ? t("login.setup_creando") : t("login.setup_boton")}
@@ -104,7 +115,9 @@ export default function Login() {
           </form>
         ) : (
           <form onSubmit={entrar}>
-            <input type="password" placeholder={t("login.input.placeholder_password")} value={password}
+            <input type="password" placeholder={t("login.input.placeholder_password")}
+                   aria-label={t("login.input.placeholder_password")}
+                   autoComplete="current-password" value={password}
                    onChange={(e) => setPassword(e.target.value)} autoFocus />
             <button className="btn" disabled={cargando || !password}>
               {cargando ? t("login.boton.entrando") : t("login.boton.entrar")}
