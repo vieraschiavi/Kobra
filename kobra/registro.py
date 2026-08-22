@@ -39,16 +39,62 @@ GESTION_COLS = [
     "recupero", "notas",
 ]
 
+# La cartera REAL que sube el cliente, y la marca que dice si está activa.
+# Las escribe la webapp (`webapp/backend/api.py::_archivo_real`); acá se leen
+# con los mismos nombres.
+CARTERA_REAL_CSV = os.path.join(krutas.DIR_DATOS, "outputs", "kobra_cartera_real.csv")
+ORIGEN_JSON = os.path.join(krutas.DIR_DATOS, "outputs", "origen_cartera.json")
+
 _scored_cache: pd.DataFrame | None = None
+_scored_firma: tuple | None = None
+
+
+def ruta_cartera() -> str:
+    """De qué archivo sale la cartera para el brief y la campaña.
+
+    La webapp ya elegía bien entre la cartera real del cliente y la de
+    demostración, pero este módulo leía SIEMPRE `kobra_scored.csv` —la salida
+    del pipeline sintético—. Como el Gestor IA telefónico arma su brief acá, el
+    resultado era que el cliente importaba su cartera, lanzaba la campaña de
+    voz, y el bot llamaba a sus deudores con los datos de un deudor inventado:
+    `probpago` de otro, y sobre todo el DESCUENTO calculado para otro.
+
+    La marca `origen_cartera.json` es la misma que mira el botón demo del
+    dashboard, así que las dos pantallas no pueden discrepar.
+    """
+    try:
+        if os.path.exists(ORIGEN_JSON) and os.path.exists(CARTERA_REAL_CSV):
+            import json as _json
+            with open(ORIGEN_JSON, encoding="utf-8") as f:
+                meta = _json.load(f)
+            if (meta.get("modo") or meta.get("tipo")) == "real":
+                return CARTERA_REAL_CSV
+    except (OSError, ValueError):
+        # Marca ilegible: se sigue con la de siempre. Quedarse sin cartera es
+        # peor que usar la de demostración, y la pantalla ya lo dice.
+        pass
+    return SCORED_CSV
 
 
 def _scored(refrescar=False) -> pd.DataFrame | None:
-    """Cartera scoreada por el pipeline (outputs/kobra_scored.csv)."""
-    global _scored_cache
-    if _scored_cache is None or refrescar:
-        if not os.path.exists(SCORED_CSV):
-            return None
-        _scored_cache = pd.read_csv(SCORED_CSV)
+    """Cartera vigente: la real del cliente si la importó, si no la del pipeline.
+
+    El caché se invalida solo cuando el archivo cambia. Antes era una global
+    que se llenaba una vez y no se soltaba nunca: importar la cartera no tenía
+    ningún efecto sobre el bot hasta reiniciar el proceso.
+    """
+    global _scored_cache, _scored_firma
+    ruta = ruta_cartera()
+    if not os.path.exists(ruta):
+        return None
+    try:
+        st = os.stat(ruta)
+        firma = (ruta, st.st_mtime_ns, st.st_size)
+    except OSError:
+        firma = None
+    if refrescar or _scored_cache is None or firma != _scored_firma:
+        _scored_cache = pd.read_csv(ruta)
+        _scored_firma = firma
     return _scored_cache
 
 

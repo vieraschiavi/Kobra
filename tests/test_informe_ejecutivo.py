@@ -157,8 +157,10 @@ def test_api_tenant_alta_y_aislamiento(cliente):
         d = r.json()
         assert d["empresa"] == "demo-prospecto" and d["deudores"] == 2000
         # la empresa nueva ya tiene cartera propia consultable
+        # La empresa nueva trae SU contraseña: entrar con la del despliegue
+        # era la fuga que cerró tests/test_aislamiento_tenant.py.
         r2 = cliente.post("/api/auth/login",
-                          json={"password": "AdminTest123!", "empresa": "demo-prospecto"})
+                          json={"password": d["password"], "empresa": "demo-prospecto"})
         h2 = {"Authorization": f"Bearer {r2.json()['token']}"}
         k = cliente.get("/api/kpis", headers=h2).json()
         assert k["deudores"] == 2000

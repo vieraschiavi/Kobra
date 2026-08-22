@@ -46,30 +46,64 @@ def _hash(password: str, salt: bytes) -> str:
     return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, _ITERACIONES).hex()
 
 
-def establecer_password(rol: str, password: str) -> None:
-    """Genera un salt nuevo y guarda hash+salt para el rol dado."""
+# Empresa por defecto: la instalación de un solo cliente (escritorio) y la
+# copia del dueño. Sus credenciales usan las claves SIN prefijo, que son las
+# que ya existen en toda instalación hecha hasta hoy.
+EMPRESA_DEFAULT = "principal"
+
+
+def _clave(rol: str, empresa: str, campo: str) -> str:
+    """Nombre de la clave de configuración donde vive la credencial.
+
+    La contraseña se guardaba SOLO por rol (`AUTH_ADMIN_HASH`), compartida por
+    todas las empresas del despliegue. Como el login además tomaba el nombre de
+    empresa del cuerpo del pedido, cualquier cliente entraba a los datos de
+    otro mandando el nombre del vecino con su propia contraseña. Verificado:
+    con la clave del cliente A y `empresa: "clienteB"` se leía la cartera de B.
+
+    Ahora la credencial es de la empresa. `principal` conserva las claves sin
+    prefijo para no dejar afuera a ninguna instalación existente.
+    """
     assert rol in ROLES, f"rol inválido: {rol}"
+    emp = (empresa or EMPRESA_DEFAULT).strip().lower()
+    if emp == EMPRESA_DEFAULT:
+        return f"AUTH_{rol.upper()}_{campo}"
+    # El nombre de empresa entra en el nombre de una clave de configuración:
+    # se normaliza para que no pueda inventar otra clave ni pisar la de otro.
+    seguro = "".join(c if c.isalnum() else "_" for c in emp)[:40].upper()
+    return f"AUTH_T_{seguro}_{rol.upper()}_{campo}"
+
+
+def establecer_password(rol: str, password: str,
+                        empresa: str = EMPRESA_DEFAULT) -> None:
+    """Genera un salt nuevo y guarda hash+salt para ese rol EN esa empresa."""
     salt = secrets.token_bytes(16)
-    kconfig.guardar_extra(f"AUTH_{rol.upper()}_SALT", salt.hex())
-    kconfig.guardar_extra(f"AUTH_{rol.upper()}_HASH", _hash(password, salt))
+    kconfig.guardar_extra(_clave(rol, empresa, "SALT"), salt.hex())
+    kconfig.guardar_extra(_clave(rol, empresa, "HASH"), _hash(password, salt))
 
 
-def tiene_password(rol: str) -> bool:
-    return bool(kconfig.leer_extra(f"AUTH_{rol.upper()}_HASH"))
+def tiene_password(rol: str, empresa: str = EMPRESA_DEFAULT) -> bool:
+    return bool(kconfig.leer_extra(_clave(rol, empresa, "HASH")))
 
 
-def verificar_password(rol: str, password: str) -> bool:
-    salt_hex = kconfig.leer_extra(f"AUTH_{rol.upper()}_SALT")
-    hash_guardado = kconfig.leer_extra(f"AUTH_{rol.upper()}_HASH")
+def verificar_password(rol: str, password: str,
+                       empresa: str = EMPRESA_DEFAULT) -> bool:
+    """¿Es esa la contraseña de ese rol EN esa empresa?
+
+    La empresa no es decorativa: es la mitad de la identidad. Sin ella, la
+    contraseña de un cliente abre la puerta de cualquier otro.
+    """
+    salt_hex = kconfig.leer_extra(_clave(rol, empresa, "SALT"))
+    hash_guardado = kconfig.leer_extra(_clave(rol, empresa, "HASH"))
     if not salt_hex or not hash_guardado:
         return False
     return secrets.compare_digest(_hash(password, bytes.fromhex(salt_hex)), hash_guardado)
 
 
-def login(password: str) -> str | None:
+def login(password: str, empresa: str = EMPRESA_DEFAULT) -> str | None:
     """Prueba la contraseña contra admin y gestor; devuelve el rol o None."""
     for rol in ROLES:
-        if tiene_password(rol) and verificar_password(rol, password):
+        if tiene_password(rol, empresa) and verificar_password(rol, password, empresa):
             return rol
     return None
 

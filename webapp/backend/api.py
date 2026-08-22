@@ -32,6 +32,7 @@ import io
 import json
 import os
 import re
+import secrets
 import sys
 import time
 from datetime import datetime, timezone
@@ -718,12 +719,34 @@ def auth_login(datos: LoginIn, request: Request):
     # límite solo le ahorraría trabajo al servidor, no se lo negaría a él.
     clave = _frenar(_LIMITE_LOGIN, request, "login")
     _sin_puerta_por_password()
-    if not kauth.configurado():
-        raise HTTPException(409, "Todavía no hay contraseña de administrador creada — "
-                                 "creála en esta pantalla para el primer arranque.")
+    # El "todavía no hay contraseña" es POR EMPRESA: en un despliegue con
+    # varios clientes, que `principal` esté configurada no dice nada sobre la
+    # empresa que está entrando.
+    _emp_pedida = (datos.empresa or EMPRESA_DEFAULT).strip().lower()
+    # "¿Hay alguna puerta para esta empresa?" — cualquiera de los dos roles.
+    # Preguntar solo por `admin` dejaba afuera a una empresa que solo tiene
+    # gestor: credencial válida, 401 igual.
+    if not any(kauth.tiene_password(r_, _emp_pedida) for r_ in kauth.ROLES):
+        if _emp_pedida == EMPRESA_DEFAULT:
+            raise HTTPException(409, "Todavía no hay contraseña de administrador creada — "
+                                     "creála en esta pantalla para el primer arranque.")
+        # Para una empresa cualquiera se responde 401 y no 409: un 409 diría
+        # "esa empresa no existe", y eso convierte el login en un enumerador
+        # de clientes.
+        raise HTTPException(401, "Contraseña incorrecta.")
+    # La empresa viene del cuerpo del pedido, así que la contraseña se valida
+    # CONTRA ESA EMPRESA. Antes se verificaba contra una credencial global por
+    # rol: con la clave del cliente A y `empresa: "clienteB"` se emitía un token
+    # de B y se leía su cartera entera. Verificado ejecutando antes de arreglar.
+    #
+    # No se distingue "esa empresa no existe" de "la contraseña no es": las dos
+    # dan el mismo 401. Diferenciarlas convierte el login en un enumerador de
+    # clientes.
+    empresa = (datos.empresa or EMPRESA_DEFAULT).strip().lower()
     rol = None
     for candidato in ("admin", "gestor"):
-        if kauth.tiene_password(candidato) and kauth.verificar_password(candidato, datos.password):
+        if (kauth.tiene_password(candidato, empresa)
+                and kauth.verificar_password(candidato, datos.password, empresa)):
             rol = candidato
             break
     if not rol:
@@ -731,8 +754,7 @@ def auth_login(datos: LoginIn, request: Request):
     # Acertó: se le devuelve el intento. El límite castiga el tanteo, no al
     # usuario que se equivocó una vez y después entró bien.
     _LIMITE_LOGIN.perdonar(clave)
-    return {"token": _emitir_token(rol, datos.empresa), "rol": rol,
-            "empresa": datos.empresa}
+    return {"token": _emitir_token(rol, empresa), "rol": rol, "empresa": empresa}
 
 
 class LicenciaIn(BaseModel):
@@ -1652,6 +1674,10 @@ def informe_enviar_ahora(u: Usuario = Depends(solo_admin)):
 # ---------------------------------------------------------------------------
 class AltaTenantIn(BaseModel):
     empresa: str
+    # Cada empresa tiene SU contraseña. Antes se entraba con la del
+    # despliegue, y por eso un cliente leía la cartera de otro. Si no se
+    # indica, se genera una y se devuelve UNA sola vez.
+    password: str | None = None
 
 
 @app.post("/api/tenant/alta")
@@ -1676,9 +1702,21 @@ def tenant_alta(datos: AltaTenantIn, u: Usuario = Depends(solo_admin)):
     if g is not None and "id_deudor" in g.columns:
         g[g["id_deudor"].isin(set(scored["id_deudor"]))].to_csv(
             os.path.join(destino, "kobra_gestiones.csv"), index=False)
+    # La credencial del tenant nuevo. Sin esto la empresa queda creada pero
+    # sin puerta: el login exige una contraseña propia de esa empresa.
+    clave = (datos.password or "").strip() or secrets.token_urlsafe(12)
+    if len(clave) < 8:
+        raise HTTPException(400, "La contraseña de la empresa necesita al menos "
+                                 "8 caracteres.")
+    kauth.establecer_password("admin", clave, empresa=slug)
     return {"empresa": slug, "deudores": int(len(scored)),
+            # Se devuelve una vez y no se guarda en claro en ningún lado: de la
+            # contraseña queda solo su hash. Si se pierde, se genera otra.
+            "password": clave,
             "mensaje": (f"Empresa '{slug}' creada con datos de demostración. "
-                        "Cerrá sesión y entrá con ese nombre de empresa.")}
+                        f"Entrá con el nombre de empresa '{slug}' y ESTA "
+                        "contraseña — es propia de esta empresa y se muestra "
+                        "una sola vez.")}
 
 
 @app.get("/api/deudor/{id_deudor}")
