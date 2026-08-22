@@ -63,6 +63,7 @@ from kobra import informe_ejecutivo as kinforme  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
 from kobra import llm as kllm  # noqa: E402
 from kobra import logistica as klog  # noqa: E402
+from kobra import marca_blanca as kmarca  # noqa: E402
 from kobra import medidas as kmedidas  # noqa: E402
 from kobra import owner as kowner  # noqa: E402
 from kobra import paises as kpaises  # noqa: E402
@@ -793,6 +794,48 @@ def plan_estado(u: Usuario = Depends(usuario_actual)):
     Va con sesión: el consumo del mes es información del cliente, no algo
     que tenga que poder leer cualquiera que llegue al puerto."""
     return kplan.estado()
+
+
+# ---------------------------------------------------------------------------
+# Marca blanca (Enterprise)
+# ---------------------------------------------------------------------------
+class MarcaIn(BaseModel):
+    nombre: str = ""
+    color: str = ""
+    logo: str = ""
+
+
+@app.get("/api/marca")
+def marca_leer(u: Usuario = Depends(usuario_actual)):
+    """Con qué nombre, logo y color se muestra el producto.
+
+    Sin `exigir` acá a propósito: esto lo pide TODA pantalla al abrirse, y
+    `kmarca.leer()` ya devuelve la marca de fábrica cuando el plan no incluye
+    `white_label`. Un 403 en este endpoint dejaría la barra lateral sin
+    nombre en los planes que no lo tienen, que son casi todos.
+    """
+    return kmarca.leer()
+
+
+@app.post("/api/marca")
+def marca_guardar(datos: MarcaIn, u: Usuario = Depends(solo_admin)):
+    """Configura la marca del cliente. Enterprise y solo el administrador.
+
+    `solo_admin` no es decorativo: esto cambia lo que ve todo el equipo del
+    cliente, y el logo queda embebido en cada pantalla.
+    """
+    kplan.exigir("white_label", "la marca blanca")
+    try:
+        return kmarca.guardar(datos.model_dump())
+    except kmarca.MarcaInvalida as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.delete("/api/marca")
+def marca_borrar(u: Usuario = Depends(solo_admin)):
+    """Vuelve a la marca de fábrica."""
+    kplan.exigir("white_label", "la marca blanca")
+    return kmarca.borrar()
 
 
 @app.post("/api/licencia/owner-login")
