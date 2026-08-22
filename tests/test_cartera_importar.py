@@ -37,9 +37,14 @@ def cliente(tmp_path, monkeypatch):
 
 
 def _h_admin(cliente, empresa=None):
+    # La contraseña es POR EMPRESA desde que se cerró la fuga cross-tenant
+    # (ver tests/test_aislamiento_tenant.py). Estos tests no prueban el login,
+    # así que se le crea a la empresa la credencial que le corresponde.
+    from kobra import autenticacion as kauth
     cuerpo = {"password": "AdminTest123!"}
     if empresa:
         cuerpo["empresa"] = empresa
+        kauth.establecer_password("admin", "AdminTest123!", empresa=empresa)
     r = cliente.post("/api/auth/login", json=cuerpo)
     return {"Authorization": f"Bearer {r.json()['token']}"}
 

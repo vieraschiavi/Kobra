@@ -55,7 +55,14 @@ def cliente(tmp_path, monkeypatch):
     shutil.rmtree(os.path.join(ROOT, "data", "tenants", "kobra-test-pais"), ignore_errors=True)
 
 
-def _tok(cliente, password="AdminTest123!", empresa="kobra-test-pais"):
+def _tok(cliente, password="AdminTest123!", empresa="kobra-test-pais",
+         rol="admin"):
+    # La contraseña es POR EMPRESA. Antes había una sola para todo el
+    # despliegue y con ella se entraba a cualquier tenant — que es justo la
+    # fuga que cerró `tests/test_aislamiento_tenant.py`. Acá el test no está
+    # probando el login, así que se le crea la credencial que le corresponde.
+    from kobra import autenticacion as kauth
+    kauth.establecer_password(rol, password, empresa=empresa)
     r = cliente.post("/api/auth/login", json={"password": password, "empresa": empresa})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['token']}"}
@@ -102,7 +109,7 @@ def test_api_tenant_pais_rechaza_codigo_invalido(cliente):
 
 
 def test_api_tenant_pais_solo_admin_puede_cambiarlo(cliente):
-    h_gestor = _tok(cliente, "GestorTest123!")
+    h_gestor = _tok(cliente, "GestorTest123!", rol="gestor")
     r = cliente.post("/api/tenant/pais", json={"codigo": "AR"}, headers=h_gestor)
     assert r.status_code == 403
     # gestor sí puede leerlo
