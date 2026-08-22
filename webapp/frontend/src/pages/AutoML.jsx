@@ -244,7 +244,10 @@ export default function AutoML() {
       {fuente === "archivo" && (
       <div className="card">
         <h3 style={{ marginTop: 0 }}>{t("automl.paso1")}</h3>
+        {/* Un `type="file"` no tiene placeholder que dé una pista: sin
+            nombre, quien no ve la pantalla no tiene NADA. */}
         <input type="file" accept=".csv,.xlsx,.xls"
+               aria-label={t("automl.paso1")}
                onChange={(e) => elegirArchivo(e.target.files[0])} />
         <p style={{ color: "var(--faint)", fontSize: 12, marginBottom: 0 }}>
           {t("automl.nota_archivo")}

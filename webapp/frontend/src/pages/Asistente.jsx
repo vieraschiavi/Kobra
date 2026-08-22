@@ -254,6 +254,7 @@ export default function Asistente() {
       </div>
       <form className="chat-form" onSubmit={preguntar}>
         <input type="text" value={pregunta} placeholder={t("asistente.placeholder_input")}
+               aria-label={t("asistente.placeholder_input")}
                onChange={(e) => setPregunta(e.target.value)} />
         <button className="btn" disabled={cargando || !pregunta.trim()}>{t("asistente.boton_preguntar")}</button>
       </form>

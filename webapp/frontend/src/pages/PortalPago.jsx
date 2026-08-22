@@ -312,6 +312,7 @@ export default function PortalPago() {
                   </label>
                   {tipo === "parcial" && (
                     <input type="number" className="portal-monto" min="1"
+                           aria-label={t("portal.pagar.monto_ph")}
                            max={saldo} value={monto} placeholder={t("portal.pagar.monto_ph")}
                            onChange={(e) => setMonto(e.target.value)} />
                   )}

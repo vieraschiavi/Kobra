@@ -44,6 +44,7 @@ function Preguntar({ sugeridas, iaDisponible }) {
 
       <div className="toolbar" style={{ gap: 8 }}>
         <input
+          aria-label={t("tablero.preguntar_ph")}
           value={pregunta}
           onChange={(e) => setPregunta(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") enviar(); }}
