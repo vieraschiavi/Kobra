@@ -74,8 +74,26 @@ ngrok http 8000                  # te da https://XXXX.ngrok-free.app
 > El servidor **detecta solo** la URL pública (por los headers de ngrok); no
 > tenés que configurarla. Si preferís fijarla, seteá `PUBLIC_BASE_URL`.
 
+> **Exponerlo a internet lo expone a todo internet.** Por eso el servicio pide
+> credenciales, y son dos distintas:
+>
+> - **Vos y tu equipo**: un **token de acceso** que el servicio genera solo la
+>   primera vez y muestra al arrancar, en la misma línea del link:
+>   `http://localhost:8000/?t=EL-TOKEN`. Abrí las páginas con ese link (queda
+>   guardado en una cookie del navegador y no hay que repetirlo). Si preferís
+>   fijar uno propio, seteá `KOBRA_REALTIME_TOKEN` — es la forma de hacerlo
+>   desde Docker o un servicio de Windows.
+> - **Twilio**: la **firma** de sus webhooks. Se valida con tu
+>   `TWILIO_AUTH_TOKEN`, la misma que ya cargaste en el paso 2. **Sin esa
+>   variable, `/voz/entrante` y `/voz/turno` rechazan todo** — no se puede
+>   verificar quién postea, y aceptar sin verificar significa que cualquiera
+>   abre conversaciones a nombre de tus deudores o mete respuestas en una
+>   llamada en curso. Si las llamadas entrantes cortan al instante, revisá
+>   primero esa variable y que `PUBLIC_BASE_URL` coincida con la URL que
+>   configuraste en Twilio (la firma se calcula sobre la URL exacta).
+
 ### 5. Llamar — con un botón
-- Abrí **`https://XXXX.ngrok-free.app/llamar`** en el navegador.
+- Abrí **`https://XXXX.ngrok-free.app/llamar?t=EL-TOKEN`** en el navegador.
 - Completá: **teléfono** (formato internacional, ej. `+59809XXXXXXX`), nombre y
   **monto de la deuda**. Tocá **📞 Llamar ahora**.
 - El Gestor IA llama, negocia y, al cortar, **registra la gestión** (se ve en el

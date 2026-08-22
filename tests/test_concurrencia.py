@@ -126,11 +126,26 @@ def test_las_conversaciones_simultaneas_no_se_atienden_de_a_una(ruta, payload):
     serían ≥2 s; concurrentes, apenas más de 200 ms.
     """
     import asyncio
+    import os
     import time
 
     httpx = pytest.importorskip("httpx")
+    from conftest import CABECERA_REALTIME, firma_twilio
+
     from kobra import gestor_ia
     from realtime import server
+
+    # El servicio ya no atiende a cualquiera (ver `realtime/acceso.py`): el
+    # webhook de WhatsApp va con el token y el de voz firmado como Twilio.
+    # `PUBLIC_BASE_URL` fija la URL sobre la que se calcula la firma, que es
+    # la misma que se firma en producción.
+    AUTH_TW = "auth-token-de-prueba-para-firmar"
+    os.environ["TWILIO_AUTH_TOKEN"] = AUTH_TW
+    os.environ["PUBLIC_BASE_URL"] = "http://t"
+
+    def cabeceras(url, form):
+        return (firma_twilio(url, form, AUTH_TW) if "voz" in url
+                else CABECERA_REALTIME)
 
     LAT, N = 0.2, 10
     original = gestor_ia.SesionGestorIA.responder
@@ -147,12 +162,16 @@ def test_las_conversaciones_simultaneas_no_se_atienden_de_a_una(ruta, payload):
             async with httpx.AsyncClient(transport=transporte,
                                          base_url="http://t", timeout=60) as c:
                 t0 = time.perf_counter()
-                r = await asyncio.gather(*[
-                    c.post(f"{ruta}?call=CA{i}",
-                           **{k: (dict(v, sesion=f"s{i}") if k == "json"
+                pedidos = []
+                for i in range(N):
+                    cuerpo = {k: (dict(v, sesion=f"s{i}") if k == "json"
                                   else dict(v, CallSid=f"CA{i}"))
-                              for k, v in payload.items()})
-                    for i in range(N)])
+                              for k, v in payload.items()}
+                    url = f"{ruta}?call=CA{i}"
+                    form = cuerpo.get("data") or {}
+                    pedidos.append(c.post(
+                        url, headers=cabeceras(f"http://t{url}", form), **cuerpo))
+                r = await asyncio.gather(*pedidos)
                 return time.perf_counter() - t0, r
 
         dt, respuestas = asyncio.run(_correr())
@@ -160,6 +179,11 @@ def test_las_conversaciones_simultaneas_no_se_atienden_de_a_una(ruta, payload):
         gestor_ia.SesionGestorIA.responder = original
         server._SESIONES_VOZ = kconc.RegistroSesiones("voz")
         server._SESIONES_WA = kconc.RegistroSesiones("whatsapp")
+        # Las dos variables se ponen a mano (no hay monkeypatch en este test):
+        # si quedan puestas, el test siguiente arranca con Twilio "configurado"
+        # y una URL pública falsa, y falla por el motivo equivocado.
+        for var in ("TWILIO_AUTH_TOKEN", "PUBLIC_BASE_URL"):
+            os.environ.pop(var, None)
 
     assert all(x.status_code == 200 for x in respuestas)
     assert dt < LAT * N / 2, (

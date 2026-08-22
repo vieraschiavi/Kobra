@@ -5,7 +5,7 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { api, avisarPlan, getSesion } from "../api.js";
+import { api, avisarPlan, descargar, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
 
 const COL_IA = "#00c896";
@@ -137,18 +137,23 @@ function Comparativa() {
   return (
     <>
       <div className="toolbar" style={{ gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        {/* El `<span>` de al lado se ve pero no está asociado al control:
+            para un lector de pantalla el `<select>` sigue sin nombre. */}
         <span style={{ color: "var(--muted)", fontSize: 13 }}>{t("calidad.filtro_canal")}:</span>
-        <select value={canal} onChange={(e) => setCanal(e.target.value)}>
+        <select aria-label={t("calidad.filtro_canal")}
+                value={canal} onChange={(e) => setCanal(e.target.value)}>
           <option value="">{t("calidad.todos_canales")}</option>
           {(data.canales || []).map((cn) => <option key={cn} value={cn}>{cn}</option>)}
         </select>
         <span style={{ color: "var(--muted)", fontSize: 13 }}>{t("calidad.filtro_mes")}:</span>
-        <select value={mes} onChange={(e) => setMes(e.target.value)}>
+        <select aria-label={t("calidad.filtro_mes")}
+                value={mes} onChange={(e) => setMes(e.target.value)}>
           <option value="">{t("calidad.todos_meses")}</option>
           {(data.meses || []).map((m) => <option key={m} value={m}>{m}</option>)}
         </select>
         <span style={{ color: "var(--muted)", fontSize: 13 }}>{t("calidad.filtro_gestor")}:</span>
-        <select value={gestor} onChange={(e) => setGestor(e.target.value)}>
+        <select aria-label={t("calidad.filtro_gestor")}
+                value={gestor} onChange={(e) => setGestor(e.target.value)}>
           <option value="">{t("calidad.todos_gestores")}</option>
           {(data.gestores || []).map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
@@ -286,12 +291,14 @@ function Evaluador() {
       <h3 style={{ marginTop: 0 }}>{t("calidad.evaluar_titulo")}</h3>
       <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("calidad.evaluar_sub")}</p>
       <div className="toolbar" style={{ gap: 8 }}>
-        <select value={canal} onChange={(e) => setCanal(e.target.value)}>
+        <select aria-label={t("calidad.filtro_canal")}
+                value={canal} onChange={(e) => setCanal(e.target.value)}>
           <option value="Llamada">{t("calidad.canal_llamada")}</option>
           <option value="WhatsApp">WhatsApp</option>
         </select>
       </div>
-      <textarea rows={7} value={texto} onChange={(e) => setTexto(e.target.value)}
+      <textarea rows={7} aria-label={t("calidad.evaluar_placeholder")}
+                value={texto} onChange={(e) => setTexto(e.target.value)}
                 style={{ width: "100%", fontSize: 13 }}
                 placeholder={t("calidad.evaluar_placeholder")} />
       <div className="toolbar" style={{ marginTop: 8 }}>
@@ -388,14 +395,21 @@ function EvaluadorAudio({ onGuardado }) {
         <h3 style={{ marginTop: 0 }}>{t("calidad.audio_titulo")}</h3>
         <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("calidad.audio_sub")}</p>
         <div className="toolbar" style={{ gap: 8, flexWrap: "wrap" }}>
-          <select value={canal} onChange={(e) => setCanal(e.target.value)}>
+          <select aria-label={t("calidad.filtro_canal")}
+                  value={canal} onChange={(e) => setCanal(e.target.value)}>
             <option value="Llamada">{t("calidad.canal_llamada")}</option>
             <option value="WhatsApp">WhatsApp</option>
           </select>
-          <input type="text" placeholder={t("calidad.audio_gestor_ph")} value={gestor}
+          <input type="text" placeholder={t("calidad.audio_gestor_ph")}
+                 aria-label={t("calidad.audio_gestor_ph")} value={gestor}
                  onChange={(e) => setGestor(e.target.value)} style={{ width: 200 }} />
-          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          {/* Un campo de fecha y uno de archivo sin nombre son los dos peores:
+              no tienen placeholder que dé una pista, así que quien no ve la
+              pantalla no tiene NADA. */}
+          <input type="date" aria-label={t("calidad.filtro_mes")}
+                 value={fecha} onChange={(e) => setFecha(e.target.value)} />
           <input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg"
+                 aria-label={t("calidad.audio_titulo")}
                  onChange={(e) => elegir(e.target.files[0] || null)} />
           <button className="btn" disabled={!archivo || cargando} onClick={procesar}>
             {cargando ? t("calidad.audio_procesando") : t("calidad.audio_boton")}
@@ -461,11 +475,13 @@ function Fichas({ recargar }) {
   return (
     <>
       <div className="toolbar" style={{ gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-        <select value={gestor} onChange={(e) => setGestor(e.target.value)}>
+        <select aria-label={t("calidad.filtro_gestor")}
+                value={gestor} onChange={(e) => setGestor(e.target.value)}>
           <option value="">{t("calidad.fichas_todos_gestores")}</option>
           {(data.gestores || []).map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
-        <select value={mes} onChange={(e) => setMes(e.target.value)}>
+        <select aria-label={t("calidad.filtro_mes")}
+                value={mes} onChange={(e) => setMes(e.target.value)}>
           <option value="">{t("calidad.fichas_todos_meses")}</option>
           {(data.meses || []).map((m) => <option key={m} value={m}>{m}</option>)}
         </select>
@@ -605,15 +621,11 @@ function PanelCalidad() {
   }, [gestor, anio, mes]);
 
   async function exportar() {
-    const ses = getSesion();
-    const r = await fetch(`/api/calidad/export.xlsx?${qs()}`,
-                          { headers: { Authorization: `Bearer ${ses.token}` } });
-    const blob = await r.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "MVKobraAI_Calidad.xlsx";
-    a.click();
-    URL.revokeObjectURL(a.href);
+    try {
+      await descargar(`/api/calidad/export.xlsx?${qs()}`, "MVKobraAI_Calidad.xlsx");
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   if (error) return <div className="empty">{error}</div>;
@@ -625,15 +637,18 @@ function PanelCalidad() {
   return (
     <>
       <div className="toolbar" style={{ flexWrap: "wrap", gap: 8 }}>
-        <select value={gestor} onChange={(e) => setGestor(e.target.value)}>
+        <select aria-label={t("calidad.filtro_gestor")}
+                value={gestor} onChange={(e) => setGestor(e.target.value)}>
           <option value="">{t("calidad.panel.todos_gestores")}</option>
           {(d.gestores || []).map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
-        <select value={anio} onChange={(e) => { setAnio(e.target.value); setMes(""); }}>
+        <select aria-label={t("calidad.filtro_mes")}
+                value={anio} onChange={(e) => { setAnio(e.target.value); setMes(""); }}>
           <option value="">{t("calidad.panel.todos_anios")}</option>
           {(d.anios || []).map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
-        <select value={mes} onChange={(e) => setMes(e.target.value)}>
+        <select aria-label={t("calidad.filtro_mes")}
+                value={mes} onChange={(e) => setMes(e.target.value)}>
           <option value="">{t("calidad.panel.todos_meses")}</option>
           {(d.meses || []).filter((m) => !anio || m.startsWith(anio))
             .map((m) => <option key={m} value={m}>{m}</option>)}

@@ -718,13 +718,38 @@ def test_voz_twiml_negociacion(tmp_path, monkeypatch):
     monkeypatch.setattr(registro, "registrar_gestion",
                         lambda **kw: real(**{**kw, "archivo": destino}))
 
+    # Los webhooks de voz ahora exigen la firma de Twilio (ver
+    # `realtime/acceso.py`): son públicos por necesidad —Twilio tiene que poder
+    # postearlos— y sin firma cualquiera abría sesiones a nombre de deudores
+    # ajenos o metía turnos en una llamada en curso. Este test simula a Twilio,
+    # así que firma como Twilio.
+    from conftest import firma_twilio
+
+    from realtime import acceso
+    AUTH_TW = "auth-token-de-twilio-para-este-test"
+    monkeypatch.setenv("TWILIO_AUTH_TOKEN", AUTH_TW)
+    monkeypatch.delenv("PUBLIC_BASE_URL", raising=False)
+
     class FakeReq:
-        def __init__(self, method="POST", query=None, form=None, headers=None):
+        def __init__(self, method="POST", query=None, form=None, headers=None,
+                     ruta="/voz/entrante"):
             self.method = method
             self.query_params = query or {}
             self._form = form or {}
-            self.headers = headers or {"host": "t.ngrok.app", "x-forwarded-proto": "https"}
-            self.url = SimpleNamespace(scheme="https")
+            consulta = "&".join(f"{k}={v}" for k, v in self.query_params.items())
+            self.url = SimpleNamespace(scheme="https", path=ruta, query=consulta)
+            # En minúsculas: las cabeceras HTTP son case-insensitive y el
+            # `Headers` de Starlette las busca así. Un dict pelado no, y el
+            # handler que lee "x-twilio-signature" no encontraría la que este
+            # test puso como "X-Twilio-Signature".
+            def bajas(d):
+                return {k.lower(): v for k, v in d.items()}
+
+            self.headers = bajas(headers or {"host": "t.ngrok.app",
+                                             "x-forwarded-proto": "https"})
+            # La firma se calcula sobre la URL ya armada, así que va después.
+            self.headers.update(bajas(firma_twilio(acceso.url_publica(self),
+                                                   self._form, AUTH_TW)))
         async def form(self):
             return self._form
 
@@ -735,11 +760,11 @@ def test_voz_twiml_negociacion(tmp_path, monkeypatch):
     t = r.body.decode()
     assert r.status_code == 200 and "<Gather" in t and "<Say" in t
 
-    r = run(server.voz_turno(FakeReq(query={"call": "CAX"},
+    r = run(server.voz_turno(FakeReq(query={"call": "CAX"}, ruta="/voz/turno",
                                      form={"SpeechResult": "Sí, soy yo"})))
     assert "saldo" in r.body.decode().lower() or "pag" in r.body.decode().lower()
 
-    r = run(server.voz_turno(FakeReq(query={"call": "CAX"},
+    r = run(server.voz_turno(FakeReq(query={"call": "CAX"}, ruta="/voz/turno",
                                      form={"SpeechResult": "Dale, acepto, me sirve"})))
     t = r.body.decode()
     assert "<Gather" not in t and "<Say" in t          # cierre: habla y cuelga

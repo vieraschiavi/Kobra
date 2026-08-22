@@ -34,7 +34,9 @@ export default function Activacion({ onActivada, vencida }) {
         <h1>MV KOBRA <span>AI</span></h1>
         <p>{vencida ? t("activacion.subtitulo_vencida") : t("activacion.subtitulo")}</p>
         <form onSubmit={activar}>
-          <input type="text" placeholder={t("activacion.placeholder")} value={token}
+          <input type="text" placeholder={t("activacion.placeholder")}
+                 aria-label={t("activacion.placeholder")}
+                 autoComplete="off" spellCheck={false} value={token}
                  onChange={(e) => setToken(e.target.value)} autoFocus />
           <button className="btn" disabled={cargando || !token.trim()}>
             {cargando ? t("activacion.boton_activando") : t("activacion.boton_activar")}

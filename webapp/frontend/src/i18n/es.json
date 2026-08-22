@@ -146,6 +146,8 @@
       "modo_real": "Datos reales",
       "modo_demo": "Datos demo",
       "sin_resultados": "Ningún deudor cumple estos filtros.",
+      "monto_min_aria": "Monto, mínimo",
+      "monto_max_aria": "Monto, máximo",
       "dias_min_aria": "Días de mora, mínimo",
       "dias_max_aria": "Días de mora, máximo"
     },
@@ -367,6 +369,7 @@
     },
     "sin_clave": "falta la clave",
     "guardado": "Guardado.",
+    "modelo_aria": "Modelo de IA",
     "modelo_ayuda": "Modelo dentro de tu cuenta — eligiendo uno chico regulás el consumo de tokens; Actualizar trae del proveedor sus últimas versiones publicadas.",
     "actualizar": "Actualizar modelos",
     "actualizando": "Consultando al proveedor…",

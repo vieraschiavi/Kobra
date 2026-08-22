@@ -5,18 +5,18 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { api, fmtPct, fmtUYU, getPais, getSesion } from "../api.js";
+import { api, descargar, fmtPct, fmtUYU, getPais } from "../api.js";
 import { t } from "../i18n/index.js";
 
-async function descargarInforme() {
-  const ses = getSesion();
-  const r = await fetch("/api/informe/ejecutivo.pdf",
-                        { headers: { Authorization: `Bearer ${ses.token}` } });
-  const blob = await r.blob();
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "informe_ejecutivo.pdf";
-  a.click();
+// `avisar` es el `setError` de la página. El informe ejecutivo tarda en
+// armarse: si falla y nadie dice nada, el usuario se queda mirando un botón
+// que aparentemente no hizo nada — o peor, con un PDF de 40 bytes que no abre.
+async function descargarInforme(avisar) {
+  try {
+    await descargar("/api/informe/ejecutivo.pdf", "informe_ejecutivo.pdf");
+  } catch (e) {
+    avisar(e.message);
+  }
 }
 
 const VERDE = "#00c896", LIMA = "#7cc242", AMBAR = "#f2b441", ROJO = "#ff7675",
@@ -64,7 +64,7 @@ export default function Dashboard() {
           <h1 className="page-title">{t("dashboard.titulo")}</h1>
           <p className="page-sub">{t("dashboard.subtitulo")}</p>
         </div>
-        <button className="btn ghost" style={{ flexShrink: 0 }} onClick={descargarInforme}>
+        <button className="btn ghost" style={{ flexShrink: 0 }} onClick={() => descargarInforme(setError)}>
           {t("dashboard.boton_informe")}
         </button>
       </div>

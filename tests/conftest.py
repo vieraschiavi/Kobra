@@ -2,16 +2,45 @@
 
 """Utilidades compartidas por la suite.
 
-Por ahora una sola: armar un sello Owner legítimo. Desde que `edicion.json`
-dejó de creerle a un `owner: true` pelado, cualquier test que necesite correr
-como el dueño tiene que traer un token firmado — y la privada real no está (ni
-tiene que estar) en el repo. Estos fixtures generan un par de prueba y le
-enseñan al programa a verificar contra ESA pública, que es lo mismo que hace
-en producción contra la del dueño.
+Dos cosas:
+
+1. Armar un sello Owner legítimo. Desde que `edicion.json` dejó de creerle a
+   un `owner: true` pelado, cualquier test que necesite correr como el dueño
+   tiene que traer un token firmado — y la privada real no está (ni tiene que
+   estar) en el repo. Estos fixtures generan un par de prueba y le enseñan al
+   programa a verificar contra ESA pública, que es lo mismo que hace en
+   producción contra la del dueño.
+
+2. Hablarle al servicio de tiempo real, que desde `realtime/acceso.py` pide
+   credenciales. Antes no pedía nada y cualquier test podía pegarle de una;
+   ahora el token de prueba es fijo y conocido, y hay un helper para firmar
+   como Twilio los webhooks de voz.
 """
 import time
 
 import pytest
+
+# Token de prueba del servicio en vivo. Fijo y conocido: no es un secreto,
+# es lo que hace que los tests puedan entrar (y que uno que quiera probar el
+# 401 solo tenga que borrar la variable).
+TOKEN_REALTIME = "token-de-prueba-del-servicio-en-vivo-de-kobra"
+CABECERA_REALTIME = {"X-Kobra-Token": TOKEN_REALTIME}
+
+
+@pytest.fixture(autouse=True)
+def _token_realtime_conocido(monkeypatch):
+    monkeypatch.setenv("KOBRA_REALTIME_TOKEN", TOKEN_REALTIME)
+
+
+def firma_twilio(url: str, form: dict, auth_token: str) -> dict:
+    """Cabecera `X-Twilio-Signature` válida para ese webhook.
+
+    Los webhooks de voz (`/voz/entrante`, `/voz/turno`) son públicos por
+    necesidad —Twilio tiene que poder postearlos— así que su credencial es la
+    firma. Un test que los llame tiene que firmar igual que Twilio.
+    """
+    from realtime import acceso
+    return {"X-Twilio-Signature": acceso.firma_esperada(url, form, auth_token)}
 
 
 @pytest.fixture(autouse=True)

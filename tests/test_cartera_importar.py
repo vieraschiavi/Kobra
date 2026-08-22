@@ -360,3 +360,59 @@ def test_originacion_usa_el_mismo_dataset_del_dashboard(cliente):
     finally:
         shutil.rmtree(os.path.join(ROOT, "data", "tenants", "test-orig"),
                       ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Un ProbPago hecho de supuestos tiene que decir que lo es
+# ---------------------------------------------------------------------------
+# `cargar_manual` exige UNA sola columna: el monto. Todo lo demás sale de
+# `DEFAULTS` — score de buró 600, ingreso 45.000, contactabilidad 0,7… catorce
+# supuestos. El modelo los toma como si fueran datos y devuelve un número con
+# dos decimales, que se muestra en la misma pantalla y con la misma cara de
+# certeza que uno calculado sobre la cartera completa de un ERP.
+#
+# No se puede resolver inventando mejores defaults: si el dato no está, no
+# está. Lo que sí se puede es decirlo, y que llegue hasta el brief que mira el
+# gestor antes de levantar el teléfono.
+def test_una_cartera_de_una_sola_columna_se_marca_como_estimada():
+    from kobra import cartera_manual as cm
+    df = cm.cargar_manual([{"monto_deuda": 50000}])
+    assert df["features_provistas"][0] == 0
+    assert len(df["supuestos"][0]) == len(cm.DEFAULTS), (
+        "no queda registro de cuántas features se inventaron")
+
+
+def test_una_cartera_completa_se_marca_como_completa():
+    """La contracara: el cliente que sí carga sus datos no puede quedar
+    marcado como si hubiera subido tres columnas."""
+    from kobra import cartera_manual as cm
+    completo = {"monto_deuda": 50000, **cm.DEFAULTS}
+    df = cm.cargar_manual([completo])
+    assert df["features_provistas"][0] == len(cm.DEFAULTS)
+    assert df["supuestos"][0] == []
+
+
+def test_la_etiqueta_de_calidad_escala_con_los_datos():
+    from kobra import cartera_manual as cm
+    total = len(cm.DEFAULTS)
+    assert cm._calidad_datos(0) == "estimada"
+    assert cm._calidad_datos(total) == "completa"
+    assert cm._calidad_datos(total // 2) == "parcial"
+
+
+def test_la_calidad_llega_al_brief_que_mira_el_gestor():
+    """Es el punto de todo esto: el que decide a quién llamar tiene que ver
+    sobre qué está decidiendo, no solo el número."""
+    from kobra import cartera_manual as cm
+    df = cm.puntuar(cm.modelo_prior(),
+                    cm.cargar_manual([{"monto_deuda": 50000,
+                                       "nombre": "Ana", "telefono": "099"}]))
+    from kobra import negociador
+    fila = negociador.recomendar(df).iloc[0]
+    brief = cm.brief_desde_fila(fila)
+    assert brief["calidad_datos"] == "estimada"
+    assert brief["features_provistas"] == 0
+    # Y el resto del brief sigue completo: la etiqueta se suma, no reemplaza.
+    for campo in ("id_deudor", "monto_deuda", "probpago", "estrategia",
+                  "descuento_recomendado", "plan_cuotas"):
+        assert campo in brief

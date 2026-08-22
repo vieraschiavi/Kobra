@@ -31,6 +31,7 @@ import os
 import sys
 
 import pytest
+from conftest import CABECERA_REALTIME
 
 from kobra import registro
 
@@ -246,7 +247,9 @@ def servidor_voz(tmp_path, monkeypatch):
     monkeypatch.setattr(requests, "post", lambda *a, **k: (
         disparadas.append(k.get("data")) or _RespuestaTwilio()))
 
-    yield TestClient(server.app), disparadas
+    # Con token: acá se prueba el guardrail de cartera, no el candado de
+    # acceso (ése vive en test_acceso_realtime.py).
+    yield TestClient(server.app, headers=CABECERA_REALTIME), disparadas
 
     for k in list(sys.modules):
         if k.startswith(("kobra", "realtime")):

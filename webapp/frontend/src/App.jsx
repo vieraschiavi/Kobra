@@ -102,14 +102,21 @@ function PaisSelector({ esAdmin }) {
   );
 }
 
-function Sidebar({ sesion, plan }) {
+function Sidebar({ sesion, plan, marca }) {
   const nav = useNavigate();
   const loc = useLocation();
+  // Marca blanca (Enterprise). `marca.propia` solo viene en true cuando el
+  // plan incluye la feature Y el cliente la configuró; en cualquier otro caso
+  // el backend devuelve la marca de fábrica y esto pinta lo de siempre.
+  const propia = marca && marca.propia;
   return (
     <aside className="sidebar">
       <div className="brand">
-        <img src="/mv_icon.png" alt="MV Kobra AI" />
-        <b>MV KOBRA <span>AI</span></b>
+        <img src={(propia && marca.logo) || "/mv_icon.png"}
+             alt={propia ? marca.nombre : "MV Kobra AI"} />
+        {propia
+          ? <b style={marca.color ? { color: marca.color } : undefined}>{marca.nombre}</b>
+          : <b>MV KOBRA <span>AI</span></b>}
       </div>
       {/* `aria-label` y `title` no son decorativos acá: en pantalla chica la
           barra colapsa a un rail de iconos y el `.txt` se oculta por CSS, así
@@ -242,6 +249,14 @@ export default function App() {
     api("/api/plan").then(setPlan).catch(() => {});
   }, [sesion?.token]);
 
+  // Marca blanca. Si falla, queda la de fábrica: que no se pueda leer la
+  // marca no puede dejar la barra lateral sin nombre.
+  const [marca, setMarca] = useState(null);
+  useEffect(() => {
+    if (!sesion) return;
+    api("/api/marca").then(setMarca).catch(() => setMarca(null));
+  }, [sesion?.token]);
+
   // Portal público de pagos: lo abre el DEUDOR desde el link/QR que le mandó
   // la empresa. Sin login de la plataforma, sin sidebar, y antes de cualquier
   // pantalla de licencia — el deudor no es un usuario de Kobra.
@@ -262,7 +277,7 @@ export default function App() {
   if (loc.pathname === "/login") return <Login />;
   return (
     <div className="layout">
-      <Sidebar sesion={sesion} plan={plan} />
+      <Sidebar sesion={sesion} plan={plan} marca={marca} />
       <main className="main">
         <Tour />
         <TrialBanner licEstado={licEstado} />

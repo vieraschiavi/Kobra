@@ -76,13 +76,13 @@ function ConfigPortal() {
               {t("portal_admin.config.transferencia")}
             </label>
           </legend>
-          <input placeholder={t("portal_admin.config.banco")} value={cfg.transferencia.banco}
+          <input placeholder={t("portal_admin.config.banco")} aria-label={t("portal_admin.config.banco")} value={cfg.transferencia.banco}
                  onChange={set("transferencia", "banco")} />
-          <input placeholder={t("portal_admin.config.titular")} value={cfg.transferencia.titular}
+          <input placeholder={t("portal_admin.config.titular")} aria-label={t("portal_admin.config.titular")} value={cfg.transferencia.titular}
                  onChange={set("transferencia", "titular")} />
-          <input placeholder={t("portal_admin.config.cuenta")} value={cfg.transferencia.cuenta}
+          <input placeholder={t("portal_admin.config.cuenta")} aria-label={t("portal_admin.config.cuenta")} value={cfg.transferencia.cuenta}
                  onChange={set("transferencia", "cuenta")} />
-          <input placeholder={t("portal_admin.config.nota")} value={cfg.transferencia.nota}
+          <input placeholder={t("portal_admin.config.nota")} aria-label={t("portal_admin.config.nota")} value={cfg.transferencia.nota}
                  onChange={set("transferencia", "nota")} />
         </fieldset>
 
@@ -94,16 +94,16 @@ function ConfigPortal() {
               {t("portal_admin.config.mercadopago")}
             </label>
           </legend>
-          <input placeholder={t("portal_admin.config.mp_link")} value={cfg.mercadopago.link_base}
+          <input placeholder={t("portal_admin.config.mp_link")} aria-label={t("portal_admin.config.mp_link")} value={cfg.mercadopago.link_base}
                  onChange={set("mercadopago", "link_base")} />
           <p className="portal-ayuda">{t("portal_admin.config.mp_ayuda")}</p>
         </fieldset>
 
         <fieldset>
           <legend>{t("portal_admin.config.erp")}</legend>
-          <input placeholder={t("portal_admin.config.webhook")} value={cfg.erp.webhook_url}
+          <input placeholder={t("portal_admin.config.webhook")} aria-label={t("portal_admin.config.webhook")} value={cfg.erp.webhook_url}
                  onChange={set("erp", "webhook_url")} />
-          <input placeholder={t("portal_admin.config.api_key")} value={cfg.erp.api_key}
+          <input placeholder={t("portal_admin.config.api_key")} aria-label={t("portal_admin.config.api_key")} value={cfg.erp.api_key}
                  onChange={set("erp", "api_key")} />
           <p className="portal-ayuda">{t("portal_admin.config.erp_ayuda")}</p>
           <div className="portal-apikey">
@@ -144,6 +144,7 @@ function AccesoDeudor() {
       <p className="page-sub" style={{ marginBottom: 14 }}>{t("portal_admin.acceso.subtitulo")}</p>
       <form className="toolbar" onSubmit={generar}>
         <input value={id} onChange={(e) => setId(e.target.value)}
+               aria-label={t("portal_admin.acceso.id_ph")}
                placeholder={t("portal_admin.acceso.id_ph")} style={{ width: 180 }} />
         <button className="btn" disabled={!id.trim()}>{t("portal_admin.acceso.generar")}</button>
         {error && <span style={{ color: "var(--red)", fontSize: 13 }}>{error}</span>}

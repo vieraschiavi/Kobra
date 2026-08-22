@@ -150,7 +150,17 @@ def cargar():
     else:
         from data.generate_dataset import generar
         df = generar(12000, 42)
-    model = ProbPagoModel().fit(df)
+    # `fit_seleccionado` y no `fit`: el pipeline (`kobra/pipeline.py`) y la
+    # cartera manual usan el modelo elegido por validación cruzada y calibrado;
+    # este tablero usaba el Gradient Boosting ad-hoc de `fit()`. O sea que el
+    # MISMO deudor tenía dos ProbPago según qué pantalla se mirara — medido
+    # sobre la cartera de 12.000: 4.635 caían en un decil distinto y la
+    # diferencia máxima era de 0,43. El decil decide la prioridad de llamado y
+    # el descuento autorizado, así que no es un detalle de presentación.
+    #
+    # Si el modelo seleccionado no está entrenado todavía, `fit_seleccionado`
+    # cae solo en `fit()` y lo dice en `metrics["modelo"]`.
+    model = ProbPagoModel().fit_seleccionado(df)
     scored = model.score(df)
     full = negociador.recomendar(scored)
     return full, model.metrics, model.feature_importance()

@@ -146,6 +146,8 @@
       "modo_real": "Dados reais",
       "modo_demo": "Dados demo",
       "sin_resultados": "Nenhum devedor atende a esses filtros.",
+      "monto_min_aria": "Valor, mínimo",
+      "monto_max_aria": "Valor, máximo",
       "dias_min_aria": "Dias de atraso, mínimo",
       "dias_max_aria": "Dias de atraso, máximo"
     },
@@ -367,6 +369,7 @@
     },
     "sin_clave": "falta a chave",
     "guardado": "Salvo.",
+    "modelo_aria": "Modelo de IA",
     "modelo_ayuda": "Modelo dentro da sua conta — escolhendo um menor você regula o consumo de tokens; Atualizar traz do provedor as últimas versões publicadas.",
     "actualizar": "Atualizar modelos",
     "actualizando": "Consultando o provedor…",

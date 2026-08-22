@@ -132,10 +132,12 @@ function ImportarCartera() {
             {t("importar_cartera.sql_ayuda")}
           </p>
           <input type="text" value={connUrl} style={{ width: "100%", marginBottom: 8 }}
+                 aria-label={t("importar_cartera.sql_url_placeholder")}
                  placeholder={t("importar_cartera.sql_url_placeholder")}
                  onChange={(e) => setConnUrl(e.target.value)} />
           <textarea value={consulta} rows={4} style={{ width: "100%", marginBottom: 8,
                         fontFamily: "var(--mono)", fontSize: 12.5 }}
+                    aria-label={t("importar_cartera.sql_consulta_placeholder")}
                     placeholder={t("importar_cartera.sql_consulta_placeholder")}
                     onChange={(e) => setConsulta(e.target.value)} />
           <button className="btn" disabled={!connUrl.trim() || !consulta.trim() || cargando}
@@ -207,6 +209,7 @@ function ProveedorIA() {
           </p>
           <div className="toolbar" style={{ flexWrap: "wrap", gap: 10 }}>
             <select value={info.activo} style={{ minWidth: 240 }}
+                    aria-label={t("proveedor_ia.modelo_aria")}
                     onChange={(e) => elegir(datos.proveedor, e.target.value)}>
               {info.disponibles.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
@@ -264,6 +267,8 @@ function InformeSemanal() {
           {t("informe_email.activo")}
         </label>
         <input type="email" style={{ flex: 1, minWidth: 220 }} value={prog.destino}
+               aria-label={t("informe_email.destino_placeholder")}
+               autoComplete="email"
                placeholder={t("informe_email.destino_placeholder")}
                onChange={(e) => setProg({ ...prog, destino: e.target.value })} />
         <button className="btn" onClick={guardar}>{t("informe_email.guardar")}</button>
@@ -388,6 +393,7 @@ function AltaEmpresa() {
       <p style={{ color: "var(--muted)", fontSize: 13 }}>{t("alta_tenant.subtitulo")}</p>
       <div className="toolbar">
         <input type="text" style={{ flex: 1, minWidth: 200 }} value={nombre}
+               aria-label={t("alta_tenant.placeholder")}
                placeholder={t("alta_tenant.placeholder")}
                onChange={(e) => setNombre(e.target.value)} />
         <button className="btn" disabled={nombre.trim().length < 3} onClick={crear}>
