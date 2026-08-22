@@ -1,7 +1,7 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
 
 import React, { useEffect, useState } from "react";
-import { api, fmtPct, fmtUYU, getPais, getSesion } from "../api.js";
+import { api, descargar, fmtPct, fmtUYU, getPais } from "../api.js";
 import { t } from "../i18n/index.js";
 
 const CLAVE_PROPENSION = {
@@ -80,14 +80,11 @@ export default function Cartera() {
   }, [pagina, filtros]);
 
   async function exportar() {
-    const ses = getSesion();
-    const r = await fetch(`/api/cartera/export.csv?${qs()}`,
-                          { headers: { Authorization: `Bearer ${ses.token}` } });
-    const blob = await r.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "cartera_priorizada.csv";
-    a.click();
+    try {
+      await descargar(`/api/cartera/export.csv?${qs()}`, "cartera_priorizada.csv");
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   const totalPaginas = datos ? Math.max(1, Math.ceil(datos.total / datos.tamano)) : 1;

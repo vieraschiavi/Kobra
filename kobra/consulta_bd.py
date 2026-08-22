@@ -259,9 +259,48 @@ def generar_sql_claude(pregunta: str, fichas_relevantes: list[dict], dialecto: s
 # `xp_` y `sp_executesql` entraron: son los dos caminos de SQL Server para
 # ejecutar comandos arbitrarios, y solo el primero quedaba cubierto de rebote
 # por `exec `. Traídos del motor de MV SQL.
-_PROHIBIDAS = ("insert ", "update ", "delete ", "drop ", "alter ", "truncate ",
-               "create ", "exec ", "execute ", "merge ", "grant ", "revoke ",
-               "xp_", "sp_executesql")
+#
+# Y faltaba la mitad del problema: la lista miraba solo la ESCRITURA. Un
+# SELECT también saca datos de la máquina y mete datos de la máquina en el
+# resultado. Comprobado contra el validador anterior — los cinco pasaban:
+#
+#     SELECT * FROM clientes INTO OUTFILE '/var/www/html/fuga.csv'   -> PASA
+#     SELECT pg_read_file('/etc/passwd')                             -> PASA
+#     SELECT load_file('/etc/shadow')                                -> PASA
+#     SELECT * FROM clientes INTO DUMPFILE '/tmp/x'                  -> PASA
+#     SELECT * FROM clientes FOR UPDATE                              -> PASA
+#
+# El primero escribe la cartera entera en una carpeta servida por web. El
+# segundo y el tercero leen archivos del servidor —incluidas las credenciales
+# de la propia base— y los devuelven como si fueran filas. Y todo eso lo
+# redacta un modelo a partir de una frase en español que escribe el usuario.
+_PROHIBIDAS = (
+    # Escritura y DDL
+    "insert", "update", "delete", "drop", "alter", "truncate", "create",
+    "merge", "grant", "revoke",
+    # Ejecución de comandos
+    "exec", "execute", "xp_", "sp_executesql",
+    # Escribir un archivo en el servidor con el resultado
+    "into outfile", "into dumpfile", "copy", "lo_export", "pg_write_file",
+    # Leer archivos del servidor y devolverlos como filas
+    "load_file", "pg_read_file", "pg_read_binary_file", "pg_ls_dir",
+    "lo_import", "bulk insert", "openrowset", "opendatasource", "openquery",
+    "dblink",
+    # Tomar candados sobre las filas: no escribe, pero bloquea la operación
+    # del cliente desde una pantalla de consultas de solo lectura.
+    "for update", "for share",
+)
+
+# Cada prohibida, como patrón con límites de palabra.
+#
+# Antes se buscaba el substring `"exec "` — con el espacio pegado. `exec(`,
+# `exec\n` y `EXEC\t` no lo tenían y pasaban derecho; sacarle el espacio sin
+# poner límites era peor, porque `execute` aparece dentro de nombres de columna
+# perfectamente normales. `\b` resuelve las dos puntas de una vez.
+_PATRONES_PROHIBIDOS = tuple(
+    (p, re.compile(r"\b" + r"\s+".join(re.escape(w) for w in p.split()) +
+                   (r"" if p.endswith("_") else r"\b"), re.I))
+    for p in _PROHIBIDAS)
 
 
 # Palabras que el extractor de tablas confunde con nombres de tabla. Sin esta
@@ -307,9 +346,9 @@ def validar_sql(sql: str, catalogo: dict) -> tuple[bool, list[str], list[str]]:
     limpio = _sin_comentarios(sql)
     s = limpio.lower()
 
-    for p in _PROHIBIDAS:
-        if p in s:
-            problemas.append(f"Operación no permitida detectada: '{p.strip()}'")
+    for nombre, patron in _PATRONES_PROHIBIDOS:
+        if patron.search(s):
+            problemas.append(f"Operación no permitida detectada: '{nombre}'")
     if not s.lstrip().startswith(("select", "with")):
         problemas.append("La consulta debe empezar con SELECT (o WITH).")
     # Una segunda sentencia encadenada es la forma clásica de colar escritura.

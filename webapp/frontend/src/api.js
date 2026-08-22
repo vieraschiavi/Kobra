@@ -43,6 +43,49 @@ export async function api(ruta, { metodo = "GET", cuerpo } = {}) {
   return datos;
 }
 
+/**
+ * Descarga un archivo del backend (Excel, CSV, PDF) y se lo da al navegador.
+ *
+ * Los cuatro exports hacían `await r.blob()` sin mirar `r.ok`. Cuando el
+ * backend contesta un error —401 con la sesión vencida, 403 por plan, 402 por
+ * cupo, 500 porque falló el armado del Excel— el cuerpo es un JSON de tres
+ * líneas, y ese JSON se descargaba igual con nombre `..._Promesas_Vencidas.xlsx`.
+ * El cliente terminaba con un archivo que Excel no abre y ningún mensaje: la
+ * peor forma de fallar, porque parece que anduvo.
+ *
+ * Acá se mira la respuesta primero. Y como es un archivo, el error hay que
+ * leerlo del cuerpo antes de tirarlo — si no, el mensaje que el backend se
+ * tomó el trabajo de escribir se pierde.
+ */
+export async function descargar(ruta, nombreArchivo) {
+  const ses = getSesion();
+  const r = await fetch(ruta, {
+    headers: ses ? { Authorization: `Bearer ${ses.token}` } : {},
+  });
+
+  if (!r.ok) {
+    // El cuerpo de un error es JSON aunque la ruta prometa un .xlsx.
+    const datos = await r.json().catch(() => ({}));
+    avisarPlan(datos);
+    if (r.status === 401) {
+      setSesion(null);
+      window.location.hash = "#/login";
+      const idioma = getPais().idioma || "es";
+      throw new Error(idioma === "pt"
+        ? "Sessão expirada — faça login novamente."
+        : "Sesión vencida — iniciá sesión de nuevo.");
+    }
+    throw new Error(datos.detail || `No se pudo generar el archivo (${r.status}).`);
+  }
+
+  const blob = await r.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = nombreArchivo;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 // Los endpoints que consumen cupo (Agente IA, análisis de voz, evaluación de
 // audios) devuelven el estado del plan ya actualizado, tanto si salieron bien
 // como si el cupo se acaba de agotar. `api()` ya lo llama solo; los dos

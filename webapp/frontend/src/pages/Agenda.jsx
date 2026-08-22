@@ -1,7 +1,7 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
 
 import React, { useEffect, useState } from "react";
-import { api, fmtUYU, getSesion, getPais } from "../api.js";
+import { api, descargar, fmtUYU, getPais } from "../api.js";
 import { t } from "../i18n/index.js";
 
 const TAMANO = 100;
@@ -21,15 +21,12 @@ export default function Agenda() {
   // El Excel trae TODAS las promesas vencidas, no la página que se está
   // viendo: lo que no entra en pantalla tiene que poder salir igual.
   async function exportar() {
-    const ses = getSesion();
-    const r = await fetch("/api/agenda/export.xlsx",
-                          { headers: { Authorization: `Bearer ${ses.token}` } });
-    const blob = await r.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "MVKobraAI_Promesas_Vencidas.xlsx";
-    a.click();
-    URL.revokeObjectURL(a.href);
+    try {
+      await descargar("/api/agenda/export.xlsx",
+                      "MVKobraAI_Promesas_Vencidas.xlsx");
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   const totalPaginas = datos ? (datos.paginas || 1) : 1;

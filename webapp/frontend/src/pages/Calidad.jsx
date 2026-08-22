@@ -5,7 +5,7 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { api, avisarPlan, getSesion } from "../api.js";
+import { api, avisarPlan, descargar, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
 
 const COL_IA = "#00c896";
@@ -605,15 +605,11 @@ function PanelCalidad() {
   }, [gestor, anio, mes]);
 
   async function exportar() {
-    const ses = getSesion();
-    const r = await fetch(`/api/calidad/export.xlsx?${qs()}`,
-                          { headers: { Authorization: `Bearer ${ses.token}` } });
-    const blob = await r.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "MVKobraAI_Calidad.xlsx";
-    a.click();
-    URL.revokeObjectURL(a.href);
+    try {
+      await descargar(`/api/calidad/export.xlsx?${qs()}`, "MVKobraAI_Calidad.xlsx");
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   if (error) return <div className="empty">{error}</div>;

