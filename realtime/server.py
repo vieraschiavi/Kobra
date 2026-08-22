@@ -577,20 +577,34 @@ def _twiml(*cuerpo: str) -> Response:
 
 
 def _brief_para_voz(id_deudor: str, monto) -> dict:
-    """Brief para la llamada: del pipeline si el deudor existe; si no, uno
-    armado con el monto que se pasa (perfil medio)."""
+    """Brief para la llamada: de la cartera si el deudor está; si no, uno
+    mínimo con el monto que se pasa.
+
+    El caso "no está en la cartera" es real y hay que atenderlo: una llamada
+    ENTRANTE de alguien que todavía no identificamos. Lo que cambió es qué se
+    le ofrece.
+
+    Antes se le armaba un perfil medio (`probpago 0.5`, `dias_mora 60`) y de
+    ahí salía un DESCUENTO —10% típico— para alguien de quien no sabemos nada.
+    Eso es autorizar una quita sobre una deuda que no miramos. Ahora el
+    fallback ofrece plan de cuotas SIN descuento: es la posición conservadora,
+    y la única defendible cuando no hay dato.
+
+    `origen` queda en el brief para que quien llama pueda distinguir un brief
+    real de uno mínimo — la campaña saliente no debería usar el segundo.
+    """
     b = registro.brief(id_deudor) if id_deudor else None
     if b:
-        return b
+        return {**b, "origen": "cartera"}
     from kobra import negociador
     try:
         monto = float(monto or 0)
     except (TypeError, ValueError):
         monto = 0.0
-    est, desc, cuotas = negociador._estrategia(0.5, 60, monto)
+    est, _desc_sugerido, cuotas = negociador._estrategia(0.5, 60, monto)
     return {"id_deudor": id_deudor or "TEL", "monto_deuda": monto, "probpago": 0.5,
-            "estrategia": est, "descuento_recomendado": desc, "plan_cuotas": cuotas,
-            "segmento_propension": "Media"}
+            "estrategia": est, "descuento_recomendado": 0.0, "plan_cuotas": cuotas,
+            "segmento_propension": "Media", "origen": "sin_cartera"}
 
 
 @app.api_route("/voz/entrante", methods=["GET", "POST"])
@@ -701,8 +715,27 @@ async def voz_llamar(request: Request):
         return JSONResponse(
             {"error": "Faltan credenciales de Twilio (cargalas en Configuración) "
                       "o el número de destino."}, status_code=400)
+
+    # Si se indica un deudor, tiene que estar en la cartera vigente.
+    #
+    # Este endpoint gasta plata y hace hablar a un bot de una deuda. Con un id
+    # que no está en la cartera —un typo, una lista vieja, una cartera que se
+    # volvió a importar— la llamada salía igual y el bot negociaba con el
+    # brief mínimo: monto el que viniera en el formulario, y del otro lado una
+    # persona escuchando que le reclaman algo que nadie verificó.
+    #
+    # El id vacío SÍ se permite a propósito: es la prueba manual (marcar el
+    # propio número para escuchar al agente) y la llamada entrante, y ese
+    # camino ya no ofrece descuento (ver `_brief_para_voz`).
+    id_deudor = (form.get("id_deudor") or "").strip()
+    if id_deudor and await run_in_threadpool(registro.brief, id_deudor) is None:
+        return JSONResponse(
+            {"error": f"El deudor {id_deudor} no está en la cartera vigente. "
+                      "Importá la cartera o revisá el identificador — no se "
+                      "llama a nadie que no esté en ella."}, status_code=404)
+
     base = _public_base(request)
-    url = (f"{base}/voz/entrante?id_deudor={quote(form.get('id_deudor', ''))}"
+    url = (f"{base}/voz/entrante?id_deudor={quote(id_deudor)}"
            f"&monto={quote(str(form.get('monto', '')))}&gestor=IA01")
     try:
         import requests
