@@ -22,6 +22,7 @@ import re
 import sys
 
 import pytest
+from conftest import CABECERA_REALTIME
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -446,7 +447,9 @@ def cliente_realtime(monkeypatch):
     from fastapi.testclient import TestClient
 
     from realtime import server
-    yield server, TestClient(server.app)
+    # Autenticado: acá se prueba el FRENO, no el candado (ése tiene su propio
+    # archivo). Sin el token todo daría 401 y el test pasaría sin probar nada.
+    yield server, TestClient(server.app, headers=CABECERA_REALTIME)
     for k in list(sys.modules):
         if k.startswith(("realtime", "kobra")):
             del sys.modules[k]
@@ -477,7 +480,9 @@ def cliente_realtime_rate_bajo(monkeypatch):
     from fastapi.testclient import TestClient
 
     from realtime import server
-    yield server, TestClient(server.app)
+    # Autenticado: acá se prueba el FRENO, no el candado (ése tiene su propio
+    # archivo). Sin el token todo daría 401 y el test pasaría sin probar nada.
+    yield server, TestClient(server.app, headers=CABECERA_REALTIME)
     for k in list(sys.modules):
         if k.startswith(("realtime", "kobra")):
             del sys.modules[k]

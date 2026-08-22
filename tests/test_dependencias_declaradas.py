@@ -39,7 +39,11 @@ TESTS = ROOT / "tests"
 # alcanza con tener "packaging" en la lista.
 PROPIOS = {"kobra", "webapp", "backend_venta", "realtime", "data", "marketing",
            "app", "packaging", "tests", "electron", "owner",
-           "deteccion_instalacion"}
+           "deteccion_instalacion",
+           # `conftest` es de la propia suite (tests/conftest.py): pytest lo
+           # deja importable por nombre. No es un paquete de PyPI y pedirle un
+           # requirements sería pedir que se declare a sí misma.
+           "conftest"}
 
 # Import → nombre en PyPI, cuando no coinciden.
 EQUIVALENCIAS = {
