@@ -309,12 +309,28 @@ class SesionGestorIA:
         return "Gracias por su tiempo. ¡Buen día!", True
 
     def _registrar_opt_out(self, motivo: str):
-        """Anota al deudor en la lista de No Contactar (cumplimiento normativo)."""
+        """Anota al deudor en la lista de No Contactar (cumplimiento normativo).
+
+        Si el archivo no se puede escribir —disco lleno, permisos, el archivo
+        abierto por otro proceso— el pedido NO se pierde: queda en el log de
+        auditoría, que es encadenado y vive en otra carpeta. Y la llamada
+        sigue: cortarle el teléfono en la cara a alguien que acaba de pedir que
+        no lo llamen más es la peor forma posible de terminar esa conversación.
+        """
         self.campos_erp["opt_out"] = True
         kwargs = dict(id_deudor=self.id_deudor, canal="todos", motivo=motivo)
         if self.dnc_archivo:
             kwargs["archivo"] = self.dnc_archivo
-        cumplimiento.registrar_no_contactar(**kwargs)
+        try:
+            cumplimiento.registrar_no_contactar(**kwargs)
+        except OSError as e:
+            self.campos_erp["opt_out_pendiente"] = True
+            kauditoria.registrar("opt_out_no_persistido", {
+                "id_deudor": self.id_deudor, "canal": self.canal,
+                "motivo": motivo, "error": str(e),
+                "accion_requerida": "Cargar este opt-out a mano en la lista de "
+                                    "No Contactar: el deudor lo pidió y el "
+                                    "archivo no se pudo escribir."})
 
     def _pulir(self, plantilla: str, instruccion: str) -> str:
         """Con Claude redacta natural; sin key usa la plantilla local.

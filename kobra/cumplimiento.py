@@ -33,9 +33,36 @@ from datetime import date, datetime, timedelta
 
 import pandas as pd
 
+from kobra import rutas as krutas
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NO_CONTACTAR_CSV = os.path.join(ROOT, "data", "no_contactar.csv")
+
+# La lista de No Contactar va a `DIR_DATOS`, NO a la carpeta del programa.
+#
+# Estaba en `ROOT/data/`, o sea al lado del código. Corriendo desde el repo da
+# lo mismo; instalado en Windows, `ROOT` es la carpeta de instalación —
+# típicamente Program Files, de solo lectura para un usuario sin privilegios de
+# administrador. O sea: en la máquina de un cliente real, el deudor pedía por
+# teléfono que no lo llamaran más, el bot le decía "queda registrado", y el
+# registro tiraba PermissionError [WinError 5] en el medio de la llamada.
+#
+# Es exactamente la clase de bug para la que se escribió `kobra/rutas.py`, y
+# éste era el último módulo que escribía en la carpeta del programa. De todos
+# los archivos que el producto escribe, el peor para perder: la prueba de que
+# se respetó un opt-out es lo que se presenta cuando llega el reclamo.
+NO_CONTACTAR_CSV = os.path.join(krutas.DIR_DATOS, "data", "no_contactar.csv")
 DNC_COLS = ["id_deudor", "canal", "motivo", "fecha"]
+
+
+class ListaNoContactarIlegible(RuntimeError):
+    """No se pudo leer la lista de No Contactar.
+
+    Existe para poder fallar CERRADO. Antes un archivo corrupto, bloqueado por
+    otro proceso o con permisos cambiados se tragaba con `except: return False`
+    — y `False` en esta función significa "no está en la lista", o sea
+    "llamalo". Un problema de disco se convertía en llamarle a todos los que
+    habían pedido que no los llamaran más, en silencio y a escala.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -226,15 +253,31 @@ def registrar_no_contactar(id_deudor: str, canal: str = "todos",
 
 def esta_en_no_contactar(id_deudor: str, canal: str = "todos",
                          archivo: str = NO_CONTACTAR_CSV) -> bool:
-    """True si el deudor está en la lista para ese canal (o para 'todos')."""
+    """True si el deudor está en la lista para ese canal (o para 'todos').
+
+    Si la lista existe pero NO se puede leer, lanza `ListaNoContactarIlegible`
+    en vez de devolver False. Devolver False ahí significaba "no está en la
+    lista" —o sea, llamalo— y convertía un archivo corrupto o bloqueado en
+    llamarle a todos los que habían pedido que no los llamaran más.
+
+    Que el archivo no exista sí es False: todavía nadie pidió el opt-out.
+    """
     if not os.path.exists(archivo):
         return False
     try:
         df = pd.read_csv(archivo, dtype=str)
-    except Exception:
-        return False
+    except pd.errors.EmptyDataError:
+        return False                     # archivo recién creado, sin cabecera
+    except (OSError, ValueError, pd.errors.ParserError) as e:
+        raise ListaNoContactarIlegible(
+            f"No se pudo leer la lista de No Contactar ({archivo}): {e}. "
+            "No se contacta a nadie hasta resolverlo.") from e
     if df.empty:
         return False
+    if "id_deudor" not in df.columns or "canal" not in df.columns:
+        raise ListaNoContactarIlegible(
+            f"La lista de No Contactar ({archivo}) no tiene las columnas "
+            f"esperadas {DNC_COLS}. No se contacta a nadie hasta resolverlo.")
     m = df["id_deudor"].astype(str) == str(id_deudor)
     if not m.any():
         return False
@@ -269,7 +312,15 @@ def puede_contactar(id_deudor: str, canal: str = "Llamada",
         return Decision(False, "CANAL_NO_PERMITIDO",
                         f"El canal {canal} no está habilitado por la política.")
 
-    if esta_en_no_contactar(id_deudor, canal, archivo_dnc):
+    try:
+        en_lista = esta_en_no_contactar(id_deudor, canal, archivo_dnc)
+    except ListaNoContactarIlegible as e:
+        # Se bloquea en vez de propagar: una campaña que devuelve CERO
+        # contactables con el motivo a la vista es diagnosticable; una que
+        # revienta a mitad deja media base marcada y nadie sabe cuál. Y sobre
+        # todo: no se llama a nadie mientras no se sepa quién pidió no serlo.
+        return Decision(False, "LISTA_ILEGIBLE", str(e))
+    if en_lista:
         return Decision(False, "OPT_OUT",
                         "El deudor está en la lista de No Contactar (opt-out).")
 
