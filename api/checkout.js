@@ -39,6 +39,57 @@ const COMPRABLES = { ...PLANS, ...MODULOS };
 const CURRENCY = process.env.MP_CURRENCY || "UYU";
 const TASA_UYU = Number(process.env.MP_TASA_UYU) || 40; // mismo valor de referencia que la landing (US$1 ≈ $U 40)
 
+const AVISOS_AL_DUENO = "vieraschiavi@gmail.com";
+
+/**
+ * Avisa por mail que alguien tocó "Comprar".
+ *
+ * `webhook-mercadopago.js` ya avisa cuando el pago SE CONCRETA. Esto es otra
+ * señal y llega antes: la INTENCIÓN. Sirve para dos cosas distintas —
+ *
+ *   · saber que hay demanda real sin tener que mirar el panel de MercadoPago,
+ *   · y decidir cuándo pagar infraestructura, en vez de pagarla por las dudas.
+ *
+ * Nunca puede romper el checkout. Si Resend está caído o sin configurar, el
+ * comprador tiene que recibir su URL de pago igual: perder una venta por no
+ * poder mandar un aviso sería exactamente al revés de lo que se busca. Por eso
+ * todo el cuerpo va adentro de un try y el resultado se ignora.
+ *
+ * Se espera el envío (no fire-and-forget) porque en una función serverless el
+ * proceso se congela apenas se responde: un `fetch` sin await se muere a mitad
+ * y el aviso no sale nunca.
+ */
+async function avisarIntencion(plan, precio, moneda, ref, req) {
+  const clave = process.env.RESEND_API_KEY;
+  if (!clave) return;
+  try {
+    const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+    const pais = req.headers["x-vercel-ip-country"] || "";
+    const cuerpo =
+      "Alguien tocó Comprar en MV Kobra AI.\n\n" +
+      `Plan:       ${plan}\n` +
+      `Precio:     ${precio} ${moneda}\n` +
+      `Referencia: ${ref}\n` +
+      (pais ? `País:       ${pais}\n` : "") +
+      (ip ? `IP:         ${ip}\n` : "") +
+      "\nOJO: esto es INTENCIÓN, no una venta. El pago confirmado llega " +
+      "aparte, por el webhook, con la licencia adjunta.\n";
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + clave, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM || "MV Kobra AI <onboarding@resend.dev>",
+        to: [AVISOS_AL_DUENO],
+        subject: `Intención de compra · ${plan} · ${precio} ${moneda}`,
+        text: cuerpo,
+      }),
+    });
+  } catch (e) {
+    // A propósito: solo al log. El checkout sigue.
+    console.error("checkout: no se pudo avisar la intención de compra", e);
+  }
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
   // 10 por minuto por IP: de sobra para alguien probando planes, corto para
@@ -101,6 +152,9 @@ module.exports = async (req, res) => {
       res.status(502).json({ error: "mercadopago" });
       return;
     }
+    // Recién acá: la preferencia se creó de verdad. Avisar antes sería avisar
+    // de clicks que terminaron en error y no en una pantalla de pago.
+    await avisarIntencion(plan, unitPrice, CURRENCY, ref, req);
     res.status(200).json({ url: data.init_point });
   } catch (e) {
     console.error("checkout: excepción creando la preferencia", e);
