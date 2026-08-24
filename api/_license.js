@@ -32,7 +32,11 @@ const crypto = require("crypto");
 // "logistica" y "proyectos" NO aparecen en ningún plan a propósito: resuelven
 // otro rubro y se venden sueltos, así que se agregan por cliente al emitir la
 // licencia, nunca por catálogo.
-const NUCLEO = ["voz", "whatsapp", "copiloto", "erp"];
+// Espejo de backend_venta/licencias.py::_NUCLEO — lo cuida
+// tests/test_features_implementadas.py. `ingenieria_datos` va en el núcleo y
+// no como módulo aparte: es el trabajo previo a poder usar el producto, y
+// cobrarlo sería cobrar por poder empezar.
+const NUCLEO = ["voz", "whatsapp", "copiloto", "erp", "ingenieria_datos"];
 
 const PLANES = {
   trial:      { cupo_mensual: 50,   dias: 7,   features: [...NUCLEO] },

@@ -51,6 +51,7 @@ sys.path.insert(0, ROOT)
 from backend_venta import licencias as klicencias  # noqa: E402
 from kobra import analista as kanalista  # noqa: E402
 from kobra import analitica as kanalitica  # noqa: E402
+from kobra import auditoria as kauditoria  # noqa: E402
 from kobra import autenticacion as kauth  # noqa: E402
 from kobra import automl as kautoml  # noqa: E402
 from kobra import ayuda as kayuda  # noqa: E402
@@ -58,8 +59,10 @@ from kobra import cartera_manual as kcartera  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
 from kobra import cuentas_por_cobrar as kcxc  # noqa: E402
 from kobra import edicion as kedicion  # noqa: E402
+from kobra import fuentes_datos as kfuentes  # noqa: E402
 from kobra import gobernanza as kgob  # noqa: E402
 from kobra import informe_ejecutivo as kinforme  # noqa: E402
+from kobra import ingenieria_datos as king  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
 from kobra import llm as kllm  # noqa: E402
 from kobra import logistica as klog  # noqa: E402
@@ -1503,6 +1506,100 @@ async def _leer_dataset(archivo: UploadFile) -> pd.DataFrame:
         raise HTTPException(
             400, "No se pudo leer el archivo. Tiene que ser un CSV o un Excel."
         ) from e
+
+
+# ---------------------------------------------------------------------------
+# Ingeniería de datos — el paso previo a poder usar el resto
+# ---------------------------------------------------------------------------
+# Va con `permite` y no con `exigir`: está en el núcleo de todos los planes,
+# incluido el trial. Es el trabajo que hay que hacer ANTES de usar el producto
+# —entender la base del cliente, encontrar las claves, saber cómo se unen las
+# tablas— y cobrarlo aparte sería cobrar por poder empezar.
+_MODULO_ING = "la ingeniería de datos"
+
+
+class ConexionBD(BaseModel):
+    """Conexión a la base del cliente.
+
+    La URL trae la contraseña, así que viaja en el CUERPO y nunca en la query
+    string: una URL termina en el log de accesos del servidor, en el historial
+    del navegador y en el `Referer` de la request siguiente.
+    """
+    url: str
+    tabla: str | None = None
+    consulta: str | None = None
+    esquema: str | None = None
+
+
+@app.get("/api/datos/motores")
+def datos_motores(u: Usuario = Depends(usuario_actual)):
+    """Qué fuentes se pueden leer, para que la pantalla no las invente."""
+    kplan.exigir("ingenieria_datos", _MODULO_ING)
+    return {
+        "archivos": list(kfuentes.EXT_TABULAR),
+        "sqlite": list(kfuentes.EXT_SQLITE),
+        "bases": [
+            {"motor": "PostgreSQL", "ejemplo": "postgresql+psycopg2://usuario:clave@host:5432/base"},
+            {"motor": "SQL Server", "ejemplo": "mssql+pyodbc://usuario:clave@host/base?driver=ODBC+Driver+18+for+SQL+Server"},
+            {"motor": "MySQL / MariaDB", "ejemplo": "mysql+pymysql://usuario:clave@host:3306/base"},
+            {"motor": "Oracle", "ejemplo": "oracle+oracledb://usuario:clave@host:1521/?service_name=orcl"},
+        ],
+        "limite_filas": kfuentes.LIMITE_FILAS,
+    }
+
+
+@app.post("/api/datos/analizar-archivo")
+async def datos_analizar_archivo(archivo: UploadFile = File(...),
+                                 u: Usuario = Depends(usuario_actual)):
+    """Perfila un CSV/Excel subido: roles, claves, calidad y features."""
+    kplan.exigir("ingenieria_datos", _MODULO_ING)
+    df = await _leer_dataset(archivo)
+    nombre = os.path.splitext(archivo.filename or "tabla")[0]
+    return _analisis_a_json({nombre: df})
+
+
+@app.post("/api/datos/analizar-base")
+def datos_analizar_base(cx: ConexionBD, u: Usuario = Depends(solo_admin)):
+    """Lo mismo, contra la base del cliente.
+
+    `solo_admin` y no cualquier usuario: acá se abre una conexión con
+    credenciales a un sistema de la empresa. Un gestor de cobranzas no tiene
+    por qué poder apuntar el producto a cualquier base.
+    """
+    kplan.exigir("ingenieria_datos", _MODULO_ING)
+    try:
+        tablas = kfuentes.leer_base(cx.url, cx.tabla, cx.consulta, cx.esquema)
+    except kfuentes.FuenteInvalida as e:
+        raise HTTPException(400, str(e)) from e
+    except Exception as e:                              # noqa: BLE001
+        # El texto de la excepción de un driver puede traer la URL completa
+        # —con la contraseña—, así que NO se devuelve: solo el tipo.
+        kauditoria.registrar("ingenieria_datos_conexion_fallida",
+                             {"empresa": u.empresa, "error": type(e).__name__})
+        raise HTTPException(
+            400, f"No se pudo conectar ({type(e).__name__}). Revisá host, "
+                 "puerto, credenciales y que el driver esté instalado.") from e
+    return _analisis_a_json(tablas)
+
+
+def _analisis_a_json(tablas: dict) -> dict:
+    """El análisis completo, ya listo para la pantalla.
+
+    Las features no se devuelven como datos: se devuelve el DICCIONARIO (qué
+    feature, de dónde sale, con qué fórmula y si tiene fuga temporal). Mandar
+    las columnas calculadas sería mandar los datos del cliente de vuelta por
+    la red sin que nadie los haya pedido.
+    """
+    r = king.analizar(tablas)
+    dicc = {}
+    for nombre, df in tablas.items():
+        try:
+            _cols, d = king.features(df, r["perfiles"][nombre])
+            dicc[nombre] = d
+        except Exception:                               # noqa: BLE001
+            dicc[nombre] = []                           # una tabla rara no corta el resto
+    r["features"] = dicc
+    return r
 
 
 # ---------------------------------------------------------------------------

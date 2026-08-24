@@ -15,6 +15,7 @@ import Agenda from "./pages/Agenda.jsx";
 import Gestores from "./pages/Gestores.jsx";
 import Calidad from "./pages/Calidad.jsx";
 import Gobernanza from "./pages/Gobernanza.jsx";
+import IngenieriaDatos from "./pages/IngenieriaDatos.jsx";
 import Logistica from "./pages/Logistica.jsx";
 import Proyectos from "./pages/Proyectos.jsx";
 import AutoML from "./pages/AutoML.jsx";
@@ -43,6 +44,7 @@ const NAV = [
   { ruta: "/agenda", ico: <IcoCalendario />, clave: "app.nav.agenda" },
   { ruta: "/gestores", ico: <IcoEquipo />, clave: "app.nav.gestores" },
   { ruta: "/calidad", ico: <IcoCalidad />, clave: "app.nav.calidad" },
+  { ruta: "/ingenieria-datos", ico: <IcoLista />, clave: "app.nav.ingenieria_datos" },
   { ruta: "/gobernanza", ico: <IcoEscudo />, clave: "app.nav.gobernanza" },
   { ruta: "/medidas", ico: <IcoTendencia />, clave: "app.nav.medidas" },
   { ruta: "/automl", ico: <IcoCalidad />, clave: "app.nav.automl", admin: true },
@@ -291,6 +293,7 @@ export default function App() {
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/gestores" element={<Gestores />} />
           <Route path="/calidad" element={<Calidad />} />
+          <Route path="/ingenieria-datos" element={<IngenieriaDatos />} />
           <Route path="/gobernanza" element={<Gobernanza />} />
           <Route path="/logistica" element={<Logistica />} />
           <Route path="/proyectos" element={<Proyectos />} />

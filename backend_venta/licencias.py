@@ -84,7 +84,14 @@ MODULOS_VENTA = {
 
 # Capacidades del núcleo de cobranzas: van en todos los planes, incluido el
 # trial. Son lo que Kobra ya hacía antes de la suite.
-_NUCLEO = ["voz", "whatsapp", "copiloto", "erp"]
+#
+# `ingenieria_datos` va acá y NO en `MODULOS` a propósito, aunque por tamaño
+# podría venderse suelto: es el trabajo que hay que hacer ANTES de poder usar
+# el resto del producto —entender la base del cliente, encontrar las claves,
+# saber cómo se unen las tablas— y cobrarlo aparte sería cobrar por poder
+# empezar. Además es lo que hace corta una implementación, así que regalarlo
+# se paga solo en el primer cliente que arranca en una semana en vez de un mes.
+_NUCLEO = ["voz", "whatsapp", "copiloto", "erp", "ingenieria_datos"]
 
 PLANES = {
     "trial":      {"cupo_mensual": 50,   "precio": 0.0,   "dias": 7,
