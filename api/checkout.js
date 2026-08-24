@@ -12,7 +12,8 @@
 
 const crypto = require("crypto");
 const { checkBotId } = require("botid/server");
-const { limitar } = require("./_ratelimit");
+const { limitar, ipDe, permitir } = require("./_ratelimit");
+const { AVISOS_AL_DUENO, enviarUno } = require("./_aviso");
 
 const PLANS = {
   basico:  { title: "MV Kobra AI · Básico (mensual)",    price: 99.0 },
@@ -39,6 +40,76 @@ const COMPRABLES = { ...PLANS, ...MODULOS };
 const CURRENCY = process.env.MP_CURRENCY || "UYU";
 const TASA_UYU = Number(process.env.MP_TASA_UYU) || 40; // mismo valor de referencia que la landing (US$1 ≈ $U 40)
 
+// ---------------------------------------------------------------------------
+//  Aviso de INTENCIÓN de compra.
+//
+//  MercadoPago ya avisa por mail cuando un pago se concreta, y el webhook de
+//  este repo manda la licencia. Lo que no existía era enterarse de quien llegó
+//  hasta el botón y NO compró — que es la mitad del embudo que dice si el
+//  precio, el plan o la pasarela están espantando gente.
+//
+//  Tres decisiones, y las tres tienen su motivo:
+//
+//  1. VA ANTES DE HABLAR CON MERCADOPAGO. Si MercadoPago rechaza la
+//     preferencia o está caído, ese es JUSTAMENTE el caso que hay que saber:
+//     alguien quiso comprar y el sistema no lo dejó. Avisar sólo cuando la
+//     preferencia sale bien dejaría invisible la falla que más caro sale.
+//
+//  2. NUNCA PUEDE ROMPER EL CHECKOUT. Sin RESEND_API_KEY no manda nada y sigue
+//     de largo en silencio; si Resend falla o tarda, se corta a los 2,5 s
+//     (`enviarUno` con timeout) y el checkout continúa igual. El aviso es un
+//     lujo; la venta no.
+//
+//  3. UN AVISO POR PERSONA Y POR PLAN CADA 15 MINUTOS. El que duda toca
+//     "Comprar" cinco veces, vuelve, compara planes, prueba de nuevo. Sin
+//     freno, eso son cinco mails por una sola intención y a la semana el aviso
+//     se vuelve ruido que se archiva sin leer — o sea que deja de servir.
+//
+//     OJO con el alcance del freno: reusa el mismo cubo en memoria que
+//     `_ratelimit.js`, que es "mejor esfuerzo" y por instancia tibia, no
+//     global al fleet (está explicado en ese archivo). En la práctica alcanza
+//     —el que tantea el botón cae casi siempre en la misma instancia—, pero no
+//     es una garantía: si Vercel levanta una instancia nueva, puede entrar un
+//     mail repetido. Se prefirió eso antes que escribir en Edge Config en cada
+//     click, que pega contra los límites de la API de administración.
+// ---------------------------------------------------------------------------
+async function avisarIntencion(req, plan, p, unitPrice, moneda) {
+  // Interruptor propio. Hace falta uno separado porque RESEND_API_KEY no
+  // sirve de interruptor: es la MISMA clave con la que el webhook le manda la
+  // licencia al comprador, así que apagarla para no recibir estos avisos
+  // dejaría a los clientes sin licencia. Poné AVISO_INTENCION=0 y seguís
+  // recibiendo el mail de cada VENTA, sin los de intención.
+  if (/^(0|no|off|false)$/i.test(String(process.env.AVISO_INTENCION || ""))) return false;
+
+  const clave = process.env.RESEND_API_KEY;
+  if (!clave) return false;   // sin clave configurada no hay nada que hacer
+
+  // 1 aviso por (IP + plan) cada 15 minutos.
+  if (!permitir("aviso-intencion:" + ipDe(req) + ":" + plan, 1, 900).ok) return false;
+
+  // Hora de Montevideo, que es la que te sirve para saber si vale la pena
+  // contestar ahora o mañana. El servidor corre en UTC.
+  let cuando;
+  try {
+    cuando = new Date().toLocaleString("es-UY", { timeZone: "America/Montevideo" });
+  } catch {
+    cuando = new Date().toISOString();   // si falta la base de husos, UTC
+  }
+
+  const cuerpo =
+    "Alguien apretó COMPRAR en mvkobranzaia.com.\n\n" +
+    "Producto: " + p.title + "\n" +
+    "Plan:     " + plan + "\n" +
+    "Precio:   US$ " + p.price + "  (se cobra " + moneda + " " + unitPrice + ")\n" +
+    "Cuándo:   " + cuando + " (hora de Montevideo)\n\n" +
+    "Esto es INTENCIÓN de compra, no una venta: recién se va a MercadoPago.\n" +
+    "Si en los próximos minutos no llega el mail de licencia, es que no completó el pago.\n\n" +
+    "Un solo aviso por persona y por plan cada 15 minutos, así el que duda y\n" +
+    "toca varias veces no te llena la casilla.";
+
+  return enviarUno(clave, AVISOS_AL_DUENO, "Intención de compra · " + p.title, cuerpo, 2500);
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
   // 10 por minuto por IP: de sobra para alguien probando planes, corto para
@@ -57,6 +128,16 @@ module.exports = async (req, res) => {
   const token = process.env.MP_ACCESS_TOKEN;
   const link = process.env["MP_LINK_" + plan.toUpperCase()];
 
+  // El precio ya convertido. Se calcula ACÁ y no adentro del `try` porque el
+  // aviso de intención lo necesita, y el aviso tiene que salir aunque el pago
+  // ni siquiera llegue a iniciarse (ver el comentario de avisarIntencion).
+  const unitPrice = CURRENCY === "UYU" ? Math.round(p.price * TASA_UYU) : p.price;
+
+  // Antes de hablar con MercadoPago, a propósito: si MercadoPago rechaza o
+  // está caído, ese es el caso que más importa saber. `await` con tope de
+  // 2,5 s adentro; nunca tira ni corta el checkout.
+  await avisarIntencion(req, plan, p, unitPrice, CURRENCY);
+
   // Sin Access Token: si hay link de pago configurado, devuelvo ese.
   if (!token) {
     if (link) { res.status(200).json({ url: link }); return; }
@@ -71,7 +152,6 @@ module.exports = async (req, res) => {
     // adivinara/tanteara un `payment_id` — ver el comentario largo en
     // verify-payment.js sobre por qué esto es imprescindible, no opcional.
     const ref = crypto.randomBytes(16).toString("hex");
-    const unitPrice = CURRENCY === "UYU" ? Math.round(p.price * TASA_UYU) : p.price;
     const pref = {
       items: [{ title: p.title, quantity: 1, unit_price: unitPrice, currency_id: CURRENCY }],
       external_reference: ref,
