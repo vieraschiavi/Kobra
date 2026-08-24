@@ -48,8 +48,11 @@
 
 const { sign, secretoActivo } = require("./_license");
 const { limitar } = require("./_ratelimit");
-
-const AVISOS_AL_DUENO = "vieraschiavi@gmail.com";
+// `enviarUno` y `remitente` vivían acá. Se mudaron a _aviso.js cuando el
+// checkout empezó a mandar mail también: tener dos copias de `remitente()`
+// significa que el día que se verifique el dominio propio en Resend, la que se
+// olvide de actualizar sigue mandando desde la casilla de prueba.
+const { AVISOS_AL_DUENO, enviarUno } = require("./_aviso");
 
 /** El id del pago que viene en el aviso, en cualquiera de las formas en que
  *  MercadoPago lo manda (IPN viejo con `topic`/`id`, o Webhooks con
@@ -66,33 +69,6 @@ function idDePago(req) {
   const id = q["data.id"] || q.id || (b.data && b.data.id) || b.id;
   const limpio = String(id == null ? "" : id).trim();
   return /^[0-9]+$/.test(limpio) ? limpio : null;
-}
-
-/** Un envío, un destinatario. Devuelve si Resend lo aceptó. */
-async function enviarUno(clave, para, asunto, texto) {
-  try {
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + clave, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: remitente(), to: [para], subject: asunto, text: texto }),
-    });
-    if (!r.ok) {
-      console.error("webhook-mp: Resend rechazó el envío a", para, r.status, await r.text());
-      return false;
-    }
-    return true;
-  } catch (e) {
-    console.error("webhook-mp: excepción enviando la licencia a", para, e);
-    return false;
-  }
-}
-
-/** El remitente. Por defecto el compartido de prueba de Resend, que SOLO
- *  entrega a la casilla del titular de la cuenta. Para que le llegue al
- *  comprador hay que verificar un dominio propio en Resend y poner acá algo
- *  del estilo "MV Kobra AI <licencias@mvkobranzaia.com>". */
-function remitente() {
-  return process.env.RESEND_FROM || "MV Kobra AI <onboarding@resend.dev>";
 }
 
 async function enviarLicencia(email, plan, paymentId, license) {
