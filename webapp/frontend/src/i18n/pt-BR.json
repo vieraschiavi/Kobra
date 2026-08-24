@@ -234,7 +234,20 @@
       "fuentes_prefijo": "Fontes:",
       "buscando": "Buscando na documentação…"
     },
-    "error_no_pude_responder": "Não consegui responder: "
+    "error_no_pude_responder": "Não consegui responder: ",
+    "activar_canales": {
+      "titulo": "Ativar as chamadas e o WhatsApp",
+      "cuenta_propia": "A conta de telefonia é sua. A MV Kobra AI não revende minutos: você abre sua conta na Twilio e a Twilio fatura direto para você. Mais ninguém vê suas chamadas nem suas gravações.",
+      "p1": "Crie a conta em twilio.com/try-twilio e saia do modo de teste (Upgrade). O trial toca uma mensagem gravada antes de cada chamada: com um devedor real, isso arruína o contato.",
+      "p2": "Compre um número com capacidade de voz (Phone Numbers → Buy a number, caixa Voice).",
+      "p3": "Aponte o número para o seu programa: Voice Configuration → «A call comes in» → Webhook, com a URL pública do seu serviço de voz terminada em /voz/entrante, método POST. É o passo que quase todos os guias pulam, e a razão número um de «as chamadas de saída funcionam mas as de entrada não».",
+      "p4": "Carregue Account SID e Auth Token em Configurações. Ficam na sua máquina.",
+      "p5": "Teste com o seu próprio celular antes de qualquer outra pessoa.",
+      "aviso_token": "Nunca envie o Auth Token por e-mail nem por WhatsApp — nem para nós nem para ninguém. Com esse token dá para fazer chamadas, comprar números e ouvir suas gravações, e quem paga é você.",
+      "nota_pais": "Os requisitos para um número local mudam conforme o país: no Brasil e em vários da região pedem documentação da empresa, com demora. Verifique antes de prometer uma data. E você precisa do consentimento da pessoa que vai receber a ligação.",
+      "wa_titulo": "WhatsApp: o que a Meta exige",
+      "wa_texto": "Para que uma empresa inicie uma conversa —que é justamente o que faz uma cobrança— a Meta exige um modelo de mensagem aprovado. É preciso uma conta WhatsApp Business ligada à Twilio, ao menos um modelo aprovado (a aprovação demora) e carregar o identificador dele em Configurações. Sem modelo, o programa não envia nada e explica o motivo: não é erro do sistema, é a exigência da Meta. Responder a uma mensagem iniciada pelo devedor não precisa de modelo."
+    }
   },
   "configuracion": {
     "titulo": "Configurações",

@@ -234,7 +234,20 @@
       "fuentes_prefijo": "Fuentes:",
       "buscando": "Buscando en la documentación…"
     },
-    "error_no_pude_responder": "No pude responder: "
+    "error_no_pude_responder": "No pude responder: ",
+    "activar_canales": {
+      "titulo": "Activar las llamadas y el WhatsApp",
+      "cuenta_propia": "La cuenta de telefonía es tuya. MV Kobra AI no revende minutos: abrís tu cuenta en Twilio y Twilio te factura a vos. Nadie más ve tus llamadas ni tus grabaciones.",
+      "p1": "Creá la cuenta en twilio.com/try-twilio y salí del modo de prueba (Upgrade). El trial reproduce un mensaje grabado antes de cada llamada: con un deudor real, eso arruina la gestión.",
+      "p2": "Comprá un número con capacidad de voz (Phone Numbers → Buy a number, casilla Voice).",
+      "p3": "Apuntá el número a tu programa: Voice Configuration → «A call comes in» → Webhook, con la URL pública de tu servicio de voz terminada en /voz/entrante, método POST. Es el paso que casi todas las guías se saltean, y la razón número uno de «las salientes andan pero las entrantes no».",
+      "p4": "Cargá Account SID y Auth Token en Configuración. Quedan en tu máquina.",
+      "p5": "Probá con tu propio celular antes que con nadie.",
+      "aviso_token": "Nunca mandes el Auth Token por mail ni por WhatsApp — ni a nosotros ni a nadie. Con ese token se pueden hacer llamadas, comprar números y escuchar tus grabaciones, y lo que se gaste lo pagás vos.",
+      "nota_pais": "Los requisitos para un número local cambian según el país: en Uruguay y varios de la región piden documentación de la empresa, con demora. Averigualo antes de prometer una fecha de salida. Y necesitás el consentimiento de la persona a la que llamás.",
+      "wa_titulo": "WhatsApp: lo que exige Meta",
+      "wa_texto": "Para que una empresa inicie una conversación —que es justo lo que hace una gestión de cobranza— Meta exige una plantilla de mensaje aprobada. Hace falta una cuenta de WhatsApp Business vinculada a Twilio, al menos una plantilla aprobada (la aprobación demora) y cargar su identificador en Configuración. Sin plantilla, el programa no manda nada y te dice por qué: no es un error del sistema, es el requisito de Meta. Responder a un mensaje que inició el deudor no necesita plantilla."
+    }
   },
   "configuracion": {
     "titulo": "Configuración",
