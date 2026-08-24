@@ -45,6 +45,12 @@ IDIOMA_DEFAULT = "es"
 # existan todavía se saltean solos (ver `construir_base`).
 FUENTES_DOCS = [
     "README.md",
+    # Primero la guía del CLIENTE, no la del que arma el producto: quien le
+    # pregunta al asistente "¿cómo hago para que llame por teléfono?" es el que
+    # compró el programa, no quien lo desarrolla. `GUIA_LLAMADA_REAL_TWILIO.md`
+    # queda igual —tiene el detalle fino— pero la respuesta tiene que arrancar
+    # por lo que el cliente puede hacer desde su propia pantalla.
+    "docs/AYUDA_CLIENTE_VOZ_Y_WHATSAPP.md",
     "docs/GUIA_LLAMADA_REAL_TWILIO.md",
     "docs/MODELO_COMERCIAL.md",
     "docs/WHITEPAPER_SEGURIDAD.md",

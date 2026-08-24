@@ -362,15 +362,53 @@ with tabH:
         st.caption("En el celular: abrí la misma URL del dashboard en Chrome/Safari. "
                    "Mismas pestañas, mismas funciones que en la PC.")
 
-    with st.expander("Cómo hacer una llamada real (Twilio) — paso a paso"):
+    # El paso a paso lo hace el CLIENTE, no quien vende el programa: la cuenta
+    # de telefonía es suya y la factura le llega a él. Este texto es el mismo
+    # que alimenta al asistente de ayuda (docs/AYUDA_CLIENTE_VOZ_Y_WHATSAPP.md),
+    # para que la respuesta escrita y la hablada no se contradigan.
+    with st.expander("Activar las llamadas por teléfono — paso a paso"):
         st.markdown(
-            "1. Creá una cuenta en **twilio.com/try-twilio** (trial gratis) y verificá tu "
-            "celular en *Verified Caller IDs*.\n"
-            "2. Comprá un número con *Voice* y anotá **Account SID**, **Auth Token** y el número.\n"
-            "3. Cargalos en **⚙ Configuración** (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`).\n"
-            "4. Poné el servidor de voz accesible (ngrok) y abrí `…/llamar`.\n"
-            "5. Ingresá el teléfono y el monto → **Llamar ahora**. El bot negocia y registra la gestión.\n\n"
-            "⚠ Necesitás el **consentimiento** de la persona. Empezá probando con tu propio celular.")
+            "**La cuenta de telefonía es tuya.** MV Kobra AI no revende minutos: "
+            "abrís tu cuenta en Twilio y Twilio te factura a vos. Nadie más ve "
+            "tus llamadas ni tus grabaciones.\n\n"
+            "1. **Creá la cuenta** en `twilio.com/try-twilio` y **salí del modo de "
+            "prueba** (botón *Upgrade*). El trial reproduce un mensaje grabado "
+            "**antes de cada llamada** — con un deudor real eso arruina la gestión.\n"
+            "2. **Comprá un número con capacidad de voz** (*Phone Numbers → Buy a "
+            "number*, casilla **Voice**).\n"
+            "3. **Apuntá el número a tu programa**: en la ficha del número, "
+            "*Voice Configuration → «A call comes in» → Webhook*, y pegá la URL "
+            "pública de tu servicio de voz terminada en `/voz/entrante`, método "
+            "**POST**. Este paso es el que casi todas las guías se saltean, y es "
+            "la razón número uno de «las salientes andan pero las entrantes no».\n"
+            "4. **Cargá Account SID y Auth Token** en **⚙ Configuración**, acá "
+            "mismo. Quedan en tu máquina.\n"
+            "5. Probá con **tu propio celular** antes que con nadie.")
+        st.warning(
+            "**Nunca mandes el Auth Token por mail ni por WhatsApp** — ni a "
+            "nosotros ni a nadie. Con ese token se pueden hacer llamadas, comprar "
+            "números y escuchar tus grabaciones, y lo que se gaste lo pagás vos. "
+            "Se carga acá, en tu computadora, y ahí se queda.",
+            icon="⚠")
+        st.caption(
+            "Ojo con el paso 2: los requisitos para un número local cambian según "
+            "el país y en Uruguay y varios de la región piden documentación de la "
+            "empresa, con demora. Averigualo antes de prometer una fecha de "
+            "salida. · Necesitás el **consentimiento** de la persona a la que "
+            "llamás. · Guía completa en **docs/AYUDA_CLIENTE_VOZ_Y_WHATSAPP.md**, "
+            "o preguntale al asistente acá abajo.")
+
+    with st.expander("Activar el WhatsApp — qué exige Meta"):
+        st.markdown(
+            "Para que una **empresa inicie** una conversación —que es justo lo que "
+            "hace una gestión de cobranza— Meta exige una **plantilla de mensaje "
+            "aprobada**. No hay forma de saltearlo.\n\n"
+            "1. Una cuenta de **WhatsApp Business** vinculada a Twilio.\n"
+            "2. Al menos **una plantilla aprobada** por Meta (la aprobación demora).\n"
+            "3. Cargar el identificador de esa plantilla en **⚙ Configuración**.\n\n"
+            "Sin plantilla aprobada el programa **no manda nada y te dice por qué**: "
+            "no es un error del sistema, es el requisito de Meta.\n\n"
+            "Responder a un mensaje que **inició el deudor** no necesita plantilla.")
     with st.expander("⚖ Registrar MV Kobra AI legalmente en Uruguay (para que no te la copien)"):
         st.markdown(
             "- El **código ya es tuyo** por derecho de autor automático (Ley 9.739/17.616).\n"

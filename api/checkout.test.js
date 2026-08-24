@@ -210,6 +210,209 @@ test("el freno por IP corta después de varios intentos seguidos", async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Aviso de intención de compra
+// ---------------------------------------------------------------------------
+// `webhook-mercadopago.js` ya avisa cuando el pago SE CONCRETA. Esto avisa
+// antes: cuando alguien toca Comprar. Sirve para saber que hay demanda real
+// sin mirar el panel de MercadoPago, y para decidir cuándo pagar
+// infraestructura en vez de pagarla por las dudas.
+//
+// Lo que se protege acá es sobre todo lo segundo: que el aviso NUNCA pueda
+// costar una venta.
+function conMercadoPagoOk(enviados, opciones) {
+  const o = opciones || {};
+  mockFetch(async (url, opts) => {
+    if (String(url).includes("resend.com")) {
+      if (o.resendRevienta) throw new Error("Resend caído");
+      enviados.push(JSON.parse(opts.body));
+      return { ok: true, text: async () => "", json: async () => ({}) };
+    }
+    if (o.mpRechaza) return { ok: false, status: 400, json: async () => ({ message: "no" }) };
+    return { ok: true, status: 200, json: async () => ({ init_point: "https://mp/pagar" }) };
+  });
+}
+
+test("avisa por mail cuando alguien toca Comprar", async () => {
+  process.env.MP_ACCESS_TOKEN = "tok-de-prueba";
+  process.env.RESEND_API_KEY = "re_prueba";
+  const enviados = [];
+  conMercadoPagoOk(enviados);
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(req({ plan: "pro" }), r);
+
+  assert.equal(r.statusCode, 200);
+  assert.equal(r.body.url, "https://mp/pagar");
+  assert.equal(enviados.length, 1, "no llegó el aviso de intención");
+  assert.match(enviados[0].subject, /Intenci[óo]n/i);
+  assert.match(enviados[0].text, /pro/i, "el aviso no dice qué plan");
+  // Que quede claro que NO es una venta: confundir las dos cosas es peor que
+  // no avisar — lo llevaría a activar infraestructura por un click.
+  assert.match(enviados[0].text, /INTENCI[ÓO]N, no una venta/i);
+});
+
+test("si el aviso falla, el comprador igual recibe su link de pago", async () => {
+  // La regla que importa: perder una venta por no poder mandar un mail sería
+  // exactamente al revés de lo que se busca.
+  process.env.MP_ACCESS_TOKEN = "tok-de-prueba";
+  process.env.RESEND_API_KEY = "re_prueba";
+  const errorOriginal = console.error;
+  console.error = () => {};
+  try {
+    conMercadoPagoOk([], { resendRevienta: true });
+    const checkout = require("./checkout");
+    const r = res();
+    await checkout(req({ plan: "pro" }), r);
+    assert.equal(r.statusCode, 200, "el checkout se rompió por culpa del aviso");
+    assert.equal(r.body.url, "https://mp/pagar");
+  } finally {
+    console.error = errorOriginal;
+  }
+});
+
+test("sin RESEND_API_KEY el checkout funciona igual, sin avisar", async () => {
+  process.env.MP_ACCESS_TOKEN = "tok-de-prueba";
+  delete process.env.RESEND_API_KEY;
+  const enviados = [];
+  conMercadoPagoOk(enviados);
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(req({ plan: "pro" }), r);
+  assert.equal(r.statusCode, 200);
+  assert.equal(enviados.length, 0);
+});
+
+test("un plan inválido no dispara ningún aviso", async () => {
+  // Si no, el buzón se llena de ruido de bots tanteando la API.
+  process.env.MP_ACCESS_TOKEN = "tok-de-prueba";
+  process.env.RESEND_API_KEY = "re_prueba";
+  const enviados = [];
+  conMercadoPagoOk(enviados);
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(req({ plan: "no-existe" }), r);
+  assert.equal(r.statusCode, 400);
+  assert.equal(enviados.length, 0);
+});
+
+test("si MercadoPago rechaza la preferencia, tampoco se avisa", async () => {
+  // Avisar de un click que terminó en error, y no en una pantalla de pago, es
+  // avisar de algo que no pasó.
+  process.env.MP_ACCESS_TOKEN = "tok-de-prueba";
+  process.env.RESEND_API_KEY = "re_prueba";
+  const errorOriginal = console.error;
+  console.error = () => {};
+  try {
+    const enviados = [];
+    conMercadoPagoOk(enviados, { mpRechaza: true });
+    const checkout = require("./checkout");
+    const r = res();
+    await checkout(req({ plan: "pro" }), r);
+    assert.equal(r.statusCode, 502);
+    assert.equal(enviados.length, 0,
+      "avisó de una compra que nunca llegó a la pantalla de pago");
+  } finally {
+    console.error = errorOriginal;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Que un cliente indeciso no dispare cinco mails
+// ---------------------------------------------------------------------------
+// Comprar software no es un click: es mirar el precio, dudar, abrir el
+// comparativo, volver. Cinco mails que dicen lo mismo enseñan a ignorar los
+// mails, que es exactamente lo contrario de para qué existe el aviso.
+test("el mismo visitante tocando Comprar cinco veces avisa una sola vez", async () => {
+  process.env.MP_ACCESS_TOKEN = "tok-de-prueba";
+  process.env.RESEND_API_KEY = "re_prueba";
+  const enviados = [];
+  conMercadoPagoOk(enviados);
+  const checkout = require("./checkout");
+
+  // MISMA IP las cinco veces (el helper `req()` da una distinta cada vez).
+  const mismaPersona = { headers: { "x-forwarded-for": "200.40.1.1" } };
+  for (let i = 0; i < 5; i++) {
+    const r = res();
+    await checkout(req({ plan: "pro" }, mismaPersona), r);
+    assert.equal(r.statusCode, 200, `el intento ${i + 1} no llegó al pago`);
+  }
+  assert.equal(enviados.length, 1, `llegaron ${enviados.length} mails en vez de 1`);
+  // Y el mail lo dice, para que no se lea como "una sola persona miró".
+  assert.match(enviados[0].text, /una vez por visitante y plan cada 30 minutos/i);
+});
+
+test("dos visitantes distintos sí generan dos avisos", async () => {
+  // El dedupe no puede tapar demanda real: son dos prospectos, no uno.
+  process.env.MP_ACCESS_TOKEN = "tok-de-prueba";
+  process.env.RESEND_API_KEY = "re_prueba";
+  const enviados = [];
+  conMercadoPagoOk(enviados);
+  const checkout = require("./checkout");
+
+  for (const ip of ["200.40.2.1", "200.40.2.2"]) {
+    const r = res();
+    await checkout(req({ plan: "pro" }, { headers: { "x-forwarded-for": ip } }), r);
+  }
+  assert.equal(enviados.length, 2);
+});
+
+test("la misma persona interesada en OTRO plan sí vuelve a avisar", async () => {
+  // Que alguien pase de mirar un plan a mirar otro es información nueva, no
+  // ruido: dice en qué escalón está dudando.
+  process.env.MP_ACCESS_TOKEN = "tok-de-prueba";
+  process.env.RESEND_API_KEY = "re_prueba";
+  const enviados = [];
+  conMercadoPagoOk(enviados);
+  const checkout = require("./checkout");
+
+  const persona = { headers: { "x-forwarded-for": "200.40.3.1" } };
+  for (const plan of ["pro", "starter"]) {
+    const r = res();
+    await checkout(req({ plan }, persona), r);
+  }
+  assert.equal(enviados.length, 2, "el cambio de plan quedó tapado por el dedupe");
+});
+
+test("sin la clave cargada no se gasta la ficha del dedupe", async () => {
+  // El día que se configure RESEND_API_KEY, el primer click tiene que avisar
+  // aunque alguien haya tanteado antes con la clave sin poner.
+  process.env.MP_ACCESS_TOKEN = "tok-de-prueba";
+  delete process.env.RESEND_API_KEY;
+  const enviados = [];
+  conMercadoPagoOk(enviados);
+  let checkout = require("./checkout");
+
+  const persona = { headers: { "x-forwarded-for": "200.40.4.1" } };
+  const r1 = res();
+  await checkout(req({ plan: "pro" }, persona), r1);
+  assert.equal(enviados.length, 0);
+
+  // Ahora sí se configura. El módulo se recarga —como en un deploy nuevo—
+  // pero la misma persona vuelve a entrar.
+  process.env.RESEND_API_KEY = "re_prueba";
+  const r2 = res();
+  await checkout(req({ plan: "pro" }, persona), r2);
+  assert.equal(enviados.length, 1,
+    "el primer click con la clave puesta no avisó: la ficha se había gastado en vano");
+});
+
+test("el dedupe no puede frenar el checkout", async () => {
+  // Lo mismo que con Resend caído: la venta manda. Que ya se haya avisado no
+  // puede impedir que el sexto intento llegue a la pantalla de pago.
+  process.env.MP_ACCESS_TOKEN = "tok-de-prueba";
+  process.env.RESEND_API_KEY = "re_prueba";
+  const enviados = [];
+  conMercadoPagoOk(enviados);
+  const checkout = require("./checkout");
+
+  const persona = { headers: { "x-forwarded-for": "200.40.5.1" } };
+  for (let i = 0; i < 3; i++) {
+    const r = res();
+    await checkout(req({ plan: "pro" }, persona), r);
+    assert.equal(r.statusCode, 200);
+    assert.equal(r.body.url, "https://mp/pagar");
+  }
+  assert.equal(enviados.length, 1);
 //  Aviso de INTENCIÓN de compra (mail al dueño cuando alguien aprieta Comprar)
 //
 //  Lo que se protege acá, en orden de lo que más caro sale si se rompe:

@@ -209,6 +209,56 @@ function AnalizarVoz() {
   );
 }
 
+/**
+ * Los pasos que hace EL CLIENTE para activar voz y WhatsApp.
+ *
+ * Va acá, visible, y no solo en el asistente: quien acaba de comprar el
+ * programa no sabe todavía qué preguntarle a un chatbot. El mismo texto
+ * alimenta al asistente (docs/AYUDA_CLIENTE_VOZ_Y_WHATSAPP.md), así la
+ * respuesta escrita y la del bot no se contradicen.
+ *
+ * La cuenta de telefonía es del cliente y la factura le llega a él: por eso
+ * estos pasos no los puede hacer el proveedor por él, ni siquiera queriendo.
+ */
+function ActivarCanales() {
+  const [abierto, setAbierto] = useState(false);
+  const k = (n) => t("asistente.activar_canales." + n);
+
+  return (
+    <div className="card" style={{ marginTop: 18 }}>
+      <button
+        className="btn ghost"
+        style={{ width: "100%", justifyContent: "space-between", display: "flex" }}
+        aria-expanded={abierto}
+        onClick={() => setAbierto((v) => !v)}>
+        <span>{k("titulo")}</span>
+        <span aria-hidden="true">{abierto ? "▾" : "▸"}</span>
+      </button>
+
+      {abierto && (
+        <div style={{ marginTop: 14, fontSize: 13.5, lineHeight: 1.65 }}>
+          <p>{k("cuenta_propia")}</p>
+          <ol style={{ paddingLeft: 20 }}>
+            {["p1", "p2", "p3", "p4", "p5"].map((n) => (
+              <li key={n} style={{ marginBottom: 8 }}>{k(n)}</li>
+            ))}
+          </ol>
+
+          <p style={{ background: "var(--amber-bg, #3a2c12)", borderRadius: 8,
+                      padding: "10px 12px", margin: "12px 0" }}>
+            <b>⚠ </b>{k("aviso_token")}
+          </p>
+
+          <p style={{ color: "var(--muted)", fontSize: 12.5 }}>{k("nota_pais")}</p>
+
+          <h4 style={{ marginBottom: 4 }}>{k("wa_titulo")}</h4>
+          <p>{k("wa_texto")}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Asistente() {
   const [chat, setChat] = useState([]);
   const [pregunta, setPregunta] = useState("");
@@ -238,7 +288,9 @@ export default function Asistente() {
           proposito. Cualquier dato dinamico va por {…}, nunca por aca. */}
       <p className="page-sub" dangerouslySetInnerHTML={{ __html: t("asistente.subtitulo") }} />
 
-      <div className="chat-box">
+      <ActivarCanales />
+
+      <div className="chat-box" style={{ marginTop: 18 }}>
         {chat.length === 0 && (
           <div className="msg bot">{t("asistente.chat.ejemplo")}</div>
         )}

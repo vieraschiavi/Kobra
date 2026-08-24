@@ -1,5 +1,24 @@
 # 📞 Guía: hacer una llamada REAL con el Gestor IA (Twilio)
 
+> **Modelo BYO (Bring Your Own): la cuenta de telefonía es del CLIENTE.**
+>
+> MV Kobra AI no revende minutos ni abre subcuentas a nombre propio. Cada
+> cliente abre su cuenta en Twilio, compra su número y Twilio le factura a él
+> directamente. El proveedor del software nunca toca esas credenciales ni
+> aparece en esa factura.
+>
+> Esto no es un detalle administrativo, decide quién paga: si los clientes
+> fueran **subcuentas** de una cuenta madre, Twilio factura TODO el consumo de
+> TODAS las subcuentas a la cuenta madre — o sea, al proveedor. Son dos
+> modelos distintos y no se pueden mezclar.
+>
+> La versión de esta guía escrita **para el cliente**, en segunda persona y sin
+> detalle de despliegue, está en
+> [`AYUDA_CLIENTE_VOZ_Y_WHATSAPP.md`](AYUDA_CLIENTE_VOZ_Y_WHATSAPP.md) — es la
+> que hay que pasarle a quien compra, y la que responde el asistente de ayuda
+> dentro del programa.
+
+
 El modo **"Probar mi cartera"** del dashboard *simula* la conversación. Para que
 el Gestor IA **hable de verdad** por teléfono, MV Kobra AI ya trae el flujo completo:
 el bot **saluda, escucha, negocia y cierra** usando el **TTS y el reconocimiento
