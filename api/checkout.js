@@ -12,7 +12,7 @@
 
 const crypto = require("crypto");
 const { checkBotId } = require("botid/server");
-const { limitar } = require("./_ratelimit");
+const { limitar, permitir, ipDe } = require("./_ratelimit");
 
 const PLANS = {
   basico:  { title: "MV Kobra AI · Básico (mensual)",    price: 99.0 },
@@ -62,6 +62,24 @@ const AVISOS_AL_DUENO = "vieraschiavi@gmail.com";
 async function avisarIntencion(plan, precio, moneda, ref, req) {
   const clave = process.env.RESEND_API_KEY;
   if (!clave) return;
+
+  // Un aviso por persona y plan cada media hora.
+  //
+  // Comprar software no es un click: es mirar el precio, dudar, abrir el
+  // comparativo, volver. Ese recorrido normal generaba cinco mails del mismo
+  // señor, y cinco mails que dicen lo mismo enseñan a ignorar los mails.
+  //
+  // La ficha se pide DESPUÉS de comprobar que hay con qué mandar: si no hay
+  // clave, no se gasta la ficha, así el día que la configures el primer click
+  // avisa aunque alguien haya tanteado antes.
+  //
+  // Es dedupe de mejor esfuerzo, igual que el freno (ver `_ratelimit.js`):
+  // cada instancia tibia tiene su propia memoria, así que si el mismo
+  // visitante cae en dos instancias distintas te van a llegar dos avisos. No
+  // se puede hacer mejor sin una base compartida, y una base para no repetir
+  // un mail es más pieza de la que el problema justifica.
+  if (!permitir("aviso-intencion:" + ipDe(req) + ":" + plan, 1, 1800).ok) return;
+
   try {
     const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
     const pais = req.headers["x-vercel-ip-country"] || "";
@@ -73,7 +91,9 @@ async function avisarIntencion(plan, precio, moneda, ref, req) {
       (pais ? `País:       ${pais}\n` : "") +
       (ip ? `IP:         ${ip}\n` : "") +
       "\nOJO: esto es INTENCIÓN, no una venta. El pago confirmado llega " +
-      "aparte, por el webhook, con la licencia adjunta.\n";
+      "aparte, por el webhook, con la licencia adjunta.\n" +
+      "\nSe avisa una vez por visitante y plan cada 30 minutos: si esta " +
+      "persona vuelve a tocar Comprar, no te llega otro mail.\n";
     await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: "Bearer " + clave, "Content-Type": "application/json" },
