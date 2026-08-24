@@ -12,7 +12,6 @@
 
 const crypto = require("crypto");
 const { checkBotId } = require("botid/server");
-const { limitar, permitir, ipDe } = require("./_ratelimit");
 const { limitar, ipDe, permitir } = require("./_ratelimit");
 const { AVISOS_AL_DUENO, enviarUno } = require("./_aviso");
 
@@ -41,75 +40,6 @@ const COMPRABLES = { ...PLANS, ...MODULOS };
 const CURRENCY = process.env.MP_CURRENCY || "UYU";
 const TASA_UYU = Number(process.env.MP_TASA_UYU) || 40; // mismo valor de referencia que la landing (US$1 ≈ $U 40)
 
-const AVISOS_AL_DUENO = "vieraschiavi@gmail.com";
-
-/**
- * Avisa por mail que alguien tocó "Comprar".
- *
- * `webhook-mercadopago.js` ya avisa cuando el pago SE CONCRETA. Esto es otra
- * señal y llega antes: la INTENCIÓN. Sirve para dos cosas distintas —
- *
- *   · saber que hay demanda real sin tener que mirar el panel de MercadoPago,
- *   · y decidir cuándo pagar infraestructura, en vez de pagarla por las dudas.
- *
- * Nunca puede romper el checkout. Si Resend está caído o sin configurar, el
- * comprador tiene que recibir su URL de pago igual: perder una venta por no
- * poder mandar un aviso sería exactamente al revés de lo que se busca. Por eso
- * todo el cuerpo va adentro de un try y el resultado se ignora.
- *
- * Se espera el envío (no fire-and-forget) porque en una función serverless el
- * proceso se congela apenas se responde: un `fetch` sin await se muere a mitad
- * y el aviso no sale nunca.
- */
-async function avisarIntencion(plan, precio, moneda, ref, req) {
-  const clave = process.env.RESEND_API_KEY;
-  if (!clave) return;
-
-  // Un aviso por persona y plan cada media hora.
-  //
-  // Comprar software no es un click: es mirar el precio, dudar, abrir el
-  // comparativo, volver. Ese recorrido normal generaba cinco mails del mismo
-  // señor, y cinco mails que dicen lo mismo enseñan a ignorar los mails.
-  //
-  // La ficha se pide DESPUÉS de comprobar que hay con qué mandar: si no hay
-  // clave, no se gasta la ficha, así el día que la configures el primer click
-  // avisa aunque alguien haya tanteado antes.
-  //
-  // Es dedupe de mejor esfuerzo, igual que el freno (ver `_ratelimit.js`):
-  // cada instancia tibia tiene su propia memoria, así que si el mismo
-  // visitante cae en dos instancias distintas te van a llegar dos avisos. No
-  // se puede hacer mejor sin una base compartida, y una base para no repetir
-  // un mail es más pieza de la que el problema justifica.
-  if (!permitir("aviso-intencion:" + ipDe(req) + ":" + plan, 1, 1800).ok) return;
-
-  try {
-    const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
-    const pais = req.headers["x-vercel-ip-country"] || "";
-    const cuerpo =
-      "Alguien tocó Comprar en MV Kobra AI.\n\n" +
-      `Plan:       ${plan}\n` +
-      `Precio:     ${precio} ${moneda}\n` +
-      `Referencia: ${ref}\n` +
-      (pais ? `País:       ${pais}\n` : "") +
-      (ip ? `IP:         ${ip}\n` : "") +
-      "\nOJO: esto es INTENCIÓN, no una venta. El pago confirmado llega " +
-      "aparte, por el webhook, con la licencia adjunta.\n" +
-      "\nSe avisa una vez por visitante y plan cada 30 minutos: si esta " +
-      "persona vuelve a tocar Comprar, no te llega otro mail.\n";
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + clave, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM || "MV Kobra AI <onboarding@resend.dev>",
-        to: [AVISOS_AL_DUENO],
-        subject: `Intención de compra · ${plan} · ${precio} ${moneda}`,
-        text: cuerpo,
-      }),
-    });
-  } catch (e) {
-    // A propósito: solo al log. El checkout sigue.
-    console.error("checkout: no se pudo avisar la intención de compra", e);
-  }
 // ---------------------------------------------------------------------------
 //  Aviso de INTENCIÓN de compra.
 //
@@ -166,13 +96,21 @@ async function avisarIntencion(req, plan, p, unitPrice, moneda) {
     cuando = new Date().toISOString();   // si falta la base de husos, UTC
   }
 
+  // País e IP, si el proxy los pasa: ayuda a distinguir un prospecto real de
+  // alguien tanteando la API desde un script. Nunca son obligatorios — un
+  // proxy que no los manda no puede tumbar el aviso.
+  const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  const pais = req.headers["x-vercel-ip-country"] || "";
+
   const cuerpo =
     "Alguien apretó COMPRAR en mvkobranzaia.com.\n\n" +
     "Producto: " + p.title + "\n" +
     "Plan:     " + plan + "\n" +
     "Precio:   US$ " + p.price + "  (se cobra " + moneda + " " + unitPrice + ")\n" +
-    "Cuándo:   " + cuando + " (hora de Montevideo)\n\n" +
-    "Esto es INTENCIÓN de compra, no una venta: recién se va a MercadoPago.\n" +
+    "Cuándo:   " + cuando + " (hora de Montevideo)\n" +
+    (pais ? "País:     " + pais + "\n" : "") +
+    (ip ? "IP:       " + ip + "\n" : "") +
+    "\nEsto es INTENCIÓN de compra, no una venta: recién se va a MercadoPago.\n" +
     "Si en los próximos minutos no llega el mail de licencia, es que no completó el pago.\n\n" +
     "Un solo aviso por persona y por plan cada 15 minutos, así el que duda y\n" +
     "toca varias veces no te llena la casilla.";
@@ -251,9 +189,6 @@ module.exports = async (req, res) => {
       res.status(502).json({ error: "mercadopago" });
       return;
     }
-    // Recién acá: la preferencia se creó de verdad. Avisar antes sería avisar
-    // de clicks que terminaron en error y no en una pantalla de pago.
-    await avisarIntencion(plan, unitPrice, CURRENCY, ref, req);
     res.status(200).json({ url: data.init_point });
   } catch (e) {
     console.error("checkout: excepción creando la preferencia", e);
