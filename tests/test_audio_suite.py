@@ -73,7 +73,8 @@ def test_el_salto_de_linea_del_subtitulo_no_es_una_pausa(monkeypatch):
     una pausa del relato. Si se le pasa crudo al sintetizador, la voz corta a
     mitad de frase donde el subtítulo cambia de línea."""
     visto = {}
-    monkeypatch.setattr(A, "_wav_piper", lambda t: visto.setdefault("t", t) or b"")
+    monkeypatch.setattr(A, "_wav_piper",
+                        lambda t, **kw: visto.setdefault("t", t) or b"")
     A.sintetizar_cue("una linea\ny la otra", "piper")
     assert visto["t"] == "una linea y la otra"
 
@@ -139,14 +140,89 @@ def test_narra_en_castellano_como_el_video_del_copiloto():
             assert textos.get(idioma), "falta un idioma en los subtítulos"
 
 
-def test_la_voz_de_respaldo_tiene_licencia_permisiva():
-    """`es_AR-daniela-high` suena más rioplatense pero es CC BY-SA 4.0, y el
-    ShareAlike sobre una pieza comercial es una discusión que no vale la pena.
-    La que se usa es Apache-2.0. Cambiarla sin mirar la licencia es
-    exactamente el error que este test frena."""
-    assert A.PIPER_VOZ == "es_MX-claude-high"
+def test_toda_voz_declara_su_licencia():
+    """La licencia es el dato que decide una voz, no cómo suena — así que
+    ninguna puede estar en el catálogo sin declararla.
+
+    Se eligió la rioplatense (`es_AR-daniela-high`) porque es la que suena
+    como el mercado del producto, y es CC BY-SA 4.0: el ShareAlike sobre una
+    pieza comercial es un riesgo asumido a sabiendas, no un descuido. La
+    alternativa Apache-2.0 sigue disponible con `--voz`.
+    """
+    assert A.VOCES, "el catálogo de voces no puede quedar vacío"
+    for nombre, datos in A.VOCES.items():
+        assert datos.get("licencia"), f"{nombre} no declara licencia"
+        assert isinstance(datos.get("copyleft"), bool), (
+            f"{nombre} no dice si su licencia es copyleft — que es lo único "
+            "que hay que mirar antes de publicar con ella")
+    assert A.PIPER_VOZ in A.VOCES
+    # La que está marcada copyleft tiene que seguir marcada: si alguien la
+    # pasa a False para que no moleste el aviso, este test lo frena.
+    assert A.VOCES["es_AR-daniela-high"]["copyleft"] is True
+    assert A.VOCES["es_MX-claude-high"]["copyleft"] is False
+
+
+def test_una_voz_copyleft_avisa_en_pantalla(capsys, monkeypatch):
+    """Elegir una voz con ShareAlike es legítimo, pero no puede pasar en
+    silencio: el que corre esto tiene que enterarse antes de publicar."""
+    monkeypatch.setattr(A, "construir", lambda **kw: {
+        "salida": "x.webm", "motor": "piper", "voz": "es_AR-daniela-high",
+        "licencia": "CC BY-SA 4.0", "duracion_video_original": 52.8,
+        "duracion_final": 58.4, "congelado_s": 5.6, "cues": 8, "avisos": [],
+        "hueco_max_s": 2.9, "wpm": [160], "wpm_promedio": 160.0})
+    A.main([])
+    salida = capsys.readouterr().out
+    assert "CC BY-SA 4.0" in salida and "LICENCIA" in salida
+
+
+def test_una_voz_inventada_se_rechaza():
+    with pytest.raises(ValueError, match="voz desconocida"):
+        A.construir(motor="piper", voz="la-de-mi-primo")
+
+
+# --- El ritmo ---------------------------------------------------------------
+def test_el_ritmo_apunta_a_locucion_y_no_a_llenar_el_hueco():
+    """La voz rioplatense sale de fábrica a ~203 palabras/min, muy por encima
+    del rango de una locución explicativa (140-160). Ahí la frase termina mucho
+    antes que su pantalla y quedan pozos de silencio: el sube y baja entre
+    atropello y silencio es lo que se escucha como narración entrecortada.
+
+    El objetivo es el RITMO, medido en palabras por minuto, no un porcentaje
+    de la ventana — así sirve para cualquier voz sin recalibrar nada.
+    """
+    assert 140 <= A.WPM_OBJETIVO <= 160
+    # 18 palabras al ritmo objetivo son ~7 s. Con ventana de sobra, manda el
+    # ritmo.
+    texto = " ".join(["palabra"] * 18)
+    assert A.duracion_objetivo(texto, ventana=30.0) == pytest.approx(
+        18 / A.WPM_OBJETIVO * 60, rel=0.01)
+
+
+def test_la_ventana_le_gana_al_ritmo():
+    """Pero el ritmo ideal no puede pisar la pantalla siguiente: una frase
+    larga en una ventana corta se dice al ritmo que entre."""
+    texto = " ".join(["palabra"] * 40)      # ~15 s al ritmo ideal
+    assert A.duracion_objetivo(texto, ventana=5.0) <= 5.0
+
+
+def test_nunca_se_acelera_una_frase_para_que_entre():
+    """Solo se afloja. Atropellar una frase para meterla en su ventana suena
+    peor que medio segundo de solape con la pantalla siguiente."""
+    assert A.ESCALA_MIN >= 1.0
+
+
+def test_el_ajuste_de_velocidad_no_supone_que_sea_lineal():
+    """`length_scale` no responde de forma lineal: medido en esta misma voz,
+    subirla de 1,0 a 1,5 alarga un 32%, no un 50%. Por eso cada pasada parte
+    de lo MEDIDO y corrige, en vez de calcular la escala una sola vez."""
     fuente = (ROOT / "marketing" / "audio_suite.py").read_text(encoding="utf-8")
-    assert "Apache-2.0" in fuente
+    assert "CORRECCIONES_MAX" in fuente
+    assert A.CORRECCIONES_MAX >= 2, "sin reintentos, una sola pasada no llega"
+
+
+def test_un_texto_vacio_no_divide_por_cero():
+    assert A.duracion_objetivo("", ventana=8.0) == 0.0
+    assert A.palabras("   ") == 0
 
 
 def test_falta_el_screencast_y_lo_dice(tmp_path):
