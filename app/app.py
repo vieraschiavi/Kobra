@@ -287,12 +287,12 @@ st.markdown("---")
 # Tabs
 # ----------------------------------------------------------------------------
 (tabH, tab1, tab2, tab3, tab4, tab5, tab6, tabAgenda, tab8, tab9, tabERP,
- tabNL2SQL, tabDemoVivo, tab7) = st.tabs(
+ tabNL2SQL, tabIngDatos, tabDemoVivo, tab7) = st.tabs(
     ["Guía & Ayuda", "Visión general", "Agente Negociador", "Cartera & Export",
      "Modelo ProbPago", "Copiloto en Vivo", "Gestores & Evolución",
      "Agenda de seguimiento", "Probar mi cartera", "Caso de negocio",
-     "Integración ERP", "Preguntá a tu base de datos", "Demo en vivo",
-     "⚙ Configuración"])
+     "Integración ERP", "Preguntá a tu base de datos", "Ingeniería de datos",
+     "Demo en vivo", "⚙ Configuración"])
 
 # ---- Tab Ayuda: guía paso a paso -------------------------------------------
 with tabH:
@@ -1312,6 +1312,102 @@ with tabNL2SQL:
 # Un caso de gestión que se recorre entero en una reunión: el agente llama,
 # escribe, manda el link, entra la plata, baja el saldo y queda la promesa.
 # El paso que convence es el del medio — el cliente ve el saldo bajar solo.
+with tabIngDatos:
+    # El paso que va ANTES de todo lo demás: entender la base del cliente.
+    # Está en el núcleo de todos los planes —incluido el trial— porque
+    # cobrarlo aparte sería cobrar por poder empezar.
+    from kobra import fuentes_datos as kfuentes
+    from kobra import ingenieria_datos as king
+
+    st.subheader("Ingeniería de datos")
+    st.caption("Qué hay en tus datos, cómo se unen tus tablas y qué está roto — "
+               "el trabajo que va antes de poder usar el resto.")
+
+    _origen = st.radio("Origen", ["Archivo", "Base de datos"],
+                       horizontal=True, key="ing_origen")
+    _tablas = None
+    if _origen == "Archivo":
+        _sub = st.file_uploader("CSV o Excel", type=["csv", "xlsx", "xls"],
+                                key="ing_archivo")
+        if _sub is not None:
+            try:
+                _df = (pd.read_excel(_sub) if _sub.name.lower().endswith((".xlsx", ".xls"))
+                       else pd.read_csv(_sub))
+                _tablas = {_sub.name.rsplit(".", 1)[0]: _df}
+            except Exception as _e:                      # noqa: BLE001
+                st.error(f"No pude leer el archivo: {_e}")
+    else:
+        st.caption("Postgres, SQL Server, MySQL, Oracle o SQLite. La cadena no se "
+                   "guarda ni se escribe en el log.")
+        _url = st.text_input("Cadena de conexión", type="password", key="ing_url",
+                             placeholder="postgresql+psycopg2://usuario:clave@host:5432/base")
+        _tab = st.text_input("Tabla (vacío = las primeras de la base)", key="ing_tabla")
+        _q = st.text_area("Consulta SQL (opcional — solo SELECT)", key="ing_query")
+        if st.button("Analizar", key="ing_btn") and _url:
+            with st.spinner("Leyendo la base…"):
+                try:
+                    _tablas = kfuentes.leer_base(_url, _tab or None, _q or None)
+                except kfuentes.FuenteInvalida as _e:
+                    st.error(str(_e))
+                except Exception as _e:                  # noqa: BLE001
+                    # El texto del driver puede traer la URL con la contraseña.
+                    st.error(f"No se pudo conectar ({type(_e).__name__}). Revisá "
+                             "host, puerto, credenciales y el driver.")
+
+    if _tablas:
+        _r = king.analizar(_tablas)
+
+        if _r["joins"]:
+            st.markdown("#### Cómo se unen tus tablas")
+            st.caption("Detectado por solapamiento real de valores, no solo por el "
+                       "nombre de la columna.")
+            st.dataframe(pd.DataFrame([{
+                "Unión": f"{j['izquierda']}.{j['columna_izquierda']} = "
+                         f"{j['derecha']}.{j['columna_derecha']}",
+                "Nombres": "iguales" if j["mismo_nombre"] else "distintos",
+                "Coincidencia": f"{j['solape_pct']}%",
+                "Cardinalidad": j["cardinalidad"],
+                "Riesgo": j["riesgo"],
+            } for j in _r["joins"]]), use_container_width=True, hide_index=True)
+
+        for _nombre in _r["tablas"]:
+            _perf = _r["perfiles"][_nombre]
+            with st.expander(f"{_nombre} — {_perf['filas']:,} filas · "
+                             f"{_perf['columnas']} columnas", expanded=True):
+                _cambios = _r["tipado"].get(_nombre) or []
+                if _cambios:
+                    st.caption("Estaban guardadas como texto y no lo eran: " +
+                               ", ".join(f"{c['columna']} ({c['de']} → {c['a']})"
+                                         for c in _cambios))
+                st.dataframe(pd.DataFrame([{
+                    "Columna": c["columna"], "Rol": c["rol"],
+                    "Sensibilidad": c["sensibilidad"],
+                    "Vacíos": f"{c['nulos_pct']}%", "Distintos": c["unicos"],
+                } for c in _perf["detalle"]]), use_container_width=True,
+                    hide_index=True)
+
+                _ks = _r["claves"][_nombre]
+                if _ks["pk"]:
+                    st.markdown("**Clave primaria:** " + ", ".join(
+                        f"{k['columna']} ({k['tipo']}, confianza {k['confianza']})"
+                        for k in _ks["pk"]))
+                else:
+                    st.caption("No se encontró una columna que identifique cada fila.")
+                if _ks["fk_candidatas"]:
+                    st.markdown("**Apuntan a otra tabla:** " +
+                                ", ".join(_ks["fk_candidatas"]))
+
+                _c1, _c2 = st.columns(2)
+                with _c1:
+                    st.download_button("Bajar el SQL", _r["ddl"][_nombre],
+                                       file_name=f"{_nombre}.sql",
+                                       key=f"ing_sql_{_nombre}")
+                with _c2:
+                    st.download_button("Bajar el modelo dbt", _r["dbt"][_nombre],
+                                       file_name=f"stg_{_nombre}.yml",
+                                       key=f"ing_dbt_{_nombre}")
+
+
 with tabDemoVivo:
     from kobra import demo_vivo as kdemo
 

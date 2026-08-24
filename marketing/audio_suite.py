@@ -66,17 +66,60 @@ VIDEO_DIR = os.path.join(ROOT, "landing", "video")
 ENTRADA = os.path.join(VIDEO_DIR, "MVKobraAI_Suite_Demo.webm")
 SALIDA = ENTRADA  # se reemplaza en el lugar
 
-# Voz de piper: Apache-2.0 (permisiva, sin copyleft que contamine el video).
-# `es_AR-daniela-high` suena más rioplatense pero es CC BY-SA 4.0, y el
-# "ShareAlike" sobre una pieza comercial es una discusión que no vale la pena
-# tener por una voz de respaldo.
-PIPER_VOZ = "es_MX-claude-high"
+# Las dos voces de piper, con su licencia al lado — que es el dato que decide,
+# no cómo suenan. Cambiar de voz sin mirar esta columna es el error que
+# `tests/test_audio_suite.py` frena.
+VOCES = {
+    # Rioplatense (dataset argentino, OpenSLR 61), voz femenina. Es la que
+    # suena como el mercado del producto.
+    #
+    # OJO CON LA LICENCIA: CC BY-SA 4.0. Permite uso comercial, pero el
+    # "ShareAlike" pretende que lo derivado se publique bajo la misma
+    # licencia. Si el audio generado cuenta o no como obra derivada del
+    # modelo es discutido y no está saldado. Para una pieza comercial es un
+    # riesgo real: elegila a sabiendas.
+    "es_AR-daniela-high": {"licencia": "CC BY-SA 4.0", "region": "rioplatense",
+                           "copyleft": True},
+    # Latinoamericana neutra. Licencia permisiva, sin copyleft: es la opción
+    # sin letra chica.
+    "es_MX-claude-high": {"licencia": "Apache-2.0", "region": "latam-neutra",
+                          "copyleft": False},
+}
+PIPER_VOZ = "es_AR-daniela-high"
 PIPER_DIR = os.environ.get("PIPER_VOICES_DIR",
                            os.path.join(tempfile.gettempdir(), "piper_voices"))
 
 # Aire después de la última palabra: cortar en seco el video apenas termina la
 # voz se siente abrupto.
 COLA_S = 0.6
+
+# --- Ritmo -----------------------------------------------------------------
+# El ritmo NO se elige de oído, que es justo lo que no se puede hacer desde
+# acá: se apunta a una medida.
+#
+# Una locución explicativa clara va entre 140 y 160 palabras por minuto (por
+# debajo se arrastra, por encima el que escucha pierde el hilo mientras además
+# mira una pantalla). Medida sobre los cues, la voz rioplatense sale de fábrica
+# a ~203 pal/min: no es un problema del sintetizador, habla rápido. A esa
+# velocidad la frase termina mucho antes que su pantalla y quedan pozos de
+# silencio de hasta 3,4 s — el sube y baja entre atropello y silencio es lo que
+# se escucha como narración entrecortada.
+#
+# Así que se apunta al régimen de locución y se llega ahí MIDIENDO: se
+# sintetiza, se cuenta, y se corrige la velocidad hasta caer en el objetivo.
+# Sirve para cualquier voz —cada una tiene su velocidad de fábrica— sin
+# constantes calibradas a mano para una en particular.
+WPM_OBJETIVO = 155
+# Tolerancia para cortar la corrección: afinar más no se escucha.
+WPM_TOLERANCIA = 0.05
+CORRECCIONES_MAX = 3
+# Techo duro: la frase nunca puede ocupar más que su ventana, o pisa la
+# siguiente pantalla. Manda sobre el objetivo de ritmo.
+RELLENO_MAX = 0.97
+# Y los topes de velocidad, que evitan el remedio peor que la enfermedad. Solo
+# se afloja, nunca se acelera: apurar una frase para que entre suena peor que
+# medio segundo de solape.
+ESCALA_MIN, ESCALA_MAX = 1.0, 1.6
 
 
 def _ffmpeg() -> str:
@@ -126,38 +169,104 @@ def _wav_elevenlabs(texto: str) -> bytes:
 _PIPER_CACHE: dict[str, object] = {}
 
 
-def _wav_piper(texto: str) -> bytes:
-    from piper import PiperVoice
-    if "voz" not in _PIPER_CACHE:
-        modelo = os.path.join(PIPER_DIR, f"{PIPER_VOZ}.onnx")
+def _wav_piper(texto: str, escala: float | None = None, voz: str | None = None) -> bytes:
+    from piper import PiperVoice, SynthesisConfig
+    voz = voz or PIPER_VOZ
+    if _PIPER_CACHE.get("nombre") != voz:
+        modelo = os.path.join(PIPER_DIR, f"{voz}.onnx")
         if not os.path.exists(modelo):
             raise RuntimeError(
                 f"falta el modelo de voz {modelo}.\n"
-                f"Bajalo con:  python3 -m piper.download_voices {PIPER_VOZ} "
+                f"Bajalo con:  python3 -m piper.download_voices {voz} "
                 f"--data-dir {PIPER_DIR}")
         _PIPER_CACHE["voz"] = PiperVoice.load(modelo)
+        _PIPER_CACHE["nombre"] = voz
     buf = io.BytesIO()
+    cfg = SynthesisConfig(length_scale=escala) if escala else None
     with wave.open(buf, "wb") as w:
-        _PIPER_CACHE["voz"].synthesize_wav(texto, w)
+        _PIPER_CACHE["voz"].synthesize_wav(texto, w, syn_config=cfg)
     return buf.getvalue()
 
 
-def sintetizar_cue(texto: str, motor: str) -> bytes:
+def sintetizar_cue(texto: str, motor: str, escala: float | None = None,
+                   voz: str | None = None) -> bytes:
     """Un cue → bytes de audio. El salto de línea del subtítulo es corte
     visual, no una pausa: se lee de corrido."""
     texto = texto.replace("\n", " ").strip()
-    return _wav_elevenlabs(texto) if motor == "elevenlabs" else _wav_piper(texto)
+    if motor == "elevenlabs":
+        return _wav_elevenlabs(texto)
+    return _wav_piper(texto, escala=escala, voz=voz)
+
+
+def palabras(texto: str) -> int:
+    return len([p for p in texto.replace("\n", " ").split() if p.strip()])
+
+
+def duracion_objetivo(texto: str, ventana: float) -> float:
+    """Cuánto DEBERÍA durar esta frase para sonar a locución, sin pisar la
+    pantalla siguiente.
+
+    El ritmo manda, pero la ventana tiene la última palabra: una frase larga
+    en una pantalla corta se dice al ritmo que entre, no al ideal.
+    """
+    n = palabras(texto)
+    if n == 0:
+        return 0.0
+    ideal = n / WPM_OBJETIVO * 60.0
+    return min(ideal, ventana * RELLENO_MAX) if ventana > 0 else ideal
+
+
+def _a_ritmo(texto: str, ventana: float, motor: str, voz: str | None):
+    """Sintetiza la frase corrigiendo la velocidad hasta dar con el ritmo.
+
+    Devuelve `(audio, duración, escala)`. Cada pasada mide lo que salió y
+    ajusta; se corta al caer dentro de la tolerancia, al agotar los intentos o
+    al topear la escala. Converge aunque el sintetizador no responda de forma
+    lineal a `length_scale` —y no lo hace: medido, subirla de 1,0 a 1,5 alarga
+    un 32%, no un 50%— porque cada intento parte de lo MEDIDO y no de lo
+    supuesto.
+    """
+    audio = sintetizar_cue(texto, motor, voz=voz)
+    dur = _dur_wav(audio)
+    objetivo = duracion_objetivo(texto, ventana)
+    if motor != "piper" or objetivo <= 0 or dur <= 0:
+        return audio, dur, 1.0
+
+    escala = 1.0
+    for _ in range(CORRECCIONES_MAX):
+        if dur >= objetivo or abs(dur - objetivo) / objetivo <= WPM_TOLERANCIA:
+            break
+        nueva = max(ESCALA_MIN, min(ESCALA_MAX, escala * (objetivo / dur)))
+        if abs(nueva - escala) < 0.01:      # ya está en el tope: no insistir
+            break
+        escala = nueva
+        audio = sintetizar_cue(texto, motor, escala=escala, voz=voz)
+        dur = _dur_wav(audio)
+    return audio, dur, escala
+
+
+def _dur_wav(crudo: bytes) -> float:
+    """Duración de un WAV en memoria, sin escribirlo a disco."""
+    try:
+        with wave.open(io.BytesIO(crudo)) as w:
+            return w.getnframes() / float(w.getframerate())
+    except (wave.Error, EOFError):
+        return 0.0                          # ElevenLabs devuelve MP3, no WAV
 
 
 # --------------------------------------------------------------------------
 #  Montaje
 # --------------------------------------------------------------------------
 def construir(salida: str = SALIDA, motor: str | None = None,
-              entrada: str = ENTRADA, idioma: str = "es") -> dict:
+              entrada: str = ENTRADA, idioma: str = "es",
+              voz: str | None = None) -> dict:
     """Monta la narración sobre el screencast. Devuelve un informe."""
     motor = motor or motor_disponible()
     if motor not in ("elevenlabs", "piper"):
         raise ValueError(f"motor desconocido: {motor!r}")
+    voz = voz or PIPER_VOZ
+    if motor == "piper" and voz not in VOCES:
+        raise ValueError(f"voz desconocida: {voz!r} (hay {sorted(VOCES)})")
     if not os.path.exists(entrada):
         raise FileNotFoundError(
             f"falta el screencast {entrada} — generalo con "
@@ -166,14 +275,23 @@ def construir(salida: str = SALIDA, motor: str | None = None,
     dur_video = duracion(entrada)
     tmp = tempfile.mkdtemp(prefix="audio_suite_")
     pistas, avisos, fin_audio = [], [], 0.0
+    huecos = []
 
+    ritmos = []
     for n, (ini, _fin, textos) in enumerate(SUITE_CUES):
         ruta = os.path.join(tmp, f"cue_{n:02d}.wav")
+        # El ritmo se corrige acá, midiendo. Con ElevenLabs no: re-sintetizar
+        # cuesta por carácter y ahí la velocidad se ajusta desde la voz.
+        audio, d, _esc = _a_ritmo(textos[idioma], _fin - ini, motor, voz)
         with open(ruta, "wb") as f:
-            f.write(sintetizar_cue(textos[idioma], motor))
-        d = duracion(ruta)
+            f.write(audio)
+        if d <= 0:                          # motor que no devuelve WAV
+            d = duracion(ruta)
+        ritmos.append(round(palabras(textos[idioma]) / d * 60, 1) if d else 0.0)
+
         pistas.append((ruta, ini))
         fin_audio = max(fin_audio, ini + d)
+        huecos.append(round((_fin - ini) - d, 2))
 
         # Un cue que se pasa de su ventana pisa el subtítulo siguiente. Medio
         # segundo de solape es normal en locución; más que eso se avisa.
@@ -220,31 +338,44 @@ def construir(salida: str = SALIDA, motor: str | None = None,
              "-t", f"{dur_final:.3f}", salida])
 
     return {
-        "salida": salida, "motor": motor, "voz": PIPER_VOZ if motor == "piper" else "elevenlabs",
+        "salida": salida, "motor": motor,
+        "voz": voz if motor == "piper" else "elevenlabs",
+        "licencia": VOCES[voz]["licencia"] if motor == "piper" else "-",
         "duracion_video_original": round(dur_video, 2),
         "duracion_final": round(duracion(salida), 2),
         "congelado_s": round(max(congelar, 0), 2),
         "cues": len(pistas), "avisos": avisos,
+        "hueco_max_s": max(huecos) if huecos else 0.0,
+        "wpm": ritmos,
+        "wpm_promedio": round(sum(ritmos) / len(ritmos), 1) if ritmos else 0.0,
     }
 
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     p.add_argument("--motor", choices=("elevenlabs", "piper"), default=None)
+    p.add_argument("--voz", choices=sorted(VOCES), default=None,
+                   help="voz de piper (por defecto la rioplatense)")
     p.add_argument("--salida", default=SALIDA)
     p.add_argument("--entrada", default=ENTRADA)
     a = p.parse_args(argv)
 
-    inf = construir(salida=a.salida, motor=a.motor, entrada=a.entrada)
+    inf = construir(salida=a.salida, motor=a.motor, entrada=a.entrada, voz=a.voz)
     print(f"[OK] {inf['salida']}")
     print(f"     motor={inf['motor']} voz={inf['voz']} cues={inf['cues']}")
     print(f"     video {inf['duracion_video_original']}s -> "
           f"{inf['duracion_final']}s (congelado {inf['congelado_s']}s)")
+    print(f"     ritmo {inf['wpm_promedio']} pal/min "
+          f"(objetivo {WPM_OBJETIVO}) · silencio máximo "
+          f"entre frases {inf['hueco_max_s']}s")
     for av in inf["avisos"]:
         print(f"     [aviso] {av}")
     if inf["motor"] == "piper":
         print("     OJO: voz de respaldo, NO la del producto. Para publicar, "
               "corré con ELEVENLABS_API_KEY.")
+        if VOCES[inf["voz"]]["copyleft"]:
+            print(f"     OJO LICENCIA: {inf['voz']} es {inf['licencia']} — el "
+                  "ShareAlike sobre una pieza comercial es un riesgo real.")
     return 0
 
 
