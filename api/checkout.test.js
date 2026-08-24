@@ -28,7 +28,15 @@ function res() {
 }
 
 let envOriginal;
-beforeEach(() => { envOriginal = { ...process.env }; delete require.cache[require.resolve("./checkout")]; });
+beforeEach(() => {
+  envOriginal = { ...process.env };
+  delete require.cache[require.resolve("./checkout")];
+  // Sin esto, en una máquina que TENGA la clave de Resend en el entorno, los
+  // tests que no mockean `fetch` (405, 400, 503...) dispararían el aviso de
+  // intención y saldrían a la API real de Resend. Un test no puede mandar
+  // mails de verdad. Los tests del aviso la ponen ellos, explícitamente.
+  delete process.env.RESEND_API_KEY;
+});
 afterEach(() => {
   process.env = envOriginal;
   if (globalThis.__fetchOriginal) { globalThis.fetch = globalThis.__fetchOriginal; delete globalThis.__fetchOriginal; }
@@ -405,4 +413,167 @@ test("el dedupe no puede frenar el checkout", async () => {
     assert.equal(r.body.url, "https://mp/pagar");
   }
   assert.equal(enviados.length, 1);
+//  Aviso de INTENCIÓN de compra (mail al dueño cuando alguien aprieta Comprar)
+//
+//  Lo que se protege acá, en orden de lo que más caro sale si se rompe:
+//   1. que el aviso NUNCA cueste una venta (sin clave, Resend caído, o lento);
+//   2. que un indeciso que toca cinco veces mande UN mail, no cinco — si no,
+//      el aviso se vuelve ruido y se archiva sin leer, o sea deja de existir;
+//   3. que el aviso salga TAMBIÉN cuando MercadoPago falla, que es justo el
+//      caso que hay que enterarse.
+// ---------------------------------------------------------------------------
+
+// Un request con IP fija: la idempotencia es por IP, así que el helper `req()`
+// —que inventa una IP nueva cada vez, a propósito, para no chocar con el rate
+// limit— no sirve para estos casos.
+function reqIP(ip, body) {
+  return { method: "POST", headers: { host: "mvkobranzaia.com", "x-forwarded-for": ip }, body };
+}
+
+/** Mockea fetch separando los envíos a Resend de las llamadas a MercadoPago. */
+function mockConResend(respuestaMP) {
+  const mails = [];
+  mockFetch(async (url, opts) => {
+    if (String(url).includes("resend.com")) {
+      mails.push(JSON.parse(opts.body));
+      return { ok: true, json: async () => ({ id: "re_1" }) };
+    }
+    return respuestaMP(url, opts);
+  });
+  return mails;
+}
+
+const mpOk = async () => ({ ok: true, json: async () => ({ init_point: "https://mp/pagar/xyz" }) });
+
+test("aviso: sin RESEND_API_KEY no manda nada y el checkout funciona igual", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  delete process.env.RESEND_API_KEY;
+  const mails = mockConResend(mpOk);
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(reqIP("10.9.0.1", { plan: "pro" }), r);
+  assert.equal(r.statusCode, 200, "el checkout tiene que andar sin la clave de mail");
+  assert.equal(r.body.url, "https://mp/pagar/xyz");
+  assert.equal(mails.length, 0, "sin clave no se puede haber mandado ningún mail");
+});
+
+test("aviso: con la clave manda UN mail al dueño, con plan y monto", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.RESEND_API_KEY = "re_test";
+  process.env.MP_CURRENCY = "UYU";
+  process.env.MP_TASA_UYU = "40";
+  const mails = mockConResend(mpOk);
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(reqIP("10.9.1.1", { plan: "pro" }), r);
+  assert.equal(r.statusCode, 200);
+  assert.equal(mails.length, 1);
+  assert.deepEqual(mails[0].to, ["vieraschiavi@gmail.com"], "el aviso va al dueño, no al cliente");
+  assert.match(mails[0].subject, /Intenci/i);
+  assert.match(mails[0].text, /Plan:\s+pro/, "el mail tiene que decir QUÉ plan");
+  assert.match(mails[0].text, /349/, "el mail tiene que decir el precio en USD");
+  assert.match(mails[0].text, new RegExp(String(Math.round(349 * 40))),
+    "y también lo que se cobra de verdad, en pesos");
+});
+
+test("aviso: el mismo indeciso tocando cinco veces manda UN solo mail", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.RESEND_API_KEY = "re_test";
+  const mails = mockConResend(mpOk);
+  const checkout = require("./checkout");
+  for (let i = 0; i < 5; i++) await checkout(reqIP("10.9.2.1", { plan: "pro" }), res());
+  assert.equal(mails.length, 1, `mandó ${mails.length} mails por una sola intención`);
+});
+
+test("aviso: otra persona SÍ genera su propio mail", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.RESEND_API_KEY = "re_test";
+  const mails = mockConResend(mpOk);
+  const checkout = require("./checkout");
+  await checkout(reqIP("10.9.3.1", { plan: "pro" }), res());
+  await checkout(reqIP("10.9.3.2", { plan: "pro" }), res());
+  assert.equal(mails.length, 2, "el freno es por persona, no global: si no, el segundo cliente es invisible");
+});
+
+test("aviso: el mismo que compara DOS planes distintos avisa de los dos", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.RESEND_API_KEY = "re_test";
+  const mails = mockConResend(mpOk);
+  const checkout = require("./checkout");
+  await checkout(reqIP("10.9.4.1", { plan: "pro" }), res());
+  await checkout(reqIP("10.9.4.1", { plan: "basico" }), res());
+  assert.equal(mails.length, 2, "cambiar de plan es información distinta, no una repetición");
+});
+
+test("aviso: si Resend falla, la venta sigue viva", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.RESEND_API_KEY = "re_test";
+  mockFetch(async (url) => {
+    if (String(url).includes("resend.com")) throw new Error("Resend caído");
+    return mpOk();
+  });
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(reqIP("10.9.5.1", { plan: "pro" }), r);
+  assert.equal(r.statusCode, 200, "un mail que falla NO puede tumbar el checkout");
+  assert.equal(r.body.url, "https://mp/pagar/xyz");
+});
+
+test("aviso: sale TAMBIÉN cuando MercadoPago rechaza — es el caso que más importa saber", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.RESEND_API_KEY = "re_test";
+  const mails = mockConResend(async () => ({ ok: false, status: 400, json: async () => ({ error: "bad" }) }));
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(reqIP("10.9.6.1", { plan: "pro" }), r);
+  assert.equal(r.statusCode, 502, "MercadoPago rechazó: el checkout devuelve error");
+  assert.equal(mails.length, 1, "alguien quiso comprar y el sistema no lo dejó: eso hay que saberlo");
+});
+
+test("aviso: sin medio de pago configurado igual avisa (si no, esa venta perdida es invisible)", async () => {
+  delete process.env.MP_ACCESS_TOKEN;
+  delete process.env.MP_LINK_PRO;
+  process.env.RESEND_API_KEY = "re_test";
+  const mails = mockConResend(mpOk);
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(reqIP("10.9.7.1", { plan: "pro" }), r);
+  assert.equal(r.statusCode, 503);
+  assert.equal(mails.length, 1);
+});
+
+test("aviso: un plan inválido no dispara mail (es ruido, no una venta)", async () => {
+  process.env.RESEND_API_KEY = "re_test";
+  const mails = mockConResend(mpOk);
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(reqIP("10.9.8.1", { plan: "no-existe" }), r);
+  assert.equal(r.statusCode, 400);
+  assert.equal(mails.length, 0);
+});
+
+test("aviso: AVISO_INTENCION=0 lo apaga SIN apagar los mails de licencia", async () => {
+  // El interruptor tiene que ser propio: RESEND_API_KEY no sirve, porque es la
+  // misma clave con la que el webhook le manda la licencia al comprador.
+  // Apagarla para no recibir avisos dejaría a los clientes sin licencia.
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.RESEND_API_KEY = "re_test";
+  process.env.AVISO_INTENCION = "0";
+  const mails = mockConResend(mpOk);
+  const checkout = require("./checkout");
+  const r = res();
+  await checkout(reqIP("10.9.9.1", { plan: "pro" }), r);
+  assert.equal(r.statusCode, 200, "apagar el aviso no puede tocar el checkout");
+  assert.equal(mails.length, 0, "con AVISO_INTENCION=0 no se manda el aviso");
+  assert.ok(process.env.RESEND_API_KEY, "y la clave de Resend sigue puesta para las licencias");
+});
+
+test("aviso: encendido por defecto (no hace falta configurar nada para tenerlo)", async () => {
+  process.env.MP_ACCESS_TOKEN = "TEST-token";
+  process.env.RESEND_API_KEY = "re_test";
+  delete process.env.AVISO_INTENCION;
+  const mails = mockConResend(mpOk);
+  const checkout = require("./checkout");
+  await checkout(reqIP("10.9.10.1", { plan: "pro" }), res());
+  assert.equal(mails.length, 1);
 });
