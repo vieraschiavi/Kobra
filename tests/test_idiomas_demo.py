@@ -162,5 +162,10 @@ def test_el_video_de_la_landing_ofrece_las_tres_pistas():
     html = _leer(LANDING)
     for idioma in S.IDIOMAS:
         assert f'src="/video/copiloto.{idioma}.vtt" srclang="{idioma}"' in html
-    # Y cambiar de idioma tiene que cambiar la pista activa.
-    assert "video track" in html and "t.track.mode" in html
+    # Y cambiar de idioma tiene que cambiar la pista activa — pero sin
+    # prenderla sola: los subtítulos son opcionales (botón CC), no se
+    # imponen. Por eso ningún <track> lleva `default`, y el cambio de
+    # idioma solo re-apunta track.mode si el visitante ya los había
+    # prendido (ver `yaEncendidos` en el script de setLang()).
+    assert 'srclang="es" label="Español" default' not in html
+    assert "t.track.mode" in html and "yaEncendidos" in html

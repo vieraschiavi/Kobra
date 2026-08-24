@@ -428,9 +428,10 @@ nav{background:rgba(8,19,36,.62);
     <video controls preload="metadata" playsinline style="width:100%;display:block;background:#0E1117">
       <source src="/video/MVKobraAI_Copiloto_Demo.mp4" type="video/mp4">
       <!-- La narración es en castellano. Los subtítulos se generan con
-           `python3 -m marketing.subtitulos` y setLang() activa el que
-           corresponde al idioma elegido. -->
-      <track kind="subtitles" src="/video/copiloto.es.vtt" srclang="es" label="Español" default>
+           `python3 -m marketing.subtitulos` y setLang() los pasa al idioma
+           elegido — pero sin `default`: son opcionales (botón CC del
+           reproductor), no tapan la pantalla solos. -->
+      <track kind="subtitles" src="/video/copiloto.es.vtt" srclang="es" label="Español">
       <track kind="subtitles" src="/video/copiloto.pt.vtt" srclang="pt" label="Português">
       <track kind="subtitles" src="/video/copiloto.en.vtt" srclang="en" label="English">
       Tu navegador no soporta la reproducción de video HTML5.
@@ -455,8 +456,9 @@ nav{background:rgba(8,19,36,.62);
       <video controls preload="metadata" playsinline style="width:100%;display:block;background:#0E1117">
         <source src="/video/MVKobraAI_Suite_Demo.webm" type="video/webm">
         <!-- Screencast real (marketing/screencast_suite.py, Playwright contra
-             la app corriendo). Subtitulos: python3 -m marketing.subtitulos. -->
-        <track kind="subtitles" src="/video/suite.es.vtt" srclang="es" label="Español" default>
+             la app corriendo). Subtitulos: python3 -m marketing.subtitulos.
+             Sin `default`: son opcionales, no tapan las pantallas solos. -->
+        <track kind="subtitles" src="/video/suite.es.vtt" srclang="es" label="Español">
         <track kind="subtitles" src="/video/suite.pt.vtt" srclang="pt" label="Português">
         <track kind="subtitles" src="/video/suite.en.vtt" srclang="en" label="English">
         Tu navegador no soporta la reproducción de video HTML5.
@@ -754,11 +756,20 @@ function setLang(lang){
   // El demo es otra página y hasta ahora se abría siempre en castellano: el
   // idioma viaja en la URL además de en localStorage, para que funcione
   // aunque el navegador tenga el almacenamiento bloqueado.
-  // Y los subtítulos del video pasan al idioma elegido.
-  document.querySelectorAll('video track').forEach(function(t){
-    var activo = t.getAttribute('srclang') === lang;
-    t.default = activo;
-    if(t.track) t.track.mode = activo ? 'showing' : 'disabled';
+  // Los subtítulos son opcionales (se prenden con el botón CC del
+  // reproductor) — al cambiar de idioma solo hay que seguir mostrando el que
+  // corresponde SI el visitante ya los había prendido. Si nadie los prendió,
+  // cambiar de idioma no debe encenderlos solo.
+  document.querySelectorAll('video').forEach(function(v){
+    var tracks = v.querySelectorAll('track');
+    var yaEncendidos = Array.from(tracks).some(function(t){
+      return t.track && t.track.mode === 'showing';
+    });
+    tracks.forEach(function(t){
+      var activo = t.getAttribute('srclang') === lang;
+      t.default = false;
+      if(t.track) t.track.mode = (yaEncendidos && activo) ? 'showing' : 'disabled';
+    });
   });
   pintarPaisPrecios();
 }
