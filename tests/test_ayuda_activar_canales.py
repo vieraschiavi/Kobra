@@ -136,3 +136,74 @@ def test_la_webapp_muestra_los_pasos_sin_tener_que_preguntar():
     jsx = leer("webapp/frontend/src/pages/Asistente.jsx")
     assert "ActivarCanales" in jsx
     assert "asistente.activar_canales." in jsx
+
+
+# ---------------------------------------------------------------------------
+# 5) El modelo BYO, como invariante de todo el producto
+# ---------------------------------------------------------------------------
+# BYO = Bring Your Own: la cuenta de telefonía es del cliente, Twilio le
+# factura a él, y el proveedor del software nunca toca esas credenciales.
+#
+# La alternativa —abrir subcuentas de una cuenta madre— parece equivalente y no
+# lo es: Twilio factura TODO el consumo de TODAS las subcuentas a la cuenta
+# madre. Elegir mal ahí es la diferencia entre cobrar una licencia y pagar la
+# cuenta de teléfono de todos tus clientes.
+#
+# Por eso no alcanza con documentarlo: si alguna vez alguien escribe en la
+# landing "minutos incluidos", el producto pasa a prometer algo que su propia
+# arquitectura no hace. Esto lo agarra antes.
+SUPERFICIES_COMERCIALES = ("landing/index.html", "docs/MODELO_COMERCIAL.md",
+                           "README.md")
+
+PROMESAS_QUE_ROMPEN_BYO = (
+    "minutos incluidos", "llamadas incluidas", "incluye los minutos",
+    "nosotros ponemos el número", "te damos el número", "revendemos minutos",
+    "minutos ilimitados",
+)
+
+
+@pytest.mark.parametrize("rel", SUPERFICIES_COMERCIALES)
+def test_no_se_promete_telefonia_incluida(rel):
+    ruta = ROOT / rel
+    if not ruta.exists():
+        pytest.skip(f"{rel} no existe")
+    texto = ruta.read_text(encoding="utf-8").lower()
+    for promesa in PROMESAS_QUE_ROMPEN_BYO:
+        # "no revendemos minutos" es la frase correcta y contiene "revendemos
+        # minutos": se mira que no esté prometido en positivo.
+        if promesa == "revendemos minutos" and "no revendemos minutos" in texto:
+            continue
+        assert promesa not in texto, (
+            f"{rel} promete «{promesa}», que contradice el modelo BYO: la "
+            "cuenta de telefonía es del cliente y Twilio le factura a él")
+
+
+def test_la_landing_dice_de_quien_es_la_cuenta_antes_de_vender():
+    """Que el cliente se entere de quién paga el teléfono DESPUÉS de comprar es
+    una sorpresa sobre plata, y las sorpresas sobre plata cuestan la relación.
+    Va en la ficha del Gestor IA por voz, en los tres idiomas."""
+    html = leer("landing/index.html")
+    for frase in ("La cuenta de telefonía queda a tu nombre",
+                  "A conta de telefonia fica no seu nome",
+                  "The telephony account stays in your name"):
+        assert frase in html, f"la landing no lo aclara en un idioma: {frase!r}"
+
+
+def test_el_producto_compra_el_numero_en_la_cuenta_del_cliente():
+    """El botón «comprar número» del dashboard tiene que usar las credenciales
+    que cargó el cliente. Si alguna vez usara unas del proveedor, el número
+    —y su factura— quedarían a nombre equivocado."""
+    app = leer("app/app.py")
+    i = app.index("ktwilio.comprar_numero(")
+    llamada = app[i:i + 260]
+    assert "sid=_twilio_sid" in llamada and "token=_twilio_token" in llamada, (
+        "el número se compra con credenciales que no son las del cliente")
+
+
+def test_la_guia_de_despliegue_declara_el_modelo():
+    """La guía técnica también alimenta al asistente. Si dice una cosa y la del
+    cliente otra, el bot contesta distinto según a cuál le pegue."""
+    doc = leer("docs/GUIA_LLAMADA_REAL_TWILIO.md")
+    assert "BYO" in doc and "subcuentas" in doc.lower(), (
+        "la guía técnica no deja escrito el modelo ni por qué las subcuentas "
+        "son otra cosa")
