@@ -80,3 +80,17 @@ data/cartera_entrante.csv
 # No se commitea: un Owner.bat con sello válido convierte cualquier instalación
 # en la edición sin límites.
 packaging/Owner.bat
+
+# Secretos del entorno. El README dice de poner acá `OPENAI_API_KEY`,
+# `ANTHROPIC_API_KEY`, `MP_ACCESS_TOKEN`, `KOBRA_LICENSE_PRIVATE_KEY`,
+# `RESEND_API_KEY` y `TWILIO_AUTH_TOKEN`, así que un `.env` de este proyecto es
+# por definición un archivo de secretos.
+#
+# Estaba sin ignorar: `docs/AUDITORIA_PRODUCCION.md` daba por hecho que "el
+# .env no está trackeado", y era cierto solo porque todavía nadie había creado
+# uno. Un `git add .` lo subía, y una clave privada de licencias en el
+# historial no se borra con un commit — hay que rotarla.
+.env
+.env.*
+!.env.example
+*.env
