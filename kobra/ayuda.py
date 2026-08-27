@@ -52,6 +52,11 @@ FUENTES_DOCS = [
     # por lo que el cliente puede hacer desde su propia pantalla.
     "docs/AYUDA_CLIENTE_VOZ_Y_WHATSAPP.md",
     "docs/GUIA_LLAMADA_REAL_TWILIO.md",
+    # Cómo el dueño corre la edición completa. Va acá y no en un rincón del
+    # repo porque el camino existía —el instalador público se desbloquea con
+    # la credencial del dueño— y no estaba escrito en ninguna parte: se
+    # terminó buscando un instalador Owner separado que no hace falta.
+    "docs/PROBAR_VERSION_COMPLETA.md",
     "docs/MODELO_COMERCIAL.md",
     "docs/WHITEPAPER_SEGURIDAD.md",
     "docs/GUIA_REGISTRO_LEGAL_URUGUAY.md",
