@@ -90,6 +90,20 @@ Se cargan en **Settings → Environment Variables** del proyecto, alcance
 **Production**. Después de cargarlas hay que **redesplegar**: una función
 serverless lee el entorno al arrancar, no en cada request.
 
+> **Antes de mirar la tabla, corré esto:**
+>
+> ```bash
+> python3 verificar_configuracion.py
+> ```
+>
+> Te dice cuáles están puestas, cuáles faltan y **qué se rompe exactamente**
+> sin cada una. Nunca imprime el valor de ninguna, así que se puede correr
+> compartiendo pantalla.
+>
+> La plantilla con todas las variables está en **`env.example`**: copiala a
+> `.env` para desarrollo local (`.env` está en `.gitignore`; la plantilla no,
+> y por eso no lleva ningún valor real).
+
 | Variable | Para qué | Sin ella |
 |---|---|---|
 | `MP_ACCESS_TOKEN` | Crear la preferencia de pago contra MercadoPago | El checkout devuelve 503 `medio_pago_no_configurado`, o cae al link fijo si hay uno |
