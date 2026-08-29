@@ -139,7 +139,7 @@ cobranza necesitaba abajo.
 — Gobernanza de datos. Qué dato es personal, quién lo ve, calidad en las seis
   dimensiones DAMA y linaje auditable.
 
-— Medidas propias. Definís tus KPIs con fórmulas, sin tocar una línea de código.
+— KPIs propios. Los definís con una fórmula, sin tocar una línea de código.
 
 — AutoML. Entrenás un modelo con tu propio dataset. La métrica sale de un
   holdout que no se usó para elegir nada: es la diferencia entre un número
@@ -269,7 +269,7 @@ collections needed underneath it.
 — Data governance. What counts as personal data, who can see it, quality
   across the six DAMA dimensions, and auditable lineage.
 
-— Custom measures. Define your own KPIs with formulas, without writing code.
+— Custom KPIs. Define them with a formula, without writing code.
 
 — AutoML. Train a model on your own dataset. The reported metric comes from a
   holdout that was never used to select anything, which is the difference
