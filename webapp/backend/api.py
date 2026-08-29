@@ -3108,6 +3108,64 @@ def _dir_demo(empresa: str) -> str:
     return _dir_portal(empresa)
 
 
+# ---------------------------------------------------------------------------
+# Escenarios de demo completos — dos empresas de punta a punta
+# ---------------------------------------------------------------------------
+# El botón demo ON/OFF decide SI se muestra la demo o la cartera real; esto
+# decide CUÁL demo: una financiera de consumo o una distribuidora con crédito
+# comercial. Cada escenario trae datos para todos los módulos, y la
+# verificación los EJECUTA uno por uno (scorea, negocia, entrena, evalúa) —
+# el checklist trae la evidencia medida, no tildes.
+from kobra import demo_escenarios as kescenarios  # noqa: E402
+
+
+@app.get("/api/demo/escenarios")
+def demo_escenarios_listar(u: Usuario = Depends(usuario_actual)):
+    """El catálogo, para que la pantalla no lo invente."""
+    return {"escenarios": [
+        {"id": k, "nombre": v["nombre"], "rubro": v["rubro"],
+         "descripcion": v["descripcion"], "deudores": v["n_deudores"]}
+        for k, v in kescenarios.ESCENARIOS.items()]}
+
+
+@app.post("/api/demo/escenarios/{escenario_id}")
+def demo_escenario_activar(escenario_id: str, u: Usuario = Depends(solo_admin)):
+    """Activa un escenario: regenera la DEMO de la empresa con esa empresa
+    sintética. Nunca toca la cartera real subida — el botón demo ON/OFF sigue
+    decidiendo cuál de las dos se muestra. `solo_admin` porque cambia lo que
+    ve todo el equipo."""
+    if escenario_id not in kescenarios.ESCENARIOS:
+        raise HTTPException(404, f"No existe el escenario '{escenario_id}'. "
+                            f"Hay: {', '.join(sorted(kescenarios.ESCENARIOS))}.")
+    destino = os.path.dirname(_datos_de(u.empresa)["scored"])
+    try:
+        info = kescenarios.activar(escenario_id, destino)
+    except Exception as e:                                  # noqa: BLE001
+        # La causa más probable es el scoring (modelo/dataset base): el
+        # mensaje del dominio dice qué faltó; un 500 pelado no.
+        raise HTTPException(500, f"No se pudo activar el escenario: {e}") from e
+    kauditoria.registrar("demo_escenario_activado",
+                         {"empresa": u.empresa, "escenario": escenario_id})
+    return info
+
+
+@app.post("/api/demo/verificacion")
+def demo_verificar(u: Usuario = Depends(solo_admin)):
+    """Corre la verificación punta a punta sobre los datos activos y devuelve
+    el checklist con la evidencia de cada módulo. Puede tardar unos segundos:
+    entrena de verdad el AutoML y negocia de verdad un turno del gestor."""
+    destino = os.path.dirname(_datos_de(u.empresa)["scored"])
+    if not os.path.exists(os.path.join(destino, "kobra_scored.csv")):
+        raise HTTPException(409, "No hay cartera demo generada todavía: "
+                            "activá un escenario primero.")
+    pasos = kescenarios.verificar(destino)
+    ok = all(p["ok"] for p in pasos)
+    kauditoria.registrar("demo_verificacion",
+                         {"empresa": u.empresa, "ok": ok,
+                          "fallas": [p["modulo"] for p in pasos if not p["ok"]]})
+    return {"ok": ok, "pasos": pasos}
+
+
 @app.get("/api/demo/estado")
 def demo_estado(u: Usuario = Depends(usuario_actual)):
     """Todo lo que la pantalla necesita para dibujarse entera, en un solo GET:

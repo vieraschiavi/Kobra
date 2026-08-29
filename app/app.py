@@ -1531,6 +1531,39 @@ with tab7:
         st.warning("Esta sección es solo para el rol **Administrador**. "
                    "Pedile a un admin que gestione las API keys y las contraseñas.")
     else:
+        with st.expander("Escenarios de demo — dos empresas completas, con verificación punta a punta"):
+            from kobra import demo_escenarios as _kesc
+            from kobra import registro as _kreg
+
+            st.caption("Cada escenario regenera la cartera de demostración que usan "
+                       "el gestor IA por teléfono/WhatsApp y la app de escritorio, con "
+                       "datos para todos los módulos. Sintético y con semilla fija: "
+                       "activarlo dos veces da los mismos números.")
+            _dir_esc = os.path.dirname(_kreg.SCORED_CSV)
+            _c1, _c2 = st.columns(2)
+            for _col, (_eid, _cfg) in zip((_c1, _c2), _kesc.ESCENARIOS.items()):
+                with _col:
+                    st.markdown(f"**{_cfg['nombre']}**  \n{_cfg['rubro']}")
+                    st.caption(_cfg["descripcion"])
+                    if st.button(f"Activar {_cfg['nombre']}", key=f"esc_{_eid}"):
+                        with st.spinner("Generando y scoreando la cartera…"):
+                            _info = _kesc.activar(_eid, _dir_esc)
+                        st.success(f"{_info['nombre']}: {_info['deudores']} deudores, "
+                                   f"deuda total {_info['deuda_total']:,.0f}.")
+            if st.button("Verificar punta a punta", key="esc_verificar"):
+                with st.spinner("Ejecutando cada módulo (entrena AutoML, negocia un "
+                                "turno del gestor)…"):
+                    _pasos = _kesc.verificar(_dir_esc)
+                _ok = all(_p["ok"] for _p in _pasos)
+                (st.success if _ok else st.error)(
+                    "Todos los módulos verificados con los datos activos." if _ok
+                    else "Hay módulos con fallas — el detalle dice qué se rompió.")
+                st.dataframe(pd.DataFrame([{
+                    "Módulo": _p["modulo"],
+                    "Estado": "OK" if _p["ok"] else "FALLA",
+                    "Evidencia": _p["detalle"],
+                } for _p in _pasos]), use_container_width=True, hide_index=True)
+
         st.subheader("⚙ Configuración de API keys")
         st.caption("Ingresá las keys una sola vez: quedan **guardadas** y se cargan solas en "
                    "cada arranque. Habilitan la transcripción real (Whisper) y la evaluación "

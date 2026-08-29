@@ -151,6 +151,107 @@ function ImportarCartera() {
   );
 }
 
+
+function EscenariosDemo() {
+  // Dos empresas sintéticas completas. El botón demo ON/OFF (arriba) decide
+  // SI se muestra la demo; esto decide CUÁL. La verificación ejecuta cada
+  // módulo de verdad y muestra la evidencia — tarda unos segundos porque
+  // entrena el AutoML y negocia un turno del gestor, no porque "cargue".
+  const [lista, setLista] = useState([]);
+  const [activando, setActivando] = useState("");
+  const [verificando, setVerificando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const [nota, setNota] = useState("");
+
+  useEffect(() => {
+    api("/api/demo/escenarios").then((d) => setLista(d.escenarios)).catch(() => {});
+  }, []);
+
+  async function activar(id) {
+    setActivando(id); setNota(""); setResultado(null);
+    try {
+      const r = await api(`/api/demo/escenarios/${id}`, { metodo: "POST" });
+      setNota(t("configuracion.escenarios.activado", {
+        nombre: r.nombre, deudores: r.deudores }));
+    } catch (e) {
+      setNota(String(e.message || e));
+    } finally {
+      setActivando("");
+    }
+  }
+
+  async function verificar() {
+    setVerificando(true); setNota(""); setResultado(null);
+    try {
+      setResultado(await api("/api/demo/verificacion", { metodo: "POST" }));
+    } catch (e) {
+      setNota(String(e.message || e));
+    } finally {
+      setVerificando(false);
+    }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 18 }}>
+      <h2 style={{ marginTop: 0 }}>{t("configuracion.escenarios.titulo")}</h2>
+      <p className="page-sub" style={{ marginTop: 4 }}>
+        {t("configuracion.escenarios.subtitulo")}
+      </p>
+      <div style={{ display: "grid", gap: 10,
+                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+        {lista.map((e) => (
+          <div key={e.id} style={{ border: "1px solid var(--line)",
+                                   borderRadius: 10, padding: 12 }}>
+            <strong>{e.nombre}</strong>
+            <div style={{ color: "var(--muted)", fontSize: 13 }}>{e.rubro}</div>
+            <p style={{ fontSize: 13, minHeight: 54 }}>{e.descripcion}</p>
+            <button className="btn" disabled={!!activando}
+                    onClick={() => activar(e.id)}>
+              {activando === e.id
+                ? t("configuracion.escenarios.activando")
+                : t("configuracion.escenarios.activar")}
+            </button>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center",
+                    flexWrap: "wrap" }}>
+        <button className="btn ghost" onClick={verificar} disabled={verificando}>
+          {verificando
+            ? t("configuracion.escenarios.verificando")
+            : t("configuracion.escenarios.verificar")}
+        </button>
+        {nota && <span style={{ fontSize: 13 }}>{nota}</span>}
+      </div>
+      {resultado && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontWeight: 700,
+                        color: resultado.ok ? "var(--green)" : "var(--red)" }}>
+            {resultado.ok
+              ? t("configuracion.escenarios.todo_ok")
+              : t("configuracion.escenarios.hay_fallas")}
+          </div>
+          <div className="tablewrap" style={{ marginTop: 6 }}>
+            <table className="tabla">
+              <tbody>
+                {resultado.pasos.map((paso) => (
+                  <tr key={paso.modulo}>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {paso.ok ? "\u2713" : "\u2717"} {paso.modulo}
+                    </td>
+                    <td style={{ color: paso.ok ? "var(--muted)" : "var(--red)",
+                                 fontSize: 13 }}>{paso.detalle}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProveedorIA() {
   const [datos, setDatos] = useState(null);
   const [nota, setNota] = useState("");
@@ -472,6 +573,7 @@ export default function Configuracion() {
         </form>
       )}
       <ImportarCartera />
+      <EscenariosDemo />
       <ProveedorIA />
       <CarpetaDatos />
       <InformeSemanal />
