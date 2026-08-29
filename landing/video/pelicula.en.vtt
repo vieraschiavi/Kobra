@@ -1,91 +1,91 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:08.000
+00:00:00.000 --> 00:00:07.998
 This is where every collections story starts: arrears growing,
 the dashboard shows it, and time runs short.
 
 2
-00:00:08.000 --> 00:00:17.000
+00:00:07.998 --> 00:00:16.996
 First, measure the problem properly: an aging report,
 DSO and effectiveness, computed from the portfolio.
 
 3
-00:00:17.000 --> 00:00:26.000
+00:00:16.996 --> 00:00:25.994
 The turnaround starts here: upload your portfolio and Kobra
 scores it instantly, with each payment probability and its reasons.
 
 4
-00:00:26.000 --> 00:00:36.000
+00:00:25.994 --> 00:00:35.991
 ProbPago ranks the portfolio by what can actually be recovered:
 strategy, the right discount and a script for every debtor.
 
 5
-00:00:36.000 --> 00:00:44.000
+00:00:35.991 --> 00:00:43.989
 The agenda builds the day on its own:
 who to contact, when, and over which channel.
 
 6
-00:00:44.000 --> 00:00:56.000
+00:00:43.989 --> 00:00:55.986
 Then the AI agent executes: it calls the case's number with a natural
 voice, negotiates over WhatsApp and generates the charge with its QR.
 
 7
-00:00:56.000 --> 00:01:04.000
+00:00:55.986 --> 00:01:03.984
 Debtors can also pay on their own:
 they open the portal from a QR code or a link, and pay.
 
 8
-00:01:04.000 --> 00:01:13.000
+00:01:03.984 --> 00:01:12.982
 The conversational board answers in your own words:
 every number comes from your data, not from a guess.
 
 9
-00:01:13.000 --> 00:01:21.000
+00:01:12.982 --> 00:01:20.980
 A question about the product? The assistant answers right there,
 with the documentation built in.
 
 10
-00:01:21.000 --> 00:01:29.000
+00:01:20.980 --> 00:01:28.978
 The human team is measured here:
 recovery by agent, by month and by channel.
 
 11
-00:01:29.000 --> 00:01:37.000
+00:01:28.978 --> 00:01:36.976
 And quality reviews every interaction:
 calling hours, caps and the do-not-contact list, always.
 
 12
-00:01:37.000 --> 00:01:46.000
+00:01:36.976 --> 00:01:45.974
 Data engineering included: connect SQL, CSV or Excel;
 profiles, joins and features without writing code.
 
 13
-00:01:46.000 --> 00:01:55.000
+00:01:45.974 --> 00:01:54.972
 Governance answers which data is personal, who can see it
 and how good it is, across the six DAMA dimensions.
 
 14
-00:01:55.000 --> 00:02:03.000
+00:01:54.972 --> 00:02:02.970
 Custom KPIs: define your own indicator with a formula
 and use it across the board.
 
 15
-00:02:03.000 --> 00:02:12.000
-AutoML trains a model on your own dataset;
-the metric comes from a holdout never used to choose anything.
+00:02:02.970 --> 00:02:15.966
+AutoML trains right here on your own dataset — watch —
+and the metric comes from a holdout never used to choose anything.
 
 16
-00:02:12.000 --> 00:02:20.000
+00:02:15.966 --> 00:02:23.964
 Logistics, sold separately: what to discount,
 what to restock and which customer to win back.
 
 17
-00:02:20.000 --> 00:02:28.000
+00:02:23.964 --> 00:02:31.962
 And Projects: portfolio health
 and the backlog ranked by expected value.
 
 18
-00:02:28.000 --> 00:02:38.000
+00:02:31.962 --> 00:02:41.960
 The result is measured here: more recovery with less effort.
 MV Kobra AI, end to end. mvkobranzaia.com

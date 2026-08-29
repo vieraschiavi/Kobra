@@ -1936,6 +1936,35 @@ def agenda_export_xlsx(u: Usuario = Depends(usuario_actual)):
         headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
 
 
+@app.get("/api/campana/plan")
+def campana_plan(u: Usuario = Depends(usuario_actual), limite: int = 50):
+    """Plan de contacto de hoy con el canal elegido en AUTOMÁTICO por la
+    contactabilidad real de cada deudor (`kobra/campana.py`): el canal donde
+    más se lo contactó —o más cerró— en los últimos 90 días; si todavía no
+    hay historial, decide la regla de negocio. `canal_origen` dice cuál de
+    las dos pasó, para que el operador sepa cuándo confiar en el automático
+    y cuándo elegir el canal a mano. El cumplimiento (horario legal, topes,
+    No Contactar) ya viene aplicado: solo salen filas contactables."""
+    from kobra import campana as kcam
+    g = _gestiones(u.empresa)
+    # La clave se llama `contactos` y NO `plan` a propósito: el interceptor
+    # del frontend (`avisarPlan` en api.js) toma cualquier respuesta con una
+    # clave `plan` como el estado del plan de licencia y pisa el chip de
+    # consumo de la barra lateral — se vio en cámara como "undefined de
+    # undefined".
+    g_vacio = {"total": 0, "con_historial": 0, "contactos": []}
+    if g is None or g.empty or "fecha_gestion" not in g.columns:
+        return g_vacio
+    plan = kcam.plan_contacto_hoy(g, scored=_scored(u.empresa))
+    if plan is None or plan.empty:
+        return g_vacio
+    hoja = plan.head(max(1, min(int(limite), 500)))
+    hoja = hoja.astype(object).where(pd.notna(hoja), None)
+    return {"total": int(len(plan)),
+            "con_historial": int((plan["canal_origen"] == "historial").sum()),
+            "contactos": hoja.to_dict("records")}
+
+
 def _totales_gestores(ranking: pd.DataFrame) -> dict:
     """Fila de totales del ranking de gestores.
 
@@ -3144,6 +3173,19 @@ def demo_escenario_activar(escenario_id: str, u: Usuario = Depends(solo_admin)):
         # La causa más probable es el scoring (modelo/dataset base): el
         # mensaje del dominio dice qué faltó; un 500 pelado no.
         raise HTTPException(500, f"No se pudo activar el escenario: {e}") from e
+    # `activar` deja todas las tablas juntas en `destino`, pero la empresa
+    # principal lee gestiones y calidad desde OTRO directorio (`data/`) —
+    # sin esta copia, Agenda/Gestores/Calidad seguían mostrando los datos
+    # viejos del repo en vez de los del escenario recién activado.
+    import shutil as _shutil
+    for origen, destino_real in (
+            (os.path.join(destino, "kobra_gestiones.csv"),
+             _datos_de(u.empresa)["gestiones"]),
+            (os.path.join(destino, "calidad_evaluaciones.csv"),
+             _archivo_calidad(u.empresa))):
+        if os.path.exists(origen) and os.path.abspath(origen) != os.path.abspath(destino_real):
+            os.makedirs(os.path.dirname(destino_real), exist_ok=True)
+            _shutil.copy(origen, destino_real)
     kauditoria.registrar("demo_escenario_activado",
                          {"empresa": u.empresa, "escenario": escenario_id})
     return info

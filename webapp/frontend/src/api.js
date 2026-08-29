@@ -93,8 +93,14 @@ export async function descargar(ruta, nombreArchivo) {
 // `api()` y tienen que llamarlo a mano — VER de hacerlo antes de cualquier
 // `throw` sobre una respuesta no-ok, con el mismo cuidado que acá arriba.
 export function avisarPlan(respuesta) {
-  if (respuesta && respuesta.plan) {
-    window.dispatchEvent(new CustomEvent("kobra:plan", { detail: respuesta.plan }));
+  // Solo cuenta como estado del plan un OBJETO con la forma del plan
+  // (cupo/ilimitado). Sin este chequeo, cualquier endpoint con una clave
+  // `plan` de otro tipo pisaba el chip de consumo de la barra lateral y
+  // quedaba "undefined de undefined" a la vista.
+  const p = respuesta && respuesta.plan;
+  if (p && typeof p === "object" && !Array.isArray(p)
+      && ("cupo" in p || "ilimitado" in p)) {
+    window.dispatchEvent(new CustomEvent("kobra:plan", { detail: p }));
   }
   return respuesta;
 }

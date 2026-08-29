@@ -228,10 +228,10 @@ PELICULA_ESCENAS = [
         "es": "KPIs propios: definí tu indicador con una fórmula\ny usalo en todo el tablero.",
         "pt": "KPIs próprios: defina o seu indicador com uma fórmula\ne use em todo o painel.",
         "en": "Custom KPIs: define your own indicator with a formula\nand use it across the board."}),
-    ("/automl", 9, {
-        "es": "AutoML entrena un modelo con tu propio dataset;\nla métrica sale de un holdout que no se usó para elegir nada.",
-        "pt": "O AutoML treina um modelo com o seu próprio dataset;\na métrica vem de um holdout que não foi usado para escolher nada.",
-        "en": "AutoML trains a model on your own dataset;\nthe metric comes from a holdout never used to choose anything."}),
+    ("/automl", 13, {
+        "es": "AutoML entrena acá mismo con tu propio dataset —mirá—\ny la métrica sale de un holdout que no se usó para elegir nada.",
+        "pt": "O AutoML treina aqui mesmo com o seu próprio dataset — veja —\ne a métrica vem de um holdout que não foi usado para escolher nada.",
+        "en": "AutoML trains right here on your own dataset — watch —\nand the metric comes from a holdout never used to choose anything."}),
     ("/logistica", 8, {
         "es": "Logística, un módulo aparte: qué ofertar,\nqué reponer y a qué cliente recuperar.",
         "pt": "Logística, um módulo à parte: o que ofertar,\no que repor e qual cliente recuperar.",
@@ -259,6 +259,34 @@ def _cues_de_escenas(escenas) -> list[tuple[float, float, dict]]:
 
 
 PELICULA_CUES = _cues_de_escenas(PELICULA_ESCENAS)
+
+
+def _escala_pelicula() -> float:
+    """Factor entre el guion y el video REAL publicado.
+
+    El screencast de Playwright sale con el reloj estirado (~4,5% medido, y
+    constante entre tomas): 162 s de guion se graban como ~169 s de video.
+    Pelear contra eso escena por escena no funciona — la distorsión es del
+    contenedor, no de las esperas—, así que los subtítulos (y la narración,
+    que usa estos mismos cues) se escalan linealmente a la duración medida
+    del webm publicado. Si el video no está o no se puede medir, escala 1.
+    """
+    video = os.path.join(ROOT, "landing", "video", "MVKobraAI_Pelicula_Demo.webm")
+    try:
+        from marketing.audio_suite import duracion
+        real = duracion(video)
+    except Exception:
+        return 1.0
+    declarado = PELICULA_CUES[-1][1]
+    if declarado and 0.8 < real / declarado < 1.3:
+        return real / declarado
+    return 1.0
+
+
+def cues_pelicula_escalados(escala: float | None = None) -> list:
+    escala = _escala_pelicula() if escala is None else escala
+    return [(ini * escala, fin * escala, textos)
+            for ini, fin, textos in PELICULA_CUES]
 
 
 def _marca(segundos: float) -> str:
@@ -290,7 +318,7 @@ def generar(destino: str | None = None) -> dict[str, str]:
     os.makedirs(destino, exist_ok=True)
     salida = {}
     for nombre, cues in (("copiloto", CUES), ("suite", SUITE_CUES),
-                         ("pelicula", PELICULA_CUES)):
+                         ("pelicula", cues_pelicula_escalados())):
         for idioma in IDIOMAS:
             ruta = os.path.join(destino, f"{nombre}.{idioma}.vtt")
             with open(ruta, "w", encoding="utf-8") as f:

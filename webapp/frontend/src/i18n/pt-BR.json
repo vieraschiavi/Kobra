@@ -205,7 +205,18 @@
     },
     "cargando": "Carregando promessas vencidas…",
     "promesas_vencidas": "promessas vencidas",
-    "exportar_excel": "Exportar Excel"
+    "exportar_excel": "Exportar Excel",
+    "plan": {
+      "titulo": "Plano de contato de hoje",
+      "sub": "{{total}} contatos priorizados; em {{historial}} o canal foi escolhido pela contactabilidade real do devedor (automático) — no resto decide a regra de negócio e o operador pode escolher manualmente.",
+      "col_canal": "Canal",
+      "col_origen": "Escolhido por",
+      "col_hora": "Hora pref.",
+      "col_motivo": "Motivo",
+      "col_monto": "Valor",
+      "origen_historial": "Contactabilidade (auto)",
+      "origen_regla": "Regra · a critério"
+    }
   },
   "gestores": {
     "titulo": "Operadores & evolução",
@@ -546,7 +557,11 @@
       "col_gestor": "Atendente",
       "col_audios": "Áudios",
       "col_calidad": "Qualidade",
-      "col_vs": "vs. média"
+      "col_vs": "vs. média",
+      "kpi_ref": "Referência humana",
+      "kpi_vs_ref": "Diferença vs. referência",
+      "ref_marca": "Referência de supervisão humana (calibração da rubrica)",
+      "vs_ref_txt": "vs. referência de supervisão humana"
     }
   },
   "portal": {

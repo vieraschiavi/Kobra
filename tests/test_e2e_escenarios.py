@@ -189,6 +189,62 @@ def test_proyectos(montado):
     assert d["salud"] and d["backlog"]
 
 
+def test_agenda(montado):
+    """La pantalla que devolvía 500 con el escenario activo: las gestiones
+    del escenario no traían `fecha_gestion`. Acá se pide por HTTP, como la
+    página, y tiene que venir con promesas vencidas — no vacía."""
+    r = montado["cli"].get("/api/agenda?pagina=1&tamano=25")
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["total"] > 0, "la agenda del escenario quedó vacía"
+    assert d["vencidas"][0]["id_deudor"]
+
+
+def test_gestores(montado):
+    """La otra pantalla en 500: faltaba `gestor_id`. El ranking tiene que
+    salir con varios gestores y sus totales."""
+    r = montado["cli"].get("/api/gestores/resumen")
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert len(d["ranking"]) >= 5, f"ranking corto: {len(d['ranking'])}"
+    assert d["totales"]["gestiones"] > 0
+
+
+def test_calidad_con_llamadas_evaluadas(montado):
+    """El panel de calidad no puede abrir con "todavía no hay llamadas
+    evaluadas" en una demo recién activada."""
+    cli = montado["cli"]
+    r = cli.get("/api/calidad/panel")
+    assert r.status_code == 200, r.text
+    assert r.json()["total"] >= 30, "el panel de calidad quedó vacío"
+    r = cli.get("/api/calidad/comparativa")
+    assert r.status_code == 200, r.text
+
+
+def test_cuentas_por_cobrar(montado):
+    r = montado["cli"].get("/api/cxc/antiguedad")
+    assert r.status_code == 200, r.text
+    d = r.json()["antiguedad"]
+    assert d["tramos"] and d["deudores"] == montado["activado"]["deudores"]
+
+
+def test_plan_de_contacto_por_contactabilidad(montado):
+    """El canal del plan sale AUTOMÁTICO de la contactabilidad real del
+    deudor cuando hay historial, y por regla cuando no — con `canal_origen`
+    diciendo cuál de las dos decidió."""
+    r = montado["cli"].get("/api/campana/plan?limite=20")
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["total"] > 0, "el plan de contacto salió vacío"
+    assert d["con_historial"] > 0, (
+        "ningún canal elegido por contactabilidad: el automático no funciona")
+    assert {p["canal_origen"] for p in d["contactos"]} <= {"historial", "regla"}
+    # La clave NO puede llamarse `plan`: el interceptor del frontend toma
+    # cualquier respuesta con esa clave como el estado del plan de licencia
+    # y pisa el chip de consumo (se vio "undefined de undefined" en cámara).
+    assert "plan" not in d
+
+
 def test_chatbot_de_ayuda(montado):
     """Sin proveedor de IA configurado — el estado de una instalación nueva —
     el asistente contesta igual, con la búsqueda local en docs."""

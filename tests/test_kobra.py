@@ -1081,6 +1081,29 @@ def test_campana_plan_contacto_hoy_prioriza_vencidas_y_excluye(monkeypatch):
     assert "KB-1" not in set(plan_excluido["id_deudor"])
 
 
+def test_campana_plan_dice_de_donde_salio_el_canal(monkeypatch):
+    """`canal_origen`: "historial" cuando el canal lo eligió la
+    contactabilidad real del deudor (automático), "regla" cuando todavía no
+    hay historial y decide la regla de negocio. Es lo que le dice al operador
+    cuándo confiar en el automático y cuándo elegir el canal a mano."""
+    from kobra import campana as kcamp
+    _prep_scored()
+    g = _gestiones_seguimiento()
+    hoy = date(2026, 7, 6)
+    ahora = pd.Timestamp("2026-07-06 10:00").to_pydatetime()
+
+    plan = kcamp.plan_contacto_hoy(g, hoy=hoy, ahora=ahora)
+    assert {"canal_origen", "hora_preferida"} <= set(plan.columns)
+    assert set(plan["canal_origen"].dropna().unique()) <= {"historial", "regla"}
+    # Los deudores CON gestiones en la ventana salen en automático; el resto
+    # de la cartera scoreada (sin historial) va por regla.
+    con_historial = set(plan.loc[plan["canal_origen"] == "historial", "id_deudor"])
+    assert con_historial & set(g["id_deudor"]), \
+        "ningún deudor con historial quedó marcado como automático"
+    assert (plan["canal_origen"] == "regla").any(), \
+        "toda la cartera salió por historial: la regla nunca decide"
+
+
 def test_campana_iniciar_llamada_sin_credenciales(monkeypatch):
     from kobra import campana as kcamp
     for var in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM"):

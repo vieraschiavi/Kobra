@@ -170,9 +170,11 @@ def ofertas(productos: pd.DataFrame, v: pd.DataFrame) -> pd.DataFrame:
     # recorta hasta el piso en vez de sugerir vender a pérdida.
     precio_con_desc = sob["precio"] * (1 - desc)
     piso = sob["costo"] * (1 + MARGEN_MINIMO)
+    # Redondear DESPUÉS de multiplicar: `.round(3) * 100` deja el residuo
+    # binario del float a la vista (16.900000000000002% en pantalla).
     sob["descuento_pct"] = (np.where(precio_con_desc < piso,
                                      (1 - piso / sob["precio"]).clip(lower=0),
-                                     desc).round(3) * 100)
+                                     desc) * 100).round(1)
     sob["dias_stock"] = sob["dias_stock"].round(1)
     sob["precio_oferta"] = (sob["precio"] * (1 - sob["descuento_pct"] / 100)).round(2)
     sob["capital_inmovilizado"] = (sob["stock"] * sob["costo"]).round(2)

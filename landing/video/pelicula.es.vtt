@@ -1,91 +1,91 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:08.000
+00:00:00.000 --> 00:00:07.998
 Así arranca una cobranza real: la mora crece,
 el panel lo muestra y el tiempo no alcanza.
 
 2
-00:00:08.000 --> 00:00:17.000
+00:00:07.998 --> 00:00:16.996
 Primero, medir el problema en serio: antigüedad de saldos,
 DSO y efectividad, calculados sobre la cartera.
 
 3
-00:00:17.000 --> 00:00:26.000
+00:00:16.996 --> 00:00:25.994
 El cambio empieza acá: subís tu cartera y Kobra la scorea
 al instante, con la probabilidad de pago y sus razones.
 
 4
-00:00:26.000 --> 00:00:36.000
+00:00:25.994 --> 00:00:35.991
 ProbPago ordena la cartera por lo que de verdad se puede recuperar:
 estrategia, descuento justo y guion para cada deudor.
 
 5
-00:00:36.000 --> 00:00:44.000
+00:00:35.991 --> 00:00:43.989
 La agenda arma el día sola:
 a quién contactar, cuándo y por qué canal.
 
 6
-00:00:44.000 --> 00:00:56.000
+00:00:43.989 --> 00:00:55.986
 Y el gestor de inteligencia artificial ejecuta: llama con voz natural
 al número del caso, negocia por WhatsApp y genera el cobro con su QR.
 
 7
-00:00:56.000 --> 00:01:04.000
+00:00:55.986 --> 00:01:03.984
 El deudor también puede pagar solo:
 entra al portal con un QR o un link, y paga.
 
 8
-00:01:04.000 --> 00:01:13.000
+00:01:03.984 --> 00:01:12.982
 El tablero conversacional responde en tu idioma:
 cada número sale de tus datos, no de una estimación.
 
 9
-00:01:13.000 --> 00:01:21.000
+00:01:12.982 --> 00:01:20.980
 ¿Una duda sobre el producto? El asistente contesta al lado,
 con la documentación adentro.
 
 10
-00:01:21.000 --> 00:01:29.000
+00:01:20.980 --> 00:01:28.978
 El equipo humano se mide acá:
 recupero por gestor, por mes y por canal.
 
 11
-00:01:29.000 --> 00:01:37.000
+00:01:28.978 --> 00:01:36.976
 Y calidad revisa cada gestión:
 horarios, topes y lista de no contactar, siempre.
 
 12
-00:01:37.000 --> 00:01:46.000
+00:01:36.976 --> 00:01:45.974
 Ingeniería de datos incluida: conectá SQL, CSV o Excel;
 perfiles, uniones y features sin escribir código.
 
 13
-00:01:46.000 --> 00:01:55.000
+00:01:45.974 --> 00:01:54.972
 Gobernanza responde qué dato es personal, quién lo ve
 y qué calidad tiene, en las seis dimensiones DAMA.
 
 14
-00:01:55.000 --> 00:02:03.000
+00:01:54.972 --> 00:02:02.970
 KPIs propios: definí tu indicador con una fórmula
 y usalo en todo el tablero.
 
 15
-00:02:03.000 --> 00:02:12.000
-AutoML entrena un modelo con tu propio dataset;
-la métrica sale de un holdout que no se usó para elegir nada.
+00:02:02.970 --> 00:02:15.966
+AutoML entrena acá mismo con tu propio dataset —mirá—
+y la métrica sale de un holdout que no se usó para elegir nada.
 
 16
-00:02:12.000 --> 00:02:20.000
+00:02:15.966 --> 00:02:23.964
 Logística, un módulo aparte: qué ofertar,
 qué reponer y a qué cliente recuperar.
 
 17
-00:02:20.000 --> 00:02:28.000
+00:02:23.964 --> 00:02:31.962
 Y Proyectos: salud del portafolio
 y backlog ordenado por valor esperado.
 
 18
-00:02:28.000 --> 00:02:38.000
+00:02:31.962 --> 00:02:41.960
 El resultado se mide acá: más recupero con menos gestiones.
 MV Kobra AI, de punta a punta. mvkobranzaia.com
