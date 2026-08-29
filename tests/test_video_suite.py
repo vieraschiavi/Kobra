@@ -90,9 +90,17 @@ def test_el_recorrido_muestra_todos_los_modulos_nuevos():
 
 def test_la_narracion_nombra_lo_que_se_ve():
     """Subtítulo y pantalla tienen que hablar de lo mismo: la narración en
-    castellano tiene que nombrar cada módulo del recorrido."""
+    castellano tiene que nombrar cada módulo del recorrido.
+
+    Se busca el nombre COMERCIAL y no el slug de la ruta: el módulo vive en
+    `/medidas` por historia —así se llamó cuando se escribió, copiando el
+    término "measure" de Power BI— pero de cara al cliente es "KPIs propios",
+    porque "medidas" fuera de ese contexto se lee como "mediciones" o
+    "medidas a tomar". El slug interno no se renombró para no romper URLs
+    guardadas; lo que ve el usuario, sí.
+    """
     texto = " ".join(t["es"].lower() for _, _, t in ksub.SUITE_CUES)
-    for palabra in ("tablero", "gobernanza", "medidas", "automl",
+    for palabra in ("tablero", "gobernanza", "kpi", "automl",
                     "logística", "proyectos"):
         assert palabra in texto, f"la narración no menciona {palabra!r}"
 

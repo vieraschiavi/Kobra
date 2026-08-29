@@ -142,9 +142,9 @@ SUITE_CUES = [
         "pt": "Governança de dados: o que é pessoal, quem vê,\nqualidade nas seis dimensões DAMA e linhagem auditável.",
         "en": "Data governance: what is personal, who can see it,\nquality across the six DAMA dimensions and auditable lineage."}),
     (23.0, 30.5, {
-        "es": "Medidas propias: definí tus KPIs con fórmulas,\nsin tocar una línea de código.",
-        "pt": "Medidas próprias: defina seus KPIs com fórmulas,\nsem tocar numa linha de código.",
-        "en": "Custom measures: define your KPIs with formulas,\nwithout touching a line of code."}),
+        "es": "KPIs propios: definilos con una fórmula,\nsin tocar una línea de código.",
+        "pt": "KPIs próprios: defina-os com uma fórmula,\nsem tocar numa linha de código.",
+        "en": "Custom KPIs: define them with a formula,\nwithout touching a line of code."}),
     (30.5, 38.0, {
         "es": "AutoML: entrená un modelo con tu propio dataset.\nLa métrica sale de un holdout que no se usó para elegir nada.",
         "pt": "AutoML: treine um modelo com o seu próprio dataset.\nA métrica vem de um holdout que não foi usado para escolher nada.",
