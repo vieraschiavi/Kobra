@@ -170,6 +170,65 @@ def _proyectos(cfg: dict, rng: np.random.Generator) -> dict[str, pd.DataFrame]:
             "proyectos_equipo": equipo}
 
 
+# Frases de gestor con las que se arman las transcripciones sintéticas de las
+# llamadas evaluadas. Cada una ejercita criterios REALES de la rúbrica de
+# calidad (escucha, soluciones, cierre, normativo…): cuanta más calidad tiene
+# el gestor en esa gestión, más de estas frases entran en su llamada — así el
+# panel muestra gestores buenos y flojos, como una operación de verdad.
+_FRASES_CALIDAD = [
+    "Entiendo, cuénteme qué pasó con el pago.",
+    "Le propongo un plan en cuotas con descuento, tenemos varias opciones.",
+    "Comprendo su situación, busquemos una alternativa que le sirva.",
+    "Quedamos en que abona el día 19; le mando el link de pago.",
+    "Voy a registrar el arreglo en el sistema, queda registrado.",
+    "Queda como promesa de pago; dejo agendado el próximo contacto.",
+    "Muchas gracias, muy amable, por favor cualquier duda me consulta.",
+    "Le informo que esta llamada es grabada por calidad.",
+    "Le mando un recordatorio antes de la fecha, quedo a disposición.",
+    "Para cancelar la deuda total hay una quita: queda al día hoy.",
+]
+
+
+def _evaluaciones_calidad(gestiones: pd.DataFrame, rng: np.random.Generator,
+                          n: int = 48) -> pd.DataFrame:
+    """Llamadas EVALUADAS para el panel de calidad.
+
+    Sin esto, la pestaña de Calidad de una demo recién activada muestra
+    "todavía no hay llamadas evaluadas" — una pantalla vacía delante de un
+    prospecto. Cada fila sale de una transcripción sintética pasada por el
+    evaluador REAL (`kobra.calidad_gestion.evaluar`, la rúbrica de 14
+    criterios) y aplanada con `fila_evaluacion` — el mismo camino que recorre
+    un audio subido por un supervisor, no un CSV con puntajes inventados.
+    """
+    from kobra import calidad_gestion as kcalidad
+    llam = gestiones[gestiones["canal"] == "Llamada"]
+    muestra = llam.sample(n=min(n, len(llam)),
+                          random_state=int(rng.integers(1e9)))
+    filas = []
+    for i, (_, g) in enumerate(muestra.reset_index(drop=True).iterrows()):
+        # Probabilidad de cada frase ligada a la calidad de ESA gestión, con
+        # pendiente fuerte: si todos los gestores dicen casi todo, el panel
+        # sale con 95 de promedio para todo el mundo y no distingue a quién
+        # entrenar. La referencia humana del evaluador es ~83 con dispersión.
+        calidad = float(g.get("calidad_gestion", 70) or 70)
+        frac = min(0.95, max(0.05, (calidad - 40.0) / 55.0))
+        frases = [f for f in _FRASES_CALIDAD if rng.random() < frac]
+        texto = "\n".join([
+            f"Gestor: Buenos días, mi nombre es {g['gestor']}, llamo de la empresa.",
+            "Gestor: ¿Hablo con el titular de la cuenta?",
+            "Cliente: Sí, con él.",
+            f"Gestor: Tiene un saldo vencido de {float(g['monto_gestionado']):,.0f} pesos.",
+            "Cliente: Ahora no puedo pagar todo.",
+            *[f"Gestor: {f}" for f in frases],
+            "Cliente: Está bien, gracias.",
+        ])
+        ev = kcalidad.evaluar(texto, canal="Llamada")
+        filas.append(kcalidad.fila_evaluacion(
+            str(g["gestor"]), str(g["fecha_gestion"]), "Llamada",
+            f"llamada_demo_{i:03d}.wav", ev, f"demo{i:04d}"))
+    return pd.DataFrame(filas)
+
+
 def generar(escenario_id: str) -> dict[str, pd.DataFrame]:
     """Todas las tablas del escenario, en memoria. Determinista por semilla."""
     if escenario_id not in ESCENARIOS:
@@ -182,22 +241,21 @@ def generar(escenario_id: str) -> dict[str, pd.DataFrame]:
     cruda = _cartera_cruda(cfg, rng)
     scored = cartera_manual.importar_y_scorear(cruda)
 
-    # Gestiones históricas coherentes con la cartera (para Gestores/CxC).
-    n_g = min(len(scored) * 2, 800)
-    ids = rng.choice(scored["id_deudor"], n_g)
-    gestiones = pd.DataFrame({
-        "id_deudor": ids,
-        "fecha": rng.choice(pd.date_range("2026-05-01", "2026-08-20"), n_g),
-        "canal": rng.choice(["Llamada", "WhatsApp", "Email"], n_g,
-                            p=[0.5, 0.35, 0.15]),
-        "gestor": rng.choice(["IA01", "IA02", "G-Laura", "G-Martín"], n_g),
-        "resultado": rng.choice(
-            ["pago", "promesa", "arreglo", "no contesta", "informado"], n_g,
-            p=[0.12, 0.18, 0.10, 0.40, 0.20]),
-        "monto_prometido": np.round(rng.uniform(0, 30_000, n_g), 0),
-    })
+    # Gestiones históricas por el generador CANÓNICO (data/generate_gestiones):
+    # el mismo esquema completo que consumen Agenda, Gestores, Calidad y la
+    # campaña de contacto. La primera versión de este módulo inventaba acá un
+    # esquema propio de 6 columnas y Agenda/Gestores se caían con 500 apenas
+    # se activaba el escenario — el defecto exacto que este módulo existe para
+    # atrapar. La cartera scoreada ya trae todas las columnas que el generador
+    # necesita (tramo_mora, producto, departamento, score_buro,
+    # contactabilidad), así que se le pasa tal cual.
+    from data.generate_gestiones import generar as gen_gestiones
+    gestiones = gen_gestiones(
+        seed=cfg["seed"] + 1, cartera=scored,
+        gestiones_por_gestor_mes=14 if cfg["peso_individuos"] > 0.5 else 10)
 
     return {"kobra_scored": scored, "kobra_gestiones": gestiones,
+            "calidad_evaluaciones": _evaluaciones_calidad(gestiones, rng),
             **_logistica(cfg, rng), **_proyectos(cfg, rng)}
 
 
@@ -356,6 +414,62 @@ def verificar(dir_datos: str) -> list[dict]:
         d = kcum.puede_contactar(str(scored.iloc[0]["id_deudor"]))
         return f"motor consultado: {'permite' if d.permitido else d.motivo}"
     pasos.append(_paso("Cumplimiento (horarios/DNC)", cumplimiento))
+
+    # Los cinco pasos siguientes existen porque faltaron: la primera versión
+    # generaba gestiones con un esquema propio de 6 columnas y Agenda y
+    # Gestores devolvían 500 con el escenario activo — y esta verificación,
+    # que promete ejecutar TODOS los módulos, no los ejecutaba.
+    gestiones = pd.read_csv(os.path.join(dir_datos, "kobra_gestiones.csv"))
+
+    def agenda():
+        from kobra import seguimiento as kseg
+        venc = kseg.promesas_incumplidas(gestiones)
+        if venc.empty:
+            raise ValueError("no hay promesas vencidas: la agenda queda vacía")
+        return f"{len(venc)} promesas vencidas listas para retomar"
+    pasos.append(_paso("Agenda (promesas vencidas)", agenda))
+
+    def gestores():
+        from kobra import analitica as kana
+        r = kana.ranking_gestores(gestiones)
+        if r.empty:
+            raise ValueError("el ranking de gestores salió vacío")
+        return f"ranking de {len(r)} gestores sobre {len(gestiones)} gestiones"
+    pasos.append(_paso("Gestores (ranking)", gestores))
+
+    def calidad():
+        from kobra import calidad_gestion as kcal
+        ev = pd.read_csv(os.path.join(dir_datos, "calidad_evaluaciones.csv"))
+        panel = kcal.panel_calidad(ev)
+        gestores_panel = panel.get("gestores") or panel.get("filas") or []
+        if not gestores_panel:
+            raise ValueError("el panel de calidad quedó vacío")
+        return (f"{len(ev)} llamadas evaluadas con la rúbrica real, "
+                f"{len(gestores_panel)} gestores en el panel")
+    pasos.append(_paso("Calidad (llamadas evaluadas)", calidad))
+
+    def cuentas_por_cobrar():
+        from kobra import cuentas_por_cobrar as kcxc
+        a = kcxc.antiguedad_saldos(scored)
+        tramos = a.get("tramos") or a.get("filas") or []
+        if not len(tramos):
+            raise ValueError("la antigüedad de saldos salió vacía")
+        return f"aging con {len(tramos)} tramos sobre {len(scored)} deudores"
+    pasos.append(_paso("Cuentas por cobrar (aging)", cuentas_por_cobrar))
+
+    def campana():
+        from kobra import campana as kcam
+        # `hoy` anclado al final del historial: con el reloj de pared, la
+        # ventana de 90 días se vaciaría sola con el paso del tiempo y este
+        # chequeo fallaría por calendario, no por el producto.
+        ancla = pd.to_datetime(gestiones["fecha_gestion"], errors="coerce").max().date()
+        prefs = kcam.preferencias_contacto(gestiones, hoy=ancla)
+        if prefs.empty:
+            raise ValueError("sin historial: ningún canal elegido por "
+                             "contactabilidad")
+        return (f"canal elegido por contactabilidad real para "
+                f"{len(prefs)} deudores (el resto va por regla)")
+    pasos.append(_paso("Campaña (canal por contactabilidad)", campana))
 
     return pasos
 

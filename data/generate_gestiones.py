@@ -55,9 +55,14 @@ def _prob_proxy(row):
     return 1 / (1 + np.exp(-z))
 
 
-def generar(seed=42, gestiones_por_gestor_mes=42):
+def generar(seed=42, gestiones_por_gestor_mes=42, cartera=None):
+    """`cartera=None` lee la del repo; pasarla permite generar el historial
+    para OTRA cartera (los escenarios de demo la pasan scoreada). Tiene que
+    traer: id_deudor, monto_deuda, dias_mora, tramo_mora, segmento, producto,
+    departamento, score_buro y contactabilidad — el esquema del generador
+    canónico, que la cartera scoreada ya cumple."""
     rng = np.random.default_rng(seed)
-    cartera = pd.read_csv(CARTERA_CSV)
+    cartera = pd.read_csv(CARTERA_CSV) if cartera is None else cartera
 
     n_gestores = 12
     gestores = [f"G{str(i+1).zfill(2)}" for i in range(n_gestores)]

@@ -71,21 +71,21 @@ Custom KPIs: define your own indicator with a formula
 and use it across the board.
 
 15
-00:02:03.000 --> 00:02:12.000
-AutoML trains a model on your own dataset;
-the metric comes from a holdout never used to choose anything.
+00:02:03.000 --> 00:02:16.000
+AutoML trains right here on your own dataset — watch —
+and the metric comes from a holdout never used to choose anything.
 
 16
-00:02:12.000 --> 00:02:20.000
+00:02:16.000 --> 00:02:24.000
 Logistics, sold separately: what to discount,
 what to restock and which customer to win back.
 
 17
-00:02:20.000 --> 00:02:28.000
+00:02:24.000 --> 00:02:32.000
 And Projects: portfolio health
 and the backlog ranked by expected value.
 
 18
-00:02:28.000 --> 00:02:38.000
+00:02:32.000 --> 00:02:42.000
 The result is measured here: more recovery with less effort.
 MV Kobra AI, end to end. mvkobranzaia.com

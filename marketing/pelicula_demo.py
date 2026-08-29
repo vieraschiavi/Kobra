@@ -62,21 +62,37 @@ def _puerto_libre() -> int:
         return s.getsockname()[1]
 
 
-def _preparar_datos(dir_datos: str) -> None:
+def _preparar_datos(dir_datos: str) -> dict:
     """Activa el escenario de demo en el layout de la empresa principal.
 
     `activar` deja todo junto en un directorio (así lo consume el endpoint,
-    que para la principal apunta a `outputs/`); las gestiones, en cambio, la
-    API de la principal las lee de `data/` — se copian ahí para que gestores,
-    calidad y cuentas por cobrar muestren la historia del escenario y no una
-    pantalla vacía.
+    que para la principal apunta a `outputs/`); las gestiones y las llamadas
+    evaluadas, en cambio, la API de la principal las lee de `data/` — se
+    copian ahí, igual que hace el endpoint de activación, para que Agenda,
+    Gestores y Calidad muestren la historia del escenario y no una pantalla
+    vacía.
+
+    Devuelve las rutas de los archivos que las escenas SUBEN en cámara: la
+    cartera del escenario (ingeniería de datos la perfila en vivo) y el
+    histórico con resultado (AutoML entrena en vivo — la cartera recién
+    importada no trae `pago`, como una real; el histórico sale del generador
+    canónico con la misma semilla que usa la verificación).
     """
+    from data.generate_dataset import generar as gen_hist
     from kobra import demo_escenarios
     outputs = os.path.join(dir_datos, "outputs")
     demo_escenarios.activar(ESCENARIO, outputs)
     os.makedirs(os.path.join(dir_datos, "data"), exist_ok=True)
-    shutil.copy(os.path.join(outputs, "kobra_gestiones.csv"),
-                os.path.join(dir_datos, "data", "kobra_gestiones.csv"))
+    for nombre in ("kobra_gestiones.csv", "calidad_evaluaciones.csv"):
+        shutil.copy(os.path.join(outputs, nombre),
+                    os.path.join(dir_datos, "data", nombre))
+
+    historico = os.path.join(dir_datos, "historico_para_automl.csv")
+    import pandas as pd
+    pd.DataFrame(gen_hist(n=400, seed=demo_escenarios.ESCENARIOS_SEED_HIST)) \
+        .to_csv(historico, index=False)
+    return {"cartera": os.path.join(outputs, "kobra_scored.csv"),
+            "historico": historico}
 
 
 # Secreto de licencia SOLO del proceso de grabación (nunca el de producción):
@@ -123,6 +139,35 @@ def _configurar_caso_demo(base: str, token: str) -> None:
                {"valores": dict(demo_vivo._SINTETICO)}, token=token)
 
 
+def _escena_ingenieria(pagina, archivos: dict) -> None:
+    """Ingeniería de datos EN VIVO: se sube la cartera del propio escenario y
+    la pantalla la perfila delante de cámara — sin esto, la escena era un
+    formulario de subida vacío."""
+    try:
+        pagina.wait_for_timeout(2000)
+        pagina.set_input_files("input[type=file]", archivos["cartera"])
+        pagina.wait_for_timeout(2500)
+        pagina.mouse.wheel(0, 500)
+    except Exception:
+        pass
+
+
+def _escena_automl(pagina, archivos: dict) -> None:
+    """AutoML EN VIVO: subir el histórico, elegir `pago` y entrenar en
+    cámara. La métrica que aparece es la del holdout real — el mismo número
+    que muestra la verificación punta a punta."""
+    try:
+        pagina.wait_for_timeout(1200)
+        pagina.set_input_files("input[type=file]", archivos["historico"])
+        pagina.wait_for_timeout(1800)
+        tarjeta = pagina.locator(".card", has_text="Elegí qué predecir")
+        tarjeta.locator("select").select_option("pago")
+        pagina.wait_for_timeout(600)
+        tarjeta.get_by_role("button").click()
+    except Exception:
+        pass
+
+
 def _escena_llamada(pagina) -> None:
     """La escena de la llamada, en dos tiempos: primero el caso y el guion
     del agente quietos en pantalla (ahí se lee el número al que disca), y
@@ -147,7 +192,7 @@ def grabar(salida: str) -> str:
 
     puerto = _puerto_libre()
     tmp = tempfile.mkdtemp(prefix="pelicula_")
-    _preparar_datos(os.path.join(tmp, "datos"))
+    archivos = _preparar_datos(os.path.join(tmp, "datos"))
 
     entorno = {**os.environ,
                "KOBRA_CONFIG_DIR": os.path.join(tmp, "config"),
@@ -205,6 +250,10 @@ def grabar(salida: str) -> str:
                     pass                     # una pantalla lenta no corta el video
                 if ruta == "/demo-vivo":
                     _escena_llamada(pagina)
+                elif ruta == "/ingenieria-datos":
+                    _escena_ingenieria(pagina, archivos)
+                elif ruta == "/automl":
+                    _escena_automl(pagina, archivos)
                 # Cada escena dura lo que declara el guion, interacciones
                 # incluidas: si esto no se descuenta, cada clic corre TODOS
                 # los subtítulos siguientes y la narración se adelanta a la

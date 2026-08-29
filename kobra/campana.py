@@ -166,7 +166,8 @@ def _contactos_previos_por_deudor(gestiones: pd.DataFrame) -> dict:
 def plan_contacto_hoy(gestiones: pd.DataFrame, hoy: date | None = None,
                       ahora: datetime | None = None, politica=None,
                       max_contactos: int | None = None,
-                      excluir: set | None = None) -> pd.DataFrame:
+                      excluir: set | None = None,
+                      scored: pd.DataFrame | None = None) -> pd.DataFrame:
     """
     Arma el plan de contacto de hoy, ordenado por prioridad:
 
@@ -178,8 +179,12 @@ def plan_contacto_hoy(gestiones: pd.DataFrame, hoy: date | None = None,
     Cada fila trae canal/hora preferidos (según historial real) y se
     descarta si `cumplimiento.puede_contactar` no lo autoriza AHORA. Solo
     quedan filas listas para ejecutar. Columnas: id_deudor, monto,
-    dias_mora, tramo_mora, canal, motivo, prioridad_rank, contactable,
-    motivo_bloqueo.
+    dias_mora, tramo_mora, canal, canal_origen ("historial" cuando lo eligió
+    la contactabilidad real del deudor, "regla" cuando todavía no la hay),
+    hora_preferida, motivo, prioridad_rank, contactable, motivo_bloqueo.
+
+    `scored=None` lee la cartera del registro global (standalone); pasarla
+    permite armar el plan de OTRA empresa (multi-tenant).
     """
     from kobra import cumplimiento as kcump
 
@@ -187,7 +192,8 @@ def plan_contacto_hoy(gestiones: pd.DataFrame, hoy: date | None = None,
     ahora = ahora or datetime.now()
     prefs = preferencias_contacto(gestiones, hoy).set_index("id_deudor")
     previos = _contactos_previos_por_deudor(gestiones)
-    scored = kregistro._scored()
+    if scored is None:
+        scored = kregistro._scored()
     scored_idx = scored.set_index("id_deudor") if scored is not None else None
 
     filas = []
@@ -197,12 +203,22 @@ def plan_contacto_hoy(gestiones: pd.DataFrame, hoy: date | None = None,
     for _, r in vencidas.iterrows():
         d = r["id_deudor"]
         ya_vistos.add(d)
-        canal = prefs["canal_preferido"].get(d) or r.get("canal") or "Llamada"
+        preferido = prefs["canal_preferido"].get(d)
+        canal = preferido or r.get("canal") or "Llamada"
         info = scored_idx.loc[d] if scored_idx is not None and d in scored_idx.index else {}
         filas.append({"id_deudor": d, "monto": r.get("monto_acordado"),
                       "dias_mora": info.get("dias_mora") if hasattr(info, "get") else None,
                       "tramo_mora": info.get("tramo_mora") if hasattr(info, "get") else None,
-                      "canal": canal, "motivo": f"Promesa/arreglo vencido hace {r['dias_vencida']} días",
+                      "canal": canal,
+                      # De dónde salió el canal: "historial" = contactabilidad
+                      # real de ESE deudor (automático); "regla" = todavía no
+                      # hay historial y decide la regla de negocio. La
+                      # pantalla lo muestra para que el operador sepa cuándo
+                      # confiar y cuándo elegir a mano.
+                      "canal_origen": "historial" if preferido else "regla",
+                      "hora_preferida": prefs["hora_preferida"].get(d)
+                      if not prefs.empty and d in prefs.index else None,
+                      "motivo": f"Promesa/arreglo vencido hace {r['dias_vencida']} días",
                       "_orden": (0, -r["dias_vencida"])})
 
     if scored is not None:
@@ -210,10 +226,15 @@ def plan_contacto_hoy(gestiones: pd.DataFrame, hoy: date | None = None,
             "valor_esperado_recupero", ascending=False)
         for _, r in resto.iterrows():
             d = r["id_deudor"]
-            canal = prefs["canal_preferido"].get(d) or r.get("canal_recomendado") or "Llamada"
+            preferido = prefs["canal_preferido"].get(d)
+            canal = preferido or r.get("canal_recomendado") or "Llamada"
             filas.append({"id_deudor": d, "monto": r.get("monto_deuda"),
                           "dias_mora": r.get("dias_mora"), "tramo_mora": r.get("tramo_mora"),
-                          "canal": canal, "motivo": "Prioridad por valor esperado de recupero",
+                          "canal": canal,
+                          "canal_origen": "historial" if preferido else "regla",
+                          "hora_preferida": prefs["hora_preferida"].get(d)
+                          if not prefs.empty and d in prefs.index else None,
+                          "motivo": "Prioridad por valor esperado de recupero",
                           "_orden": (1, -float(r.get("valor_esperado_recupero", 0) or 0))})
 
     plan = pd.DataFrame(filas)

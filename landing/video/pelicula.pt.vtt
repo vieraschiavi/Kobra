@@ -71,21 +71,21 @@ KPIs próprios: defina o seu indicador com uma fórmula
 e use em todo o painel.
 
 15
-00:02:03.000 --> 00:02:12.000
-O AutoML treina um modelo com o seu próprio dataset;
-a métrica vem de um holdout que não foi usado para escolher nada.
+00:02:03.000 --> 00:02:16.000
+O AutoML treina aqui mesmo com o seu próprio dataset — veja —
+e a métrica vem de um holdout que não foi usado para escolher nada.
 
 16
-00:02:12.000 --> 00:02:20.000
+00:02:16.000 --> 00:02:24.000
 Logística, um módulo à parte: o que ofertar,
 o que repor e qual cliente recuperar.
 
 17
-00:02:20.000 --> 00:02:28.000
+00:02:24.000 --> 00:02:32.000
 E Projetos: saúde do portfólio
 e backlog ordenado por valor esperado.
 
 18
-00:02:28.000 --> 00:02:38.000
+00:02:32.000 --> 00:02:42.000
 O resultado se mede aqui: mais recuperação com menos gestões.
 MV Kobra AI, de ponta a ponta. mvkobranzaia.com

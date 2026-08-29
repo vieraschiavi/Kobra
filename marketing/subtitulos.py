@@ -228,10 +228,10 @@ PELICULA_ESCENAS = [
         "es": "KPIs propios: definí tu indicador con una fórmula\ny usalo en todo el tablero.",
         "pt": "KPIs próprios: defina o seu indicador com uma fórmula\ne use em todo o painel.",
         "en": "Custom KPIs: define your own indicator with a formula\nand use it across the board."}),
-    ("/automl", 9, {
-        "es": "AutoML entrena un modelo con tu propio dataset;\nla métrica sale de un holdout que no se usó para elegir nada.",
-        "pt": "O AutoML treina um modelo com o seu próprio dataset;\na métrica vem de um holdout que não foi usado para escolher nada.",
-        "en": "AutoML trains a model on your own dataset;\nthe metric comes from a holdout never used to choose anything."}),
+    ("/automl", 13, {
+        "es": "AutoML entrena acá mismo con tu propio dataset —mirá—\ny la métrica sale de un holdout que no se usó para elegir nada.",
+        "pt": "O AutoML treina aqui mesmo com o seu próprio dataset — veja —\ne a métrica vem de um holdout que não foi usado para escolher nada.",
+        "en": "AutoML trains right here on your own dataset — watch —\nand the metric comes from a holdout never used to choose anything."}),
     ("/logistica", 8, {
         "es": "Logística, un módulo aparte: qué ofertar,\nqué reponer y a qué cliente recuperar.",
         "pt": "Logística, um módulo à parte: o que ofertar,\no que repor e qual cliente recuperar.",

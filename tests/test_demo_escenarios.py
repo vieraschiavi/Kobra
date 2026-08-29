@@ -35,9 +35,10 @@ def test_hay_al_menos_dos_escenarios():
 def test_cada_escenario_trae_datos_para_todos_los_modulos(activados, esc):
     """La promesa central: ningún módulo queda con la pantalla vacía."""
     dir_datos, _ = activados[esc]
-    for tabla in ("kobra_scored", "kobra_gestiones", "logistica_productos",
-                  "logistica_ventas", "proyectos_proyectos",
-                  "proyectos_tareas", "proyectos_equipo"):
+    for tabla in ("kobra_scored", "kobra_gestiones", "calidad_evaluaciones",
+                  "logistica_productos", "logistica_ventas",
+                  "proyectos_proyectos", "proyectos_tareas",
+                  "proyectos_equipo"):
         ruta = os.path.join(dir_datos, f"{tabla}.csv")
         assert os.path.exists(ruta), f"{esc} no generó {tabla}"
         assert len(pd.read_csv(ruta)) > 0, f"{esc}: {tabla} quedó vacía"
@@ -92,12 +93,47 @@ def test_la_verificacion_pasa_entera_con_cada_escenario(activados, esc):
     # Los módulos comprometidos tienen que estar TODOS en el checklist.
     for esperado in ("ProbPago", "Gestor IA", "Chatbot", "Gobernanza", "KPIs",
                      "AutoML", "Logística", "Proyectos", "Ingeniería",
-                     "Cumplimiento"):
+                     "Cumplimiento", "Agenda", "Gestores", "Calidad",
+                     "Cuentas por cobrar", "Campaña"):
         assert any(esperado in m for m in modulos), (
             f"la verificación no cubre {esperado}")
     fallas = [p for p in pasos if not p["ok"]]
     assert not fallas, "módulos en falla: " + "; ".join(
         f"{p['modulo']} → {p['detalle']}" for p in fallas)
+
+
+@pytest.mark.parametrize("esc", sorted(de.ESCENARIOS))
+def test_las_gestiones_tienen_el_esquema_del_producto(activados, esc):
+    """El defecto que motivó estos tests: la primera versión generaba
+    gestiones con un esquema propio de 6 columnas y Agenda y Gestores
+    devolvían 500 apenas se activaba el escenario. Las gestiones tienen que
+    salir del generador canónico, con las columnas que las pantallas leen."""
+    dir_datos, _ = activados[esc]
+    g = pd.read_csv(os.path.join(dir_datos, "kobra_gestiones.csv"))
+    for col in ("fecha_gestion", "gestor_id", "gestor", "canal", "resultado",
+                "fecha_compromiso", "fecha_pago", "monto_acordado",
+                "calidad_gestion", "recupero", "mes", "usa_kobra"):
+        assert col in g.columns, f"{esc}: a las gestiones les falta {col!r}"
+    # Y con contenido para las pantallas: promesas (Agenda) y varios gestores.
+    assert (g["resultado"] == "Promesa").any(), f"{esc}: sin promesas"
+    assert g["gestor_id"].nunique() >= 5, f"{esc}: muy pocos gestores"
+
+
+@pytest.mark.parametrize("esc", sorted(de.ESCENARIOS))
+def test_las_llamadas_evaluadas_salen_del_evaluador_real(activados, esc):
+    """El panel de calidad no puede decir "todavía no hay llamadas
+    evaluadas" en una demo recién activada. Y los puntajes tienen que venir
+    del evaluador real con dispersión — un panel donde todos tienen 95 no
+    distingue a quién entrenar."""
+    dir_datos, _ = activados[esc]
+    ev = pd.read_csv(os.path.join(dir_datos, "calidad_evaluaciones.csv"))
+    assert len(ev) >= 30, f"{esc}: pocas llamadas evaluadas ({len(ev)})"
+    assert ev["puntaje_total"].between(0, 100).all()
+    assert ev["puntaje_total"].std() > 4, (
+        f"{esc}: todos los puntajes casi iguales "
+        f"(sd={ev['puntaje_total'].std():.1f}): el panel no distingue nada")
+    # Columnas por criterio de la rúbrica (c1..c14), como las guarda el store.
+    assert {"c1", "c14", "gestor", "mes"} <= set(ev.columns)
 
 
 def test_la_verificacion_no_es_de_tildes(activados, monkeypatch):
