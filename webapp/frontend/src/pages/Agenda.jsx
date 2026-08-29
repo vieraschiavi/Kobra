@@ -13,7 +13,7 @@ const TAMANO = 100;
 function PlanContacto() {
   const [d, setD] = useState(null);
   useEffect(() => {
-    api("/api/campana/plan?limite=12").then(setD).catch(() => setD({ total: 0, plan: [] }));
+    api("/api/campana/plan?limite=12").then(setD).catch(() => setD({ total: 0, contactos: [] }));
   }, []);
   if (!d || !d.total) return null;
   return (
@@ -33,7 +33,7 @@ function PlanContacto() {
             <th>{t("agenda.plan.col_monto")}</th>
           </tr></thead>
           <tbody>
-            {d.plan.map((p, i) => (
+            {d.contactos.map((p, i) => (
               <tr key={i} className="norow">
                 <td>{p.id_deudor}</td>
                 <td>{p.canal}</td>

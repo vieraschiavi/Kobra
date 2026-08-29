@@ -485,12 +485,19 @@ def _pct(valor, tope):
     return round(100.0 * v / float(tope), 1)
 
 
-def _criterios_vs_equipo(foco, periodo) -> list:
+def _criterios_vs_equipo(foco, periodo, contra_referencia: bool = False) -> list:
     """Cada aspecto de la negociación, del gestor contra la media del equipo.
 
     La comparación es el punto del tablero: saber que un gestor tiene 68 de
     calidad no dice qué entrenarle; saber que está 22 puntos por debajo del
     equipo en «Negociación deuda total» y 9 por encima en «Escucha activa», sí.
+
+    `contra_referencia=True` es la vista SIN gestor elegido: ahí el "foco" es
+    el equipo entero y compararlo contra su propia media daba 0 en todos los
+    aspectos — un tablero lleno de ceros que no dice nada (y quedó así en
+    cámara). En esa vista la vara es la referencia de calibración humana de
+    la rúbrica (`_REF_FRAC`, supervisores reales): la brecha dice en qué
+    está el EQUIPO por encima o por debajo de una supervisión típica.
     """
     filas = []
     for c in RUBRICA:
@@ -498,15 +505,18 @@ def _criterios_vs_equipo(foco, periodo) -> list:
         if col not in periodo.columns:
             continue
         suyo = _pct(foco[col].mean(), c["max"])
-        equipo = _pct(periodo[col].mean(), c["max"])
+        if contra_referencia:
+            vara = round(_REF_FRAC[c["id"]] * 100, 1)
+        else:
+            vara = _pct(periodo[col].mean(), c["max"])
         filas.append({
             "id": c["id"], "criterio": c["nombre"], "max": c["max"],
             "critico": bool(c.get("critico")),
             "puntaje": round(float(foco[col].mean()), 2)
                        if foco[col].notna().any() else None,
-            "pct": suyo, "media_equipo_pct": equipo,
-            "brecha": None if (suyo is None or equipo is None)
-                      else round(suyo - equipo, 1),
+            "pct": suyo, "media_equipo_pct": vara,
+            "brecha": None if (suyo is None or vara is None)
+                      else round(suyo - vara, 1),
         })
     return filas
 
@@ -577,7 +587,8 @@ def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
     """
     import pandas as pd
 
-    vacio = {"total": 0, "kpis": {}, "por_criterio": [], "evolucion": [],
+    vacio = {"total": 0, "comparacion": "equipo", "kpis": {},
+             "por_criterio": [], "evolucion": [],
              "ranking": [], "distribucion": [], "por_canal": [],
              "gestores": [], "anios": [], "meses": []}
     if df is None or len(df) == 0:
@@ -612,17 +623,29 @@ def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
     if len(foco) == 0:
         return {**vacio, **universo}
 
-    por_criterio = _criterios_vs_equipo(foco, periodo)
+    # Sin gestor elegido el foco ES el equipo: la vara pasa a ser la
+    # referencia humana de la rúbrica (si no, todo da 0 contra sí mismo).
+    contra_referencia = not gestor
+    por_criterio = _criterios_vs_equipo(foco, periodo,
+                                        contra_referencia=contra_referencia)
     con_brecha = [c for c in por_criterio if c["brecha"] is not None]
     fuertes = sorted(con_brecha, key=lambda c: -c["brecha"])[:3]
     debiles = sorted(con_brecha, key=lambda c: c["brecha"])[:3]
 
     nota = float(foco["puntaje_total"].mean()) if foco["puntaje_total"].notna().any() else None
-    nota_equipo = (float(periodo["puntaje_total"].mean())
-                   if periodo["puntaje_total"].notna().any() else None)
+    # La media real del equipo sigue existiendo aunque la vara de los KPIs
+    # sea la referencia: el ranking mide la distancia de cada gestor a SU
+    # equipo (posición relativa), no a la calibración de la rúbrica.
+    nota_equipo_real = (float(periodo["puntaje_total"].mean())
+                        if periodo["puntaje_total"].notna().any() else None)
+    nota_equipo = (float(PROMEDIO_HUMANO_REF) if contra_referencia
+                   else nota_equipo_real)
 
     return {
         "total": int(len(foco)),
+        # La UI elige la leyenda con esto: "vs. media del equipo" o
+        # "vs. referencia de supervisión humana".
+        "comparacion": "referencia" if contra_referencia else "equipo",
         "kpis": {
             "audios": int(len(foco)),
             "calidad_prom": round(nota, 1) if nota is not None else None,
@@ -639,7 +662,7 @@ def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
         "fortalezas": fuertes,
         "oportunidades": debiles,
         "evolucion": _evolucion_mensual(foco, periodo, bool(gestor)),
-        "ranking": _ranking_gestores(periodo, nota_equipo),
+        "ranking": _ranking_gestores(periodo, nota_equipo_real),
         "distribucion": _distribucion_notas(foco),
         "por_canal": _calidad_por_canal(foco, periodo),
         **universo,

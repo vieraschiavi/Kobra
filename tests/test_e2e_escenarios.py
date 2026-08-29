@@ -238,7 +238,11 @@ def test_plan_de_contacto_por_contactabilidad(montado):
     assert d["total"] > 0, "el plan de contacto salió vacío"
     assert d["con_historial"] > 0, (
         "ningún canal elegido por contactabilidad: el automático no funciona")
-    assert {p["canal_origen"] for p in d["plan"]} <= {"historial", "regla"}
+    assert {p["canal_origen"] for p in d["contactos"]} <= {"historial", "regla"}
+    # La clave NO puede llamarse `plan`: el interceptor del frontend toma
+    # cualquier respuesta con esa clave como el estado del plan de licencia
+    # y pisa el chip de consumo (se vio "undefined de undefined" en cámara).
+    assert "plan" not in d
 
 
 def test_chatbot_de_ayuda(montado):

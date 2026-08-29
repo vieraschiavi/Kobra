@@ -568,7 +568,7 @@ function Fichas({ recargar }) {
 // Lo que hace útil al tablero no es la nota sino la COMPARACIÓN: saber que un
 // gestor tiene 58 no dice qué entrenarle; saber que está 40 puntos por debajo
 // de la media del equipo en "Negociación deuda total", sí.
-function BarraComparada({ c }) {
+function BarraComparada({ c, referencia }) {
   const brecha = c.brecha;
   const color = brecha == null ? "var(--muted)"
               : brecha >= 5 ? "var(--green)"
@@ -588,9 +588,11 @@ function BarraComparada({ c }) {
                     background: "rgba(255,255,255,.07)" }}>
         <div style={{ width: `${Math.max(0, Math.min(100, c.pct || 0))}%`,
                       height: "100%", borderRadius: 4, background: color }} />
-        {/* Marca de la media del equipo: la referencia contra la que se lee. */}
+        {/* Marca de la vara: la media del equipo con un gestor elegido, la
+            referencia de supervisión humana en la vista de equipo. */}
         {c.media_equipo_pct != null && (
-          <div title={t("calidad.panel.media_equipo")}
+          <div title={t(referencia ? "calidad.panel.ref_marca"
+                                   : "calidad.panel.media_equipo")}
                style={{ position: "absolute", top: -2, bottom: -2,
                         left: `${Math.min(100, c.media_equipo_pct)}%`,
                         width: 2, background: "var(--txt)", opacity: .65 }} />
@@ -633,6 +635,11 @@ function PanelCalidad() {
 
   const k = d.kpis || {};
   const sinDatos = !d.total;
+  // Sin gestor elegido, el backend compara contra la referencia de
+  // supervisión humana (comparar al equipo contra su propia media daba 0 en
+  // todo); la leyenda tiene que decir contra qué se está mirando.
+  const vsRef = d.comparacion === "referencia";
+  const vsTxt = t(vsRef ? "calidad.panel.vs_ref_txt" : "calidad.panel.vs_media_txt");
 
   return (
     <>
@@ -670,12 +677,14 @@ function PanelCalidad() {
             <div className="kpi"><div className="v">{k.calidad_prom ?? "—"}</div>
               <div className="l">{t("calidad.panel.kpi_calidad")}</div></div>
             <div className="kpi"><div className="v">{k.media_equipo ?? "—"}</div>
-              <div className="l">{t("calidad.panel.kpi_media")}</div></div>
+              <div className="l">{t(vsRef ? "calidad.panel.kpi_ref"
+                                         : "calidad.panel.kpi_media")}</div></div>
             <div className="kpi">
               <div className="v" style={{ color: (k.vs_media ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>
                 {k.vs_media == null ? "—" : `${k.vs_media > 0 ? "+" : ""}${k.vs_media}`}
               </div>
-              <div className="l">{t("calidad.panel.kpi_vs_media")}</div></div>
+              <div className="l">{t(vsRef ? "calidad.panel.kpi_vs_ref"
+                                         : "calidad.panel.kpi_vs_media")}</div></div>
             <div className="kpi"><div className="v">{k.gestores_evaluados}</div>
               <div className="l">{t("calidad.panel.kpi_gestores")}</div></div>
             <div className="kpi">
@@ -690,7 +699,8 @@ function PanelCalidad() {
               <p style={{ color: "var(--muted)", fontSize: 12, marginTop: -4 }}>
                 {t("calidad.panel.por_aspecto_sub")}
               </p>
-              {(d.por_criterio || []).map((c) => <BarraComparada key={c.id} c={c} />)}
+              {(d.por_criterio || []).map((c) =>
+                <BarraComparada key={c.id} c={c} referencia={vsRef} />)}
             </div>
             <div>
               <div className="card">
@@ -699,7 +709,7 @@ function PanelCalidad() {
                   <div key={c.id} style={{ fontSize: 13, marginBottom: 6 }}>
                     <b>{c.criterio}</b>{" "}
                     <span style={{ color: "var(--red)" }}>{c.brecha}</span>{" "}
-                    <span style={{ color: "var(--muted)" }}>{t("calidad.panel.vs_media_txt")}</span>
+                    <span style={{ color: "var(--muted)" }}>{vsTxt}</span>
                   </div>
                 ))}
               </div>
@@ -709,7 +719,7 @@ function PanelCalidad() {
                   <div key={c.id} style={{ fontSize: 13, marginBottom: 6 }}>
                     <b>{c.criterio}</b>{" "}
                     <span style={{ color: "var(--green)" }}>+{c.brecha}</span>{" "}
-                    <span style={{ color: "var(--muted)" }}>{t("calidad.panel.vs_media_txt")}</span>
+                    <span style={{ color: "var(--muted)" }}>{vsTxt}</span>
                   </div>
                 ))}
               </div>

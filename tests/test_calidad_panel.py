@@ -118,6 +118,22 @@ def test_el_ranking_ordena_y_marca_la_distancia_a_la_media():
     assert p["ranking"][0]["vs_media"] > 0 > p["ranking"][-1]["vs_media"]
 
 
+def test_sin_gestor_compara_contra_la_referencia_humana():
+    """La vista sin gestor comparaba al equipo contra su propia media: 0 en
+    todos los aspectos y en el KPI — un tablero lleno de ceros delante de un
+    prospecto (quedó en cámara). Sin filtro, la vara es la referencia de
+    calibración humana de la rúbrica; con gestor, sigue siendo el equipo."""
+    p = cg.panel_calidad(_dataset())
+    assert p["comparacion"] == "referencia"
+    assert p["kpis"]["media_equipo"] == cg.PROMEDIO_HUMANO_REF
+    brechas = [c["brecha"] for c in p["por_criterio"] if c["brecha"] is not None]
+    assert any(abs(b) > 0.5 for b in brechas), \
+        "todas las brechas ~0: el tablero sigue sin decir nada"
+    pg = cg.panel_calidad(_dataset(), gestor="Gestor 05")
+    assert pg["comparacion"] == "equipo"
+    assert pg["kpis"]["media_equipo"] != cg.PROMEDIO_HUMANO_REF
+
+
 def test_la_distribucion_cubre_todos_los_audios():
     p = cg.panel_calidad(_dataset())
     assert sum(t["audios"] for t in p["distribucion"]) == p["total"]

@@ -557,7 +557,11 @@
       "col_gestor": "Atendente",
       "col_audios": "Áudios",
       "col_calidad": "Qualidade",
-      "col_vs": "vs. média"
+      "col_vs": "vs. média",
+      "kpi_ref": "Referência humana",
+      "kpi_vs_ref": "Diferença vs. referência",
+      "ref_marca": "Referência de supervisão humana (calibração da rubrica)",
+      "vs_ref_txt": "vs. referência de supervisão humana"
     }
   },
   "portal": {

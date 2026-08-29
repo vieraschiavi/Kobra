@@ -1947,16 +1947,22 @@ def campana_plan(u: Usuario = Depends(usuario_actual), limite: int = 50):
     No Contactar) ya viene aplicado: solo salen filas contactables."""
     from kobra import campana as kcam
     g = _gestiones(u.empresa)
+    # La clave se llama `contactos` y NO `plan` a propósito: el interceptor
+    # del frontend (`avisarPlan` en api.js) toma cualquier respuesta con una
+    # clave `plan` como el estado del plan de licencia y pisa el chip de
+    # consumo de la barra lateral — se vio en cámara como "undefined de
+    # undefined".
+    g_vacio = {"total": 0, "con_historial": 0, "contactos": []}
     if g is None or g.empty or "fecha_gestion" not in g.columns:
-        return {"total": 0, "con_historial": 0, "plan": []}
+        return g_vacio
     plan = kcam.plan_contacto_hoy(g, scored=_scored(u.empresa))
     if plan is None or plan.empty:
-        return {"total": 0, "con_historial": 0, "plan": []}
+        return g_vacio
     hoja = plan.head(max(1, min(int(limite), 500)))
     hoja = hoja.astype(object).where(pd.notna(hoja), None)
     return {"total": int(len(plan)),
             "con_historial": int((plan["canal_origen"] == "historial").sum()),
-            "plan": hoja.to_dict("records")}
+            "contactos": hoja.to_dict("records")}
 
 
 def _totales_gestores(ranking: pd.DataFrame) -> dict:

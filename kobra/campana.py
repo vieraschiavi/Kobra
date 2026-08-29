@@ -139,7 +139,12 @@ def preferencias_contacto(gestiones: pd.DataFrame, hoy: date | None = None,
         exitosas = grupo[grupo["resultado"].isin(RESULTADOS_EXITOSOS)]
         base = exitosas if not exitosas.empty else grupo
         canal = Counter(base["canal"].dropna()).most_common(1)
-        hora = Counter(base["_fecha"].dt.hour.dropna()).most_common(1)
+        # Un historial guardado solo con FECHA (sin hora) parsea todo a las
+        # 00:00 — y "hora preferida: medianoche" no es un dato, es el
+        # artefacto del parseo. Solo cuenta como hora la que venga de un
+        # timestamp real; nadie cobra a las 0:00.
+        horas = base["_fecha"].dt.hour.dropna()
+        hora = Counter(horas[horas != 0]).most_common(1)
         filas.append({
             "id_deudor": id_deudor,
             "canal_preferido": canal[0][0] if canal else None,

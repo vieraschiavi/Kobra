@@ -161,7 +161,10 @@ def _escena_automl(pagina, archivos: dict) -> None:
         pagina.set_input_files("input[type=file]", archivos["historico"])
         pagina.wait_for_timeout(1800)
         tarjeta = pagina.locator(".card", has_text="Elegí qué predecir")
-        tarjeta.locator("select").select_option("pago")
+        # `.first`: la tarjeta tiene DOS selects (objetivo y columna de
+        # fecha) y el modo estricto de Playwright aborta con ambos — en la
+        # toma anterior el except lo tragó y el video quedó sin entrenar.
+        tarjeta.locator("select").first.select_option("pago")
         pagina.wait_for_timeout(600)
         tarjeta.get_by_role("button").click()
     except Exception:
@@ -229,23 +232,45 @@ def grabar(salida: str) -> str:
         with sync_playwright() as p:
             eje = shutil.which("chromium", path="/opt/pw-browsers") or None
             navegador = p.chromium.launch(executable_path=eje)
+
+            # Antes de cargar la app: el tour marcado como visto (el modal
+            # taparía todas las pantallas) y la sesión ya iniciada (si no, la
+            # película entera sería la pantalla de activación).
+            inits = ["localStorage.setItem('kobra_tour_visto','1')",
+                     "localStorage.setItem('kobra_token', "
+                     f"{json.dumps(json.dumps(sesion))})"]
+
+            # Calentamiento SIN video: el primer load dispara todas las APIs
+            # frías del backend (medido: ~8 s) y Playwright graba el contexto
+            # desde que nace — hecho en el contexto grabado, esos 8 s
+            # quedaban DELANTE de la escena 1 y corrían toda la narración.
+            warm = navegador.new_context(viewport=VIEWPORT)
+            pw = warm.new_page()
+            for script in inits:
+                pw.add_init_script(script)
+            pw.goto(f"{base}/#/", wait_until="networkidle")
+            warm.close()
+
             ctx = navegador.new_context(viewport=VIEWPORT,
                                         record_video_dir=tmp,
                                         record_video_size=VIEWPORT)
             pagina = ctx.new_page()
-            # Antes de cargar la app: el tour marcado como visto (el modal
-            # taparía todas las pantallas) y la sesión ya iniciada (si no, la
-            # película entera sería la pantalla de activación).
-            pagina.add_init_script("localStorage.setItem('kobra_tour_visto','1')")
-            pagina.add_init_script(
-                "localStorage.setItem('kobra_token', "
-                f"{json.dumps(json.dumps(sesion))})")
-            pagina.goto(f"{base}/#/", wait_until="networkidle")
+            for script in inits:
+                pagina.add_init_script(script)
             for ruta, segundos in RECORRIDO:
-                pagina.goto(f"{base}/#{ruta}")
+                # El reloj arranca ANTES del goto: la navegación también es
+                # tiempo de la escena. Medido: con el reloj después del goto,
+                # 18 navegaciones acumularon 8 s y los subtítulos del final
+                # quedaban hablando de la pantalla anterior.
                 t0 = time.monotonic()
+                pagina.goto(f"{base}/#{ruta}")
                 try:
-                    pagina.wait_for_load_state("networkidle", timeout=8000)
+                    # 3 s y no 8: con el servidor ya caliente las APIs vuelven
+                    # en milisegundos, y en las pantallas con tráfico continuo
+                    # `networkidle` no llega nunca — cada timeout de 8 s
+                    # desbordaba el presupuesto de su escena y el total daba
+                    # 169 s para un guion de 162 (medido en dos tomas).
+                    pagina.wait_for_load_state("networkidle", timeout=3000)
                 except Exception:
                     pass                     # una pantalla lenta no corta el video
                 if ruta == "/demo-vivo":
@@ -274,16 +299,27 @@ def grabar(salida: str) -> str:
 
 
 def construir(salida: str = SALIDA_DEFAULT, motor: str | None = None,
-              voz: str | None = None, con_voz: bool = True) -> dict:
-    """Graba la película y le monta la narración. Devuelve el informe."""
+              voz: str | None = None, con_voz: bool = True,
+              crudo: str | None = None) -> dict:
+    """Graba la película (o toma `crudo` ya grabado) y le monta la narración
+    con los cues ESCALADOS a la duración real del video — el screencast sale
+    con el reloj estirado (~4,5%, ver subtitulos._escala_pelicula) y sin el
+    escalado la voz del final habla de la pantalla anterior. Al terminar
+    regenera los .vtt con la misma escala."""
     if not con_voz:
         return {"salida": grabar(salida), "motor": None}
-    from marketing import audio_suite
-    crudo = os.path.join(tempfile.mkdtemp(prefix="pelicula_cruda_"),
-                         "pelicula_cruda.webm")
-    grabar(crudo)
-    return audio_suite.construir(salida=salida, motor=motor, entrada=crudo,
-                                 voz=voz, cues=PELICULA_CUES)
+    from marketing import audio_suite, subtitulos
+    if crudo is None:
+        crudo = os.path.join(tempfile.mkdtemp(prefix="pelicula_cruda_"),
+                             "pelicula_cruda.webm")
+        grabar(crudo)
+    escala = audio_suite.duracion(crudo) / PELICULA_CUES[-1][1]
+    inf = audio_suite.construir(salida=salida, motor=motor, entrada=crudo,
+                                voz=voz,
+                                cues=subtitulos.cues_pelicula_escalados(escala))
+    inf["escala_cues"] = round(escala, 4)
+    subtitulos.generar()
+    return inf
 
 
 def main(argv=None) -> int:

@@ -557,7 +557,11 @@
       "col_gestor": "Gestor",
       "col_audios": "Audios",
       "col_calidad": "Calidad",
-      "col_vs": "vs. media"
+      "col_vs": "vs. media",
+      "kpi_ref": "Referencia humana",
+      "kpi_vs_ref": "Diferencia vs. referencia",
+      "ref_marca": "Referencia de supervisión humana (calibración de la rúbrica)",
+      "vs_ref_txt": "vs. referencia de supervisión humana"
     }
   },
   "portal": {

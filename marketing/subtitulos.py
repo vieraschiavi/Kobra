@@ -261,6 +261,34 @@ def _cues_de_escenas(escenas) -> list[tuple[float, float, dict]]:
 PELICULA_CUES = _cues_de_escenas(PELICULA_ESCENAS)
 
 
+def _escala_pelicula() -> float:
+    """Factor entre el guion y el video REAL publicado.
+
+    El screencast de Playwright sale con el reloj estirado (~4,5% medido, y
+    constante entre tomas): 162 s de guion se graban como ~169 s de video.
+    Pelear contra eso escena por escena no funciona — la distorsión es del
+    contenedor, no de las esperas—, así que los subtítulos (y la narración,
+    que usa estos mismos cues) se escalan linealmente a la duración medida
+    del webm publicado. Si el video no está o no se puede medir, escala 1.
+    """
+    video = os.path.join(ROOT, "landing", "video", "MVKobraAI_Pelicula_Demo.webm")
+    try:
+        from marketing.audio_suite import duracion
+        real = duracion(video)
+    except Exception:
+        return 1.0
+    declarado = PELICULA_CUES[-1][1]
+    if declarado and 0.8 < real / declarado < 1.3:
+        return real / declarado
+    return 1.0
+
+
+def cues_pelicula_escalados(escala: float | None = None) -> list:
+    escala = _escala_pelicula() if escala is None else escala
+    return [(ini * escala, fin * escala, textos)
+            for ini, fin, textos in PELICULA_CUES]
+
+
 def _marca(segundos: float) -> str:
     """Segundos → `HH:MM:SS.mmm`, el formato que exige WebVTT."""
     ms = int(round(segundos * 1000))
@@ -290,7 +318,7 @@ def generar(destino: str | None = None) -> dict[str, str]:
     os.makedirs(destino, exist_ok=True)
     salida = {}
     for nombre, cues in (("copiloto", CUES), ("suite", SUITE_CUES),
-                         ("pelicula", PELICULA_CUES)):
+                         ("pelicula", cues_pelicula_escalados())):
         for idioma in IDIOMAS:
             ruta = os.path.join(destino, f"{nombre}.{idioma}.vtt")
             with open(ruta, "w", encoding="utf-8") as f:
