@@ -3,7 +3,7 @@
 > Método: **evidencia ejecutada o no cuenta.** Cada verificación de abajo se
 > corrió de verdad en esta auditoría; lo que no se pudo correr desde este
 > entorno está marcado PARCIAL con el motivo y el paso exacto que falta.
-> Guion reproducible: `python3 auditoria_e2e.py` (34 verificaciones E2E).
+> Guion reproducible: `python3 packaging/auditoria_e2e.py` (34 verificaciones E2E).
 
 ## Resumen
 
