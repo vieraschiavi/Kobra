@@ -267,7 +267,18 @@
       "configurada": "configurada",
       "sin_configurar": "sin configurar"
     },
-    "boton_guardar": "Guardar claves"
+    "boton_guardar": "Guardar claves",
+    "escenarios": {
+      "titulo": "Escenarios de demo",
+      "subtitulo": "Dos empresas sintéticas completas, con datos para todos los módulos. Elegí la que se parezca a quien le estás mostrando el producto. El botón demo de arriba decide si se muestra la demo o tu cartera real.",
+      "activar": "Activar este escenario",
+      "activando": "Generando y scoreando…",
+      "activado": "Listo: {nombre} activo, {deudores} deudores scoreados.",
+      "verificar": "Verificar punta a punta",
+      "verificando": "Ejecutando cada módulo…",
+      "todo_ok": "Todos los módulos verificados con los datos activos.",
+      "hay_fallas": "Hay módulos con fallas — el detalle dice qué se rompió."
+    }
   },
   "tour": {
     "paso1": {

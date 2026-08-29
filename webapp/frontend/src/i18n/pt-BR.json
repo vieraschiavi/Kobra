@@ -267,7 +267,18 @@
       "configurada": "configurada",
       "sin_configurar": "não configurada"
     },
-    "boton_guardar": "Salvar chaves"
+    "boton_guardar": "Salvar chaves",
+    "escenarios": {
+      "titulo": "Cenários de demonstração",
+      "subtitulo": "Duas empresas sintéticas completas, com dados para todos os módulos. Escolha a que se parece com quem vai ver o produto. O botão demo acima decide se aparece a demo ou a sua carteira real.",
+      "activar": "Ativar este cenário",
+      "activando": "Gerando e pontuando…",
+      "activado": "Pronto: {nombre} ativo, {deudores} devedores pontuados.",
+      "verificar": "Verificar ponta a ponta",
+      "verificando": "Executando cada módulo…",
+      "todo_ok": "Todos os módulos verificados com os dados ativos.",
+      "hay_fallas": "Há módulos com falhas — o detalhe diz o que quebrou."
+    }
   },
   "tour": {
     "paso1": {
