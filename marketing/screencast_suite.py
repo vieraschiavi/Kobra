@@ -133,12 +133,18 @@ def grabar(salida: str = SALIDA_DEFAULT) -> str:
     tmp = tempfile.mkdtemp(prefix="screencast_")
     _preparar_datos(os.path.join(tmp, "datos"))
 
-    # La app real, en modo owner: todas las pantallas habilitadas sin tocar
-    # licencias — es la copia del dueño, la misma con la que se demuestra.
+    # La app real, entrando como entra un cliente: licencia enterprise + los
+    # módulos sueltos, firmada con un secreto que solo vive en esta grabación.
+    # (`KOBRA_OWNER=1` ya no desbloquea nada: `kobra/edicion.py::es_owner`
+    # exige credencial verificable — sin esto, el video entero sería la
+    # pantalla de activación. Mismo flujo que marketing/pelicula_demo.py.)
+    from marketing.pelicula_demo import _SECRETO_GRABACION, _licencia_full, _post_json
     entorno = {**os.environ,
                "KOBRA_CONFIG_DIR": os.path.join(tmp, "config"),
                "KOBRA_DATA_DIR": os.path.join(tmp, "datos"),
-               "KOBRA_MODO_STANDALONE": "1", "KOBRA_OWNER": "1"}
+               "KOBRA_MODO_STANDALONE": "1",
+               "KOBRA_LICENSE_SECRET": _SECRETO_GRABACION}
+    entorno.pop("KOBRA_OWNER", None)
     servidor = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "webapp.backend.api:app",
          "--port", str(puerto), "--log-level", "warning"],
@@ -155,6 +161,9 @@ def grabar(salida: str = SALIDA_DEFAULT) -> str:
         else:
             raise RuntimeError("el servidor no arrancó")
 
+        sesion = _post_json(f"{base}/api/licencia/activar",
+                            {"token": _licencia_full()})
+
         with sync_playwright() as p:
             # Si hay un Chromium del sistema (p. ej. /opt/pw-browsers/chromium,
             # el del entorno de CI/nube), se usa ese: la revisión que descarga
@@ -168,7 +177,12 @@ def grabar(salida: str = SALIDA_DEFAULT) -> str:
             # El tour de bienvenida se marca como visto ANTES de cargar la app:
             # si no, el modal tapa todas las pantallas del video.
             pagina.add_init_script("localStorage.setItem('kobra_tour_visto','1')")
-            # En modo owner el frontend entra solo (owner-login automático).
+            # La sesión ya iniciada antes de cargar la app: sin esto, el
+            # video entero sería la pantalla de activación.
+            import json as _json
+            pagina.add_init_script(
+                "localStorage.setItem('kobra_token', "
+                f"{_json.dumps(_json.dumps(sesion))})")
             pagina.goto(f"{base}/#/", wait_until="networkidle")
             for ruta, segundos in RECORRIDO:
                 pagina.goto(f"{base}/#{ruta}")
