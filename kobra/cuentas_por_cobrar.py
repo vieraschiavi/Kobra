@@ -51,16 +51,139 @@ TRAMOS = ["Por vencer", "1-30", "31-60", "61-90", "91-180", "180+"]
 MAX_FACTURAS_POR_PAGO = 4
 MAX_FACTURAS_ABIERTAS = 60
 
+# Tramo que se usa cuando la cartera no trae la columna `tramo_mora`.
+SIN_TRAMO = "Sin tramo"
+
+# ---------------------------------------------------------------------------
+# Idioma del texto VISIBLE (es · pt · en)
+# ---------------------------------------------------------------------------
+# `TRAMOS` es el orden del reporte y sus valores son los que trae la cartera:
+# son IDENTIFICADORES, se comparan contra el dato y ordenan la tabla. Por eso
+# la clave `tramo` sigue devolviendo el valor crudo y la traducción viaja al
+# lado, en `tramo_nombre` — traducir el id rompería el orden y la comparación
+# contra los datos del cliente.
+IDIOMA_DEFAULT = "es"
+IDIOMAS = ("es", "pt", "en")
+
+# Solo los tramos con nombre en prosa se traducen; "1-30" o "180+" son rangos
+# de días y se leen igual en los tres idiomas.
+_NOMBRE_TRAMO = {
+    "Por vencer": {"es": "Por vencer", "pt": "A vencer", "en": "Not yet due"},
+    SIN_TRAMO:    {"es": SIN_TRAMO, "pt": "Sem faixa", "en": "No bucket"},
+}
+
+# Etiqueta de cada tipo de hallazgo. El `tipo` que viaja en el JSON no cambia.
+_NOMBRE_HALLAZGO = {
+    "posible_duplicado": {"es": "Posible duplicado", "pt": "Possível duplicado",
+                          "en": "Possible duplicate"},
+    "sin_factura":       {"es": "Sin factura", "pt": "Sem fatura",
+                          "en": "No invoice"},
+    "monto_no_calza":    {"es": "El monto no calza", "pt": "O valor não coincide",
+                          "en": "Amount does not match"},
+}
+
+_TEXTOS = {
+    "es": {
+        "dso_faltan_datos": "Se necesitan ventas a crédito y días del "
+                            "período mayores a cero.",
+        "dso_formula": "(saldo CxC / ventas a crédito) × días del período",
+        "dso_por_encima": "Se cobra {dias} días POR ENCIMA del plazo de "
+                          "{plazo} días.",
+        "dso_por_debajo": "Se cobra {dias} días por debajo del plazo de "
+                          "{plazo} días.",
+        "sin_gestiones": "No hay gestiones registradas.",
+        "faltan_columnas": "Faltan columnas en las gestiones: {faltan}.",
+        "sin_gestiones_del_mes": "No hay gestiones del mes {mes}.",
+        "pago_no_positivo": "El monto del pago tiene que ser mayor a cero.",
+        "sin_facturas_abiertas": "No hay facturas abiertas para conciliar.",
+        "aviso_truncado": "Se consideraron las {n} facturas más grandes de una "
+                          "lista más larga: puede haber otras combinaciones no "
+                          "evaluadas.",
+        "detalle_duplicado": "Dos pagos de {monto} del mismo deudor con "
+                             "{dias} día(s) de diferencia.",
+        "detalle_sin_factura": "Pago aplicado sin factura asociada.",
+        "detalle_no_calza": "El pago ({monto}) no coincide con la factura "
+                            "{factura} ({monto_factura}): diferencia de {dif}. "
+                            "Puede ser un pago parcial o una retención — verificar.",
+    },
+    "pt": {
+        "dso_faltan_datos": "São necessárias vendas a prazo e dias do "
+                            "período maiores que zero.",
+        "dso_formula": "(saldo de contas a receber / vendas a prazo) × dias do período",
+        "dso_por_encima": "Recebe-se {dias} dias ACIMA do prazo de {plazo} dias.",
+        "dso_por_debajo": "Recebe-se {dias} dias abaixo do prazo de {plazo} dias.",
+        "sin_gestiones": "Não há gestões registradas.",
+        "faltan_columnas": "Faltam colunas nas gestões: {faltan}.",
+        "sin_gestiones_del_mes": "Não há gestões do mês {mes}.",
+        "pago_no_positivo": "O valor do pagamento tem que ser maior que zero.",
+        "sin_facturas_abiertas": "Não há faturas em aberto para conciliar.",
+        "aviso_truncado": "Foram consideradas as {n} maiores faturas de uma lista "
+                          "mais longa: pode haver outras combinações não avaliadas.",
+        "detalle_duplicado": "Dois pagamentos de {monto} do mesmo devedor com "
+                             "{dias} dia(s) de diferença.",
+        "detalle_sin_factura": "Pagamento aplicado sem fatura associada.",
+        "detalle_no_calza": "O pagamento ({monto}) não coincide com a fatura "
+                            "{factura} ({monto_factura}): diferença de {dif}. "
+                            "Pode ser um pagamento parcial ou uma retenção — verificar.",
+    },
+    "en": {
+        "dso_faltan_datos": "Credit sales and days in the period must both be "
+                            "greater than zero.",
+        "dso_formula": "(AR balance / credit sales) × days in the period",
+        "dso_por_encima": "Collection runs {dias} days ABOVE the {plazo}-day term.",
+        "dso_por_debajo": "Collection runs {dias} days below the {plazo}-day term.",
+        "sin_gestiones": "There are no interactions logged.",
+        "faltan_columnas": "Missing columns in the interactions: {faltan}.",
+        "sin_gestiones_del_mes": "There are no interactions for month {mes}.",
+        "pago_no_positivo": "The payment amount must be greater than zero.",
+        "sin_facturas_abiertas": "There are no open invoices to reconcile.",
+        "aviso_truncado": "The {n} largest invoices out of a longer list were "
+                          "considered: there may be other combinations that were "
+                          "not evaluated.",
+        "detalle_duplicado": "Two payments of {monto} from the same debtor "
+                             "{dias} day(s) apart.",
+        "detalle_sin_factura": "Payment applied with no invoice attached.",
+        "detalle_no_calza": "The payment ({monto}) does not match invoice "
+                            "{factura} ({monto_factura}): difference of {dif}. "
+                            "It may be a partial payment or a withholding — verify.",
+    },
+}
+
+
+def _idioma(idioma: str | None) -> str:
+    """Normaliza el código de idioma: 'pt-BR' → 'pt', desconocido → 'es'."""
+    corto = str(idioma or "").strip().lower().replace("_", "-").split("-")[0]
+    return corto if corto in IDIOMAS else IDIOMA_DEFAULT
+
+
+def _txt(clave: str, idioma: str, **partes) -> str:
+    """Texto visible en el idioma pedido, con sus partes ya reemplazadas."""
+    return _TEXTOS[_idioma(idioma)][clave].format(**partes)
+
+
+def nombre_tramo(tramo: str, idioma: str = IDIOMA_DEFAULT) -> str:
+    """Etiqueta de un tramo de antigüedad. Los rangos de días salen tal cual."""
+    return _NOMBRE_TRAMO.get(tramo, {}).get(_idioma(idioma), str(tramo))
+
+
+def _nombre_hallazgo(tipo: str, idioma: str) -> str:
+    return _NOMBRE_HALLAZGO.get(tipo, {}).get(_idioma(idioma), tipo)
+
 
 # ---------------------------------------------------------------------------
 # 1) Antigüedad de saldos (aging) y concentración
 # ---------------------------------------------------------------------------
-def antiguedad_saldos(cartera: pd.DataFrame) -> dict:
+def antiguedad_saldos(cartera: pd.DataFrame,
+                      idioma: str = IDIOMA_DEFAULT) -> dict:
     """Reporte de antigüedad de saldos: cuánto se debe en cada tramo de mora.
 
     Es el artefacto base de cuentas por cobrar — de acá salen el resto de los
     análisis. Devuelve monto y cantidad de deudores por tramo, más el total.
+
+    `tramo` es el valor tal como viene en la cartera (y el que ordena la
+    tabla); `tramo_nombre` es la etiqueta traducida para la pantalla.
     """
+    idioma = _idioma(idioma)
     if cartera is None or cartera.empty:
         return {"tramos": [], "total_uyu": 0.0, "deudores": 0}
     df = cartera.copy()
@@ -68,7 +191,7 @@ def antiguedad_saldos(cartera: pd.DataFrame) -> dict:
         return {"tramos": [], "total_uyu": 0.0, "deudores": 0}
     df["monto_deuda"] = pd.to_numeric(df["monto_deuda"], errors="coerce").fillna(0.0)
     if "tramo_mora" not in df.columns:
-        df["tramo_mora"] = "Sin tramo"
+        df["tramo_mora"] = SIN_TRAMO
 
     total = float(df["monto_deuda"].sum())
     filas = []
@@ -76,6 +199,7 @@ def antiguedad_saldos(cartera: pd.DataFrame) -> dict:
         monto = float(grupo["monto_deuda"].sum())
         filas.append({
             "tramo": str(tramo),
+            "tramo_nombre": nombre_tramo(str(tramo), idioma),
             "monto_uyu": round(monto, 2),
             "deudores": int(len(grupo)),
             "pct_del_total": round(monto / total, 4) if total else 0.0,
@@ -114,7 +238,8 @@ def concentracion(cartera: pd.DataFrame, top: int = 10) -> dict:
 # 2) DSO — días de cartera
 # ---------------------------------------------------------------------------
 def dso(ventas_credito: float, saldo_cxc: float, dias_periodo: int,
-        plazo_estandar: int | None = None) -> dict:
+        plazo_estandar: int | None = None,
+        idioma: str = IDIOMA_DEFAULT) -> dict:
     """Days Sales Outstanding: cuántos días tarda en cobrarse una venta.
 
     DSO = (saldo de cuentas por cobrar / ventas a crédito) × días del período.
@@ -128,24 +253,23 @@ def dso(ventas_credito: float, saldo_cxc: float, dias_periodo: int,
     cobrando (un DSO de 45 es excelente con plazo 60 y malo con plazo 30 —
     el número solo, sin el plazo, no dice nada).
     """
+    idioma = _idioma(idioma)
     ventas = float(ventas_credito or 0)
     saldo = float(saldo_cxc or 0)
     dias = int(dias_periodo or 0)
     if ventas <= 0 or dias <= 0:
-        return {"dso": None, "error": "Se necesitan ventas a crédito y días del "
-                                      "período mayores a cero."}
+        return {"dso": None, "error": _txt("dso_faltan_datos", idioma)}
     valor = (saldo / ventas) * dias
     out = {"dso": round(valor, 1), "ventas_credito": round(ventas, 2),
            "saldo_cxc": round(saldo, 2), "dias_periodo": dias,
-           "formula": "(saldo CxC / ventas a crédito) × días del período"}
+           "formula": _txt("dso_formula", idioma)}
     if plazo_estandar:
         exceso = valor - float(plazo_estandar)
         out["plazo_estandar"] = int(plazo_estandar)
         out["exceso_dias"] = round(exceso, 1)
-        out["lectura"] = (
-            f"Se cobra {abs(exceso):.0f} días {'POR ENCIMA' if exceso > 0 else 'por debajo'} "
-            f"del plazo de {int(plazo_estandar)} días."
-        )
+        out["lectura"] = _txt(
+            "dso_por_encima" if exceso > 0 else "dso_por_debajo", idioma,
+            dias=f"{abs(exceso):.0f}", plazo=int(plazo_estandar))
     return out
 
 
@@ -175,20 +299,23 @@ def ultimo_mes_con_datos(gestiones: pd.DataFrame) -> str | None:
 
 
 def efectividad(gestiones: pd.DataFrame, mes: str | None = None,
-                mes_comparar: str | None = None) -> dict:
+                mes_comparar: str | None = None,
+                idioma: str = IDIOMA_DEFAULT) -> dict:
     """Monto cobrado sobre monto gestionado, del mes indicado.
 
     Es el indicador con el que se mide un equipo de cobranza. Sale de las
     gestiones que Kobra ya registra (`monto_gestionado` y `recupero`), sin
     pedirle nada al usuario.
     """
+    idioma = _idioma(idioma)
     if gestiones is None or gestiones.empty:
-        return {"efectividad": None, "error": "No hay gestiones registradas."}
+        return {"efectividad": None, "error": _txt("sin_gestiones", idioma)}
     cols = {"mes", "monto_gestionado", "recupero"}
     if not cols.issubset(gestiones.columns):
         faltan = sorted(cols - set(gestiones.columns))
         return {"efectividad": None,
-                "error": f"Faltan columnas en las gestiones: {', '.join(faltan)}."}
+                "error": _txt("faltan_columnas", idioma,
+                              faltan=", ".join(faltan))}
 
     def _de(m):
         df = gestiones if m is None else gestiones[gestiones["mes"] == m]
@@ -206,7 +333,8 @@ def efectividad(gestiones: pd.DataFrame, mes: str | None = None,
 
     actual = _de(mes)
     if actual is None:
-        return {"efectividad": None, "error": f"No hay gestiones del mes {mes}."}
+        return {"efectividad": None,
+                "error": _txt("sin_gestiones_del_mes", idioma, mes=mes)}
     out = dict(actual)
     if mes_comparar:
         previo = _de(mes_comparar)
@@ -228,7 +356,8 @@ def efectividad(gestiones: pd.DataFrame, mes: str | None = None,
 # 4) Conciliación: a qué factura(s) corresponde un pago
 # ---------------------------------------------------------------------------
 def conciliar_pago(monto_pago: float, facturas: list[dict],
-                   tolerancia: float = 0.01) -> dict:
+                   tolerancia: float = 0.01,
+                   idioma: str = IDIOMA_DEFAULT) -> dict:
     """¿A qué factura o combinación de facturas corresponde este pago?
 
     Busca, en orden: coincidencia exacta con una factura, y después con una
@@ -242,6 +371,7 @@ def conciliar_pago(monto_pago: float, facturas: list[dict],
 
     `facturas`: [{"id": "F-4501", "monto": 30000.0}, ...]
     """
+    idioma = _idioma(idioma)
     monto = round(float(monto_pago or 0), 2)
     limpias = []
     for f in (facturas or []):
@@ -254,10 +384,10 @@ def conciliar_pago(monto_pago: float, facturas: list[dict],
 
     if monto <= 0:
         return {"match": None, "candidatos": [], "ambiguo": False,
-                "error": "El monto del pago tiene que ser mayor a cero."}
+                "error": _txt("pago_no_positivo", idioma)}
     if not limpias:
         return {"match": None, "candidatos": [], "ambiguo": False,
-                "error": "No hay facturas abiertas para conciliar."}
+                "error": _txt("sin_facturas_abiertas", idioma)}
 
     truncado = len(limpias) > MAX_FACTURAS_ABIERTAS
     if truncado:
@@ -286,9 +416,7 @@ def conciliar_pago(monto_pago: float, facturas: list[dict],
         "match": candidatos[0] if len(candidatos) == 1 else None,
     }
     if truncado:
-        out["aviso"] = (f"Se consideraron las {MAX_FACTURAS_ABIERTAS} facturas más "
-                        "grandes de una lista más larga: puede haber otras "
-                        "combinaciones no evaluadas.")
+        out["aviso"] = _txt("aviso_truncado", idioma, n=MAX_FACTURAS_ABIERTAS)
     if not candidatos:
         # El caso más útil de todos: NO hay match. Decirlo claro evita que
         # alguien aplique el pago "al que más se parece".
@@ -303,7 +431,8 @@ def conciliar_pago(monto_pago: float, facturas: list[dict],
 # ---------------------------------------------------------------------------
 # 5) Pagos duplicados o mal aplicados
 # ---------------------------------------------------------------------------
-def anomalias_en_pagos(pagos: list[dict], dias_duplicado: int = 3) -> dict:
+def anomalias_en_pagos(pagos: list[dict], dias_duplicado: int = 3,
+                       idioma: str = IDIOMA_DEFAULT) -> dict:
     """Revisa un listado de pagos aplicados y marca lo que huele mal.
 
     Tres cosas, que son las que aparecen en una conciliación real:
@@ -316,7 +445,11 @@ def anomalias_en_pagos(pagos: list[dict], dias_duplicado: int = 3) -> dict:
 
     Marca, no corrige: cada caso vuelve con el motivo para que una persona lo
     revise. Nada se aplica ni se revierte solo.
+
+    El `tipo` de cada hallazgo es un id estable; `tipo_nombre` es su etiqueta
+    traducida.
     """
+    idioma = _idioma(idioma)
     filas = []
     for p in (pagos or []):
         try:
@@ -346,27 +479,32 @@ def anomalias_en_pagos(pagos: list[dict], dias_duplicado: int = 3) -> dict:
             if dias is not None and dias <= dias_duplicado:
                 hallazgos.append({
                     "tipo": "posible_duplicado",
+                    "tipo_nombre": _nombre_hallazgo("posible_duplicado", idioma),
                     "referencias": [a["referencia"], b["referencia"]],
                     "id_deudor": deudor, "monto": monto,
-                    "detalle": (f"Dos pagos de {monto} del mismo deudor con "
-                                f"{dias} día(s) de diferencia."),
+                    "detalle": _txt("detalle_duplicado", idioma,
+                                    monto=monto, dias=dias),
                 })
 
     for f in filas:
         if not f["factura"]:
             hallazgos.append({
-                "tipo": "sin_factura", "referencias": [f["referencia"]],
+                "tipo": "sin_factura",
+                "tipo_nombre": _nombre_hallazgo("sin_factura", idioma),
+                "referencias": [f["referencia"]],
                 "id_deudor": f["id_deudor"], "monto": f["monto"],
-                "detalle": "Pago aplicado sin factura asociada.",
+                "detalle": _txt("detalle_sin_factura", idioma),
             })
         elif f["monto_factura"] is not None and abs(f["monto_factura"] - f["monto"]) > 0.01:
             dif = round(f["monto"] - f["monto_factura"], 2)
             hallazgos.append({
-                "tipo": "monto_no_calza", "referencias": [f["referencia"]],
+                "tipo": "monto_no_calza",
+                "tipo_nombre": _nombre_hallazgo("monto_no_calza", idioma),
+                "referencias": [f["referencia"]],
                 "id_deudor": f["id_deudor"], "monto": f["monto"],
-                "detalle": (f"El pago ({f['monto']}) no coincide con la factura "
-                            f"{f['factura']} ({f['monto_factura']}): diferencia de {dif}. "
-                            "Puede ser un pago parcial o una retención — verificar."),
+                "detalle": _txt("detalle_no_calza", idioma, monto=f["monto"],
+                                factura=f["factura"],
+                                monto_factura=f["monto_factura"], dif=dif),
             })
 
     return {"revisados": len(filas), "hallazgos": hallazgos,

@@ -95,6 +95,75 @@ RUBRICA = [
 TOTAL_PUNTOS = 100
 PROMEDIO_HUMANO_REF = 83   # calibración del evaluador original (supervisores reales)
 
+# ---------------------------------------------------------------------------
+# Idioma del texto VISIBLE (es · pt · en)
+# ---------------------------------------------------------------------------
+# Un cliente que eligió inglés o portugués veía el menú traducido y los nombres
+# de los criterios en castellano. Se traduce solo lo que se muestra: los ids,
+# los pesos, los umbrales y las `señales` de RUBRICA quedan intactos — las
+# señales son keywords de DETECCIÓN sobre la transcripción, no texto de
+# pantalla, y traducirlas cambiaría el puntaje.
+#
+# Las traducciones van en un diccionario aparte, indexado por id de criterio, y
+# no dentro de RUBRICA: la rúbrica en castellano es el contrato del motor (hay
+# tests que buscan un criterio por su nombre) y tiene que seguir devolviendo la
+# misma cadena, carácter por carácter, cuando el idioma es el de siempre.
+IDIOMA_DEFAULT = "es"
+IDIOMAS = ("es", "pt", "en")
+
+_NOMBRE_CRITERIO = {
+    1:  {"pt": "Escuta ativa", "en": "Active listening"},
+    2:  {"pt": "Registro de dados", "en": "Data logging"},
+    3:  {"pt": "Negociação da dívida total", "en": "Full-balance negotiation"},
+    4:  {"pt": "Fechamento do status / formulário", "en": "Case closure / form"},
+    5:  {"pt": "Abertura e saudação", "en": "Opening and greeting"},
+    6:  {"pt": "Identificação do cliente", "en": "Customer identification"},
+    7:  {"pt": "Explicação da dívida", "en": "Debt explanation"},
+    8:  {"pt": "Oferecimento de soluções", "en": "Offering solutions"},
+    9:  {"pt": "Tratamento de objeções", "en": "Objection handling"},
+    10: {"pt": "Fechamento efetivo", "en": "Effective close"},
+    11: {"pt": "Linguagem e tom", "en": "Language and tone"},
+    12: {"pt": "Conformidade regulatória", "en": "Regulatory compliance"},
+    13: {"pt": "Gestão do tempo", "en": "Time management"},
+    14: {"pt": "Acompanhamento pós-contato", "en": "Post-contact follow-up"},
+}
+
+# Categorías de la nota total (ver `categoria`).
+_CATEGORIA = {
+    "Excelente":  {"pt": "Excelente", "en": "Excellent"},
+    "Muy buena":  {"pt": "Muito boa", "en": "Very good"},
+    "Aceptable":  {"pt": "Aceitável", "en": "Acceptable"},
+    "A mejorar":  {"pt": "A melhorar", "en": "Needs improvement"},
+    "Deficiente": {"pt": "Deficiente", "en": "Poor"},
+}
+
+
+# Cómo nombrarle el idioma al modelo cuando recalibra (ver `_recalibrar_con_ia`).
+_IDIOMA_LLM = {"pt": "portugués de Brasil", "en": "inglés"}
+
+
+def _idioma(idioma: str | None) -> str:
+    """Normaliza el código de idioma: 'pt-BR' → 'pt', desconocido → 'es'.
+
+    El frontend manda 'pt-BR' y 'en'; caer al castellano ante cualquier cosa
+    rara es preferible a devolver una clave sin traducir en pantalla.
+    """
+    corto = str(idioma or "").strip().lower().replace("_", "-").split("-")[0]
+    return corto if corto in IDIOMAS else IDIOMA_DEFAULT
+
+
+def _traducir(tabla: dict, clave, idioma: str, por_defecto: str) -> str:
+    """Busca la traducción de `clave`; si no está, deja el texto castellano."""
+    if idioma == IDIOMA_DEFAULT:
+        return por_defecto
+    return tabla.get(clave, {}).get(idioma, por_defecto)
+
+
+def nombre_criterio(criterio: dict, idioma: str = IDIOMA_DEFAULT) -> str:
+    """Nombre visible de un criterio de la rúbrica, en el idioma pedido."""
+    return _traducir(_NOMBRE_CRITERIO, criterio["id"], _idioma(idioma),
+                     criterio["nombre"])
+
 # Fracción de referencia por criterio (promedio_humano/max del evaluador V24):
 # marca la FORMA típica de una gestión — qué criterios suelen estar más flojos
 # (manejo de objeciones, negociación total, seguimiento) vs. fuertes (normativo,
@@ -130,12 +199,19 @@ def _turnos_gestor(transcripcion: str) -> tuple[str, int, int]:
 
 
 def evaluar(transcripcion: str, canal: str = "Llamada",
-            api_key: str | None = None, usar_ia: bool = True) -> dict:
+            api_key: str | None = None, usar_ia: bool = True,
+            idioma: str = IDIOMA_DEFAULT) -> dict:
     """Puntúa una gestión contra la rúbrica de 14 criterios (100 pts).
 
     Devuelve {puntaje_total, categoria, canal, criterios:[{...}],
     fortalezas:[...], oportunidades:[...], modo:'local'|'ia'}.
+
+    `idioma` ('es' · 'pt' · 'en') cambia SOLO el texto visible (nombres de
+    criterios y categoría). La detección sigue corriendo sobre las mismas
+    señales en cualquier idioma: el puntaje no depende de en qué idioma se
+    muestre el informe.
     """
+    idioma = _idioma(idioma)
     texto_gestor, n_gestor, n_cliente = _turnos_gestor(transcripcion)
     ng = _norm(texto_gestor)
     # Señal de escucha: que haya ida y vuelta y preguntas del gestor.
@@ -164,7 +240,7 @@ def evaluar(transcripcion: str, canal: str = "Llamada",
 
         pts = round(c["max"] * frac, 1)
         criterios.append({
-            "id": c["id"], "nombre": c["nombre"], "max": c["max"],
+            "id": c["id"], "nombre": nombre_criterio(c, idioma), "max": c["max"],
             "puntaje": pts, "critico": c["critico"],
             "cumplido": frac >= 0.8, "parcial": 0.5 <= frac < 0.8,
         })
@@ -172,7 +248,7 @@ def evaluar(transcripcion: str, canal: str = "Llamada",
     total = round(sum(c["puntaje"] for c in criterios), 1)
     resultado = {
         "puntaje_total": total,
-        "categoria": categoria(total),
+        "categoria": categoria(total, idioma),
         "canal": canal,
         "criterios": criterios,
         "fortalezas": [c["nombre"] for c in criterios if c["cumplido"]][:5],
@@ -182,25 +258,29 @@ def evaluar(transcripcion: str, canal: str = "Llamada",
         "modo": "local",
     }
     if usar_ia:
-        mejor = _recalibrar_con_ia(transcripcion, canal, resultado, api_key)
+        mejor = _recalibrar_con_ia(transcripcion, canal, resultado, api_key, idioma)
         if mejor:
             return mejor
     return resultado
 
 
-def categoria(total: float) -> str:
+def categoria(total: float, idioma: str = IDIOMA_DEFAULT) -> str:
+    """Etiqueta de la nota total. Los cortes no dependen del idioma."""
     if total >= 90:
-        return "Excelente"
-    if total >= 80:
-        return "Muy buena"
-    if total >= 70:
-        return "Aceptable"
-    if total >= 60:
-        return "A mejorar"
-    return "Deficiente"
+        es = "Excelente"
+    elif total >= 80:
+        es = "Muy buena"
+    elif total >= 70:
+        es = "Aceptable"
+    elif total >= 60:
+        es = "A mejorar"
+    else:
+        es = "Deficiente"
+    return _traducir(_CATEGORIA, es, _idioma(idioma), es)
 
 
-def _recalibrar_con_ia(transcripcion, canal, base, api_key):
+def _recalibrar_con_ia(transcripcion, canal, base, api_key,
+                       idioma: str = IDIOMA_DEFAULT):
     """Si hay proveedor de IA, recalibra los puntajes como un supervisor real
     (rango típico 78-95, generoso, penaliza solo fallas graves). Si no hay key
     o la respuesta no parsea, se queda con el puntaje local — nunca rompe."""
@@ -208,7 +288,8 @@ def _recalibrar_con_ia(transcripcion, canal, base, api_key):
     if not kllm.disponible(api_key=api_key):
         return None
     import json
-    rubrica = "\n".join(f'{c["id"]}. {c["nombre"]} (max {c["max"]}, '
+    idioma = _idioma(idioma)
+    rubrica = "\n".join(f'{c["id"]}. {nombre_criterio(c, idioma)} (max {c["max"]}, '
                         f'{"CRÍTICO" if c["critico"] else "normal"})' for c in RUBRICA)
     system = (
         "Sos un supervisor de calidad de cobranzas. Evaluás la gestión contra "
@@ -216,6 +297,12 @@ def _recalibrar_con_ia(transcripcion, canal, base, api_key):
         "un supervisor real (una gestión decente ronda 80-90); penalizá fuerte "
         "solo fallas graves. NUNCA penalices un criterio que no aplicaba en el "
         "contexto (dato ya correcto, cliente cortó primero): dale el máximo.")
+    # Fortalezas y oportunidades las redacta el modelo: si no se le pide el
+    # idioma, se las devuelve en castellano a un cliente que eligió otro y el
+    # informe queda mitad traducido. El prompt en 'es' queda igual que siempre.
+    if idioma in _IDIOMA_LLM:
+        system += (f" Escribí las fortalezas y las oportunidades en "
+                   f"{_IDIOMA_LLM[idioma]}.")
     prompt = (
         f"RÚBRICA (canal {canal}):\n{rubrica}\n\nTRANSCRIPCIÓN:\n{transcripcion}\n\n"
         'Devolvé: {"criterios":[{"id":N,"puntaje":X}...], '
@@ -232,11 +319,12 @@ def _recalibrar_con_ia(transcripcion, canal, base, api_key):
     crit = []
     for c in RUBRICA:
         pts = round(max(0.0, min(c["max"], por_id.get(c["id"], c["max"] * 0.8))), 1)
-        crit.append({"id": c["id"], "nombre": c["nombre"], "max": c["max"], "puntaje": pts,
+        crit.append({"id": c["id"], "nombre": nombre_criterio(c, idioma),
+                     "max": c["max"], "puntaje": pts,
                      "critico": c["critico"], "cumplido": pts >= c["max"] * 0.8,
                      "parcial": c["max"] * 0.5 <= pts < c["max"] * 0.8})
     total = round(sum(c["puntaje"] for c in crit), 1)
-    return {"puntaje_total": total, "categoria": categoria(total), "canal": canal,
+    return {"puntaje_total": total, "categoria": categoria(total, idioma), "canal": canal,
             "criterios": crit,
             "fortalezas": data.get("fortalezas") or [c["nombre"] for c in crit if c["cumplido"]][:5],
             "oportunidades": data.get("oportunidades") or
@@ -296,7 +384,8 @@ def comparativa(gestiones, canal: str | None = None, tipo: str | None = None) ->
             "total_gestiones": int(len(g))}
 
 
-def _perfil_de(calidad_agregada: float) -> list[dict]:
+def _perfil_de(calidad_agregada: float,
+               idioma: str = IDIOMA_DEFAULT) -> list[dict]:
     """Estima el puntaje por criterio (los 14 ítems de negociación) a partir de
     la calidad agregada de un gestor/grupo, usando la forma de referencia
     (_REF_FRAC). Es una ESTIMACIÓN de demo — con transcripciones reales, cada
@@ -305,26 +394,30 @@ def _perfil_de(calidad_agregada: float) -> list[dict]:
     perfil = []
     for c in RUBRICA:
         frac = min(1.0, _REF_FRAC[c["id"]] * factor)
-        perfil.append({"id": c["id"], "nombre": c["nombre"], "max": c["max"],
+        perfil.append({"id": c["id"], "nombre": nombre_criterio(c, idioma),
+                       "max": c["max"],
                        "puntaje": round(c["max"] * frac, 1),
                        "pct": round(100 * frac, 0)})
     return perfil
 
 
-def perfil_criterios(gestiones, canal: str | None = None, mes: str | None = None) -> dict:
+def perfil_criterios(gestiones, canal: str | None = None, mes: str | None = None,
+                     idioma: str = IDIOMA_DEFAULT) -> dict:
     """Perfil por criterio (ítem de negociación) de IA vs Humano: en qué ítems
     es fuerte cada uno y en cuáles hay oportunidad de mejora. Devuelve, por
     criterio, el puntaje estimado de IA y de Humano y la brecha."""
+    idioma = _idioma(idioma)
     g = _filtrar(gestiones, canal, mes)
     if g is None or g.empty or "tipo_gestor" not in g.columns:
         return {"items": [], "fortalezas_ia": [], "oportunidades_humano": []}
     cal = g.groupby("tipo_gestor")["calidad_gestion"].mean().to_dict()
-    perf = {t: {p["id"]: p for p in _perfil_de(cal.get(t, 0))} for t in cal}
+    perf = {t: {p["id"]: p for p in _perfil_de(cal.get(t, 0), idioma)} for t in cal}
     items = []
     for c in RUBRICA:
         ia = perf.get("IA", {}).get(c["id"], {}).get("pct", 0)
         hum = perf.get("Humano", {}).get(c["id"], {}).get("pct", 0)
-        items.append({"criterio": c["nombre"], "max": c["max"], "critico": c["critico"],
+        items.append({"criterio": nombre_criterio(c, idioma), "max": c["max"],
+                      "critico": c["critico"],
                       "ia": ia, "humano": hum, "brecha": round(ia - hum, 0)})
     ordenados = sorted(items, key=lambda x: x["brecha"], reverse=True)
     return {
@@ -414,11 +507,13 @@ def fila_evaluacion(gestor: str, fecha: str, canal: str, archivo: str,
     return fila
 
 
-def resumen_evaluaciones(df, gestor: str | None = None, mes: str | None = None) -> dict:
+def resumen_evaluaciones(df, gestor: str | None = None, mes: str | None = None,
+                         idioma: str = IDIOMA_DEFAULT) -> dict:
     """Tableros de calidad a partir de los audios evaluados y acumulados:
     ranking por gestor, evolución mensual de la nota, promedio por criterio
     (ítem de negociación) y ficha del gestor filtrado si se pide uno."""
     import pandas as pd
+    idioma = _idioma(idioma)
     if df is None or len(df) == 0:
         return {"total": 0, "por_gestor": [], "evolucion": {"meses": [], "series": []},
                 "criterios_promedio": [], "evaluaciones": []}
@@ -452,7 +547,8 @@ def resumen_evaluaciones(df, gestor: str | None = None, mes: str | None = None) 
         col = f"c{c['id']}"
         if col in d.columns and d[col].notna().any():
             criterios_promedio.append({
-                "criterio": c["nombre"], "max": c["max"], "critico": c["critico"],
+                "criterio": nombre_criterio(c, idioma), "max": c["max"],
+                "critico": c["critico"],
                 "promedio": round(float(pd.to_numeric(d[col], errors="coerce").mean()), 1),
                 "pct": round(100 * float(pd.to_numeric(d[col], errors="coerce").mean()) / c["max"], 0)})
 
@@ -485,7 +581,8 @@ def _pct(valor, tope):
     return round(100.0 * v / float(tope), 1)
 
 
-def _criterios_vs_equipo(foco, periodo, contra_referencia: bool = False) -> list:
+def _criterios_vs_equipo(foco, periodo, contra_referencia: bool = False,
+                         idioma: str = IDIOMA_DEFAULT) -> list:
     """Cada aspecto de la negociación, del gestor contra la media del equipo.
 
     La comparación es el punto del tablero: saber que un gestor tiene 68 de
@@ -510,7 +607,7 @@ def _criterios_vs_equipo(foco, periodo, contra_referencia: bool = False) -> list
         else:
             vara = _pct(periodo[col].mean(), c["max"])
         filas.append({
-            "id": c["id"], "criterio": c["nombre"], "max": c["max"],
+            "id": c["id"], "criterio": nombre_criterio(c, idioma), "max": c["max"],
             "critico": bool(c.get("critico")),
             "puntaje": round(float(foco[col].mean()), 2)
                        if foco[col].notna().any() else None,
@@ -555,10 +652,21 @@ def _ranking_gestores(periodo, nota_equipo) -> list:
 TRAMOS_NOTA = [(0, 60, "Insuficiente"), (60, 70, "Regular"), (70, 80, "Bueno"),
                (80, 90, "Muy bueno"), (90, 101, "Excelente")]
 
+# Traducción del nombre del tramo, indexada por el nombre castellano (que es
+# el id acá): TRAMOS_NOTA queda tal cual porque define los cortes.
+_NOMBRE_TRAMO_NOTA = {
+    "Insuficiente": {"pt": "Insuficiente", "en": "Insufficient"},
+    "Regular":      {"pt": "Regular", "en": "Fair"},
+    "Bueno":        {"pt": "Bom", "en": "Good"},
+    "Muy bueno":    {"pt": "Muito bom", "en": "Very good"},
+    "Excelente":    {"pt": "Excelente", "en": "Excellent"},
+}
 
-def _distribucion_notas(foco) -> list:
+
+def _distribucion_notas(foco, idioma: str = IDIOMA_DEFAULT) -> list:
     return [
-        {"tramo": nombre, "desde": a, "hasta": b,
+        {"tramo": _traducir(_NOMBRE_TRAMO_NOTA, nombre, idioma, nombre),
+         "desde": a, "hasta": b,
          "audios": int(((foco["puntaje_total"] >= a) &
                         (foco["puntaje_total"] < b)).sum())}
         for a, b, nombre in TRAMOS_NOTA]
@@ -572,7 +680,8 @@ def _calidad_por_canal(foco, periodo) -> list:
             for c, sub in foco.groupby("canal")]
 
 
-def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
+def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None,
+                  idioma: str = IDIOMA_DEFAULT) -> dict:
     """Tablero de calidad de llamadas, con el desglose que pide una supervisión
     real: por gestor, por mes y año, por aspecto de la negociación, y **cada
     aspecto comparado contra la media del equipo**.
@@ -586,6 +695,7 @@ def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
     `_calidad_por_canal`); acá queda el filtrado y el armado.
     """
     import pandas as pd
+    idioma = _idioma(idioma)
 
     vacio = {"total": 0, "comparacion": "equipo", "kpis": {},
              "por_criterio": [], "evolucion": [],
@@ -627,7 +737,8 @@ def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
     # referencia humana de la rúbrica (si no, todo da 0 contra sí mismo).
     contra_referencia = not gestor
     por_criterio = _criterios_vs_equipo(foco, periodo,
-                                        contra_referencia=contra_referencia)
+                                        contra_referencia=contra_referencia,
+                                        idioma=idioma)
     con_brecha = [c for c in por_criterio if c["brecha"] is not None]
     fuertes = sorted(con_brecha, key=lambda c: -c["brecha"])[:3]
     debiles = sorted(con_brecha, key=lambda c: c["brecha"])[:3]
@@ -663,7 +774,7 @@ def panel_calidad(df, gestor=None, anio=None, mes=None, canal=None) -> dict:
         "oportunidades": debiles,
         "evolucion": _evolucion_mensual(foco, periodo, bool(gestor)),
         "ranking": _ranking_gestores(periodo, nota_equipo_real),
-        "distribucion": _distribucion_notas(foco),
+        "distribucion": _distribucion_notas(foco, idioma),
         "por_canal": _calidad_por_canal(foco, periodo),
         **universo,
     }

@@ -166,127 +166,102 @@ SUITE_CUES = [
 
 # La película: la demo completa, contada como una historia — arranca en el
 # problema (la mora creciendo en el panel) y termina en el resultado (/roi).
-# Cada escena es (ruta del hash router, segundos en pantalla, textos): una
-# SOLA fuente para el recorrido de la grabación (marketing/pelicula_demo.py),
-# los subtítulos y la narración — no se pueden desincronizar porque son el
-# mismo dato. Los tiempos de los cues salen de acumular las duraciones
-# (`PELICULA_CUES`), no de estimar a mano.
+#
+# Cada escena es (ruta del hash router, {idioma: texto}). Fijate que NO trae
+# duración: cuánto dura cada pantalla lo decide la NARRACIÓN MEDIDA de ese
+# idioma (`marketing/pelicula_demo.py`). Antes la duración se declaraba acá a
+# ojo y pasaban las dos cosas que se ven feo: una frase corta dejaba 5,4 s de
+# silencio con la pantalla quieta —el "lag" que se escucha—, y el mismo número
+# no podía servir para tres idiomas, porque la misma frase dura distinto en
+# cada uno (el inglés es más corto que el castellano). Ahora se sintetiza
+# primero, se mide, y la pantalla dura lo que dura la frase más un respiro.
 PELICULA_ESCENAS = [
-    ("/", 8, {
+    ("/", {
         "es": "Así arranca una cobranza real: la mora crece,\nel panel lo muestra y el tiempo no alcanza.",
         "pt": "Assim começa uma cobrança real: a inadimplência cresce,\no painel mostra e o tempo não alcança.",
         "en": "This is where every collections story starts: arrears growing,\nthe dashboard shows it, and time runs short."}),
-    ("/cuentas-por-cobrar", 9, {
+    ("/cuentas-por-cobrar", {
         "es": "Primero, medir el problema en serio: antigüedad de saldos,\nDSO y efectividad, calculados sobre la cartera.",
         "pt": "Primeiro, medir o problema a sério: aging de saldos,\nDSO e efetividade, calculados sobre a carteira.",
         "en": "First, measure the problem properly: an aging report,\nDSO and effectiveness, computed from the portfolio."}),
-    ("/originacion", 9, {
+    ("/originacion", {
         "es": "El cambio empieza acá: subís tu cartera y Kobra la scorea\nal instante, con la probabilidad de pago y sus razones.",
         "pt": "A mudança começa aqui: você sobe a sua carteira e a Kobra\npontua na hora, com a probabilidade de pagamento e as razões.",
         "en": "The turnaround starts here: upload your portfolio and Kobra\nscores it instantly, with each payment probability and its reasons."}),
-    ("/cartera", 10, {
+    ("/cartera", {
         "es": "ProbPago ordena la cartera por lo que de verdad se puede recuperar:\nestrategia, descuento justo y guion para cada deudor.",
         "pt": "O ProbPago ordena a carteira pelo que de fato dá para recuperar:\nestratégia, desconto certo e roteiro para cada devedor.",
         "en": "ProbPago ranks the portfolio by what can actually be recovered:\nstrategy, the right discount and a script for every debtor."}),
-    ("/agenda", 8, {
+    ("/agenda", {
         "es": "La agenda arma el día sola:\na quién contactar, cuándo y por qué canal.",
         "pt": "A agenda monta o dia sozinha:\nquem contatar, quando e por qual canal.",
         "en": "The agenda builds the day on its own:\nwho to contact, when, and over which channel."}),
-    ("/demo-vivo", 12, {
-        "es": "Y el gestor de inteligencia artificial ejecuta: llama con voz natural\nal número del caso, negocia por WhatsApp y genera el cobro con su QR.",
-        "pt": "E o agente de inteligência artificial executa: liga com voz natural\npara o número do caso, negocia pelo WhatsApp e gera a cobrança com QR.",
-        "en": "Then the AI agent executes: it calls the case's number with a natural\nvoice, negotiates over WhatsApp and generates the charge with its QR."}),
-    ("/portal-cobros", 8, {
+    # Las escenas donde el producto HACE algo en cámara llevan dos frases: la
+    # acción tarda lo que tarda (subir un archivo, entrenar, generar un cobro)
+    # y con una sola frase quedaban seis segundos de silencio mirando trabajar
+    # a la máquina. La segunda frase cuenta lo que está pasando.
+    ("/demo-vivo", [{
+        "es": "Y el gestor de inteligencia artificial ejecuta: llama con voz natural\nal número del caso y negocia por WhatsApp.",
+        "pt": "E o agente de inteligência artificial executa: liga com voz natural\npara o número do caso e negocia pelo WhatsApp.",
+        "en": "Then the AI agent executes: it calls the case's number\nwith a natural voice and negotiates over WhatsApp."}, {
+        "es": "Acá genera el cobro delante tuyo, con su QR para escanear,\ny el saldo que queda se negocia en la misma pantalla.",
+        "pt": "Aqui gera a cobrança na sua frente, com QR para escanear,\ne o saldo restante se negocia na mesma tela.",
+        "en": "Here it generates the charge in front of you, with a QR to scan,\nand the remaining balance is negotiated on the same screen."}]),
+    ("/portal-cobros", {
         "es": "El deudor también puede pagar solo:\nentra al portal con un QR o un link, y paga.",
         "pt": "O devedor também pode pagar sozinho:\nentra no portal com um QR ou um link, e paga.",
         "en": "Debtors can also pay on their own:\nthey open the portal from a QR code or a link, and pay."}),
-    ("/tablero", 9, {
+    ("/tablero", {
         "es": "El tablero conversacional responde en tu idioma:\ncada número sale de tus datos, no de una estimación.",
         "pt": "O painel conversacional responde no seu idioma:\ncada número vem dos seus dados, não de uma estimativa.",
         "en": "The conversational board answers in your own words:\nevery number comes from your data, not from a guess."}),
-    ("/asistente", 8, {
+    ("/asistente", {
         "es": "¿Una duda sobre el producto? El asistente contesta al lado,\ncon la documentación adentro.",
         "pt": "Uma dúvida sobre o produto? O assistente responde ali mesmo,\ncom a documentação dentro.",
         "en": "A question about the product? The assistant answers right there,\nwith the documentation built in."}),
-    ("/gestores", 8, {
+    ("/gestores", {
         "es": "El equipo humano se mide acá:\nrecupero por gestor, por mes y por canal.",
         "pt": "A equipe humana é medida aqui:\nrecuperação por atendente, por mês e por canal.",
         "en": "The human team is measured here:\nrecovery by agent, by month and by channel."}),
-    ("/calidad", 8, {
+    ("/calidad", {
         "es": "Y calidad revisa cada gestión:\nhorarios, topes y lista de no contactar, siempre.",
         "pt": "E a qualidade revisa cada atendimento:\nhorários, limites e lista de não contatar, sempre.",
         "en": "And quality reviews every interaction:\ncalling hours, caps and the do-not-contact list, always."}),
-    ("/ingenieria-datos", 9, {
-        "es": "Ingeniería de datos incluida: conectá SQL, CSV o Excel;\nperfiles, uniones y features sin escribir código.",
-        "pt": "Engenharia de dados incluída: conecte SQL, CSV ou Excel;\nperfis, junções e features sem escrever código.",
-        "en": "Data engineering included: connect SQL, CSV or Excel;\nprofiles, joins and features without writing code."}),
-    ("/gobernanza", 9, {
+    ("/ingenieria-datos", [{
+        "es": "Ingeniería de datos incluida: conectá SQL, CSV o Excel.",
+        "pt": "Engenharia de dados incluída: conecte SQL, CSV ou Excel.",
+        "en": "Data engineering included: connect SQL, CSV or Excel."}, {
+        "es": "Subimos la cartera y la perfila sola: tipos, claves, calidad\ny features listas — sin escribir una línea de código.",
+        "pt": "Subimos a carteira e ela é perfilada sozinha: tipos, chaves,\nqualidade e features prontas — sem escrever uma linha de código.",
+        "en": "We upload the portfolio and it profiles itself: types, keys,\nquality and ready features — without writing a line of code."}]),
+    ("/gobernanza", {
         "es": "Gobernanza responde qué dato es personal, quién lo ve\ny qué calidad tiene, en las seis dimensiones DAMA.",
         "pt": "A governança responde qual dado é pessoal, quem vê\ne qual a qualidade, nas seis dimensões DAMA.",
         "en": "Governance answers which data is personal, who can see it\nand how good it is, across the six DAMA dimensions."}),
-    ("/medidas", 8, {
+    ("/medidas", {
         "es": "KPIs propios: definí tu indicador con una fórmula\ny usalo en todo el tablero.",
         "pt": "KPIs próprios: defina o seu indicador com uma fórmula\ne use em todo o painel.",
         "en": "Custom KPIs: define your own indicator with a formula\nand use it across the board."}),
-    ("/automl", 13, {
-        "es": "AutoML entrena acá mismo con tu propio dataset —mirá—\ny la métrica sale de un holdout que no se usó para elegir nada.",
-        "pt": "O AutoML treina aqui mesmo com o seu próprio dataset — veja —\ne a métrica vem de um holdout que não foi usado para escolher nada.",
-        "en": "AutoML trains right here on your own dataset — watch —\nand the metric comes from a holdout never used to choose anything."}),
-    ("/logistica", 8, {
+    ("/automl", [{
+        "es": "AutoML entrena acá mismo con tu propio dataset. Mirá:\nsubimos el histórico y elegimos qué predecir.",
+        "pt": "O AutoML treina aqui mesmo com o seu próprio dataset. Veja:\nsubimos o histórico e escolhemos o que prever.",
+        "en": "AutoML trains right here on your own dataset. Watch:\nwe upload the history and choose what to predict."}, {
+        "es": "Prueba varios modelos y se queda con el mejor. La métrica que muestra\nsale de un holdout que no se usó para elegir nada.",
+        "pt": "Testa vários modelos e fica com o melhor. A métrica que mostra\nvem de um holdout que não foi usado para escolher nada.",
+        "en": "It tries several models and keeps the best. The metric it shows\ncomes from a holdout never used to choose anything."}]),
+    ("/logistica", {
         "es": "Logística, un módulo aparte: qué ofertar,\nqué reponer y a qué cliente recuperar.",
         "pt": "Logística, um módulo à parte: o que ofertar,\no que repor e qual cliente recuperar.",
         "en": "Logistics, sold separately: what to discount,\nwhat to restock and which customer to win back."}),
-    ("/proyectos", 8, {
+    ("/proyectos", {
         "es": "Y Proyectos: salud del portafolio\ny backlog ordenado por valor esperado.",
         "pt": "E Projetos: saúde do portfólio\ne backlog ordenado por valor esperado.",
         "en": "And Projects: portfolio health\nand the backlog ranked by expected value."}),
-    ("/roi", 10, {
+    ("/roi", {
         "es": "El resultado se mide acá: más recupero con menos gestiones.\nMV Kobra AI, de punta a punta. mvkobranzaia.com",
         "pt": "O resultado se mede aqui: mais recuperação com menos gestões.\nMV Kobra AI, de ponta a ponta. mvkobranzaia.com",
         "en": "The result is measured here: more recovery with less effort.\nMV Kobra AI, end to end. mvkobranzaia.com"}),
 ]
-
-
-def _cues_de_escenas(escenas) -> list[tuple[float, float, dict]]:
-    """Escenas → cues: el cue N arranca donde terminó el N-1. La navegación
-    entre pantallas agrega décimas (medido: 0,84 s en 7 pantallas de la
-    suite); el montaje de audio ya absorbe ese resto estirando el video."""
-    cues, t = [], 0.0
-    for _ruta, segundos, textos in escenas:
-        cues.append((t, t + float(segundos), textos))
-        t += float(segundos)
-    return cues
-
-
-PELICULA_CUES = _cues_de_escenas(PELICULA_ESCENAS)
-
-
-def _escala_pelicula() -> float:
-    """Factor entre el guion y el video REAL publicado.
-
-    El screencast de Playwright sale con el reloj estirado (~4,5% medido, y
-    constante entre tomas): 162 s de guion se graban como ~169 s de video.
-    Pelear contra eso escena por escena no funciona — la distorsión es del
-    contenedor, no de las esperas—, así que los subtítulos (y la narración,
-    que usa estos mismos cues) se escalan linealmente a la duración medida
-    del webm publicado. Si el video no está o no se puede medir, escala 1.
-    """
-    video = os.path.join(ROOT, "landing", "video", "MVKobraAI_Pelicula_Demo.webm")
-    try:
-        from marketing.audio_suite import duracion
-        real = duracion(video)
-    except Exception:
-        return 1.0
-    declarado = PELICULA_CUES[-1][1]
-    if declarado and 0.8 < real / declarado < 1.3:
-        return real / declarado
-    return 1.0
-
-
-def cues_pelicula_escalados(escala: float | None = None) -> list:
-    escala = _escala_pelicula() if escala is None else escala
-    return [(ini * escala, fin * escala, textos)
-            for ini, fin, textos in PELICULA_CUES]
 
 
 def _marca(segundos: float) -> str:
@@ -312,13 +287,17 @@ def vtt(idioma: str, cues=None) -> str:
 
 
 def generar(destino: str | None = None) -> dict[str, str]:
-    """Escribe `copiloto.*.vtt`, `suite.*.vtt` y `pelicula.*.vtt` en
-    `landing/video/`."""
+    """Escribe `copiloto.*.vtt` y `suite.*.vtt` en `landing/video/`.
+
+    La película NO se genera acá: sus tiempos salen de la narración medida de
+    cada idioma, así que los escribe `marketing/pelicula_demo.py` junto con el
+    video que le corresponde. Escribirlos desde dos lados era justamente lo
+    que los desincronizaba.
+    """
     destino = destino or VIDEO_DIR
     os.makedirs(destino, exist_ok=True)
     salida = {}
-    for nombre, cues in (("copiloto", CUES), ("suite", SUITE_CUES),
-                         ("pelicula", cues_pelicula_escalados())):
+    for nombre, cues in (("copiloto", CUES), ("suite", SUITE_CUES)):
         for idioma in IDIOMAS:
             ruta = os.path.join(destino, f"{nombre}.{idioma}.vtt")
             with open(ruta, "w", encoding="utf-8") as f:
@@ -328,8 +307,7 @@ def generar(destino: str | None = None) -> dict[str, str]:
 
 
 if __name__ == "__main__":
-    _CUES_POR_NOMBRE = {"copiloto": CUES, "suite": SUITE_CUES,
-                        "pelicula": PELICULA_CUES}
+    _CUES_POR_NOMBRE = {"copiloto": CUES, "suite": SUITE_CUES}
     for clave, ruta in generar().items():
         n = len(_CUES_POR_NOMBRE[clave.split(".")[0]])
         print(f"[OK] {clave}  {n} subtítulos  {os.path.relpath(ruta, ROOT)}")

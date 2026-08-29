@@ -20,16 +20,23 @@ Cómo se hace, y por qué así:
   guiones de verdad — y ningún módulo queda vacío (eso ya lo garantizan sus
   tests).
 * **El guion vive en `marketing/subtitulos.py::PELICULA_ESCENAS`**: la misma
-  lista define el recorrido de la grabación, los subtítulos en tres idiomas y
-  la narración. No hay tres copias que desincronizar.
-* **La narración va en castellano** (misma decisión documentada en
-  `subtitulos.py`: la interfaz dentro del video está en castellano); los tres
-  idiomas viajan por los subtítulos `pelicula.{es,pt,en}.vtt`.
+  lista define el recorrido de la grabación, los subtítulos y la narración.
+  No hay tres copias que desincronizar.
+* **Una película POR IDIOMA, completa.** No es un video en castellano con
+  subtítulos pegados: se graba el programa con la interfaz en ese idioma
+  (menú incluido) y se narra con una voz de ese idioma. Un gerente en San
+  Pablo ve el producto en portugués, hablado en portugués.
+* **La duración de cada escena la decide la voz, no una estimación.** Primero
+  se sintetiza y se MIDE la narración de cada escena; recién ahí se sabe
+  cuánto tiene que durar la pantalla. Así se acaban los silencios largos
+  —hasta 5,4 s medidos en la versión anterior, que es el "lag" que se
+  escucha— y el mismo guion sirve para tres idiomas que hablan a ritmos
+  distintos.
 
 Uso:
-    python3 -m marketing.pelicula_demo                   # graba + narra
+    python3 -m marketing.pelicula_demo                   # los tres idiomas
+    python3 -m marketing.pelicula_demo --idioma pt       # uno solo
     python3 -m marketing.pelicula_demo --sin-voz         # solo el screencast
-    python3 -m marketing.pelicula_demo --voz es_MX-claude-high
 """
 from __future__ import annotations
 
@@ -44,16 +51,66 @@ import tempfile
 import time
 import urllib.request
 
-from marketing.subtitulos import PELICULA_CUES, PELICULA_ESCENAS
+from marketing.subtitulos import IDIOMAS, PELICULA_ESCENAS
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SALIDA_DEFAULT = os.path.join(RAIZ, "landing", "video",
-                              "MVKobraAI_Pelicula_Demo.webm")
+VIDEO_DIR = os.path.join(RAIZ, "landing", "video")
 
 # El recorrido sale del guion: misma fuente que subtítulos y narración.
-RECORRIDO = [(ruta, segundos) for ruta, segundos, _ in PELICULA_ESCENAS]
+RECORRIDO = [ruta for ruta, _ in PELICULA_ESCENAS]
 ESCENARIO = "financiera"
 VIEWPORT = {"width": 1280, "height": 800}   # igual que los otros videos
+
+# Aire entre el final de una frase y el cambio de pantalla. Es lo único que
+# se "estima" del tiempo, y es chico a propósito: con 1,4 s la película
+# respira sin que se sienta que quedó colgada. El resto lo pone la voz.
+RESPIRO_S = 1.4
+# Entre dos frases de la misma escena: lo que dura una coma larga.
+PAUSA_ENTRE_FRASES_S = 0.5
+# Piso por escena: una pantalla que aparece menos de esto no se llega a
+# mirar, aunque su frase sea corta.
+MINIMO_ESCENA_S = 6.0
+# Las escenas con interacción en cámara necesitan su tiempo propio, que no
+# tiene nada que ver con lo que dura la frase: subir un archivo, entrenar un
+# modelo o generar un cobro tardan lo que tardan.
+PISO_POR_ESCENA = {"/demo-vivo": 13.0, "/ingenieria-datos": 12.0,
+                   "/automl": 14.0}
+
+
+def salida_de(idioma: str) -> str:
+    """Un archivo por idioma: la landing sirve el que corresponda."""
+    return os.path.join(VIDEO_DIR, f"MVKobraAI_Pelicula_Demo.{idioma}.webm")
+
+
+def subtitulo_de(idioma: str) -> str:
+    return os.path.join(VIDEO_DIR, f"pelicula.{idioma}.vtt")
+
+
+def _textos_ui(idioma: str) -> dict:
+    """El diccionario de la interfaz, para que la grabación busque los
+    botones por su nombre EN EL IDIOMA que se está filmando. Buscar
+    «Datos de transferencia» en la película en inglés no encuentra nada, y la
+    escena queda quieta sin que nadie se entere."""
+    archivo = {"es": "es.json", "pt": "pt-BR.json", "en": "en.json"}[idioma]
+    with open(os.path.join(RAIZ, "webapp", "frontend", "src", "i18n", archivo),
+              encoding="utf-8") as f:
+        return json.load(f)
+
+
+def frases_de(textos, idioma: str) -> list[str]:
+    """Las frases de una escena en un idioma. Una escena normal tiene una;
+    las que muestran al producto trabajando tienen dos, para que la voz
+    acompañe la acción en vez de dejar el silencio de la máquina pensando."""
+    if isinstance(textos, list):
+        return [t[idioma] for t in textos]
+    return [textos[idioma]]
+
+
+def _t(dic: dict, ruta: str) -> str:
+    valor = dic
+    for parte in ruta.split("."):
+        valor = valor[parte]
+    return valor
 
 
 def _puerto_libre() -> int:
@@ -139,7 +196,7 @@ def _configurar_caso_demo(base: str, token: str) -> None:
                {"valores": dict(demo_vivo._SINTETICO)}, token=token)
 
 
-def _escena_ingenieria(pagina, archivos: dict) -> None:
+def _escena_ingenieria(pagina, archivos: dict, ui: dict) -> None:
     """Ingeniería de datos EN VIVO: se sube la cartera del propio escenario y
     la pantalla la perfila delante de cámara — sin esto, la escena era un
     formulario de subida vacío."""
@@ -152,7 +209,7 @@ def _escena_ingenieria(pagina, archivos: dict) -> None:
         pass
 
 
-def _escena_automl(pagina, archivos: dict) -> None:
+def _escena_automl(pagina, archivos: dict, ui: dict) -> None:
     """AutoML EN VIVO: subir el histórico, elegir `pago` y entrenar en
     cámara. La métrica que aparece es la del holdout real — el mismo número
     que muestra la verificación punta a punta."""
@@ -160,9 +217,9 @@ def _escena_automl(pagina, archivos: dict) -> None:
         pagina.wait_for_timeout(1200)
         pagina.set_input_files("input[type=file]", archivos["historico"])
         pagina.wait_for_timeout(1800)
-        tarjeta = pagina.locator(".card", has_text="Elegí qué predecir")
+        tarjeta = pagina.locator(".card", has_text=_t(ui, "automl.paso2"))
         # `.first`: la tarjeta tiene DOS selects (objetivo y columna de
-        # fecha) y el modo estricto de Playwright aborta con ambos — en la
+        # fecha) y el modo estricto de Playwright aborta con ambos — en una
         # toma anterior el except lo tragó y el video quedó sin entrenar.
         tarjeta.locator("select").first.select_option("pago")
         pagina.wait_for_timeout(600)
@@ -171,7 +228,7 @@ def _escena_automl(pagina, archivos: dict) -> None:
         pass
 
 
-def _escena_llamada(pagina) -> None:
+def _escena_llamada(pagina, archivos: dict, ui: dict) -> None:
     """La escena de la llamada, en dos tiempos: primero el caso y el guion
     del agente quietos en pantalla (ahí se lee el número al que disca), y
     recién después se genera el cobro en vivo (transferencia — checkout
@@ -181,17 +238,65 @@ def _escena_llamada(pagina) -> None:
     mejor eso que cortar la película."""
     try:
         pagina.wait_for_timeout(3500)        # el guion de la llamada, legible
-        pagina.get_by_role("button", name="Datos de transferencia").click(
-            timeout=3000)
+        pagina.get_by_role(
+            "button", name=_t(ui, "demo.cobrar_transferencia")).click(timeout=3000)
         pagina.wait_for_timeout(1500)
         pagina.mouse.wheel(0, 700)
     except Exception:
         pass
 
 
-def grabar(salida: str) -> str:
-    """Screencast crudo (sin audio) del recorrido completo."""
+# Qué hace la cámara en las escenas que no son una pantalla quieta.
+INTERACCIONES = {"/demo-vivo": _escena_llamada,
+                 "/ingenieria-datos": _escena_ingenieria,
+                 "/automl": _escena_automl}
+
+
+def narracion(idioma: str, motor: str, voz: str, destino: str) -> list[dict]:
+    """Primera pasada: sintetiza la narración escena por escena y la MIDE.
+
+    De acá sale todo lo demás — cuánto dura cada pantalla en la grabación, en
+    qué segundo entra cada frase y qué dice cada subtítulo. Es el orden
+    inverso al de antes (declarar la duración y encajarle la voz), y es el que
+    hace que no queden silencios: la pantalla dura lo que dura la frase.
+    """
+    from marketing import audio_suite
+    plan, t, n = [], 0.0, 0
+    for ruta, textos in PELICULA_ESCENAS:
+        frases = frases_de(textos, idioma)
+        cues, hablado = [], 0.0
+        for texto in frases:
+            audio, dur, _escala = audio_suite._a_ritmo(texto, 0.0, motor, voz)
+            wav = os.path.join(destino, f"cue_{n:02d}.wav")
+            n += 1
+            with open(wav, "wb") as f:
+                f.write(audio)
+            if dur <= 0:                      # motor que no devuelve WAV
+                dur = audio_suite.duracion(wav)
+            cues.append({"texto": texto, "wav": wav, "voz_s": dur})
+            hablado += dur + PAUSA_ENTRE_FRASES_S
+        hablado -= PAUSA_ENTRE_FRASES_S       # la última no lleva pausa detrás
+        escena = max(hablado + RESPIRO_S, MINIMO_ESCENA_S,
+                     PISO_POR_ESCENA.get(ruta, 0.0))
+        inicio = t
+        for cue in cues:                      # cada frase, en su segundo
+            cue.update({"ruta": ruta, "inicio": inicio, "escena_s": escena})
+            inicio += cue["voz_s"] + PAUSA_ENTRE_FRASES_S
+        plan.extend(cues)
+        t += escena
+    return plan
+
+
+def grabar(salida: str, plan: list[dict] | None = None,
+           idioma: str = "es") -> str:
+    """Screencast crudo (sin audio) del recorrido completo, con la interfaz
+    del programa en `idioma` y cada pantalla durando lo que dura su frase."""
     from playwright.sync_api import sync_playwright
+    ui = _textos_ui(idioma)
+    if plan is None:                          # modo `--sin-voz`: tiempos fijos
+        plan = [{"ruta": r, "escena_s": MINIMO_ESCENA_S + 2,
+                 **({"escena_s": PISO_POR_ESCENA[r]} if r in PISO_POR_ESCENA else {})}
+                for r in RECORRIDO]
 
     puerto = _puerto_libre()
     tmp = tempfile.mkdtemp(prefix="pelicula_")
@@ -234,9 +339,13 @@ def grabar(salida: str) -> str:
             navegador = p.chromium.launch(executable_path=eje)
 
             # Antes de cargar la app: el tour marcado como visto (el modal
-            # taparía todas las pantallas) y la sesión ya iniciada (si no, la
-            # película entera sería la pantalla de activación).
+            # taparía todas las pantallas), la sesión ya iniciada (si no, la
+            # película entera sería la pantalla de activación) y el idioma de
+            # la interfaz — el mismo `kobra_idioma` que guarda el selector de
+            # la barra lateral, así que lo que se filma es exactamente lo que
+            # ve un cliente que elige ese idioma.
             inits = ["localStorage.setItem('kobra_tour_visto','1')",
+                     f"localStorage.setItem('kobra_idioma','{idioma}')",
                      "localStorage.setItem('kobra_token', "
                      f"{json.dumps(json.dumps(sesion))})"]
 
@@ -257,29 +366,26 @@ def grabar(salida: str) -> str:
             pagina = ctx.new_page()
             for script in inits:
                 pagina.add_init_script(script)
-            for ruta, segundos in RECORRIDO:
+            for escena in plan:
+                ruta, segundos = escena["ruta"], escena["escena_s"]
                 # El reloj arranca ANTES del goto: la navegación también es
                 # tiempo de la escena. Medido: con el reloj después del goto,
                 # 18 navegaciones acumularon 8 s y los subtítulos del final
                 # quedaban hablando de la pantalla anterior.
                 t0 = time.monotonic()
-                pagina.goto(f"{base}/#{ruta}")
+                pagina.goto(f"{base}/?lang={idioma}#{ruta}")
                 try:
                     # 3 s y no 8: con el servidor ya caliente las APIs vuelven
                     # en milisegundos, y en las pantallas con tráfico continuo
                     # `networkidle` no llega nunca — cada timeout de 8 s
-                    # desbordaba el presupuesto de su escena y el total daba
-                    # 169 s para un guion de 162 (medido en dos tomas).
+                    # desbordaba el presupuesto de su escena.
                     pagina.wait_for_load_state("networkidle", timeout=3000)
                 except Exception:
                     pass                     # una pantalla lenta no corta el video
-                if ruta == "/demo-vivo":
-                    _escena_llamada(pagina)
-                elif ruta == "/ingenieria-datos":
-                    _escena_ingenieria(pagina, archivos)
-                elif ruta == "/automl":
-                    _escena_automl(pagina, archivos)
-                # Cada escena dura lo que declara el guion, interacciones
+                accion = INTERACCIONES.get(ruta)
+                if accion:
+                    accion(pagina, archivos, ui)
+                # Cada escena dura lo que dura su frase, interacciones
                 # incluidas: si esto no se descuenta, cada clic corre TODOS
                 # los subtítulos siguientes y la narración se adelanta a la
                 # pantalla.
@@ -298,53 +404,93 @@ def grabar(salida: str) -> str:
         servidor.terminate()
 
 
-def construir(salida: str = SALIDA_DEFAULT, motor: str | None = None,
+def _escribir_vtt(plan: list[dict], idioma: str, escala: float) -> str:
+    """Los subtítulos de ESTE video, con los tiempos de ESTA narración.
+
+    `escala` corrige la diferencia entre el reloj del guion y el del webm que
+    escupe Playwright (medido: ~4,5% de más, constante entre tomas). Sin eso
+    el último subtítulo cae antes de la última pantalla.
+    """
+    from marketing.subtitulos import _marca
+    partes = ["WEBVTT", ""]
+    for n, escena in enumerate(plan, start=1):
+        ini = escena["inicio"] * escala
+        # El subtítulo se va con la voz (más un respiro), no se queda pegado
+        # hasta el cambio de pantalla: leer un texto que ya nadie está
+        # diciendo distrae de lo que se ve.
+        fin = ini + (escena["voz_s"] + 0.6) * escala
+        partes += [str(n), f"{_marca(ini)} --> {_marca(fin)}",
+                   escena["texto"], ""]
+    ruta = subtitulo_de(idioma)
+    with open(ruta, "w", encoding="utf-8") as f:
+        f.write("\n".join(partes))
+    return ruta
+
+
+def construir(idioma: str = "es", motor: str | None = None,
               voz: str | None = None, con_voz: bool = True,
-              crudo: str | None = None) -> dict:
-    """Graba la película (o toma `crudo` ya grabado) y le monta la narración
-    con los cues ESCALADOS a la duración real del video — el screencast sale
-    con el reloj estirado (~4,5%, ver subtitulos._escala_pelicula) y sin el
-    escalado la voz del final habla de la pantalla anterior. Al terminar
-    regenera los .vtt con la misma escala."""
+              salida: str | None = None) -> dict:
+    """La película completa de un idioma: narración medida → grabación con la
+    interfaz en ese idioma → montaje → subtítulos."""
+    from marketing import audio_suite
+    salida = salida or salida_de(idioma)
     if not con_voz:
-        return {"salida": grabar(salida), "motor": None}
-    from marketing import audio_suite, subtitulos
-    if crudo is None:
-        crudo = os.path.join(tempfile.mkdtemp(prefix="pelicula_cruda_"),
-                             "pelicula_cruda.webm")
-        grabar(crudo)
-    escala = audio_suite.duracion(crudo) / PELICULA_CUES[-1][1]
-    inf = audio_suite.construir(salida=salida, motor=motor, entrada=crudo,
-                                voz=voz,
-                                cues=subtitulos.cues_pelicula_escalados(escala))
-    inf["escala_cues"] = round(escala, 4)
-    subtitulos.generar()
+        return {"salida": grabar(salida, idioma=idioma), "idioma": idioma}
+
+    motor = motor or audio_suite.motor_disponible()
+    voz = voz or audio_suite.VOZ_POR_IDIOMA[idioma]
+    tmp = tempfile.mkdtemp(prefix=f"pelicula_{idioma}_")
+
+    plan = narracion(idioma, motor, voz, tmp)
+    crudo = os.path.join(tmp, "crudo.webm")
+    grabar(crudo, plan=plan, idioma=idioma)
+
+    # El webm sale con el reloj estirado respecto del guion; se mide y se
+    # corrige de una vez, para el audio y para los subtítulos.
+    guion_s = plan[-1]["inicio"] + plan[-1]["escena_s"]
+    real_s = audio_suite.duracion(crudo)
+    escala = real_s / guion_s if guion_s else 1.0
+    pistas = [(e["wav"], e["inicio"] * escala) for e in plan]
+    inf = audio_suite.montar(crudo, salida, pistas, dur_video=real_s)
+
+    huecos = [round(e["escena_s"] * escala - e["voz_s"], 2) for e in plan]
+    palabras = sum(audio_suite.palabras(e["texto"]) for e in plan)
+    voz_total = sum(e["voz_s"] for e in plan)
+    inf.update({
+        "idioma": idioma, "motor": motor, "voz": voz,
+        "licencia": audio_suite.VOCES[voz]["licencia"] if motor == "piper" else "-",
+        "escenas": len(plan), "escala": round(escala, 4),
+        "hueco_max_s": max(huecos), "hueco_medio_s": round(sum(huecos) / len(huecos), 2),
+        "wpm_promedio": round(palabras / voz_total * 60, 1) if voz_total else 0.0,
+        "subtitulos": _escribir_vtt(plan, idioma, escala),
+    })
     return inf
 
 
 def main(argv=None) -> int:
     from marketing.audio_suite import VOCES
     p = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    p.add_argument("--idioma", choices=(*IDIOMAS, "todos"), default="todos")
     p.add_argument("--motor", choices=("elevenlabs", "piper"), default=None)
     p.add_argument("--voz", choices=sorted(VOCES), default=None,
-                   help="voz de piper (por defecto la rioplatense)")
-    p.add_argument("--salida", default=SALIDA_DEFAULT)
+                   help="fuerza una voz (por defecto, la del idioma)")
     p.add_argument("--sin-voz", action="store_true",
                    help="solo el screencast, sin narración")
     a = p.parse_args(argv)
 
-    inf = construir(salida=a.salida, motor=a.motor, voz=a.voz,
-                    con_voz=not a.sin_voz)
-    mb = os.path.getsize(inf["salida"]) / 1e6
-    print(f"[OK] {inf['salida']}  ({mb:.1f} MB)")
-    if inf.get("motor"):
-        print(f"     motor={inf['motor']} voz={inf['voz']} cues={inf['cues']}")
-        print(f"     video {inf['duracion_video_original']}s -> "
-              f"{inf['duracion_final']}s (congelado {inf['congelado_s']}s) · "
-              f"ritmo {inf['wpm_promedio']} pal/min")
-        for av in inf["avisos"]:
-            print(f"     [aviso] {av}")
-    print("Subtítulos: python3 -m marketing.subtitulos  (pelicula.*.vtt)")
+    idiomas = IDIOMAS if a.idioma == "todos" else (a.idioma,)
+    for idioma in idiomas:
+        inf = construir(idioma=idioma, motor=a.motor, voz=a.voz,
+                        con_voz=not a.sin_voz)
+        mb = os.path.getsize(inf["salida"]) / 1e6
+        print(f"[OK] {os.path.basename(inf['salida'])}  ({mb:.1f} MB)")
+        if inf.get("motor"):
+            print(f"     idioma={inf['idioma']} voz={inf['voz']} "
+                  f"({inf['licencia']}) escenas={inf['escenas']}")
+            print(f"     duración {inf['duracion_final']}s · ritmo "
+                  f"{inf['wpm_promedio']} pal/min · silencio entre frases: "
+                  f"medio {inf['hueco_medio_s']}s, máximo {inf['hueco_max_s']}s")
+            print(f"     subtítulos: {os.path.basename(inf['subtitulos'])}")
     return 0
 
 

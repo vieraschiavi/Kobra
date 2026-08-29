@@ -49,6 +49,86 @@ COLCHON_REPOSICION = 5
 COLUMNAS_PRODUCTOS = ("sku", "nombre", "categoria", "precio", "costo", "stock")
 COLUMNAS_VENTAS = ("fecha", "sku", "cantidad")
 
+# ---------------------------------------------------------------------------
+# Idioma del texto VISIBLE (es · pt · en)
+# ---------------------------------------------------------------------------
+# El título de cada lista y el "por qué" de cada fila son lo único que lee una
+# persona acá; el resto son números. Un cliente que eligió inglés veía el menú
+# traducido y el motivo en castellano, que es peor que no explicar nada: la
+# explicación es justamente lo que hace que le crea a la sugerencia.
+#
+# Las claves de las listas (`ofertas`, `reposicion`…) NO se traducen: son las
+# del diccionario que devuelve `todas` y las que consume la pantalla.
+IDIOMA_DEFAULT = "es"
+IDIOMAS = ("es", "pt", "en")
+
+_TEXTOS = {
+    "es": {
+        "titulo_ofertas": "Qué ofertar",
+        "titulo_reposicion": "Qué reponer",
+        "titulo_precios": "Qué re-precificar",
+        "titulo_zonas": "Zonas",
+        "titulo_recuperar": "Clientes a recuperar",
+        "motivo_oferta": "{dias} días de stock ({unidades} un., venta diaria "
+                         "{diaria}) — ${capital} inmovilizados",
+        "motivo_reposicion": "Quedan {dias} días de stock y el proveedor demora "
+                             "{lead} — riesgo de perder ${riesgo}/mes de venta",
+        "motivo_precio": "Margen actual {actual}% vs {objetivo}% de su categoría "
+                         "— subir {suba}% suma ${extra}/mes",
+        "motivo_zona": "${por_cliente} por cliente vs ${mediana} de la mediana "
+                       "— ${potencial} sin capturar",
+        "motivo_recuperar": "Compraba cada {cada} días y hace {sin_comprar} que "
+                            "no compra — ${perdida}/mes en juego",
+    },
+    "pt": {
+        "titulo_ofertas": "O que ofertar",
+        "titulo_reposicion": "O que repor",
+        "titulo_precios": "O que reprecificar",
+        "titulo_zonas": "Zonas",
+        "titulo_recuperar": "Clientes a recuperar",
+        "motivo_oferta": "{dias} dias de estoque ({unidades} un., venda diária "
+                         "{diaria}) — ${capital} parados",
+        "motivo_reposicion": "Restam {dias} dias de estoque e o fornecedor demora "
+                             "{lead} — risco de perder ${riesgo}/mês de venda",
+        "motivo_precio": "Margem atual {actual}% vs {objetivo}% da sua categoria "
+                         "— subir {suba}% soma ${extra}/mês",
+        "motivo_zona": "${por_cliente} por cliente vs ${mediana} da mediana "
+                       "— ${potencial} sem capturar",
+        "motivo_recuperar": "Comprava a cada {cada} dias e faz {sin_comprar} que "
+                            "não compra — ${perdida}/mês em jogo",
+    },
+    "en": {
+        "titulo_ofertas": "What to discount",
+        "titulo_reposicion": "What to restock",
+        "titulo_precios": "What to reprice",
+        "titulo_zonas": "Zones",
+        "titulo_recuperar": "Customers to win back",
+        "motivo_oferta": "{dias} days of stock ({unidades} units, daily sales "
+                         "{diaria}) — ${capital} tied up",
+        "motivo_reposicion": "{dias} days of stock left and the supplier takes "
+                             "{lead} — risk of losing ${riesgo}/month in sales",
+        "motivo_precio": "Current margin {actual}% vs {objetivo}% for its category "
+                         "— raising it {suba}% adds ${extra}/month",
+        "motivo_zona": "${por_cliente} per customer vs ${mediana} median "
+                       "— ${potencial} left on the table",
+        "motivo_recuperar": "Used to buy every {cada} days and hasn't bought in "
+                            "{sin_comprar} — ${perdida}/month at stake",
+    },
+}
+
+
+def _idioma(idioma: str | None) -> str:
+    """Normaliza el código de idioma: 'pt-BR' → 'pt', desconocido → 'es'."""
+    corto = str(idioma or "").strip().lower().replace("_", "-").split("-")[0]
+    return corto if corto in IDIOMAS else IDIOMA_DEFAULT
+
+
+def titulos(idioma: str = IDIOMA_DEFAULT) -> dict:
+    """Título de cada una de las cinco listas, por su clave en `todas`."""
+    t = _TEXTOS[_idioma(idioma)]
+    return {clave: t[f"titulo_{clave}"]
+            for clave in ("ofertas", "reposicion", "precios", "zonas", "recuperar")}
+
 
 class DatosIncompletos(ValueError):
     """Falta una columna necesaria. El mensaje nombra cuál y en qué tabla."""
@@ -155,8 +235,10 @@ def indicadores(productos: pd.DataFrame, v: pd.DataFrame, dias: int = 30) -> dic
 # ---------------------------------------------------------------------------
 # Las cinco sugerencias
 # ---------------------------------------------------------------------------
-def ofertas(productos: pd.DataFrame, v: pd.DataFrame) -> pd.DataFrame:
+def ofertas(productos: pd.DataFrame, v: pd.DataFrame,
+            idioma: str = IDIOMA_DEFAULT) -> pd.DataFrame:
     """Qué ofertar: lo parado, con un descuento que apure sin regalar margen."""
+    motivo = _TEXTOS[_idioma(idioma)]["motivo_oferta"]
     r = rotacion(productos, v)
     sob = r[(r["dias_stock"] > DIAS_SOBRESTOCK) & (r["stock"] > 0)].copy()
     if not len(sob):
@@ -179,9 +261,10 @@ def ofertas(productos: pd.DataFrame, v: pd.DataFrame) -> pd.DataFrame:
     sob["precio_oferta"] = (sob["precio"] * (1 - sob["descuento_pct"] / 100)).round(2)
     sob["capital_inmovilizado"] = (sob["stock"] * sob["costo"]).round(2)
     sob["motivo"] = sob.apply(
-        lambda x: (f"{x['dias_stock']:.0f} días de stock ({int(x['stock'])} un., "
-                   f"venta diaria {x['venta_diaria']:.1f}) — "
-                   f"${x['capital_inmovilizado']:,.0f} inmovilizados"), axis=1)
+        lambda x: motivo.format(dias=f"{x['dias_stock']:.0f}",
+                                unidades=int(x["stock"]),
+                                diaria=f"{x['venta_diaria']:.1f}",
+                                capital=f"{x['capital_inmovilizado']:,.0f}"), axis=1)
     cols = [c for c in ("sku", "nombre", "categoria", "stock", "dias_stock",
                         "precio", "descuento_pct", "precio_oferta",
                         "capital_inmovilizado", "motivo") if c in sob.columns]
@@ -189,8 +272,10 @@ def ofertas(productos: pd.DataFrame, v: pd.DataFrame) -> pd.DataFrame:
             .reset_index(drop=True))
 
 
-def reposicion(productos: pd.DataFrame, v: pd.DataFrame) -> pd.DataFrame:
+def reposicion(productos: pd.DataFrame, v: pd.DataFrame,
+               idioma: str = IDIOMA_DEFAULT) -> pd.DataFrame:
     """Qué comprar ya: lo que se agota antes de que llegue el proveedor."""
+    motivo = _TEXTOS[_idioma(idioma)]["motivo_reposicion"]
     r = rotacion(productos, v)
     if "lead_time_dias" not in r.columns:
         r["lead_time_dias"] = 7          # supuesto explícito, no un cero mudo
@@ -209,9 +294,9 @@ def reposicion(productos: pd.DataFrame, v: pd.DataFrame) -> pd.DataFrame:
     riesgo["inversion"] = (riesgo["cantidad_sugerida"] * riesgo["costo"]).round(2)
     riesgo["venta_en_riesgo"] = (riesgo["venta_diaria"] * riesgo["precio"] * 30).round(2)
     riesgo["motivo"] = riesgo.apply(
-        lambda x: (f"Quedan {x['dias_stock']:.0f} días de stock y el proveedor "
-                   f"demora {int(x['lead_time_dias'])} — riesgo de perder "
-                   f"${x['venta_en_riesgo']:,.0f}/mes de venta"), axis=1)
+        lambda x: motivo.format(dias=f"{x['dias_stock']:.0f}",
+                                lead=int(x["lead_time_dias"]),
+                                riesgo=f"{x['venta_en_riesgo']:,.0f}"), axis=1)
     cols = [c for c in ("sku", "nombre", "categoria", "proveedor", "stock",
                         "dias_stock", "lead_time_dias", "cantidad_sugerida",
                         "inversion", "venta_en_riesgo", "motivo")
@@ -221,7 +306,8 @@ def reposicion(productos: pd.DataFrame, v: pd.DataFrame) -> pd.DataFrame:
 
 
 def precios(productos: pd.DataFrame, v: pd.DataFrame,
-            margen_objetivo_pct: float = 25.0) -> pd.DataFrame:
+            margen_objetivo_pct: float = 25.0,
+            idioma: str = IDIOMA_DEFAULT) -> pd.DataFrame:
     """Qué re-precificar: vende bien pero deja menos margen que su categoría.
 
     La suba se acota entre 0,5% y 25%: por debajo no mueve la aguja y no vale
@@ -229,6 +315,7 @@ def precios(productos: pd.DataFrame, v: pd.DataFrame,
     la acepte sin resistencia, y una sugerencia que nadie va a aplicar es
     ruido que hace desconfiar del resto.
     """
+    motivo = _TEXTOS[_idioma(idioma)]["motivo_precio"]
     mp = margen_por_producto(v)
     if "categoria" not in mp.columns or not len(mp):
         return pd.DataFrame()
@@ -250,9 +337,10 @@ def precios(productos: pd.DataFrame, v: pd.DataFrame,
     bajo["margen_extra_mensual"] = (
         (bajo["precio_sugerido"] - bajo["precio"]) * bajo["unidades"] / 12).round(2)
     bajo["motivo"] = bajo.apply(
-        lambda x: (f"Margen actual {x['margen_pct']:.1f}% vs {x['margen_obj']:.1f}% "
-                   f"de su categoría — subir {x['suba_pct']:.1f}% suma "
-                   f"${x['margen_extra_mensual']:,.0f}/mes"), axis=1)
+        lambda x: motivo.format(actual=f"{x['margen_pct']:.1f}",
+                                objetivo=f"{x['margen_obj']:.1f}",
+                                suba=f"{x['suba_pct']:.1f}",
+                                extra=f"{x['margen_extra_mensual']:,.0f}"), axis=1)
     cols = [c for c in ("sku", "nombre", "categoria", "precio", "precio_sugerido",
                         "suba_pct", "margen_pct", "margen_obj",
                         "margen_extra_mensual", "motivo") if c in bajo.columns]
@@ -260,8 +348,9 @@ def precios(productos: pd.DataFrame, v: pd.DataFrame,
             .reset_index(drop=True))
 
 
-def zonas(v: pd.DataFrame) -> pd.DataFrame:
+def zonas(v: pd.DataFrame, idioma: str = IDIOMA_DEFAULT) -> pd.DataFrame:
     """Dónde hay venta sin explotar: zonas por debajo de su potencial."""
+    motivo = _TEXTOS[_idioma(idioma)]["motivo_zona"]
     if "zona" not in v.columns or v["zona"].isna().all():
         return pd.DataFrame()
     g = (v.groupby("zona", as_index=False)
@@ -277,20 +366,22 @@ def zonas(v: pd.DataFrame) -> pd.DataFrame:
     flojas["potencial"] = ((referencia - flojas["venta_por_cliente"])
                            * flojas["clientes"]).round(2)
     flojas["motivo"] = flojas.apply(
-        lambda x: (f"${x['venta_por_cliente']:,.0f} por cliente vs "
-                   f"${referencia:,.0f} de la mediana — "
-                   f"${x['potencial']:,.0f} sin capturar"), axis=1)
+        lambda x: motivo.format(por_cliente=f"{x['venta_por_cliente']:,.0f}",
+                                mediana=f"{referencia:,.0f}",
+                                potencial=f"{x['potencial']:,.0f}"), axis=1)
     return (flojas.sort_values("potencial", ascending=False)
             .reset_index(drop=True))
 
 
-def recuperar_clientes(v: pd.DataFrame, dias_sin_comprar: int = 60) -> pd.DataFrame:
+def recuperar_clientes(v: pd.DataFrame, dias_sin_comprar: int = 60,
+                       idioma: str = IDIOMA_DEFAULT) -> pd.DataFrame:
     """A quién recuperar: compraba seguido y dejó de comprar.
 
     Se mide contra el ritmo propio de cada cliente, no contra un umbral fijo:
     uno que compra cada tres meses no está perdido a los 60 días, y uno que
     compraba semanal sí. Un umbral único llenaría la lista de falsos avisos.
     """
+    motivo = _TEXTOS[_idioma(idioma)]["motivo_recuperar"]
     if "cliente_id" not in v.columns or not len(v):
         return pd.DataFrame()
     hoy = v["fecha"].max()
@@ -313,22 +404,29 @@ def recuperar_clientes(v: pd.DataFrame, dias_sin_comprar: int = 60) -> pd.DataFr
     dormidos["venta_mensual_perdida"] = (
         dormidos["venta"] / span[dormidos.index] * 30).round(2)
     dormidos["motivo"] = dormidos.apply(
-        lambda x: (f"Compraba cada {x['cada_dias']:.0f} días y hace "
-                   f"{x['dias_sin_comprar']:.0f} que no compra — "
-                   f"${x['venta_mensual_perdida']:,.0f}/mes en juego"), axis=1)
+        lambda x: motivo.format(cada=f"{x['cada_dias']:.0f}",
+                                sin_comprar=f"{x['dias_sin_comprar']:.0f}",
+                                perdida=f"{x['venta_mensual_perdida']:,.0f}"), axis=1)
     return (dormidos.sort_values("venta_mensual_perdida", ascending=False)
             .reset_index(drop=True))
 
 
 def todas(productos: pd.DataFrame, ventas: pd.DataFrame,
-          clientes: pd.DataFrame | None = None) -> dict:
-    """Las cinco listas y los indicadores, en una sola llamada."""
+          clientes: pd.DataFrame | None = None,
+          idioma: str = IDIOMA_DEFAULT) -> dict:
+    """Las cinco listas y los indicadores, en una sola llamada.
+
+    Devuelve solo las listas y los indicadores: los títulos salen de `titulos`,
+    aparte, porque quien consume esto trata todas las claves menos
+    `indicadores` como tablas y una clave de texto rompería ese recorrido.
+    """
+    idioma = _idioma(idioma)
     v = enriquecer(ventas, productos, clientes)
     return {
         "indicadores": indicadores(productos, v),
-        "ofertas": ofertas(productos, v),
-        "reposicion": reposicion(productos, v),
-        "precios": precios(productos, v),
-        "zonas": zonas(v),
-        "recuperar": recuperar_clientes(v),
+        "ofertas": ofertas(productos, v, idioma),
+        "reposicion": reposicion(productos, v, idioma),
+        "precios": precios(productos, v, idioma=idioma),
+        "zonas": zonas(v, idioma),
+        "recuperar": recuperar_clientes(v, idioma=idioma),
     }

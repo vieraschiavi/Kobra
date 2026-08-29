@@ -34,7 +34,8 @@
       "rol_admin": "Administrador",
       "rol_gestor": "Gestor",
       "cerrar_sesion": "Cerrar sesión",
-      "pais": "País de operación"
+      "pais": "País de operación",
+      "idioma": "Idioma de la interfaz"
     }
   },
   "login": {
@@ -215,7 +216,8 @@
       "col_motivo": "Motivo",
       "col_monto": "Monto",
       "origen_historial": "Contactabilidad (auto)",
-      "origen_regla": "Regla · a criterio"
+      "origen_regla": "Regla · a criterio",
+      "bloqueado": "Ahora mismo no hay nadie a quien contactar: {{motivo}} El plan tiene {{casos}} casos listos para cuando se pueda."
     }
   },
   "gestores": {

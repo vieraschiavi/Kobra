@@ -34,7 +34,8 @@
       "rol_admin": "Administrador",
       "rol_gestor": "Operador",
       "cerrar_sesion": "Sair",
-      "pais": "País de operação"
+      "pais": "País de operação",
+      "idioma": "Idioma da interface"
     }
   },
   "login": {
@@ -215,7 +216,8 @@
       "col_motivo": "Motivo",
       "col_monto": "Valor",
       "origen_historial": "Contactabilidade (auto)",
-      "origen_regla": "Regra · a critério"
+      "origen_regla": "Regra · a critério",
+      "bloqueado": "Agora não há ninguém para contatar: {{motivo}} O plano tem {{casos}} casos prontos para quando for permitido."
     }
   },
   "gestores": {
@@ -847,7 +849,6 @@
     },
     "dim": {
       "completitud": "Completude",
-      "unicidade": "Unicidade",
       "unicidad": "Unicidade",
       "validez": "Validade",
       "consistencia": "Consistência",

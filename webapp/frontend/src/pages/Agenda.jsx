@@ -15,7 +15,22 @@ function PlanContacto() {
   useEffect(() => {
     api("/api/campana/plan?limite=12").then(setD).catch(() => setD({ total: 0, contactos: [] }));
   }, []);
-  if (!d || !d.total) return null;
+  if (!d) return null;
+  // Sin nadie contactable AHORA no se muestra una tabla vacía: se dice por
+  // qué. Casi siempre es el horario legal, y verlo explicado es lo que
+  // separa "el programa está cumpliendo la ley" de "el programa no anda".
+  if (!d.total) {
+    if (!d.bloqueo) return null;
+    return (
+      <div className="card" style={{ marginBottom: 18 }}>
+        <h3 style={{ marginTop: 0 }}>{t("agenda.plan.titulo")}</h3>
+        <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>
+          {t("agenda.plan.bloqueado", { motivo: d.bloqueo.motivo,
+                                        casos: d.bloqueo.casos })}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="card" style={{ marginBottom: 18 }}>
       <h3 style={{ marginTop: 0 }}>{t("agenda.plan.titulo")}</h3>

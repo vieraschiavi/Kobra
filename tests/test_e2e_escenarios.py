@@ -235,7 +235,15 @@ def test_plan_de_contacto_por_contactabilidad(montado):
     r = montado["cli"].get("/api/campana/plan?limite=20")
     assert r.status_code == 200, r.text
     d = r.json()
-    assert d["total"] > 0, "el plan de contacto salió vacío"
+    if not d["total"]:
+        # Fuera del horario legal de contacto el plan queda vacío A PROPÓSITO
+        # —el cumplimiento manda—, pero entonces tiene que explicar por qué:
+        # una tabla vacía sin motivo parece un programa roto. Este test corre
+        # a cualquier hora, así que las dos ramas son legítimas.
+        assert d["bloqueo"] and d["bloqueo"]["motivo"], \
+            "el plan salió vacío y sin explicar el motivo"
+        assert d["bloqueo"]["casos"] > 0
+        return
     assert d["con_historial"] > 0, (
         "ningún canal elegido por contactabilidad: el automático no funciona")
     assert {p["canal_origen"] for p in d["contactos"]} <= {"historial", "regla"}
