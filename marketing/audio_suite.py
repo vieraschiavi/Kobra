@@ -259,8 +259,14 @@ def _dur_wav(crudo: bytes) -> float:
 # --------------------------------------------------------------------------
 def construir(salida: str = SALIDA, motor: str | None = None,
               entrada: str = ENTRADA, idioma: str = "es",
-              voz: str | None = None) -> dict:
-    """Monta la narración sobre el screencast. Devuelve un informe."""
+              voz: str | None = None, cues=None) -> dict:
+    """Monta la narración sobre el screencast. Devuelve un informe.
+
+    `cues` es la lista de (inicio, fin, textos) a narrar — por defecto la de
+    la suite; la película (marketing/pelicula_demo.py) pasa la suya. El
+    montaje es idéntico: mismo ritmo medido, misma mezcla, mismo estirado.
+    """
+    cues = SUITE_CUES if cues is None else cues
     motor = motor or motor_disponible()
     if motor not in ("elevenlabs", "piper"):
         raise ValueError(f"motor desconocido: {motor!r}")
@@ -278,7 +284,7 @@ def construir(salida: str = SALIDA, motor: str | None = None,
     huecos = []
 
     ritmos = []
-    for n, (ini, _fin, textos) in enumerate(SUITE_CUES):
+    for n, (ini, _fin, textos) in enumerate(cues):
         ruta = os.path.join(tmp, f"cue_{n:02d}.wav")
         # El ritmo se corrige acá, midiendo. Con ElevenLabs no: re-sintetizar
         # cuesta por carácter y ahí la velocidad se ajusta desde la voz.

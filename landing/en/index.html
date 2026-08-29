@@ -364,6 +364,7 @@ nav{background:rgba(8,19,36,.62);
   <div class="nlinks">
     <a href="#plataforma" data-i="nav1">Funciones</a>
     <a href="#plataforma" data-i="nav2">Cómo funciona</a>
+    <a href="#pelicula" data-i="navp">La película</a>
     <a href="#precios" data-i="nav3">Planes</a>
     <a href="#demo" data-i="navd">Demo</a>
     <a href="#resenas" data-i="navr">Reseñas</a>
@@ -418,6 +419,25 @@ nav{background:rgba(8,19,36,.62);
   </div>
   </div>
 </div></div></div></header>
+
+<!-- PELÍCULA: la demo completa, de la mora al recupero -->
+<section id="pelicula" class="panel"><div class="wrap" style="text-align:center">
+  <div class="eyebrow" data-i="pfey">La película</div>
+  <h2 class="h2" data-i="pfh">De la mora al recupero: la demo completa</h2>
+  <p class="lead-d" data-i="pfl" style="margin-left:auto;margin-right:auto">Un solo video, sin cortes, contra la plataforma real: la situación de partida con la mora en pantalla, la cartera scoreada con ProbPago, el gestor IA por voz y WhatsApp, el portal de pagos, el tablero conversacional, gobernanza, KPIs propios, AutoML, logística y proyectos — hasta el resultado. Datos 100% sintéticos. Subtítulos en los tres idiomas.</p>
+  <div style="max-width:860px;margin:0 auto;border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.18)">
+    <video controls preload="metadata" playsinline style="width:100%;display:block;background:#0E1117">
+      <source src="/video/MVKobraAI_Pelicula_Demo.webm" type="video/webm">
+      <!-- Screencast real (marketing/pelicula_demo.py) narrado en castellano.
+           Subtítulos: python3 -m marketing.subtitulos. Sin `default`: son
+           opcionales (botón CC), no tapan las pantallas solos. -->
+      <track kind="subtitles" src="/video/pelicula.es.vtt" srclang="es" label="Español">
+      <track kind="subtitles" src="/video/pelicula.pt.vtt" srclang="pt" label="Português">
+      <track kind="subtitles" src="/video/pelicula.en.vtt" srclang="en" label="English">
+      Tu navegador no soporta la reproducción de video HTML5.
+    </video>
+  </div>
+</div></section>
 
 <!-- VIDEO -->
 <section id="video" class="panel"><div class="wrap" style="text-align:center">
@@ -654,7 +674,9 @@ nav{background:rgba(8,19,36,.62);
 <script>
 var I18N={
   pt:{
-    nav1:"Funcionalidades",nav2:"Como funciona",nav3:"Planos",navd:"Demo",navr:"Avaliações",navc:"Contato",navbuy:"Comprar",
+    nav1:"Funcionalidades",nav2:"Como funciona",navp:"O filme",nav3:"Planos",navd:"Demo",navr:"Avaliações",navc:"Contato",navbuy:"Comprar",
+    pfey:"O filme",pfh:"Da inadimplência à recuperação: a demo completa",
+    pfl:"Um único vídeo, sem cortes, sobre a plataforma real: a situação de partida com a inadimplência na tela, a carteira pontuada com o ProbPago, o agente IA por voz e WhatsApp, o portal de pagamentos, o painel conversacional, governança, KPIs próprios, AutoML, logística e projetos — até o resultado. Dados 100% sintéticos. Legendas nos três idiomas.",
     kick:"IA para cobranças · voz natural",
     h1:'Sua cobrança operando <span class="am">24/7</span>, sem contratar mais gente',
     lead:"A MV Kobra AI é o agente com Inteligência Artificial que liga —conectado à sua central (Avaya, Genesys, Cisco, Asterisk) ou ao Twilio—, negocia por WhatsApp, respeita a lei e envia cada resultado ao seu ERP (PostgreSQL, MySQL, SQL Server ou via API) — enquanto sua equipe foca no que importa.",
@@ -694,7 +716,9 @@ var I18N={
     mvsw:'MV Kobra AI é o carro-chefe da <b>MV Software</b>, empresa de software do Uruguai para a América Latina e o mundo.'
   },
   en:{
-    nav1:"Features",nav2:"How it works",nav3:"Plans",navd:"Demo",navr:"Reviews",navc:"Contact",navbuy:"Buy",
+    nav1:"Features",nav2:"How it works",navp:"The film",nav3:"Plans",navd:"Demo",navr:"Reviews",navc:"Contact",navbuy:"Buy",
+    pfey:"The film",pfh:"From arrears to recovery: the full demo",
+    pfl:"A single uncut video against the real platform: the starting point with arrears on screen, the portfolio scored with ProbPago, the AI agent on voice and WhatsApp, the payment portal, the conversational board, governance, custom KPIs, AutoML, logistics and projects — all the way to the result. 100% synthetic data. Subtitles in all three languages.",
     kick:"AI for collections · natural voice",
     h1:'Your collections running <span class="am">24/7</span>, without hiring more people',
     lead:"MV Kobra AI is the AI agent that calls —connected to your PBX (Avaya, Genesys, Cisco, Asterisk) or straight over Twilio—, negotiates over WhatsApp, respects the law, and pushes every result to your ERP (PostgreSQL, MySQL, SQL Server, or via API) — while your team focuses on what matters.",

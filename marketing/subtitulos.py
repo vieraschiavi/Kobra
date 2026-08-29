@@ -164,6 +164,103 @@ SUITE_CUES = [
 ]
 
 
+# La película: la demo completa, contada como una historia — arranca en el
+# problema (la mora creciendo en el panel) y termina en el resultado (/roi).
+# Cada escena es (ruta del hash router, segundos en pantalla, textos): una
+# SOLA fuente para el recorrido de la grabación (marketing/pelicula_demo.py),
+# los subtítulos y la narración — no se pueden desincronizar porque son el
+# mismo dato. Los tiempos de los cues salen de acumular las duraciones
+# (`PELICULA_CUES`), no de estimar a mano.
+PELICULA_ESCENAS = [
+    ("/", 8, {
+        "es": "Así arranca una cobranza real: la mora crece,\nel panel lo muestra y el tiempo no alcanza.",
+        "pt": "Assim começa uma cobrança real: a inadimplência cresce,\no painel mostra e o tempo não alcança.",
+        "en": "This is where every collections story starts: arrears growing,\nthe dashboard shows it, and time runs short."}),
+    ("/cuentas-por-cobrar", 9, {
+        "es": "Primero, medir el problema en serio: antigüedad de saldos,\nDSO y efectividad, calculados sobre la cartera.",
+        "pt": "Primeiro, medir o problema a sério: aging de saldos,\nDSO e efetividade, calculados sobre a carteira.",
+        "en": "First, measure the problem properly: an aging report,\nDSO and effectiveness, computed from the portfolio."}),
+    ("/originacion", 9, {
+        "es": "El cambio empieza acá: subís tu cartera y Kobra la scorea\nal instante, con la probabilidad de pago y sus razones.",
+        "pt": "A mudança começa aqui: você sobe a sua carteira e a Kobra\npontua na hora, com a probabilidade de pagamento e as razões.",
+        "en": "The turnaround starts here: upload your portfolio and Kobra\nscores it instantly, with each payment probability and its reasons."}),
+    ("/cartera", 10, {
+        "es": "ProbPago ordena la cartera por lo que de verdad se puede recuperar:\nestrategia, descuento justo y guion para cada deudor.",
+        "pt": "O ProbPago ordena a carteira pelo que de fato dá para recuperar:\nestratégia, desconto certo e roteiro para cada devedor.",
+        "en": "ProbPago ranks the portfolio by what can actually be recovered:\nstrategy, the right discount and a script for every debtor."}),
+    ("/agenda", 8, {
+        "es": "La agenda arma el día sola:\na quién contactar, cuándo y por qué canal.",
+        "pt": "A agenda monta o dia sozinha:\nquem contatar, quando e por qual canal.",
+        "en": "The agenda builds the day on its own:\nwho to contact, when, and over which channel."}),
+    ("/demo-vivo", 12, {
+        "es": "Y el gestor de inteligencia artificial ejecuta: llama con voz natural\nal número del caso, negocia por WhatsApp y genera el cobro con su QR.",
+        "pt": "E o agente de inteligência artificial executa: liga com voz natural\npara o número do caso, negocia pelo WhatsApp e gera a cobrança com QR.",
+        "en": "Then the AI agent executes: it calls the case's number with a natural\nvoice, negotiates over WhatsApp and generates the charge with its QR."}),
+    ("/portal-cobros", 8, {
+        "es": "El deudor también puede pagar solo:\nentra al portal con un QR o un link, y paga.",
+        "pt": "O devedor também pode pagar sozinho:\nentra no portal com um QR ou um link, e paga.",
+        "en": "Debtors can also pay on their own:\nthey open the portal from a QR code or a link, and pay."}),
+    ("/tablero", 9, {
+        "es": "El tablero conversacional responde en tu idioma:\ncada número sale de tus datos, no de una estimación.",
+        "pt": "O painel conversacional responde no seu idioma:\ncada número vem dos seus dados, não de uma estimativa.",
+        "en": "The conversational board answers in your own words:\nevery number comes from your data, not from a guess."}),
+    ("/asistente", 8, {
+        "es": "¿Una duda sobre el producto? El asistente contesta al lado,\ncon la documentación adentro.",
+        "pt": "Uma dúvida sobre o produto? O assistente responde ali mesmo,\ncom a documentação dentro.",
+        "en": "A question about the product? The assistant answers right there,\nwith the documentation built in."}),
+    ("/gestores", 8, {
+        "es": "El equipo humano se mide acá:\nrecupero por gestor, por mes y por canal.",
+        "pt": "A equipe humana é medida aqui:\nrecuperação por atendente, por mês e por canal.",
+        "en": "The human team is measured here:\nrecovery by agent, by month and by channel."}),
+    ("/calidad", 8, {
+        "es": "Y calidad revisa cada gestión:\nhorarios, topes y lista de no contactar, siempre.",
+        "pt": "E a qualidade revisa cada atendimento:\nhorários, limites e lista de não contatar, sempre.",
+        "en": "And quality reviews every interaction:\ncalling hours, caps and the do-not-contact list, always."}),
+    ("/ingenieria-datos", 9, {
+        "es": "Ingeniería de datos incluida: conectá SQL, CSV o Excel;\nperfiles, uniones y features sin escribir código.",
+        "pt": "Engenharia de dados incluída: conecte SQL, CSV ou Excel;\nperfis, junções e features sem escrever código.",
+        "en": "Data engineering included: connect SQL, CSV or Excel;\nprofiles, joins and features without writing code."}),
+    ("/gobernanza", 9, {
+        "es": "Gobernanza responde qué dato es personal, quién lo ve\ny qué calidad tiene, en las seis dimensiones DAMA.",
+        "pt": "A governança responde qual dado é pessoal, quem vê\ne qual a qualidade, nas seis dimensões DAMA.",
+        "en": "Governance answers which data is personal, who can see it\nand how good it is, across the six DAMA dimensions."}),
+    ("/medidas", 8, {
+        "es": "KPIs propios: definí tu indicador con una fórmula\ny usalo en todo el tablero.",
+        "pt": "KPIs próprios: defina o seu indicador com uma fórmula\ne use em todo o painel.",
+        "en": "Custom KPIs: define your own indicator with a formula\nand use it across the board."}),
+    ("/automl", 9, {
+        "es": "AutoML entrena un modelo con tu propio dataset;\nla métrica sale de un holdout que no se usó para elegir nada.",
+        "pt": "O AutoML treina um modelo com o seu próprio dataset;\na métrica vem de um holdout que não foi usado para escolher nada.",
+        "en": "AutoML trains a model on your own dataset;\nthe metric comes from a holdout never used to choose anything."}),
+    ("/logistica", 8, {
+        "es": "Logística, un módulo aparte: qué ofertar,\nqué reponer y a qué cliente recuperar.",
+        "pt": "Logística, um módulo à parte: o que ofertar,\no que repor e qual cliente recuperar.",
+        "en": "Logistics, sold separately: what to discount,\nwhat to restock and which customer to win back."}),
+    ("/proyectos", 8, {
+        "es": "Y Proyectos: salud del portafolio\ny backlog ordenado por valor esperado.",
+        "pt": "E Projetos: saúde do portfólio\ne backlog ordenado por valor esperado.",
+        "en": "And Projects: portfolio health\nand the backlog ranked by expected value."}),
+    ("/roi", 10, {
+        "es": "El resultado se mide acá: más recupero con menos gestiones.\nMV Kobra AI, de punta a punta. mvkobranzaia.com",
+        "pt": "O resultado se mede aqui: mais recuperação com menos gestões.\nMV Kobra AI, de ponta a ponta. mvkobranzaia.com",
+        "en": "The result is measured here: more recovery with less effort.\nMV Kobra AI, end to end. mvkobranzaia.com"}),
+]
+
+
+def _cues_de_escenas(escenas) -> list[tuple[float, float, dict]]:
+    """Escenas → cues: el cue N arranca donde terminó el N-1. La navegación
+    entre pantallas agrega décimas (medido: 0,84 s en 7 pantallas de la
+    suite); el montaje de audio ya absorbe ese resto estirando el video."""
+    cues, t = [], 0.0
+    for _ruta, segundos, textos in escenas:
+        cues.append((t, t + float(segundos), textos))
+        t += float(segundos)
+    return cues
+
+
+PELICULA_CUES = _cues_de_escenas(PELICULA_ESCENAS)
+
+
 def _marca(segundos: float) -> str:
     """Segundos → `HH:MM:SS.mmm`, el formato que exige WebVTT."""
     ms = int(round(segundos * 1000))
@@ -187,11 +284,13 @@ def vtt(idioma: str, cues=None) -> str:
 
 
 def generar(destino: str | None = None) -> dict[str, str]:
-    """Escribe `copiloto.*.vtt` y `suite.*.vtt` en `landing/video/`."""
+    """Escribe `copiloto.*.vtt`, `suite.*.vtt` y `pelicula.*.vtt` en
+    `landing/video/`."""
     destino = destino or VIDEO_DIR
     os.makedirs(destino, exist_ok=True)
     salida = {}
-    for nombre, cues in (("copiloto", CUES), ("suite", SUITE_CUES)):
+    for nombre, cues in (("copiloto", CUES), ("suite", SUITE_CUES),
+                         ("pelicula", PELICULA_CUES)):
         for idioma in IDIOMAS:
             ruta = os.path.join(destino, f"{nombre}.{idioma}.vtt")
             with open(ruta, "w", encoding="utf-8") as f:
@@ -201,6 +300,8 @@ def generar(destino: str | None = None) -> dict[str, str]:
 
 
 if __name__ == "__main__":
+    _CUES_POR_NOMBRE = {"copiloto": CUES, "suite": SUITE_CUES,
+                        "pelicula": PELICULA_CUES}
     for clave, ruta in generar().items():
-        n = len(SUITE_CUES if clave.startswith("suite") else CUES)
+        n = len(_CUES_POR_NOMBRE[clave.split(".")[0]])
         print(f"[OK] {clave}  {n} subtítulos  {os.path.relpath(ruta, ROOT)}")
