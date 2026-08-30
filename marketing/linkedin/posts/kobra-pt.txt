@@ -4,34 +4,24 @@ Sua equipe de cobrança liga das 9 às 18.
 
 Seu devedor também trabalha das 9 às 18.
 
-Isso sozinho explica uma parte enorme das ligações que ninguém atende. Mas não é o mais caro que acontece dentro de uma operação de cobrança.
+Isso sozinho já explica boa parte das ligações que ninguém atende. Mas o mais caro não é o horário. É a ORDEM.
 
-O mais caro é a ORDEM.
+Quase toda equipe liga do maior para o menor valor. Parece lógico. O problema é que o valor não diz nada sobre se aquele dinheiro vai voltar.
 
-Quase toda equipe liga do maior para o menor valor. Parece lógico: primeiro o grande. O problema é que o valor não diz absolutamente nada sobre se aquele dinheiro vai voltar.
-
-Uma dívida de R$ 50.000 de alguém que não vai pagar vale, na prática, menos que três dívidas de R$ 5.000 de gente que vai.
+Uma dívida de R$ 50.000 de alguém que não vai pagar vale menos, na prática, que três de R$ 5.000 de gente que vai.
 
 Ordenar por valor é ordenar pelo que você QUER receber.
 Ordenar por valor × probabilidade de pagamento é ordenar pelo que você VAI receber.
 
-São duas listas diferentes. E a segunda você monta amanhã, com uma planilha e o histórico que já tem: veja que porcentagem de casos parecidos acabou pagando, multiplique, reordene.
+São duas listas diferentes. E a segunda você monta amanhã, com uma planilha e o histórico que já tem.
 
-Mais três coisas que custam zero e quase ninguém faz:
-
-→ Ligar na faixa de horário em que aquela pessoa já atendeu antes, não na que é cômoda para o call center.
-
-→ Parar de ligar para quem já se comprometeu a pagar no dia 5. Você está gastando, e cada ligação a mais reduz a vontade de atender na próxima.
-
-→ Contar quantas tentativas cada caso exige. Se passa de quatro, o canal está errado. Não é que a pessoa não queira falar: é que não quer falar POR ALI.
-
-Nada disso exige comprar software. Exige olhar duas colunas que você já tem no sistema.
-
-A gente automatiza isso, mas essa é outra conversa. Essas quatro você aplica na segunda-feira.
+Aqui embaixo tem 2:42 mostrando como fica quando o sistema faz sozinho: carteira priorizada por valor esperado, agenda por contactabilidade real, e o acordo caindo no ERP.
 
 Por qual critério sua equipe ordena hoje?
 
---- comentario ---
-Se quiser ver como fica quando o sistema faz sozinho —carteira priorizada por valor esperado, agenda por contactabilidade real, a negociação e o acordo caindo no ERP— gravei 2:42 percorrendo tudo de ponta a ponta, sem cortes: mvkobranzaia.com
+#Cobrança #Inadimplência #Fintech #InteligênciaArtificial #Bancos
 
-E se quiser montar a lista ordenada por valor esperado com o seu próprio histórico e não sabe por onde começar, me chame aqui.
+--- comentario ---
+O percurso completo, da originação à recuperação: mvkobranzaia.com
+
+Se você trabalha com carteira inadimplente e quer ver sobre os seus próprios números, me chame aqui e marcamos uma demo.
