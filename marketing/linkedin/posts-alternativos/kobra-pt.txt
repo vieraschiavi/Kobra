@@ -1,0 +1,27 @@
+# idioma: pt
+# visibilidad: PUBLIC
+Se um produto de machine learning não mostra a diferença entre seleção e holdout, ele não está mostrando performance. Está mostrando o melhor ângulo.
+
+A armadilha é antiga e continua funcionando: você treina, testa várias configurações, escolhe a que deu melhor e reporta AQUELE número. Mas esse trecho você já usou para escolher. Não é um teste, é um espelho.
+
+O número honesto é outro: quanto o modelo cai quando você olha um trecho que nunca tocou.
+
+Gravei a plataforma que estou construindo mostrando exatamente isso, na tela, sem ninguém pedir:
+
+· AUC walk-forward: 0,8381
+· KS: 0,5662
+· Contra a regra que a empresa usa hoje: +0,2134
+· Diferença seleção→holdout do AutoML: +0,0729
+
+Validação temporal: 75% do passado para treinar, 25% do futuro para avaliar. Nunca aleatória — em cobrança, a ordem do tempo É a informação.
+
+Esse +0,0729 é o número incômodo. Deixamos à vista mesmo assim, porque um modelo que esconde a própria queda é um modelo em que você não apoia uma decisão de dinheiro.
+
+São 2:42 percorrendo as 19 abas de ponta a ponta, sem cortes, sobre dados sintéticos.
+
+Você reporta a diferença dos seus modelos, ou o número do trecho com o qual escolheu?
+
+--- comentario ---
+O percurso completo, da originação à recuperação: mvkobranzaia.com
+
+Se você trabalha com carteira inadimplente e quer ver sobre os seus próprios números, me chame aqui e marcamos uma demo.

@@ -1,27 +1,35 @@
 # idioma: pt
 # visibilidad: PUBLIC
-Se um produto de machine learning não mostra a diferença entre seleção e holdout, ele não está mostrando performance. Está mostrando o melhor ângulo.
+Um modelo de scoring com AUC 0,87 pode ser pior que uma regra de três.
 
-A armadilha é antiga e continua funcionando: você treina, testa várias configurações, escolhe a que deu melhor e reporta AQUELE número. Mas esse trecho você já usou para escolher. Não é um teste, é um espelho.
+Sete perguntas para perceber isso ANTES de assinar. Salve — nenhuma exige saber programar.
 
-O número honesto é outro: quanto o modelo cai quando você olha um trecho que nunca tocou.
+1. A validação é temporal ou aleatória?
+Se misturaram passado e futuro ao dividir os dados, o modelo já viu o que deveria prever. Em cobrança, fraude e churn, a ordem do tempo É a informação.
 
-Gravei a plataforma que estou construindo mostrando exatamente isso, na tela, sem ninguém pedir:
+2. Qual é a diferença entre seleção e holdout?
+Testaram 40 configurações e reportam a melhor. Aquele trecho já foi gasto escolhendo. O número honesto é quanto o modelo cai num trecho que nunca tocaram. Se não te mostram, não mediram.
 
-· AUC walk-forward: 0,8381
-· KS: 0,5662
-· Contra a regra que a empresa usa hoje: +0,2134
-· Diferença seleção→holdout do AutoML: +0,0729
+3. Comparado com o quê?
+Um AUC de 0,84 sozinho não diz nada. Quanto dá a regra que a empresa usa HOJE? Se o modelo melhora 0,01, o projeto não se paga.
 
-Validação temporal: 75% do passado para treinar, 25% do futuro para avaliar. Nunca aleatória — em cobrança, a ordem do tempo É a informação.
+4. KS ou só AUC?
+O AUC faz média de toda a faixa. O KS diz se separa no ponto onde você vai cortar — o único que você usa.
 
-Esse +0,0729 é o número incômodo. Deixamos à vista mesmo assim, porque um modelo que esconde a própria queda é um modelo em que você não apoia uma decisão de dinheiro.
+5. Existe alguma variável que você não terá no dia da decisão?
+O vazamento mais comum não é má-fé: é uma coluna preenchida DEPOIS do evento. No histórico ela está. Em produção, na hora de decidir, ainda não.
 
-São 2:42 percorrendo as 19 abas de ponta a ponta, sem cortes, sobre dados sintéticos.
+6. O que acontece quando a população muda?
+Todo modelo se degrada. A pergunta não é se, é de quanto em quanto tempo retreinam e quem avisa que caiu.
 
-Você reporta a diferença dos seus modelos, ou o número do trecho com o qual escolheu?
+7. Você consegue explicar uma decisão individual?
+Se o sistema despriorizou um caso e ninguém sabe por quê, você não defende isso nem para um cliente nem para um regulador.
+
+Estou construindo uma plataforma de cobrança onde essas sete estão respondidas na tela, sem ninguém pedir. Inclusive a 2, a incômoda: a diferença do AutoML é +0,0729 e está à vista, não escondida.
+
+Falta a oitava. Qual você acrescentaria?
 
 --- comentario ---
-O percurso completo, da originação à recuperação: mvkobranzaia.com
+Se quiser ver as sete respondidas sobre um caso real: gravei 2:42 percorrendo a plataforma inteira, sem cortes, sobre dados sintéticos. mvkobranzaia.com
 
-Se você trabalha com carteira inadimplente e quer ver sobre os seus próprios números, me chame aqui e marcamos uma demo.
+E se você trabalha com carteira inadimplente e quer fazer essas perguntas aos seus próprios modelos, me chame aqui.

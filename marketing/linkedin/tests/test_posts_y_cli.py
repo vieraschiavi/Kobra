@@ -118,7 +118,10 @@ class TestPostsDelRepo(unittest.TestCase):
     """Los posts que vienen en posts/ tienen que ser publicables tal cual."""
 
     def test_todos_los_posts_del_repo_pasan_la_validacion(self):
-        archivos = sorted((RAIZ / "posts").glob("*.txt"))
+        archivos = sorted(
+            list((RAIZ / "posts").glob("*.txt"))
+            + list((RAIZ / "posts-alternativos").glob("*.txt"))
+        )
         self.assertTrue(archivos, "no hay posts en posts/")
         for ruta in archivos:
             with self.subTest(post=ruta.name):

@@ -1,27 +1,35 @@
 # idioma: en
 # visibilidad: PUBLIC
-If a machine learning product won't show you its selection-to-holdout gap, it isn't showing you performance. It's showing you its best angle.
+A scoring model with 0.87 AUC can be worse than a rule of thumb.
 
-The trap is old and still works: you train, you try a few configurations, you pick the one that scored best, and you report THAT number. But you already spent that slice choosing. It isn't a test — it's a mirror.
+Seven questions to find that out BEFORE you sign. Save these — none of them require knowing how to code.
 
-The honest number is the other one: how far the model falls on a slice you never touched.
+1. Is the validation temporal or random?
+If they shuffled past and future when splitting the data, the model already saw what it's supposed to predict. In collections, fraud and churn, time order IS the signal.
 
-I recorded the platform I'm building showing exactly that, on screen, unprompted:
+2. What's the selection-to-holdout gap?
+They tried 40 configurations and reported the best one. That slice was already spent choosing. The honest number is how far it falls on a slice they never touched. If they don't show it, they didn't measure it.
 
-· Walk-forward AUC: 0.8381
-· KS: 0.5662
-· Against the rule the business uses today: +0.2134
-· AutoML selection→holdout gap: +0.0729
+3. Compared to what?
+An AUC of 0.84 alone says nothing. What does the rule the business uses TODAY score? If the model beats it by 0.01, the project doesn't pay for itself.
 
-Temporal validation: 75% past to train, 25% future to evaluate. Never random — in collections, time order IS the signal.
+4. KS, or only AUC?
+AUC averages the whole range. KS tells you whether it separates at the cutoff you'll actually use — the only one that matters.
 
-That +0.0729 is the uncomfortable number. We leave it visible anyway, because a model that hides its own drop is a model you can't put money decisions on.
+5. Is there a variable you won't have on decision day?
+The most common leak isn't bad faith: it's a column filled in AFTER the event. In the history it's there. In production, when you have to decide, it isn't yet.
 
-2:42 walking all 19 tabs end to end, no cuts, on synthetic data.
+6. What happens when the population shifts?
+Every model degrades. The question isn't whether — it's how often they retrain, and who tells you it dropped.
 
-Do you report your models' gap, or the number from the slice you selected on?
+7. Can you explain a single decision?
+If the system deprioritized a case and nobody can say why, you can't defend it to a customer or to a regulator.
+
+I'm building a collections platform where all seven are answered on screen, unprompted. Including #2, the uncomfortable one: the AutoML gap is +0.0729 and it's visible, not buried.
+
+I'm missing an eighth. Which would you add?
 
 --- comentario ---
-The full walkthrough, from origination to recovery: mvkobranzaia.com
+If you want to see all seven answered on a real case: I recorded 2:42 walking the whole platform, no cuts, on synthetic data. mvkobranzaia.com
 
-If you work with delinquent portfolios and want to see it on your own numbers, message me here and we'll set up a demo.
+And if you work with delinquent portfolios and want to ask your own models these questions, message me here.

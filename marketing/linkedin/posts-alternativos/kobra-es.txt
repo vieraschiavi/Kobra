@@ -1,0 +1,27 @@
+# idioma: es
+# visibilidad: PUBLIC
+Si un producto de machine learning no te muestra su brecha entre selección y holdout, no te está mostrando su performance. Te está mostrando su mejor cara.
+
+La trampa es vieja y sigue funcionando: entrenás, probás varias configuraciones, elegís la que mejor da, y reportás ESE número. Pero ese tramo ya lo usaste para elegir. No es una prueba, es el espejo.
+
+El número honesto es otro: cuánto se cae el modelo cuando lo mirás en un tramo que nunca tocaste.
+
+Grabé la plataforma que estoy construyendo mostrando exactamente eso, en pantalla, sin que nadie se lo pida:
+
+· AUC walk-forward: 0,8381
+· KS: 0,5662
+· Contra la regla que la empresa usa hoy: +0,2134
+· Brecha selección→holdout del AutoML: +0,0729
+
+Validación temporal, 75% pasado para entrenar y 25% futuro para evaluar. Nunca aleatoria — en cobranzas el orden del tiempo ES la información.
+
+Ese +0,0729 es el número incómodo. Lo dejamos a la vista igual, porque un modelo que esconde su caída es un modelo en el que no podés apoyar una decisión de plata.
+
+Son 2:42 recorriendo las 19 pestañas de punta a punta, sin cortes, sobre datos sintéticos.
+
+¿Vos reportás la brecha de tus modelos, o el número del tramo con el que elegiste?
+
+--- comentario ---
+El recorrido completo, de la originación al recupero: mvkobranzaia.com
+
+Si trabajás con cartera en mora y querés verlo sobre tus propios números, escribime por acá y coordinamos una demo.
