@@ -1,0 +1,3 @@
+# Sin dependencias: todo sale de la biblioteca estándar (urllib, http.server,
+# json, secrets). Una dependencia menos es una superficie de ataque menos en
+# algo que maneja un token con permiso de publicar en tu nombre.
