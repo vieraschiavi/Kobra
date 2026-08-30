@@ -1,0 +1,35 @@
+# idioma: en
+# visibilidad: PUBLIC
+A scoring model with 0.87 AUC can be worse than a rule of thumb.
+
+Seven questions to find that out BEFORE you sign. Save these — none of them require knowing how to code.
+
+1. Is the validation temporal or random?
+If they shuffled past and future when splitting the data, the model already saw what it's supposed to predict. In collections, fraud and churn, time order IS the signal.
+
+2. What's the selection-to-holdout gap?
+They tried 40 configurations and reported the best one. That slice was already spent choosing. The honest number is how far it falls on a slice they never touched. If they don't show it, they didn't measure it.
+
+3. Compared to what?
+An AUC of 0.84 alone says nothing. What does the rule the business uses TODAY score? If the model beats it by 0.01, the project doesn't pay for itself.
+
+4. KS, or only AUC?
+AUC averages the whole range. KS tells you whether it separates at the cutoff you'll actually use — the only one that matters.
+
+5. Is there a variable you won't have on decision day?
+The most common leak isn't bad faith: it's a column filled in AFTER the event. In the history it's there. In production, when you have to decide, it isn't yet.
+
+6. What happens when the population shifts?
+Every model degrades. The question isn't whether — it's how often they retrain, and who tells you it dropped.
+
+7. Can you explain a single decision?
+If the system deprioritized a case and nobody can say why, you can't defend it to a customer or to a regulator.
+
+I'm building a collections platform where all seven are answered on screen, unprompted. Including #2, the uncomfortable one: the AutoML gap is +0.0729 and it's visible, not buried.
+
+I'm missing an eighth. Which would you add?
+
+--- comentario ---
+If you want to see all seven answered on a real case: I recorded 2:42 walking the whole platform, no cuts, on synthetic data. mvkobranzaia.com
+
+And if you work with delinquent portfolios and want to ask your own models these questions, message me here.

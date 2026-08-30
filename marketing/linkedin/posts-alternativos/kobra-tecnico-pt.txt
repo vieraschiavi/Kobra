@@ -1,0 +1,35 @@
+# idioma: pt
+# visibilidad: PUBLIC
+Um modelo de scoring com AUC 0,87 pode ser pior que uma regra de três.
+
+Sete perguntas para perceber isso ANTES de assinar. Salve — nenhuma exige saber programar.
+
+1. A validação é temporal ou aleatória?
+Se misturaram passado e futuro ao dividir os dados, o modelo já viu o que deveria prever. Em cobrança, fraude e churn, a ordem do tempo É a informação.
+
+2. Qual é a diferença entre seleção e holdout?
+Testaram 40 configurações e reportam a melhor. Aquele trecho já foi gasto escolhendo. O número honesto é quanto o modelo cai num trecho que nunca tocaram. Se não te mostram, não mediram.
+
+3. Comparado com o quê?
+Um AUC de 0,84 sozinho não diz nada. Quanto dá a regra que a empresa usa HOJE? Se o modelo melhora 0,01, o projeto não se paga.
+
+4. KS ou só AUC?
+O AUC faz média de toda a faixa. O KS diz se separa no ponto onde você vai cortar — o único que você usa.
+
+5. Existe alguma variável que você não terá no dia da decisão?
+O vazamento mais comum não é má-fé: é uma coluna preenchida DEPOIS do evento. No histórico ela está. Em produção, na hora de decidir, ainda não.
+
+6. O que acontece quando a população muda?
+Todo modelo se degrada. A pergunta não é se, é de quanto em quanto tempo retreinam e quem avisa que caiu.
+
+7. Você consegue explicar uma decisão individual?
+Se o sistema despriorizou um caso e ninguém sabe por quê, você não defende isso nem para um cliente nem para um regulador.
+
+Estou construindo uma plataforma de cobrança onde essas sete estão respondidas na tela, sem ninguém pedir. Inclusive a 2, a incômoda: a diferença do AutoML é +0,0729 e está à vista, não escondida.
+
+Falta a oitava. Qual você acrescentaria?
+
+--- comentario ---
+Se quiser ver as sete respondidas sobre um caso real: gravei 2:42 percorrendo a plataforma inteira, sem cortes, sobre dados sintéticos. mvkobranzaia.com
+
+E se você trabalha com carteira inadimplente e quer fazer essas perguntas aos seus próprios modelos, me chame aqui.

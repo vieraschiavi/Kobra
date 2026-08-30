@@ -1,35 +1,37 @@
 # idioma: pt
 # visibilidad: PUBLIC
-Um modelo de scoring com AUC 0,87 pode ser pior que uma regra de três.
+Sua equipe de cobrança liga das 9 às 18.
 
-Sete perguntas para perceber isso ANTES de assinar. Salve — nenhuma exige saber programar.
+Seu devedor também trabalha das 9 às 18.
 
-1. A validação é temporal ou aleatória?
-Se misturaram passado e futuro ao dividir os dados, o modelo já viu o que deveria prever. Em cobrança, fraude e churn, a ordem do tempo É a informação.
+Isso sozinho explica uma parte enorme das ligações que ninguém atende. Mas não é o mais caro que acontece dentro de uma operação de cobrança.
 
-2. Qual é a diferença entre seleção e holdout?
-Testaram 40 configurações e reportam a melhor. Aquele trecho já foi gasto escolhendo. O número honesto é quanto o modelo cai num trecho que nunca tocaram. Se não te mostram, não mediram.
+O mais caro é a ORDEM.
 
-3. Comparado com o quê?
-Um AUC de 0,84 sozinho não diz nada. Quanto dá a regra que a empresa usa HOJE? Se o modelo melhora 0,01, o projeto não se paga.
+Quase toda equipe liga do maior para o menor valor. Parece lógico: primeiro o grande. O problema é que o valor não diz absolutamente nada sobre se aquele dinheiro vai voltar.
 
-4. KS ou só AUC?
-O AUC faz média de toda a faixa. O KS diz se separa no ponto onde você vai cortar — o único que você usa.
+Uma dívida de R$ 50.000 de alguém que não vai pagar vale, na prática, menos que três dívidas de R$ 5.000 de gente que vai.
 
-5. Existe alguma variável que você não terá no dia da decisão?
-O vazamento mais comum não é má-fé: é uma coluna preenchida DEPOIS do evento. No histórico ela está. Em produção, na hora de decidir, ainda não.
+Ordenar por valor é ordenar pelo que você QUER receber.
+Ordenar por valor × probabilidade de pagamento é ordenar pelo que você VAI receber.
 
-6. O que acontece quando a população muda?
-Todo modelo se degrada. A pergunta não é se, é de quanto em quanto tempo retreinam e quem avisa que caiu.
+São duas listas diferentes. E a segunda você monta amanhã, com uma planilha e o histórico que já tem: veja que porcentagem de casos parecidos acabou pagando, multiplique, reordene.
 
-7. Você consegue explicar uma decisão individual?
-Se o sistema despriorizou um caso e ninguém sabe por quê, você não defende isso nem para um cliente nem para um regulador.
+Mais três coisas que custam zero e quase ninguém faz:
 
-Estou construindo uma plataforma de cobrança onde essas sete estão respondidas na tela, sem ninguém pedir. Inclusive a 2, a incômoda: a diferença do AutoML é +0,0729 e está à vista, não escondida.
+→ Ligar na faixa de horário em que aquela pessoa já atendeu antes, não na que é cômoda para o call center.
 
-Falta a oitava. Qual você acrescentaria?
+→ Parar de ligar para quem já se comprometeu a pagar no dia 5. Você está gastando, e cada ligação a mais reduz a vontade de atender na próxima.
+
+→ Contar quantas tentativas cada caso exige. Se passa de quatro, o canal está errado. Não é que a pessoa não queira falar: é que não quer falar POR ALI.
+
+Nada disso exige comprar software. Exige olhar duas colunas que você já tem no sistema.
+
+A gente automatiza isso, mas essa é outra conversa. Essas quatro você aplica na segunda-feira.
+
+Por qual critério sua equipe ordena hoje?
 
 --- comentario ---
-Se quiser ver as sete respondidas sobre um caso real: gravei 2:42 percorrendo a plataforma inteira, sem cortes, sobre dados sintéticos. mvkobranzaia.com
+Se quiser ver como fica quando o sistema faz sozinho —carteira priorizada por valor esperado, agenda por contactabilidade real, a negociação e o acordo caindo no ERP— gravei 2:42 percorrendo tudo de ponta a ponta, sem cortes: mvkobranzaia.com
 
-E se você trabalha com carteira inadimplente e quer fazer essas perguntas aos seus próprios modelos, me chame aqui.
+E se quiser montar a lista ordenada por valor esperado com o seu próprio histórico e não sabe por onde começar, me chame aqui.

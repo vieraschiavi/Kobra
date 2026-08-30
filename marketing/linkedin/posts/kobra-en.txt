@@ -1,35 +1,37 @@
 # idioma: en
 # visibilidad: PUBLIC
-A scoring model with 0.87 AUC can be worse than a rule of thumb.
+Your collections team calls between 9 and 6.
 
-Seven questions to find that out BEFORE you sign. Save these — none of them require knowing how to code.
+Your debtor also works between 9 and 6.
 
-1. Is the validation temporal or random?
-If they shuffled past and future when splitting the data, the model already saw what it's supposed to predict. In collections, fraud and churn, time order IS the signal.
+That alone explains a huge share of the calls nobody picks up. But it isn't the most expensive thing happening inside a collections operation.
 
-2. What's the selection-to-holdout gap?
-They tried 40 configurations and reported the best one. That slice was already spent choosing. The honest number is how far it falls on a slice they never touched. If they don't show it, they didn't measure it.
+The most expensive thing is the ORDER.
 
-3. Compared to what?
-An AUC of 0.84 alone says nothing. What does the rule the business uses TODAY score? If the model beats it by 0.01, the project doesn't pay for itself.
+Almost every team calls highest balance first. It sounds logical: go for the big one. The problem is that the balance tells you nothing about whether that money is coming back.
 
-4. KS, or only AUC?
-AUC averages the whole range. KS tells you whether it separates at the cutoff you'll actually use — the only one that matters.
+A $50,000 debt from someone who won't pay is worth less, in practice, than three $5,000 debts from people who will.
 
-5. Is there a variable you won't have on decision day?
-The most common leak isn't bad faith: it's a column filled in AFTER the event. In the history it's there. In production, when you have to decide, it isn't yet.
+Sorting by balance is sorting by what you WANT to collect.
+Sorting by balance × probability of payment is sorting by what you WILL collect.
 
-6. What happens when the population shifts?
-Every model degrades. The question isn't whether — it's how often they retrain, and who tells you it dropped.
+Those are two different lists. And you can build the second one tomorrow, with a spreadsheet and the history you already have: check what share of similar cases ended up paying, multiply, re-sort.
 
-7. Can you explain a single decision?
-If the system deprioritized a case and nobody can say why, you can't defend it to a customer or to a regulator.
+Three more things that cost nothing and almost nobody does:
 
-I'm building a collections platform where all seven are answered on screen, unprompted. Including #2, the uncomfortable one: the AutoML gap is +0.0729 and it's visible, not buried.
+→ Call in the time window where that person actually answered before, not the one that suits the call center.
 
-I'm missing an eighth. Which would you add?
+→ Stop calling someone who already committed to pay on the 5th. You're burning money, and every extra call makes them less likely to pick up next time.
+
+→ Count how many attempts each case takes. Past four, the channel is wrong. It isn't that the person won't talk — it's that they won't talk THERE.
+
+None of this requires buying software. It requires looking at two columns you already have in your system.
+
+We automate it, but that's a different conversation. These four you can apply on Monday.
+
+What does your team sort by today?
 
 --- comentario ---
-If you want to see all seven answered on a real case: I recorded 2:42 walking the whole platform, no cuts, on synthetic data. mvkobranzaia.com
+If you want to see what it looks like when the system does it on its own — portfolio ranked by expected recovery, scheduling by real contactability, the negotiation and the arrangement landing in the ERP — I recorded 2:42 walking through all of it end to end, no cuts: mvkobranzaia.com
 
-And if you work with delinquent portfolios and want to ask your own models these questions, message me here.
+And if you want to build the expected-value list from your own history and don't know where to start, message me here.

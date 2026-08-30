@@ -1,35 +1,37 @@
 # idioma: es
 # visibilidad: PUBLIC
-Un modelo de scoring con AUC 0,87 puede ser peor que una regla de tres.
+Tu equipo de cobranza llama de 9 a 18.
 
-Siete preguntas para darte cuenta ANTES de firmar. Guardátelas — ninguna requiere saber programar.
+Tu deudor también trabaja de 9 a 18.
 
-1. ¿La validación es temporal o aleatoria?
-Si mezclaron pasado y futuro al partir los datos, el modelo ya vio lo que tiene que predecir. En cobranzas, fraude y churn, el orden del tiempo ES la información.
+Eso solo explica una parte enorme de las llamadas que nadie atiende. Pero no es lo más caro que pasa adentro de un call de cobranza.
 
-2. ¿Cuál es la brecha entre selección y holdout?
-Probaron 40 configuraciones y te reportan la mejor. Ese tramo ya lo gastaron eligiendo. El número honesto es cuánto se cae en un tramo que nunca tocaron. Si no te lo muestran, no lo midieron.
+Lo más caro es el ORDEN.
 
-3. ¿Contra qué se compara?
-Un AUC de 0,84 solo no dice nada. ¿Cuánto da la regla que la empresa usa HOY? Si el modelo la mejora en 0,01, no vale el proyecto.
+Casi todos los equipos llaman de mayor a menor monto. Suena lógico: primero lo grande. El problema es que el monto no dice absolutamente nada sobre si esa plata va a volver.
 
-4. ¿KS o sólo AUC?
-El AUC promedia todo el rango. El KS te dice si separa en el punto donde vas a cortar, que es el único que vas a usar.
+Una deuda de $500.000 de alguien que no va a pagar vale, en la práctica, menos que tres deudas de $50.000 de gente que sí.
 
-5. ¿Hay alguna variable que no vas a tener el día de la decisión?
-La fuga más común no es mala fe: es una columna que se completa DESPUÉS del evento. En el histórico está. En producción, cuando tenés que decidir, todavía no.
+Ordenar por monto es ordenar por lo que QUERÉS cobrar.
+Ordenar por monto × probabilidad de pago es ordenar por lo que VAS a cobrar.
 
-6. ¿Qué pasa cuando la población cambia?
-Todo modelo se degrada. La pregunta no es si, es cada cuánto lo reentrenan y quién avisa que se cayó.
+Son dos listas distintas. Y la segunda la podés armar mañana, con una planilla y el historial que ya tenés: mirá qué porcentaje de casos parecidos terminó pagando, multiplicá, reordená.
 
-7. ¿Podés explicar una decisión individual?
-Si el sistema despriorizó un caso y nadie sabe por qué, no lo vas a poder defender ni ante un cliente ni ante un regulador.
+Tres cosas más que salen cero pesos y casi nadie hace:
 
-Estoy construyendo una plataforma de cobranzas donde estas siete están respondidas en pantalla, sin que nadie las pida. Incluida la 2, que es la incómoda: la brecha del AutoML es +0,0729 y está a la vista, no escondida.
+→ Llamar en la franja en la que esa persona atendió antes, no en la que al call center le queda cómoda.
 
-Me falta la octava. ¿Cuál agregarías vos?
+→ Dejar de llamar al que ya se comprometió a pagar el día 5. Lo estás gastando, y cada llamada de más le baja las ganas de atender la próxima.
+
+→ Contar cuántos intentos hacen falta por caso. Si pasan de cuatro, el canal está mal elegido. No es que la persona no quiera hablar: es que no quiere hablar POR AHÍ.
+
+Nada de esto necesita comprar software. Necesita mirar dos columnas que ya tenés en el sistema.
+
+Nosotros lo automatizamos, pero esa es otra conversación. Estas cuatro las podés aplicar el lunes.
+
+¿Por qué criterio ordena tu equipo hoy?
 
 --- comentario ---
-Si querés ver las siete respondidas sobre un caso real: grabé 2:42 recorriendo la plataforma entera, sin cortes, sobre datos sintéticos. mvkobranzaia.com
+Si querés ver cómo queda cuando lo hace el sistema solo —cartera priorizada por valor esperado, agenda por contactabilidad real, la negociación y el arreglo cayendo en el ERP— grabé 2:42 recorriendo todo de punta a punta, sin cortes: mvkobranzaia.com
 
-Y si trabajás con cartera en mora y querés hacerle estas preguntas a tus propios modelos, escribime por acá.
+Y si querés armar la lista ordenada por valor esperado con tu propio histórico y no sabés por dónde empezar, escribime por acá.
