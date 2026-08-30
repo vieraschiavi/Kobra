@@ -1,0 +1,37 @@
+# idioma: en
+# visibilidad: PUBLIC
+Your collections team calls between 9 and 6.
+
+Your debtor also works between 9 and 6.
+
+That alone explains a huge share of the calls nobody picks up. But it isn't the most expensive thing happening inside a collections operation.
+
+The most expensive thing is the ORDER.
+
+Almost every team calls highest balance first. It sounds logical: go for the big one. The problem is that the balance tells you nothing about whether that money is coming back.
+
+A $50,000 debt from someone who won't pay is worth less, in practice, than three $5,000 debts from people who will.
+
+Sorting by balance is sorting by what you WANT to collect.
+Sorting by balance × probability of payment is sorting by what you WILL collect.
+
+Those are two different lists. And you can build the second one tomorrow, with a spreadsheet and the history you already have: check what share of similar cases ended up paying, multiply, re-sort.
+
+Three more things that cost nothing and almost nobody does:
+
+→ Call in the time window where that person actually answered before, not the one that suits the call center.
+
+→ Stop calling someone who already committed to pay on the 5th. You're burning money, and every extra call makes them less likely to pick up next time.
+
+→ Count how many attempts each case takes. Past four, the channel is wrong. It isn't that the person won't talk — it's that they won't talk THERE.
+
+None of this requires buying software. It requires looking at two columns you already have in your system.
+
+We automate it, but that's a different conversation. These four you can apply on Monday.
+
+What does your team sort by today?
+
+--- comentario ---
+If you want to see what it looks like when the system does it on its own — portfolio ranked by expected recovery, scheduling by real contactability, the negotiation and the arrangement landing in the ERP — I recorded 2:42 walking through all of it end to end, no cuts: mvkobranzaia.com
+
+And if you want to build the expected-value list from your own history and don't know where to start, message me here.

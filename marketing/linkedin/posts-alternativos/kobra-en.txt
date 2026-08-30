@@ -1,0 +1,27 @@
+# idioma: en
+# visibilidad: PUBLIC
+If a machine learning product won't show you its selection-to-holdout gap, it isn't showing you performance. It's showing you its best angle.
+
+The trap is old and still works: you train, you try a few configurations, you pick the one that scored best, and you report THAT number. But you already spent that slice choosing. It isn't a test — it's a mirror.
+
+The honest number is the other one: how far the model falls on a slice you never touched.
+
+I recorded the platform I'm building showing exactly that, on screen, unprompted:
+
+· Walk-forward AUC: 0.8381
+· KS: 0.5662
+· Against the rule the business uses today: +0.2134
+· AutoML selection→holdout gap: +0.0729
+
+Temporal validation: 75% past to train, 25% future to evaluate. Never random — in collections, time order IS the signal.
+
+That +0.0729 is the uncomfortable number. We leave it visible anyway, because a model that hides its own drop is a model you can't put money decisions on.
+
+2:42 walking all 19 tabs end to end, no cuts, on synthetic data.
+
+Do you report your models' gap, or the number from the slice you selected on?
+
+--- comentario ---
+The full walkthrough, from origination to recovery: mvkobranzaia.com
+
+If you work with delinquent portfolios and want to see it on your own numbers, message me here and we'll set up a demo.

@@ -1,0 +1,35 @@
+# idioma: es
+# visibilidad: PUBLIC
+Un modelo de scoring con AUC 0,87 puede ser peor que una regla de tres.
+
+Siete preguntas para darte cuenta ANTES de firmar. Guardátelas — ninguna requiere saber programar.
+
+1. ¿La validación es temporal o aleatoria?
+Si mezclaron pasado y futuro al partir los datos, el modelo ya vio lo que tiene que predecir. En cobranzas, fraude y churn, el orden del tiempo ES la información.
+
+2. ¿Cuál es la brecha entre selección y holdout?
+Probaron 40 configuraciones y te reportan la mejor. Ese tramo ya lo gastaron eligiendo. El número honesto es cuánto se cae en un tramo que nunca tocaron. Si no te lo muestran, no lo midieron.
+
+3. ¿Contra qué se compara?
+Un AUC de 0,84 solo no dice nada. ¿Cuánto da la regla que la empresa usa HOY? Si el modelo la mejora en 0,01, no vale el proyecto.
+
+4. ¿KS o sólo AUC?
+El AUC promedia todo el rango. El KS te dice si separa en el punto donde vas a cortar, que es el único que vas a usar.
+
+5. ¿Hay alguna variable que no vas a tener el día de la decisión?
+La fuga más común no es mala fe: es una columna que se completa DESPUÉS del evento. En el histórico está. En producción, cuando tenés que decidir, todavía no.
+
+6. ¿Qué pasa cuando la población cambia?
+Todo modelo se degrada. La pregunta no es si, es cada cuánto lo reentrenan y quién avisa que se cayó.
+
+7. ¿Podés explicar una decisión individual?
+Si el sistema despriorizó un caso y nadie sabe por qué, no lo vas a poder defender ni ante un cliente ni ante un regulador.
+
+Estoy construyendo una plataforma de cobranzas donde estas siete están respondidas en pantalla, sin que nadie las pida. Incluida la 2, que es la incómoda: la brecha del AutoML es +0,0729 y está a la vista, no escondida.
+
+Me falta la octava. ¿Cuál agregarías vos?
+
+--- comentario ---
+Si querés ver las siete respondidas sobre un caso real: grabé 2:42 recorriendo la plataforma entera, sin cortes, sobre datos sintéticos. mvkobranzaia.com
+
+Y si trabajás con cartera en mora y querés hacerle estas preguntas a tus propios modelos, escribime por acá.
