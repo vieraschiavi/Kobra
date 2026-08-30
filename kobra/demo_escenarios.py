@@ -411,8 +411,18 @@ def verificar(dir_datos: str) -> list[dict]:
 
     def cumplimiento():
         from kobra import cumplimiento as kcum
-        d = kcum.puede_contactar(str(scored.iloc[0]["id_deudor"]))
-        return f"motor consultado: {'permite' if d.permitido else d.motivo}"
+        # Se consulta una MUESTRA y se cuenta, en vez de preguntar por un solo
+        # deudor: así la evidencia trae un número siempre. Con un caso suelto,
+        # un domingo o fuera del horario legal el detalle quedaba en "Día no
+        # hábil…" —una respuesta correcta del motor, pero sin nada medido—, y
+        # el checklist pasaba a depender de a qué hora se corriera.
+        muestra = scored["id_deudor"].astype(str).head(25).tolist()
+        decisiones = [kcum.puede_contactar(x) for x in muestra]
+        permitidos = sum(1 for d in decisiones if d)
+        motivo = next((d.motivo for d in decisiones if not d), "")
+        detalle = (f"motor consultado sobre {len(muestra)} deudores: "
+                   f"{permitidos} contactables en este momento")
+        return detalle + (f" — {motivo}" if permitidos < len(muestra) else "")
     pasos.append(_paso("Cumplimiento (horarios/DNC)", cumplimiento))
 
     # Los cinco pasos siguientes existen porque faltaron: la primera versión

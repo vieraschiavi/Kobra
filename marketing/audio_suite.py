@@ -79,12 +79,28 @@ VOCES = {
     # modelo es discutido y no está saldado. Para una pieza comercial es un
     # riesgo real: elegila a sabiendas.
     "es_AR-daniela-high": {"licencia": "CC BY-SA 4.0", "region": "rioplatense",
-                           "copyleft": True},
+                           "copyleft": True, "idioma": "es"},
     # Latinoamericana neutra. Licencia permisiva, sin copyleft: es la opción
     # sin letra chica.
     "es_MX-claude-high": {"licencia": "Apache-2.0", "region": "latam-neutra",
-                          "copyleft": False},
+                          "copyleft": False, "idioma": "es"},
+    # Portugués de Brasil. Dataset CC0 (OHF Voice): dominio público efectivo,
+    # sin atribución ni ShareAlike — la licencia más limpia de las tres. Voz
+    # masculina: el catálogo de piper no tiene una femenina en pt_BR con
+    # calidad media o alta, y la licencia manda sobre la preferencia de timbre.
+    "pt_BR-faber-medium": {"licencia": "CC0", "region": "brasil",
+                           "copyleft": False, "idioma": "pt"},
+    # Inglés de EE.UU., femenina. Dataset LJ Speech: dominio público (grabado
+    # sobre textos de LibriVox, también de dominio público).
+    "en_US-ljspeech-high": {"licencia": "dominio público", "region": "us",
+                            "copyleft": False, "idioma": "en"},
 }
+
+# Qué voz narra cada idioma. La del castellano es la rioplatense elegida a
+# sabiendas (ver el aviso de licencia); las otras dos se eligieron por
+# licencia limpia entre las disponibles.
+VOZ_POR_IDIOMA = {"es": "es_AR-daniela-high", "pt": "pt_BR-faber-medium",
+                  "en": "en_US-ljspeech-high"}
 PIPER_VOZ = "es_AR-daniela-high"
 PIPER_DIR = os.environ.get("PIPER_VOICES_DIR",
                            os.path.join(tempfile.gettempdir(), "piper_voices"))
@@ -307,6 +323,34 @@ def construir(salida: str = SALIDA, motor: str | None = None,
                 f"cue {n}: la voz dura {d:.1f}s y su subtítulo cierra a los "
                 f"{_fin:.1f}s ({sobra:.1f}s de más)")
 
+    inf = montar(entrada, salida, pistas, dur_video=dur_video, fin_audio=fin_audio)
+    return {
+        **inf, "motor": motor,
+        "voz": voz if motor == "piper" else "elevenlabs",
+        "licencia": VOCES[voz]["licencia"] if motor == "piper" else "-",
+        "cues": len(pistas), "avisos": avisos,
+        "hueco_max_s": max(huecos) if huecos else 0.0,
+        "wpm": ritmos,
+        "wpm_promedio": round(sum(ritmos) / len(ritmos), 1) if ritmos else 0.0,
+    }
+
+
+def montar(entrada: str, salida: str, pistas: list[tuple[str, float]],
+           dur_video: float | None = None,
+           fin_audio: float | None = None) -> dict:
+    """Pega las pistas de voz sobre el video, cada una en su segundo.
+
+    Está separado de `construir` porque la película sintetiza y MIDE la
+    narración antes de grabar (de ahí salen las duraciones de las escenas) y
+    después monta esos MISMOS wav: re-sintetizarlos acá gastaría el doble de
+    tiempo y, peor, podría dar un audio apenas distinto del que definió los
+    tiempos.
+    """
+    if dur_video is None:
+        dur_video = duracion(entrada)
+    if fin_audio is None:
+        fin_audio = max((ini + _dur_wav(open(r, "rb").read())
+                         for r, ini in pistas), default=0.0)
     dur_final = max(dur_video, fin_audio + COLA_S)
     congelar = dur_final - dur_video
 
@@ -339,21 +383,21 @@ def construir(salida: str = SALIDA, motor: str | None = None,
     _correr([*["-i", entrada], *entradas,
              "-filter_complex", ";".join(filtros),
              "-map", "[v]", "-map", "[voz]",
+             # `deadline good` + `cpu-used 3`: VP9 en su modo más lento tarda
+             # más de diez minutos por película y hay que rendir tres, una por
+             # idioma. Medido, esta combinación baja el encode a un tercio con
+             # una diferencia de calidad que no se ve en un screencast de
+             # interfaz (texto plano sobre fondo liso, sin grano ni cámara).
              "-c:v", "libvpx-vp9", "-crf", "34", "-b:v", "0", "-row-mt", "1",
+             "-deadline", "good", "-cpu-used", "3",
              "-c:a", "libopus", "-b:a", "96k",
              "-t", f"{dur_final:.3f}", salida])
 
     return {
-        "salida": salida, "motor": motor,
-        "voz": voz if motor == "piper" else "elevenlabs",
-        "licencia": VOCES[voz]["licencia"] if motor == "piper" else "-",
+        "salida": salida,
         "duracion_video_original": round(dur_video, 2),
         "duracion_final": round(duracion(salida), 2),
         "congelado_s": round(max(congelar, 0), 2),
-        "cues": len(pistas), "avisos": avisos,
-        "hueco_max_s": max(huecos) if huecos else 0.0,
-        "wpm": ritmos,
-        "wpm_promedio": round(sum(ritmos) / len(ritmos), 1) if ritmos else 0.0,
     }
 
 

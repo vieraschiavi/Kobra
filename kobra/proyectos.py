@@ -54,6 +54,90 @@ COLUMNAS_TAREAS = ("tarea_id", "proyecto_id", "estado")
 
 ESTADOS_PENDIENTES = ("todo", "in_progress", "blocked")
 
+# ---------------------------------------------------------------------------
+# Idioma del texto VISIBLE (es · pt · en)
+# ---------------------------------------------------------------------------
+# `DIMENSIONES`, los estados del semáforo ('riesgo', 'observacion',
+# 'saludable') y las claves `dim_*` son IDENTIFICADORES: se comparan en el
+# código, se filtran en la API y se cuentan en el resumen. No se traducen. Lo
+# que se traduce es el nombre que se imprime al lado, y el porqué de cada fila
+# del backlog — que es lo único que explica por qué esa tarea quedó primera.
+IDIOMA_DEFAULT = "es"
+IDIOMAS = ("es", "pt", "en")
+
+_NOMBRE_ESTADO = {
+    "riesgo":      {"es": "En riesgo", "pt": "Em risco", "en": "At risk"},
+    "observacion": {"es": "En observación", "pt": "Em observação",
+                    "en": "Under watch"},
+    "saludable":   {"es": "Saludable", "pt": "Saudável", "en": "Healthy"},
+}
+
+_NOMBRE_DIMENSION = {
+    "alcance":      {"es": "Alcance", "pt": "Escopo", "en": "Scope"},
+    "cronograma":   {"es": "Cronograma", "pt": "Cronograma", "en": "Schedule"},
+    "presupuesto":  {"es": "Presupuesto", "pt": "Orçamento", "en": "Budget"},
+    "riesgo":       {"es": "Riesgo", "pt": "Risco", "en": "Risk"},
+    "dependencias": {"es": "Dependencias", "pt": "Dependências",
+                     "en": "Dependencies"},
+    "equipo":       {"es": "Equipo", "pt": "Equipe", "en": "Team"},
+}
+
+# La criticidad viene con estos valores en la tabla del cliente (son los que
+# pesa `PESO_CRITICIDAD`), así que el valor se usa como id y solo se traduce
+# para mostrarlo dentro del motivo.
+_NOMBRE_CRITICIDAD = {
+    "Alta":  {"es": "Alta", "pt": "Alta", "en": "High"},
+    "Media": {"es": "Media", "pt": "Média", "en": "Medium"},
+    "Baja":  {"es": "Baja", "pt": "Baixa", "en": "Low"},
+}
+
+_TEXTOS = {
+    "es": {
+        "vencida": "vencida hace {dias} día(s)",
+        "vence_en": "vence en {dias} día(s)",
+        "sin_fecha": "sin fecha de vencimiento",
+        "bloqueada": "bloqueada",
+        "frena": "frena {n} tarea(s)",
+        "criticidad": "proyecto de criticidad {criticidad}",
+    },
+    "pt": {
+        "vencida": "vencida há {dias} dia(s)",
+        "vence_en": "vence em {dias} dia(s)",
+        "sin_fecha": "sem data de vencimento",
+        "bloqueada": "bloqueada",
+        "frena": "trava {n} tarefa(s)",
+        "criticidad": "projeto de criticidade {criticidad}",
+    },
+    "en": {
+        "vencida": "overdue by {dias} day(s)",
+        "vence_en": "due in {dias} day(s)",
+        "sin_fecha": "no due date",
+        "bloqueada": "blocked",
+        "frena": "stalls {n} task(s)",
+        "criticidad": "{criticidad}-criticality project",
+    },
+}
+
+# Los tramos del motivo se leen de un vistazo separados por punto medio; no es
+# una oración porque entra en una celda de tabla, no en un párrafo.
+_SEPARADOR_MOTIVO = " · "
+
+
+def _idioma(idioma: str | None) -> str:
+    """Normaliza el código de idioma: 'pt-BR' → 'pt', desconocido → 'es'."""
+    corto = str(idioma or "").strip().lower().replace("_", "-").split("-")[0]
+    return corto if corto in IDIOMAS else IDIOMA_DEFAULT
+
+
+def nombre_estado(estado: str, idioma: str = IDIOMA_DEFAULT) -> str:
+    """Etiqueta de salud del proyecto ('riesgo' → 'En riesgo')."""
+    return _NOMBRE_ESTADO.get(estado, {}).get(_idioma(idioma), estado)
+
+
+def nombre_dimension(dimension: str, idioma: str = IDIOMA_DEFAULT) -> str:
+    """Nombre visible de una de las seis dimensiones de salud."""
+    return _NOMBRE_DIMENSION.get(dimension, {}).get(_idioma(idioma), dimension)
+
 
 class DatosIncompletos(ValueError):
     """Falta una columna necesaria. El mensaje nombra cuál y en qué tabla."""
@@ -155,12 +239,17 @@ def _puntaje_equipo(dueno, equipo: pd.DataFrame) -> float:
 
 def salud(proyectos: pd.DataFrame, tareas: pd.DataFrame,
           equipo: pd.DataFrame | None = None,
-          hoy: datetime | None = None) -> pd.DataFrame:
+          hoy: datetime | None = None,
+          idioma: str = IDIOMA_DEFAULT) -> pd.DataFrame:
     """Índice de salud por proyecto, con el detalle de cada dimensión.
 
     Devuelve el desglose y no solo el índice a propósito: un número solo se
     discute, un desglose se acciona — dice qué arreglar.
+
+    `estado` sigue siendo el id del semáforo (se cuenta y se filtra por él);
+    `estado_nombre` es la etiqueta traducida que va a la pantalla.
     """
+    idioma = _idioma(idioma)
     _exigir(proyectos, COLUMNAS_PROYECTOS, "proyectos")
     _exigir(tareas, COLUMNAS_TAREAS, "tareas")
     hoy = _ahora(hoy)
@@ -184,8 +273,9 @@ def salud(proyectos: pd.DataFrame, tareas: pd.DataFrame,
                   else "saludable")
         filas.append({"proyecto_id": p["proyecto_id"], "nombre": p["nombre"],
                       "indice": indice, "estado": estado,
+                      "estado_nombre": nombre_estado(estado, idioma),
                       **{f"dim_{k}": round(v, 1) for k, v in puntajes.items()}})
-    columnas = ["proyecto_id", "nombre", "indice", "estado",
+    columnas = ["proyecto_id", "nombre", "indice", "estado", "estado_nombre",
                 *[f"dim_{d}" for d in DIMENSIONES]]
     return pd.DataFrame(filas, columns=columnas)
 
@@ -221,40 +311,82 @@ def _impacto_dependencias(tarea_id, tareas: pd.DataFrame) -> int:
     return len(afectadas)
 
 
+def _motivo_backlog(dias, sin_fecha: bool, bloqueada: bool, impacto: int,
+                    criticidad, idioma: str) -> str:
+    """Por qué esta tarea quedó donde quedó, en los términos que la subieron.
+
+    El valor esperado es un número compuesto: sin el porqué, una tarea arriba
+    de todo es una orden sin argumento, y quien la recibe no puede discutirla
+    ni priorizar distinto con criterio.
+    """
+    t = _TEXTOS[idioma]
+    partes = []
+    if sin_fecha:
+        partes.append(t["sin_fecha"])
+    elif dias < 0:
+        partes.append(t["vencida"].format(dias=abs(int(dias))))
+    else:
+        partes.append(t["vence_en"].format(dias=int(dias)))
+    if bloqueada:
+        partes.append(t["bloqueada"])
+    if impacto:
+        partes.append(t["frena"].format(n=impacto))
+    nombre = _NOMBRE_CRITICIDAD.get(criticidad, {}).get(idioma)
+    if nombre:
+        partes.append(t["criticidad"].format(criticidad=nombre))
+    return _SEPARADOR_MOTIVO.join(partes)
+
+
 def backlog(proyectos: pd.DataFrame, tareas: pd.DataFrame,
-            hoy: datetime | None = None) -> pd.DataFrame:
+            hoy: datetime | None = None,
+            idioma: str = IDIOMA_DEFAULT) -> pd.DataFrame:
     """Qué hacer primero, por valor esperado.
 
     Una tarea vencida sube a urgencia 1.6 —por encima del máximo de una que
     todavía tiene plazo— porque el costo del atraso ya se está pagando: no
     compite con las demás, va antes.
+
+    `motivo` explica esa posición con los mismos factores que la calcularon
+    (plazo, bloqueo, cuántas tareas frena, criticidad del proyecto).
     """
     _exigir(proyectos, COLUMNAS_PROYECTOS, "proyectos")
     _exigir(tareas, COLUMNAS_TAREAS, "tareas")
     hoy = _ahora(hoy)
+    idioma = _idioma(idioma)
 
     pendientes = tareas[tareas["estado"].isin(ESTADOS_PENDIENTES)].copy()
     if pendientes.empty:
         return pendientes.assign(valor_esperado=pd.Series(dtype=float),
                                  tareas_impactadas=pd.Series(dtype=int),
-                                 dias_restantes=pd.Series(dtype=int))
+                                 dias_restantes=pd.Series(dtype=int),
+                                 motivo=pd.Series(dtype=str))
     por_id = proyectos.set_index("proyecto_id")
 
-    def puntuar(fila):
+    def _plazo(fila):
+        """Días hasta el vencimiento, y si la tarea directamente no tiene fecha.
+
+        Sin fecha se puntúa como 999 días (urgencia mínima), pero el motivo
+        tiene que decir «sin fecha» y no «vence en 999 días», que sería inventar
+        un plazo que nadie cargó.
+        """
         if "vencimiento" in fila and pd.notna(fila.get("vencimiento")):
             vence = pd.to_datetime(fila["vencimiento"], errors="coerce")
-            dias = (vence - hoy).days if pd.notna(vence) else 999
-        else:
-            dias = 999
-        urgencia = 1.6 if dias < 0 else max(0.3, 1.0 - dias / 90)
+            if pd.notna(vence):
+                return (vence - hoy).days, False
+        return 999, True
 
+    def _criticidad(fila):
         pid = fila["proyecto_id"]
-        criticidad = (por_id.loc[pid, "criticidad"]
-                      if pid in por_id.index and "criticidad" in por_id.columns
-                      else "Media")
+        return (por_id.loc[pid, "criticidad"]
+                if pid in por_id.index and "criticidad" in por_id.columns
+                else "Media")
+
+    def puntuar(fila):
+        dias, _ = _plazo(fila)
+        urgencia = 1.6 if dias < 0 else max(0.3, 1.0 - dias / 90)
         impacto = _impacto_dependencias(fila["tarea_id"], tareas)
         bloqueo = 1.25 if fila["estado"] == "blocked" else 1.0
-        valor = (PESO_CRITICIDAD.get(criticidad, 1.0)
+        valor = (PESO_CRITICIDAD.get(_criticidad(fila), 1.0)
                  * PESO_PRIORIDAD.get(fila.get("prioridad"), 1.0)
                  * urgencia * bloqueo * (1 + impacto * 0.15))
         return round(valor, 2), impacto, dias
@@ -263,17 +395,33 @@ def backlog(proyectos: pd.DataFrame, tareas: pd.DataFrame,
     pendientes["valor_esperado"] = puntuadas[0]
     pendientes["tareas_impactadas"] = puntuadas[1]
     pendientes["dias_restantes"] = puntuadas[2]
+    # El motivo se arma en una pasada aparte, y no dentro de `puntuar`: si el
+    # texto viajara en el mismo `result_type="expand"`, pandas volvería
+    # `object` a las tres columnas de arriba y dejarían de ser números con los
+    # que se pueda ordenar, promediar o graficar.
+    pendientes["motivo"] = pendientes.apply(
+        lambda f: _motivo_backlog(*_plazo(f), f["estado"] == "blocked",
+                                  _impacto_dependencias(f["tarea_id"], tareas),
+                                  _criticidad(f), idioma), axis=1)
     return (pendientes.sort_values("valor_esperado", ascending=False)
             .reset_index(drop=True))
 
 
 def resumen(proyectos: pd.DataFrame, tareas: pd.DataFrame,
             equipo: pd.DataFrame | None = None,
-            hoy: datetime | None = None, top: int = 10) -> dict:
+            hoy: datetime | None = None, top: int = 10,
+            idioma: str = IDIOMA_DEFAULT) -> dict:
     """Todo lo que muestra la pantalla, en una sola llamada."""
-    s = salud(proyectos, tareas, equipo, hoy)
-    b = backlog(proyectos, tareas, hoy)
+    idioma = _idioma(idioma)
+    s = salud(proyectos, tareas, equipo, hoy, idioma)
+    b = backlog(proyectos, tareas, hoy, idioma)
     return {
+        # Los conteos siguen indexados por el id del estado; acá va el nombre
+        # visible de cada uno para que la pantalla no lo tenga que adivinar.
+        "estados": [{"id": e, "nombre": nombre_estado(e, idioma)}
+                    for e in ("riesgo", "observacion", "saludable")],
+        "dimensiones": [{"id": d, "nombre": nombre_dimension(d, idioma)}
+                        for d in DIMENSIONES],
         "indice_general": round(float(s["indice"].mean()), 1) if len(s) else 0.0,
         "proyectos": len(s),
         "en_riesgo": int((s["estado"] == "riesgo").sum()),

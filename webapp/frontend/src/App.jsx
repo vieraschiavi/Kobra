@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { api, cargarPais, getPais, getSesion, setPaisCache, setSesion } from "./api.js";
+import { api, cargarPais, getIdioma, getPais, getSesion, IDIOMAS, setIdioma,
+         setPaisCache, setSesion } from "./api.js";
 import { t } from "./i18n/index.js";
 import Tour from "./components/Tour.jsx";
 import Login from "./pages/Login.jsx";
@@ -104,6 +105,26 @@ function PaisSelector({ esAdmin }) {
   );
 }
 
+// El idioma de la interfaz, aparte del país: la moneda con la que se factura
+// y el idioma en el que trabaja el equipo son dos decisiones distintas. No es
+// de admin — cada persona elige el suyo y queda guardado en su navegador.
+const NOMBRE_IDIOMA = { es: "Español", pt: "Português", en: "English" };
+
+function IdiomaSelector() {
+  const actual = getIdioma();
+  return (
+    <div className="pais-chip">
+      <IcoGlobo size={14} />
+      <select aria-label={t("app.sidebar.idioma")} value={actual}
+              onChange={(e) => setIdioma(e.target.value)}>
+        {IDIOMAS.map((c) => (
+          <option key={c} value={c}>{NOMBRE_IDIOMA[c]}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function Sidebar({ sesion, plan, marca }) {
   const nav = useNavigate();
   const loc = useLocation();
@@ -133,6 +154,7 @@ function Sidebar({ sesion, plan, marca }) {
       <div className="spacer" />
       <PlanChip plan={plan} />
       <PaisSelector esAdmin={sesion.rol === "admin"} />
+      <IdiomaSelector />
       <div className="session-chip">
         {sesion.rol === "admin" ? <IcoEscudo size={12} /> : <IcoUsuario size={12} />}{" "}
         {sesion.rol === "admin" ? t("app.sidebar.rol_admin") : t("app.sidebar.rol_gestor")} · {sesion.empresa}

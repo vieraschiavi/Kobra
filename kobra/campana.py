@@ -172,7 +172,8 @@ def plan_contacto_hoy(gestiones: pd.DataFrame, hoy: date | None = None,
                       ahora: datetime | None = None, politica=None,
                       max_contactos: int | None = None,
                       excluir: set | None = None,
-                      scored: pd.DataFrame | None = None) -> pd.DataFrame:
+                      scored: pd.DataFrame | None = None,
+                      solo_contactables: bool = True) -> pd.DataFrame:
     """
     Arma el plan de contacto de hoy, ordenado por prioridad:
 
@@ -259,7 +260,17 @@ def plan_contacto_hoy(gestiones: pd.DataFrame, hoy: date | None = None,
     ]
     plan["contactable"] = [bool(dec) for dec in decisiones]
     plan["motivo_bloqueo"] = [None if dec else dec.motivo for dec in decisiones]
+    # El código además del texto: es lo estable, y lo que permite mostrar el
+    # motivo en el idioma del que mira (kobra.cumplimiento.motivo_en).
+    plan["codigo_bloqueo"] = [None if dec else dec.codigo for dec in decisiones]
 
+    # `solo_contactables=False` devuelve TODO el plan con su motivo de bloqueo.
+    # Sirve para que la pantalla pueda decir por qué no hay nada que hacer
+    # ahora —fuera del horario legal, tope de frecuencia, No Contactar— en vez
+    # de mostrar una tabla vacía sin explicación, que es lo que veía un
+    # operador que abría la agenda a las nueve de la noche.
+    if not solo_contactables:
+        return plan.reset_index(drop=True)
     plan = plan[plan["contactable"]].reset_index(drop=True)
     if max_contactos is not None:
         plan = plan.head(max_contactos)

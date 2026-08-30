@@ -61,6 +61,35 @@ SENSIBLE = "sensible"        # personal + daño concreto si se filtra
 NIVELES = (PUBLICO, INTERNO, PERSONAL, SENSIBLE)
 _ORDEN = {n: i for i, n in enumerate(NIVELES)}
 
+# ---------------------------------------------------------------------------
+# Idioma del texto VISIBLE (es · pt · en)
+# ---------------------------------------------------------------------------
+# Las constantes de arriba (`PUBLICO`, `SENSIBLE`…) y las de dimensiones son
+# IDENTIFICADORES: viajan en el JSON, se comparan en el código y se guardan en
+# el log de auditoría. No se traducen nunca. Lo que se traduce es el nombre que
+# ve una persona, que sale de estas tablas indexadas por ese mismo id — así el
+# contrato de la API no cambia con el idioma de quien mira la pantalla.
+IDIOMA_DEFAULT = "es"
+IDIOMAS = ("es", "pt", "en")
+
+_NOMBRE_NIVEL = {
+    PUBLICO:  {"es": "Público", "pt": "Público", "en": "Public"},
+    INTERNO:  {"es": "Interno", "pt": "Interno", "en": "Internal"},
+    PERSONAL: {"es": "Personal", "pt": "Pessoal", "en": "Personal"},
+    SENSIBLE: {"es": "Sensible", "pt": "Sensível", "en": "Sensitive"},
+}
+
+
+def _idioma(idioma: str | None) -> str:
+    """Normaliza el código de idioma: 'pt-BR' → 'pt', desconocido → 'es'."""
+    corto = str(idioma or "").strip().lower().replace("_", "-").split("-")[0]
+    return corto if corto in IDIOMAS else IDIOMA_DEFAULT
+
+
+def nombre_nivel(nivel: str, idioma: str = IDIOMA_DEFAULT) -> str:
+    """Nombre visible de un nivel de sensibilidad ('personal' → 'Personal')."""
+    return _NOMBRE_NIVEL.get(nivel, {}).get(_idioma(idioma), nivel)
+
 # Clasificación explícita del dataset de cartera. Se declara a mano porque
 # adivinar por nombre es exactamente el error que hace inútiles a estas
 # herramientas: `score_buro` no dice "personal" en ninguna parte del nombre y
@@ -251,6 +280,83 @@ EXACTITUD = "exactitud"
 DIMENSIONES = (COMPLETITUD, UNICIDAD, VALIDEZ, CONSISTENCIA, OPORTUNIDAD,
                EXACTITUD)
 
+# Nombre visible de cada dimensión DAMA. El id (la constante) es el que viaja
+# en `por_dimension`; esto es solo lo que se imprime al lado.
+_NOMBRE_DIMENSION = {
+    COMPLETITUD:  {"es": "Completitud", "pt": "Completude", "en": "Completeness"},
+    UNICIDAD:     {"es": "Unicidad", "pt": "Unicidade", "en": "Uniqueness"},
+    VALIDEZ:      {"es": "Validez", "pt": "Validade", "en": "Validity"},
+    CONSISTENCIA: {"es": "Consistencia", "pt": "Consistência", "en": "Consistency"},
+    OPORTUNIDAD:  {"es": "Oportunidad", "pt": "Oportunidade", "en": "Timeliness"},
+    EXACTITUD:    {"es": "Exactitud", "pt": "Exatidão", "en": "Accuracy"},
+}
+
+# Textos de las reglas de la cartera: el nombre que se lista en el informe y el
+# «por qué importa» que lo acompaña. Van juntos y por idioma porque una regla
+# sin su porqué es un renglón rojo que nadie sabe si hay que arreglar.
+_TEXTOS_REGLA = {
+    "es": {
+        "sin_vacios": "{col}: sin vacíos",
+        "sin_vacios_por_que": "una fila sin este dato no se puede gestionar",
+        "sin_duplicados": "{col}: sin duplicados",
+        "sin_duplicados_por_que": "un identificador repetido gestiona dos veces "
+                                  "a la misma persona",
+        "en_rango": "{col}: dentro de {limites}",
+        "en_rango_union": " a ",
+        "en_rango_por_que": "un valor fuera de rango suele ser un error de carga",
+        "valores_conocidos": "{col}: valores conocidos",
+        "valores_conocidos_por_que": "solo se esperan: {valores}",
+        "mora_coherente": "mora coherente con cuotas atrasadas",
+        "mora_coherente_por_que": "hay cuotas atrasadas pero los días de mora "
+                                  "dicen que está al día",
+        "faltan_columnas": "no están en los datos: {faltan}",
+        "regla_rota": "la regla no se pudo evaluar: {error}",
+    },
+    "pt": {
+        "sin_vacios": "{col}: sem vazios",
+        "sin_vacios_por_que": "uma linha sem este dado não pode ser trabalhada",
+        "sin_duplicados": "{col}: sem duplicados",
+        "sin_duplicados_por_que": "um identificador repetido faz trabalhar duas "
+                                  "vezes a mesma pessoa",
+        "en_rango": "{col}: dentro de {limites}",
+        "en_rango_union": " a ",
+        "en_rango_por_que": "um valor fora da faixa costuma ser um erro de carga",
+        "valores_conocidos": "{col}: valores conhecidos",
+        "valores_conocidos_por_que": "só se esperam: {valores}",
+        "mora_coherente": "atraso coerente com parcelas em aberto",
+        "mora_coherente_por_que": "há parcelas em atraso, mas os dias de atraso "
+                                  "dizem que está em dia",
+        "faltan_columnas": "não estão nos dados: {faltan}",
+        "regla_rota": "a regra não pôde ser avaliada: {error}",
+    },
+    "en": {
+        "sin_vacios": "{col}: no blanks",
+        "sin_vacios_por_que": "a row without this value cannot be worked",
+        "sin_duplicados": "{col}: no duplicates",
+        "sin_duplicados_por_que": "a repeated identifier works the same person twice",
+        "en_rango": "{col}: within {limites}",
+        "en_rango_union": " to ",
+        "en_rango_por_que": "a value out of range is usually a data-load error",
+        "valores_conocidos": "{col}: known values",
+        "valores_conocidos_por_que": "only these are expected: {valores}",
+        "mora_coherente": "arrears consistent with overdue instalments",
+        "mora_coherente_por_que": "there are overdue instalments but the days in "
+                                  "arrears say the account is current",
+        "faltan_columnas": "not present in the data: {faltan}",
+        "regla_rota": "the rule could not be evaluated: {error}",
+    },
+}
+
+
+def nombre_dimension(dimension: str, idioma: str = IDIOMA_DEFAULT) -> str:
+    """Nombre visible de una dimensión DAMA ('validez' → 'Validez')."""
+    return _NOMBRE_DIMENSION.get(dimension, {}).get(_idioma(idioma), dimension)
+
+
+def _texto_regla(clave: str, idioma: str, **partes) -> str:
+    """Texto de regla en el idioma pedido, con sus partes ya reemplazadas."""
+    return _TEXTOS_REGLA[_idioma(idioma)][clave].format(**partes)
+
 
 class Regla:
     """Una regla de calidad sobre una tabla.
@@ -263,9 +369,13 @@ class Regla:
 
     def __init__(self, nombre: str, dimension: str, columna: str | None,
                  predicado, umbral: float = 0.0, descripcion: str = "",
-                 necesita=None):
+                 necesita=None, idioma: str = IDIOMA_DEFAULT):
         if dimension not in DIMENSIONES:
             raise ValueError(f"dimensión desconocida: {dimension!r}")
+        # El idioma se guarda en la regla, no se pasa a `evaluar`: los avisos
+        # que la regla escribe sobre sí misma (columna ausente, predicado roto)
+        # tienen que salir en el mismo idioma que su nombre y su descripción.
+        self.idioma = _idioma(idioma)
         self.nombre = nombre
         self.dimension = dimension
         self.columna = columna
@@ -285,6 +395,7 @@ class Regla:
 
     def _sin_datos(self, df: pd.DataFrame, motivo: str) -> dict:
         return {"regla": self.nombre, "dimension": self.dimension,
+                "dimension_nombre": nombre_dimension(self.dimension, self.idioma),
                 "columna": self.columna, "estado": "no_aplica",
                 "malas": 0, "total": len(df), "pct_malas": 0.0,
                 "umbral": self.umbral, "detalle": motivo}
@@ -292,38 +403,44 @@ class Regla:
     def evaluar(self, df: pd.DataFrame) -> dict:
         faltan = [c for c in self.necesita if c not in df.columns]
         if faltan:
-            return self._sin_datos(
-                df, f"no están en los datos: {', '.join(faltan)}")
+            return self._sin_datos(df, _texto_regla(
+                "faltan_columnas", self.idioma, faltan=", ".join(faltan)))
         try:
             malas = int(self._predicado(df).sum())
         except Exception as e:                          # noqa: BLE001
             # Red de contención para reglas que define el cliente: una regla
             # mal escrita tiene que aparecer como regla rota en el informe, no
             # tumbar la evaluación entera y dejarlo sin ver las demás.
-            return self._sin_datos(df, f"la regla no se pudo evaluar: {e}")
+            return self._sin_datos(df, _texto_regla("regla_rota", self.idioma,
+                                                    error=e))
         total = len(df)
         pct = (malas / total * 100) if total else 0.0
         return {"regla": self.nombre, "dimension": self.dimension,
+                "dimension_nombre": nombre_dimension(self.dimension, self.idioma),
                 "columna": self.columna,
                 "estado": "ok" if pct <= self.umbral else "falla",
                 "malas": malas, "total": total, "pct_malas": round(pct, 2),
                 "umbral": self.umbral, "detalle": self.descripcion}
 
 
-def regla_no_nulos(columna: str, umbral: float = 0.0) -> Regla:
-    return Regla(f"{columna}: sin vacíos", COMPLETITUD, columna,
+def regla_no_nulos(columna: str, umbral: float = 0.0,
+                   idioma: str = IDIOMA_DEFAULT) -> Regla:
+    return Regla(_texto_regla("sin_vacios", idioma, col=columna),
+                 COMPLETITUD, columna,
                  lambda d: d[columna].isna(), umbral,
-                 "una fila sin este dato no se puede gestionar")
+                 _texto_regla("sin_vacios_por_que", idioma), idioma=idioma)
 
 
-def regla_unica(columna: str, umbral: float = 0.0) -> Regla:
-    return Regla(f"{columna}: sin duplicados", UNICIDAD, columna,
+def regla_unica(columna: str, umbral: float = 0.0,
+                idioma: str = IDIOMA_DEFAULT) -> Regla:
+    return Regla(_texto_regla("sin_duplicados", idioma, col=columna),
+                 UNICIDAD, columna,
                  lambda d: d[columna].duplicated(keep=False), umbral,
-                 "un identificador repetido gestiona dos veces a la misma persona")
+                 _texto_regla("sin_duplicados_por_que", idioma), idioma=idioma)
 
 
 def regla_rango(columna: str, minimo=None, maximo=None,
-                umbral: float = 0.0) -> Regla:
+                umbral: float = 0.0, idioma: str = IDIOMA_DEFAULT) -> Regla:
     def fuera(d):
         s = pd.to_numeric(d[columna], errors="coerce")
         mal = s.isna()
@@ -332,20 +449,26 @@ def regla_rango(columna: str, minimo=None, maximo=None,
         if maximo is not None:
             mal = mal | (s > maximo)
         return mal
-    limites = " a ".join(str(x) for x in (minimo, maximo) if x is not None)
-    return Regla(f"{columna}: dentro de {limites}", VALIDEZ, columna, fuera,
-                 umbral, "un valor fuera de rango suele ser un error de carga")
+    union = _texto_regla("en_rango_union", idioma)
+    limites = union.join(str(x) for x in (minimo, maximo) if x is not None)
+    return Regla(_texto_regla("en_rango", idioma, col=columna, limites=limites),
+                 VALIDEZ, columna, fuera, umbral,
+                 _texto_regla("en_rango_por_que", idioma), idioma=idioma)
 
 
-def regla_valores(columna: str, permitidos, umbral: float = 0.0) -> Regla:
+def regla_valores(columna: str, permitidos, umbral: float = 0.0,
+                  idioma: str = IDIOMA_DEFAULT) -> Regla:
     admitidos = set(permitidos)
-    return Regla(f"{columna}: valores conocidos", VALIDEZ, columna,
+    return Regla(_texto_regla("valores_conocidos", idioma, col=columna),
+                 VALIDEZ, columna,
                  lambda d: ~d[columna].isin(admitidos), umbral,
-                 f"solo se esperan: {sorted(admitidos)}")
+                 _texto_regla("valores_conocidos_por_que", idioma,
+                              valores=sorted(admitidos)), idioma=idioma)
 
 
 def regla_coherencia(nombre: str, predicado_malo, descripcion: str = "",
-                     umbral: float = 0.0, necesita=()) -> Regla:
+                     umbral: float = 0.0, necesita=(),
+                     idioma: str = IDIOMA_DEFAULT) -> Regla:
     """Regla entre columnas: `lambda d: (d.a > 0) & (d.b == 0)`.
 
     `necesita` lista las columnas que toca el predicado. Es obligatorio en la
@@ -353,41 +476,46 @@ def regla_coherencia(nombre: str, predicado_malo, descripcion: str = "",
     la regla en vez de reportarla como no aplicable.
     """
     return Regla(nombre, CONSISTENCIA, None, predicado_malo, umbral,
-                 descripcion, necesita=necesita)
+                 descripcion, necesita=necesita, idioma=idioma)
 
 
-def reglas_cartera() -> list[Regla]:
+def reglas_cartera(idioma: str = IDIOMA_DEFAULT) -> list[Regla]:
     """El juego de reglas de la cartera de cobranzas.
 
     No son genéricas: cada una viene de un error de carga que rompe algo
     concreto río abajo (el scoring, la gestión o el reporte).
     """
     return [
-        regla_no_nulos("id_deudor"),
-        regla_unica("id_deudor"),
-        regla_no_nulos("monto_deuda"),
-        regla_rango("monto_deuda", minimo=0),
-        regla_rango("dias_mora", minimo=0, maximo=3650),
-        regla_rango("score_buro", minimo=300, maximo=950),
-        regla_rango("contactabilidad", minimo=0, maximo=1),
-        regla_rango("cuotas_atrasadas", minimo=0),
+        regla_no_nulos("id_deudor", idioma=idioma),
+        regla_unica("id_deudor", idioma=idioma),
+        regla_no_nulos("monto_deuda", idioma=idioma),
+        regla_rango("monto_deuda", minimo=0, idioma=idioma),
+        regla_rango("dias_mora", minimo=0, maximo=3650, idioma=idioma),
+        regla_rango("score_buro", minimo=300, maximo=950, idioma=idioma),
+        regla_rango("contactabilidad", minimo=0, maximo=1, idioma=idioma),
+        regla_rango("cuotas_atrasadas", minimo=0, idioma=idioma),
         # Una deuda en mora con cero días de atraso es contradictorio, y el
         # modelo la usa como si fuera al día.
         regla_coherencia(
-            "mora coherente con cuotas atrasadas",
+            _texto_regla("mora_coherente", idioma),
             lambda d: (d["cuotas_atrasadas"] > 0) & (d["dias_mora"] <= 0),
-            "hay cuotas atrasadas pero los días de mora dicen que está al día",
-            necesita=("cuotas_atrasadas", "dias_mora")),
+            _texto_regla("mora_coherente_por_que", idioma),
+            necesita=("cuotas_atrasadas", "dias_mora"), idioma=idioma),
     ]
 
 
-def evaluar_calidad(df: pd.DataFrame, reglas: list[Regla] | None = None) -> dict:
+def evaluar_calidad(df: pd.DataFrame, reglas: list[Regla] | None = None,
+                    idioma: str = IDIOMA_DEFAULT) -> dict:
     """Corre las reglas y devuelve el informe.
 
     Nunca lanza: un dato malo tiene que poder mostrarse y decidirse, no tumbar
     el proceso. Quien quiera cortar la carga mira `apto`.
+
+    `por_dimension` sigue indexado por el id de la dimensión (es el contrato de
+    la API); `dimensiones` trae el nombre visible al lado, ya traducido.
     """
-    reglas = reglas_cartera() if reglas is None else reglas
+    idioma = _idioma(idioma)
+    reglas = reglas_cartera(idioma) if reglas is None else reglas
     resultados = [r.evaluar(df) for r in reglas]
     fallas = [r for r in resultados if r["estado"] == "falla"]
     por_dimension = {}
@@ -404,6 +532,8 @@ def evaluar_calidad(df: pd.DataFrame, reglas: list[Regla] | None = None) -> dict
         "reglas_corridas": sum(1 for r in resultados if r["estado"] != "no_aplica"),
         "fallas": len(fallas),
         "por_dimension": por_dimension,
+        "dimensiones": [{"id": d, "nombre": nombre_dimension(d, idioma)}
+                        for d in DIMENSIONES],
         "resultados": resultados,
     }
 
@@ -736,15 +866,20 @@ def termino_de(columna: str, idioma: str = "es") -> dict | None:
 # ---------------------------------------------------------------------------
 # Resumen para la interfaz
 # ---------------------------------------------------------------------------
-def resumen(df: pd.DataFrame, rol: str = "admin") -> dict:
+def resumen(df: pd.DataFrame, rol: str = "admin",
+            idioma: str = IDIOMA_DEFAULT) -> dict:
     """Todo lo que necesita la pantalla de gobernanza, en una sola llamada."""
+    idioma = _idioma(idioma)
     niveles = clasificar_tabla(df)
     conteo = {n: sum(1 for v in niveles.values() if v == n) for n in NIVELES}
-    calidad = evaluar_calidad(df)
+    calidad = evaluar_calidad(df, idioma=idioma)
     return {
         "columnas": len(df.columns),
         "filas": len(df),
         "por_nivel": conteo,
+        # Los nombres van aparte del conteo para no romper `por_nivel`, que la
+        # pantalla y los tests leen por id de nivel.
+        "niveles": [{"id": n, "nombre": nombre_nivel(n, idioma)} for n in NIVELES],
         "clasificacion": niveles,
         "visibles": columnas_visibles(rol, df.columns),
         "calidad": calidad,

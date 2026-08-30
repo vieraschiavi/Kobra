@@ -424,16 +424,20 @@ nav{background:rgba(8,19,36,.62);
 <section id="pelicula" class="panel"><div class="wrap" style="text-align:center">
   <div class="eyebrow" data-i="pfey">La película</div>
   <h2 class="h2" data-i="pfh">De la mora al recupero: la demo completa</h2>
-  <p class="lead-d" data-i="pfl" style="margin-left:auto;margin-right:auto">Un solo video, sin cortes, contra la plataforma real: la situación de partida con la mora en pantalla, la cartera scoreada con ProbPago, el gestor IA por voz y WhatsApp, el portal de pagos, el tablero conversacional, gobernanza, KPIs propios, AutoML, logística y proyectos — hasta el resultado. Datos 100% sintéticos. Subtítulos en los tres idiomas.</p>
+  <p class="lead-d" data-i="pfl" style="margin-left:auto;margin-right:auto">Un solo video, sin cortes, contra la plataforma real: la situación de partida con la mora en pantalla, la cartera scoreada con ProbPago, el gestor IA por voz y WhatsApp, el portal de pagos, el tablero conversacional, gobernanza, KPIs propios, AutoML, logística y proyectos — hasta el resultado. Datos 100% sintéticos. Hay una película por idioma: cambiá el idioma arriba y cambia el video, con el programa y la voz en español, portugués o inglés.</p>
   <div style="max-width:860px;margin:0 auto;border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.18)">
-    <video controls preload="metadata" playsinline style="width:100%;display:block;background:#0E1117">
-      <source src="/video/MVKobraAI_Pelicula_Demo.webm" type="video/webm">
-      <!-- Screencast real (marketing/pelicula_demo.py) narrado en castellano.
-           Subtítulos: python3 -m marketing.subtitulos. Sin `default`: son
-           opcionales (botón CC), no tapan las pantallas solos. -->
+    <!-- Una película POR IDIOMA, no una sola subtitulada: el programa que se
+         ve adentro está en el idioma elegido (menú incluido) y la voz también.
+         `setLang()` cambia el `src` y el `track` al que corresponda; el
+         atributo `data-pelicula` es lo que busca para no depender del orden
+         de los elementos. -->
+    <video id="pelicula-video" data-pelicula controls preload="metadata" playsinline
+           style="width:100%;display:block;background:#0E1117">
+      <source src="/video/MVKobraAI_Pelicula_Demo.es.webm" type="video/webm">
+      <!-- Subtítulos del MISMO idioma que se habla: sus tiempos salen de esa
+           narración medida, así que la pista de otro idioma no encajaría.
+           Sin `default`: son opcionales (botón CC). -->
       <track kind="subtitles" src="/video/pelicula.es.vtt" srclang="es" label="Español">
-      <track kind="subtitles" src="/video/pelicula.pt.vtt" srclang="pt" label="Português">
-      <track kind="subtitles" src="/video/pelicula.en.vtt" srclang="en" label="English">
       Tu navegador no soporta la reproducción de video HTML5.
     </video>
   </div>
@@ -676,7 +680,7 @@ var I18N={
   pt:{
     nav1:"Funcionalidades",nav2:"Como funciona",navp:"O filme",nav3:"Planos",navd:"Demo",navr:"Avaliações",navc:"Contato",navbuy:"Comprar",
     pfey:"O filme",pfh:"Da inadimplência à recuperação: a demo completa",
-    pfl:"Um único vídeo, sem cortes, sobre a plataforma real: a situação de partida com a inadimplência na tela, a carteira pontuada com o ProbPago, o agente IA por voz e WhatsApp, o portal de pagamentos, o painel conversacional, governança, KPIs próprios, AutoML, logística e projetos — até o resultado. Dados 100% sintéticos. Legendas nos três idiomas.",
+    pfl:"Um único vídeo, sem cortes, sobre a plataforma real: a situação de partida com a inadimplência na tela, a carteira pontuada com o ProbPago, o agente IA por voz e WhatsApp, o portal de pagamentos, o painel conversacional, governança, KPIs próprios, AutoML, logística e projetos — até o resultado. Dados 100% sintéticos. Há um filme por idioma: troque o idioma acima e o vídeo muda, com o programa e a voz em espanhol, português ou inglês.",
     kick:"IA para cobranças · voz natural",
     h1:'Sua cobrança operando <span class="am">24/7</span>, sem contratar mais gente',
     lead:"A MV Kobra AI é o agente com Inteligência Artificial que liga —conectado à sua central (Avaya, Genesys, Cisco, Asterisk) ou ao Twilio—, negocia por WhatsApp, respeita a lei e envia cada resultado ao seu ERP (PostgreSQL, MySQL, SQL Server ou via API) — enquanto sua equipe foca no que importa.",
@@ -718,7 +722,7 @@ var I18N={
   en:{
     nav1:"Features",nav2:"How it works",navp:"The film",nav3:"Plans",navd:"Demo",navr:"Reviews",navc:"Contact",navbuy:"Buy",
     pfey:"The film",pfh:"From arrears to recovery: the full demo",
-    pfl:"A single uncut video against the real platform: the starting point with arrears on screen, the portfolio scored with ProbPago, the AI agent on voice and WhatsApp, the payment portal, the conversational board, governance, custom KPIs, AutoML, logistics and projects — all the way to the result. 100% synthetic data. Subtitles in all three languages.",
+    pfl:"A single uncut video against the real platform: the starting point with arrears on screen, the portfolio scored with ProbPago, the AI agent on voice and WhatsApp, the payment portal, the conversational board, governance, custom KPIs, AutoML, logistics and projects — all the way to the result. 100% synthetic data. There is one film per language: switch the language above and the video switches with it — the software and the voice in Spanish, Portuguese or English.",
     kick:"AI for collections · natural voice",
     h1:'Your collections running <span class="am">24/7</span>, without hiring more people',
     lead:"MV Kobra AI is the AI agent that calls —connected to your PBX (Avaya, Genesys, Cisco, Asterisk) or straight over Twilio—, negotiates over WhatsApp, respects the law, and pushes every result to your ERP (PostgreSQL, MySQL, SQL Server, or via API) — while your team focuses on what matters.",
@@ -784,6 +788,27 @@ function setLang(lang){
   // reproductor) — al cambiar de idioma solo hay que seguir mostrando el que
   // corresponde SI el visitante ya los había prendido. Si nadie los prendió,
   // cambiar de idioma no debe encenderlos solo.
+  // La película tiene una versión completa por idioma (programa y voz en ese
+  // idioma), así que acá no se cambia una pista de subtítulos: se cambia el
+  // video entero. Se conserva si estaba reproduciendo para no cortarla de
+  // golpe cuando alguien prueba los botones de idioma.
+  var peli = document.querySelector('[data-pelicula]');
+  if(peli){
+    var fuente = peli.querySelector('source');
+    var nueva = '/video/MVKobraAI_Pelicula_Demo.' + lang + '.webm';
+    if(fuente && fuente.getAttribute('src') !== nueva){
+      var sonaba = !peli.paused && !peli.ended;
+      fuente.setAttribute('src', nueva);
+      var pista = peli.querySelector('track');
+      if(pista){
+        pista.setAttribute('src', '/video/pelicula.' + lang + '.vtt');
+        pista.setAttribute('srclang', lang);
+        pista.setAttribute('label', {es:'Español',pt:'Português',en:'English'}[lang]||lang);
+      }
+      peli.load();
+      if(sonaba){ peli.play().catch(function(){}); }
+    }
+  }
   document.querySelectorAll('video').forEach(function(v){
     var tracks = v.querySelectorAll('track');
     var yaEncendidos = Array.from(tracks).some(function(t){

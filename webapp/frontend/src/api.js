@@ -18,6 +18,12 @@ export async function api(ruta, { metodo = "GET", cuerpo } = {}) {
     method: metodo,
     headers: {
       ...(cuerpo ? { "content-type": "application/json" } : {}),
+      // El idioma no alcanza con traducir las pantallas: el motor GENERA
+      // texto (los avisos del tablero, el guion de cada deudor, los nombres
+      // de los criterios de calidad) y eso viaja del backend. Va en la
+      // cabecera estándar para que valga en toda la API sin ensuciar cada
+      // llamada con un parámetro.
+      "Accept-Language": getIdioma(),
       ...(ses ? { Authorization: `Bearer ${ses.token}` } : {}),
     },
     body: cuerpo ? JSON.stringify(cuerpo) : undefined,
@@ -27,9 +33,9 @@ export async function api(ruta, { metodo = "GET", cuerpo } = {}) {
     window.location.hash = "#/login";
     // Nota: no importa ./i18n/index.js acá (ese módulo importa getPais de
     // este mismo archivo — evitamos el ciclo con un mensaje mínimo inline).
-    const idioma = getPais().idioma || "es";
-    throw new Error(idioma === "pt"
-      ? "Sessão expirada — faça login novamente."
+    const idioma = getIdioma();
+    throw new Error(idioma === "pt" ? "Sessão expirada — faça login novamente."
+      : idioma === "en" ? "Session expired — please sign in again."
       : "Sesión vencida — iniciá sesión de nuevo.");
   }
   const datos = await r.json().catch(() => ({}));
@@ -60,7 +66,8 @@ export async function api(ruta, { metodo = "GET", cuerpo } = {}) {
 export async function descargar(ruta, nombreArchivo) {
   const ses = getSesion();
   const r = await fetch(ruta, {
-    headers: ses ? { Authorization: `Bearer ${ses.token}` } : {},
+    headers: {"Accept-Language": getIdioma(),
+              ...(ses ? { Authorization: `Bearer ${ses.token}` } : {})},
   });
 
   if (!r.ok) {
@@ -70,9 +77,9 @@ export async function descargar(ruta, nombreArchivo) {
     if (r.status === 401) {
       setSesion(null);
       window.location.hash = "#/login";
-      const idioma = getPais().idioma || "es";
-      throw new Error(idioma === "pt"
-        ? "Sessão expirada — faça login novamente."
+      const idioma = getIdioma();
+      throw new Error(idioma === "pt" ? "Sessão expirada — faça login novamente."
+        : idioma === "en" ? "Session expired — please sign in again."
         : "Sesión vencida — iniciá sesión de nuevo.");
     }
     throw new Error(datos.detail || `No se pudo generar el archivo (${r.status}).`);
@@ -129,6 +136,47 @@ export async function cargarPais() {
   const p = await api("/api/tenant/pais");
   setPaisCache(p);
   return p;
+}
+
+// Idioma de la interfaz. Hasta acá salía SOLO del país del tenant (Brasil →
+// portugués), que mezcla dos cosas distintas: la moneda con la que se cobra y
+// el idioma en el que trabaja el equipo. Un estudio en Uruguay que atiende
+// cartera de afuera quiere la app en inglés sin dejar de facturar en pesos.
+// Por eso el idioma se puede elegir aparte, y esa elección manda sobre el
+// país. `?lang=` sirve además para compartir un enlace ya en un idioma (y es
+// lo que usa la grabación de la película para filmar el producto en cada uno).
+const IDIOMA_KEY = "kobra_idioma";
+export const IDIOMAS = ["es", "pt", "en"];
+let _idioma = null;
+
+export function getIdioma() {
+  if (_idioma) return _idioma;
+  try {
+    const pedido = new URLSearchParams(window.location.search).get("lang");
+    if (IDIOMAS.includes(pedido)) {
+      setIdioma(pedido, false);
+      return _idioma;
+    }
+  } catch { /* sin URL utilizable: seguimos con lo guardado */ }
+  try {
+    const guardado = localStorage.getItem(IDIOMA_KEY);
+    if (IDIOMAS.includes(guardado)) {
+      _idioma = guardado;
+      return _idioma;
+    }
+  } catch { /* almacenamiento bloqueado: cae al país */ }
+  _idioma = getPais().idioma || "es";
+  return _idioma;
+}
+
+export function setIdioma(codigo, recargar = true) {
+  if (!IDIOMAS.includes(codigo)) return;
+  _idioma = codigo;
+  try { localStorage.setItem(IDIOMA_KEY, codigo); } catch { /* sin persistir */ }
+  // Recargar y no re-renderizar: `t()` se resuelve al pintar cada pantalla y
+  // hay textos calculados fuera de React. Una recarga deja TODO en el idioma
+  // nuevo de una, sin dejar la mitad de la pantalla en el anterior.
+  if (recargar) window.location.reload();
 }
 
 export const fmtUYU = (n) => {

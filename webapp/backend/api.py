@@ -74,6 +74,7 @@ from kobra import plan as kplan  # noqa: E402
 from kobra import proyectos as kpro  # noqa: E402
 from kobra import rutas as krutas  # noqa: E402
 from kobra import seguimiento as kseg  # noqa: E402
+from kobra import vocabulario as kvocab  # noqa: E402
 
 # Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo (ROOT),
 # igual que antes; instalado, es una carpeta propia del usuario, nunca
@@ -147,6 +148,26 @@ def _emitir_token(rol: str, empresa: str) -> str:
 class Usuario(BaseModel):
     rol: str
     empresa: str
+
+
+IDIOMAS_API = ("es", "pt", "en")
+
+
+def idioma_pedido(accept_language: str = Header(default="es")) -> str:
+    """En qué idioma quiere el cliente el texto que GENERA el motor.
+
+    Traducir las pantallas no alcanza: los avisos del tablero, el guion de
+    cada deudor y los nombres de los criterios de calidad los escribe el
+    backend, y con la interfaz en inglés seguían saliendo en castellano.
+    Viaja por `Accept-Language` —la cabecera estándar, que el frontend manda
+    en todas las llamadas— y no por un parámetro en cada endpoint.
+
+    Se queda con el primer idioma pedido y solo acepta los tres del producto:
+    cualquier otra cosa cae a castellano, que es la única forma de que un
+    encabezado raro no deje una pantalla sin texto.
+    """
+    codigo = (accept_language or "es").split(",")[0].strip().lower()[:2]
+    return codigo if codigo in IDIOMAS_API else "es"
 
 
 def usuario_actual(authorization: str = Header(default="")) -> Usuario:
@@ -899,11 +920,12 @@ def licencia_activar(datos: LicenciaIn, request: Request):
 # es cálculo determinístico sobre la cartera real del cliente — no hay que
 # pegarle una tabla a un asistente ni verificar después si sumó bien.
 @app.get("/api/cxc/antiguedad")
-def cxc_antiguedad(top: int = 10, u: Usuario = Depends(usuario_actual)):
+def cxc_antiguedad(top: int = 10, u: Usuario = Depends(usuario_actual),
+                   idi: str = Depends(idioma_pedido)):
     """Antigüedad de saldos + concentración: cuánto se debe en cada tramo y
     qué porcentaje de la cartera son los deudores más grandes."""
     f = _scored(u.empresa)
-    return {"antiguedad": kcxc.antiguedad_saldos(f),
+    return {"antiguedad": kcxc.antiguedad_saldos(f, idioma=idi),
             "concentracion": kcxc.concentracion(f, top=top)}
 
 
@@ -983,7 +1005,8 @@ def kpis(u: Usuario = Depends(usuario_actual)):
 
 
 @app.get("/api/graficos/resumen")
-def graficos_resumen(u: Usuario = Depends(usuario_actual)):
+def graficos_resumen(u: Usuario = Depends(usuario_actual),
+                     idi: str = Depends(idioma_pedido)):
     f = _scored(u.empresa)
     por_tramo = (f.groupby("tramo_mora")
                    .agg(cartera=("monto_deuda", "sum"),
@@ -992,13 +1015,19 @@ def graficos_resumen(u: Usuario = Depends(usuario_actual)):
                    .reset_index())
     propension = (f.groupby("segmento_propension")["id_deudor"].count()
                     .reset_index().rename(columns={"id_deudor": "cantidad"}))
+    # `clave` viaja sin traducir: el color de cada porción (verde alta, rojo
+    # baja) se elige por ella. Pintar por el texto mostrado dejaba las tres
+    # porciones del mismo color apenas se cambiaba de idioma.
+    propension["clave"] = propension["segmento_propension"]
     por_segmento = (f.groupby("segmento")["valor_esperado_recupero"].sum()
                       .sort_values(ascending=False).reset_index())
     top_deptos = (f.groupby("departamento")["monto_deuda"].sum()
                     .sort_values(ascending=False).head(10).reset_index())
+    # La leyenda de los gráficos también se lee: con la app en inglés el
+    # donut de propensión seguía diciendo "Alta / Baja / Media".
     return {"por_tramo": por_tramo.to_dict("records"),
-            "propension": propension.to_dict("records"),
-            "por_segmento": por_segmento.to_dict("records"),
+            "propension": kvocab.traducir(propension, idi).to_dict("records"),
+            "por_segmento": kvocab.traducir(por_segmento, idi).to_dict("records"),
             "top_departamentos": top_deptos.to_dict("records")}
 
 
@@ -1057,7 +1086,8 @@ def cartera(u: Usuario = Depends(usuario_actual), pagina: int = 1, tamano: int =
             producto: str | None = None, departamento: str | None = None,
             monto_min: float | None = None, monto_max: float | None = None,
             dias_min: int | None = None, dias_max: int | None = None,
-            anio: int | None = None, mes: int | None = None):
+            anio: int | None = None, mes: int | None = None,
+            idi: str = Depends(idioma_pedido)):
     tamano = max(1, min(tamano, 200))
     f = _aplicar_filtros(_scored(u.empresa), segmento, tramo, propension, busqueda,
                          producto, departamento, monto_min, monto_max,
@@ -1067,6 +1097,10 @@ def cartera(u: Usuario = Depends(usuario_actual), pagina: int = 1, tamano: int =
     ini = (max(1, pagina) - 1) * tamano
     filas = f.iloc[ini:ini + tamano][[c for c in _COLS_CARTERA if c in f.columns]]
     filas = _proteger(filas, u.rol)
+    # Los FILTROS se aplican antes y sobre el valor en castellano (que es como
+    # está guardado); la traducción es lo último, para la pantalla. Al revés,
+    # filtrar por "Alta" dejaría de encontrar nada con la app en inglés.
+    filas = kvocab.traducir(filas, idi)
     return {"total": total, "pagina": pagina, "tamano": tamano,
             "filas": filas.to_dict("records"),
             "enmascarado": _hay_gobernanza() and u.rol != "admin"}
@@ -1109,10 +1143,11 @@ _MODULO_GOB = "la gobernanza de datos"
 
 
 @app.get("/api/gobernanza/resumen")
-def gobernanza_resumen(u: Usuario = Depends(usuario_actual)):
+def gobernanza_resumen(u: Usuario = Depends(usuario_actual),
+                       idi: str = Depends(idioma_pedido)):
     """Todo lo que muestra la pantalla de gobernanza, en una llamada."""
     kplan.exigir("gobernanza", _MODULO_GOB)
-    return kgob.resumen(_scored(u.empresa), rol=u.rol)
+    return kgob.resumen(_scored(u.empresa), rol=u.rol, idioma=idi)
 
 
 @app.get("/api/gobernanza/catalogo")
@@ -1126,10 +1161,11 @@ def gobernanza_catalogo(u: Usuario = Depends(usuario_actual)):
 
 
 @app.get("/api/gobernanza/calidad")
-def gobernanza_calidad(u: Usuario = Depends(usuario_actual)):
+def gobernanza_calidad(u: Usuario = Depends(usuario_actual),
+                       idi: str = Depends(idioma_pedido)):
     """Informe de calidad sobre las seis dimensiones DAMA."""
     kplan.exigir("gobernanza", _MODULO_GOB)
-    return kgob.evaluar_calidad(_scored(u.empresa))
+    return kgob.evaluar_calidad(_scored(u.empresa), idioma=idi)
 
 
 @app.get("/api/gobernanza/linaje")
@@ -1179,13 +1215,14 @@ class PreguntaTableroIn(BaseModel):
 
 
 @app.get("/api/tablero")
-def tablero(u: Usuario = Depends(usuario_actual)):
+def tablero(u: Usuario = Depends(usuario_actual),
+            idi: str = Depends(idioma_pedido)):
     """Indicadores, advertencias, sugerencias y acciones. Sin llamar a la IA.
 
     Es determinístico a propósito: la pantalla de inicio tiene que abrir y
     mostrar lo mismo siempre, haya o no proveedor de IA configurado.
     """
-    return kanalista.tablero(_proteger(_scored(u.empresa), u.rol))
+    return kanalista.tablero(_proteger(_scored(u.empresa), u.rol), idioma=idi)
 
 
 @app.post("/api/tablero/preguntar")
@@ -1668,14 +1705,16 @@ async def modulo_cargar(modulo: str, tabla: str,
 
 
 @app.get("/api/logistica/resumen")
-def logistica_resumen(u: Usuario = Depends(usuario_actual)):
+def logistica_resumen(u: Usuario = Depends(usuario_actual),
+                      idi: str = Depends(idioma_pedido)):
     """Indicadores + las cinco listas de sugerencias."""
     kplan.exigir("logistica", _MODULO_LOG)
     productos = _tabla_modulo(u.empresa, "logistica", "productos")
     ventas = _tabla_modulo(u.empresa, "logistica", "ventas")
     clientes = _tabla_modulo(u.empresa, "logistica", "clientes", obligatoria=False)
     try:
-        d = klog.todas(productos, ventas, clientes if len(clientes) else None)
+        d = klog.todas(productos, ventas, clientes if len(clientes) else None,
+                       idioma=idi)
     except klog.DatosIncompletos as e:
         # Le falta una columna al archivo del cliente: es lo único que él puede
         # arreglar, así que el mensaje va tal cual, no como error genérico.
@@ -1687,7 +1726,8 @@ def logistica_resumen(u: Usuario = Depends(usuario_actual)):
 
 
 @app.get("/api/proyectos/resumen")
-def proyectos_resumen(top: int = 10, u: Usuario = Depends(usuario_actual)):
+def proyectos_resumen(top: int = 10, u: Usuario = Depends(usuario_actual),
+                      idi: str = Depends(idioma_pedido)):
     """Salud del portafolio y backlog priorizado."""
     kplan.exigir("proyectos", _MODULO_PRO)
     proyectos = _tabla_modulo(u.empresa, "proyectos", "proyectos")
@@ -1695,6 +1735,7 @@ def proyectos_resumen(top: int = 10, u: Usuario = Depends(usuario_actual)):
     equipo = _tabla_modulo(u.empresa, "proyectos", "equipo", obligatoria=False)
     try:
         r = kpro.resumen(proyectos, tareas, equipo if len(equipo) else None,
+                         idioma=idi,
                          top=max(1, min(top, 100)))
     except kpro.DatosIncompletos as e:
         raise HTTPException(400, str(e)) from e
@@ -1860,11 +1901,13 @@ def tenant_alta(datos: AltaTenantIn, u: Usuario = Depends(solo_admin)):
 
 
 @app.get("/api/deudor/{id_deudor}")
-def deudor(id_deudor: str, u: Usuario = Depends(usuario_actual)):
+def deudor(id_deudor: str, u: Usuario = Depends(usuario_actual),
+           idi: str = Depends(idioma_pedido)):
     f = _scored(u.empresa)
     fila = f[f["id_deudor"] == id_deudor]
     if fila.empty:
         raise HTTPException(404, f"No existe el deudor {id_deudor}.")
+    fila = kvocab.traducir(fila, idi)
     out = {}
     for k, v in fila.iloc[0].items():
         if pd.isna(v):
@@ -1891,7 +1934,8 @@ def _promesas_vencidas(empresa: str):
 
 @app.get("/api/agenda")
 def agenda(u: Usuario = Depends(usuario_actual), pagina: int = 1,
-           tamano: int = 100, limite: int | None = None):
+           tamano: int = 100, limite: int | None = None,
+           idi: str = Depends(idioma_pedido)):
     """Promesas vencidas a retomar HOY, **paginadas**.
 
     Antes se devolvian solo las 200 mas urgentes y el resto quedaba
@@ -1916,7 +1960,7 @@ def agenda(u: Usuario = Depends(usuario_actual), pagina: int = 1,
     return {"total": total, "mostrando": int(len(hoja)),
             "pagina": pagina, "tamano": tamano,
             "paginas": (total + tamano - 1) // tamano if total else 0,
-            "vencidas": hoja.to_dict("records")}
+            "vencidas": kvocab.traducir(hoja, idi).to_dict("records")}
 
 
 @app.get("/api/agenda/export.xlsx")
@@ -1937,14 +1981,21 @@ def agenda_export_xlsx(u: Usuario = Depends(usuario_actual)):
 
 
 @app.get("/api/campana/plan")
-def campana_plan(u: Usuario = Depends(usuario_actual), limite: int = 50):
+def campana_plan(u: Usuario = Depends(usuario_actual), limite: int = 50,
+                 idi: str = Depends(idioma_pedido)):
     """Plan de contacto de hoy con el canal elegido en AUTOMÁTICO por la
     contactabilidad real de cada deudor (`kobra/campana.py`): el canal donde
     más se lo contactó —o más cerró— en los últimos 90 días; si todavía no
     hay historial, decide la regla de negocio. `canal_origen` dice cuál de
     las dos pasó, para que el operador sepa cuándo confiar en el automático
-    y cuándo elegir el canal a mano. El cumplimiento (horario legal, topes,
-    No Contactar) ya viene aplicado: solo salen filas contactables."""
+    y cuándo elegir el canal a mano.
+
+    El cumplimiento (horario legal, topes de frecuencia, No Contactar) manda:
+    solo salen filas contactables AHORA. Cuando no queda ninguna se devuelve
+    `bloqueo` con el motivo y cuántos casos frenó — abrir la agenda a las
+    nueve de la noche y ver una tabla vacía sin explicación parece un
+    programa roto, cuando en realidad está cumpliendo la ley.
+    """
     from kobra import campana as kcam
     g = _gestiones(u.empresa)
     # La clave se llama `contactos` y NO `plan` a propósito: el interceptor
@@ -1952,15 +2003,29 @@ def campana_plan(u: Usuario = Depends(usuario_actual), limite: int = 50):
     # clave `plan` como el estado del plan de licencia y pisa el chip de
     # consumo de la barra lateral — se vio en cámara como "undefined de
     # undefined".
-    g_vacio = {"total": 0, "con_historial": 0, "contactos": []}
+    g_vacio = {"total": 0, "con_historial": 0, "contactos": [], "bloqueo": None}
     if g is None or g.empty or "fecha_gestion" not in g.columns:
         return g_vacio
-    plan = kcam.plan_contacto_hoy(g, scored=_scored(u.empresa))
-    if plan is None or plan.empty:
+    completo = kcam.plan_contacto_hoy(g, scored=_scored(u.empresa),
+                                      solo_contactables=False)
+    if completo is None or completo.empty:
         return g_vacio
+    plan = completo[completo["contactable"]].reset_index(drop=True)
+    if plan.empty:
+        from kobra import cumplimiento as kcump
+        codigos = completo["codigo_bloqueo"].dropna()
+        codigo = codigos.value_counts().idxmax() if len(codigos) else None
+        fila = completo[completo["codigo_bloqueo"] == codigo]
+        motivo = str(fila["motivo_bloqueo"].iloc[0]) if len(fila) else None
+        if codigo:
+            motivo = kcump.motivo_en(
+                kcump.Decision(False, str(codigo), motivo or ""), idi)
+        return {**g_vacio, "total": 0,
+                "bloqueo": {"motivo": motivo, "codigo": codigo,
+                            "casos": int(len(completo))}}
     hoja = plan.head(max(1, min(int(limite), 500)))
-    hoja = hoja.astype(object).where(pd.notna(hoja), None)
-    return {"total": int(len(plan)),
+    hoja = kvocab.traducir(hoja, idi).astype(object).where(pd.notna(hoja), None)
+    return {"total": int(len(plan)), "bloqueo": None,
             "con_historial": int((plan["canal_origen"] == "historial").sum()),
             "contactos": hoja.to_dict("records")}
 
@@ -2308,7 +2373,8 @@ def calidad_evaluaciones(gestor: str | None = None, mes: str | None = None,
 @app.get("/api/calidad/panel")
 def calidad_panel(gestor: str | None = None, anio: str | None = None,
                   mes: str | None = None, canal: str | None = None,
-                  u: Usuario = Depends(usuario_actual)):
+                  u: Usuario = Depends(usuario_actual),
+                  idi: str = Depends(idioma_pedido)):
     """Tablero de calidad de llamadas con el desglose de una supervisión real:
     por gestor, mes y año, por aspecto de la negociación, y **cada aspecto
     comparado contra la media del equipo**.
@@ -2319,7 +2385,8 @@ def calidad_panel(gestor: str | None = None, anio: str | None = None,
     """
     from kobra import calidad_gestion as kcalidad
     panel = kcalidad.panel_calidad(_leer_calidad(u.empresa), gestor=gestor,
-                                   anio=anio, mes=mes, canal=canal)
+                                   anio=anio, mes=mes, canal=canal,
+                                   idioma=idi)
     panel["origen"] = _origen_gestiones(u.empresa)
     return panel
 
@@ -3209,20 +3276,22 @@ def demo_verificar(u: Usuario = Depends(solo_admin)):
 
 
 @app.get("/api/demo/estado")
-def demo_estado(u: Usuario = Depends(usuario_actual)):
+def demo_estado(u: Usuario = Depends(usuario_actual),
+                idi: str = Depends(idioma_pedido)):
     """Todo lo que la pantalla necesita para dibujarse entera, en un solo GET:
     el caso, el saldo, el guion, las propuestas y qué falta configurar."""
     d = _dir_demo(u.empresa)
     saldo_actual = kdemo.saldo(d)
     return {
-        "caso": kdemo.caso(),
+        "caso": kdemo.caso(idioma=idi),
         "contacto_ok": kdemo.configurado(),
         "claves": kdemo.CLAVES,
         "base_url": os.environ.get("PUBLIC_BASE_URL", ""),
         "saldo": saldo_actual,
         "pago_demo": kdemo.PAGO_DEMO,
-        "guion": kdemo.guion(),
-        "propuestas": kdemo.propuestas(saldo_actual) if saldo_actual > 0 else [],
+        "guion": kdemo.guion(idioma=idi),
+        "propuestas": (kdemo.propuestas(saldo_actual, idioma=idi)
+                       if saldo_actual > 0 else []),
         "pagos": kportal.listar_pagos(d, kdemo.ID_DEUDOR),
     }
 
