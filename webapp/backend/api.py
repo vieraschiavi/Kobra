@@ -1005,7 +1005,8 @@ def kpis(u: Usuario = Depends(usuario_actual)):
 
 
 @app.get("/api/graficos/resumen")
-def graficos_resumen(u: Usuario = Depends(usuario_actual)):
+def graficos_resumen(u: Usuario = Depends(usuario_actual),
+                     idi: str = Depends(idioma_pedido)):
     f = _scored(u.empresa)
     por_tramo = (f.groupby("tramo_mora")
                    .agg(cartera=("monto_deuda", "sum"),
@@ -1014,13 +1015,19 @@ def graficos_resumen(u: Usuario = Depends(usuario_actual)):
                    .reset_index())
     propension = (f.groupby("segmento_propension")["id_deudor"].count()
                     .reset_index().rename(columns={"id_deudor": "cantidad"}))
+    # `clave` viaja sin traducir: el color de cada porción (verde alta, rojo
+    # baja) se elige por ella. Pintar por el texto mostrado dejaba las tres
+    # porciones del mismo color apenas se cambiaba de idioma.
+    propension["clave"] = propension["segmento_propension"]
     por_segmento = (f.groupby("segmento")["valor_esperado_recupero"].sum()
                       .sort_values(ascending=False).reset_index())
     top_deptos = (f.groupby("departamento")["monto_deuda"].sum()
                     .sort_values(ascending=False).head(10).reset_index())
+    # La leyenda de los gráficos también se lee: con la app en inglés el
+    # donut de propensión seguía diciendo "Alta / Baja / Media".
     return {"por_tramo": por_tramo.to_dict("records"),
-            "propension": propension.to_dict("records"),
-            "por_segmento": por_segmento.to_dict("records"),
+            "propension": kvocab.traducir(propension, idi).to_dict("records"),
+            "por_segmento": kvocab.traducir(por_segmento, idi).to_dict("records"),
             "top_departamentos": top_deptos.to_dict("records")}
 
 
@@ -2005,10 +2012,17 @@ def campana_plan(u: Usuario = Depends(usuario_actual), limite: int = 50,
         return g_vacio
     plan = completo[completo["contactable"]].reset_index(drop=True)
     if plan.empty:
-        motivos = completo["motivo_bloqueo"].dropna()
-        comun = motivos.value_counts().idxmax() if len(motivos) else None
+        from kobra import cumplimiento as kcump
+        codigos = completo["codigo_bloqueo"].dropna()
+        codigo = codigos.value_counts().idxmax() if len(codigos) else None
+        fila = completo[completo["codigo_bloqueo"] == codigo]
+        motivo = str(fila["motivo_bloqueo"].iloc[0]) if len(fila) else None
+        if codigo:
+            motivo = kcump.motivo_en(
+                kcump.Decision(False, str(codigo), motivo or ""), idi)
         return {**g_vacio, "total": 0,
-                "bloqueo": {"motivo": comun, "casos": int(len(completo))}}
+                "bloqueo": {"motivo": motivo, "codigo": codigo,
+                            "casos": int(len(completo))}}
     hoja = plan.head(max(1, min(int(limite), 500)))
     hoja = kvocab.traducir(hoja, idi).astype(object).where(pd.notna(hoja), None)
     return {"total": int(len(plan)), "bloqueo": None,

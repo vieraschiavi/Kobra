@@ -105,8 +105,8 @@ export default function Dashboard() {
               <Pie data={graf.propension} dataKey="cantidad" nameKey="segmento_propension"
                    innerRadius={60} outerRadius={95} paddingAngle={2}>
                 {graf.propension.map((p) => (
-                  <Cell key={p.segmento_propension}
-                        fill={COLOR_PROP[p.segmento_propension] || LIMA} />
+                  <Cell key={p.clave || p.segmento_propension}
+                        fill={COLOR_PROP[p.clave || p.segmento_propension] || LIMA} />
                 ))}
               </Pie>
               <Tooltip {...estiloTooltip} />

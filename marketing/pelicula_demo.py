@@ -288,9 +288,18 @@ def narracion(idioma: str, motor: str, voz: str, destino: str) -> list[dict]:
 
 
 def grabar(salida: str, plan: list[dict] | None = None,
-           idioma: str = "es") -> str:
+           idioma: str = "es") -> dict:
     """Screencast crudo (sin audio) del recorrido completo, con la interfaz
-    del programa en `idioma` y cada pantalla durando lo que dura su frase."""
+    del programa en `idioma` y cada pantalla durando lo que dura su frase.
+
+    Devuelve `{"ruta", "marcas", "wall_s"}`: `marcas` es el segundo REAL en
+    que apareció cada pantalla, medido durante la grabación. Es el dato que
+    después ubica la voz. Estirar el audio en proporción a la diferencia
+    entre lo planificado y lo grabado —que fue el primer intento— reparte
+    mal el error: las pantallas no se atrasan todas por igual (una que espera
+    a que entrene un modelo se lleva casi todo el exceso), así que la voz de
+    las últimas escenas terminaba con seis segundos de silencio delante.
+    """
     from playwright.sync_api import sync_playwright
     ui = _textos_ui(idioma)
     if plan is None:                          # modo `--sin-voz`: tiempos fijos
@@ -366,13 +375,19 @@ def grabar(salida: str, plan: list[dict] | None = None,
             pagina = ctx.new_page()
             for script in inits:
                 pagina.add_init_script(script)
+            marcas, t_ctx = [], time.monotonic()
+            vistas = []
             for escena in plan:
+                if vistas and vistas[-1] is escena["ruta"]:
+                    continue                 # varias frases, una sola pantalla
+                vistas.append(escena["ruta"])
                 ruta, segundos = escena["ruta"], escena["escena_s"]
                 # El reloj arranca ANTES del goto: la navegación también es
                 # tiempo de la escena. Medido: con el reloj después del goto,
                 # 18 navegaciones acumularon 8 s y los subtítulos del final
                 # quedaban hablando de la pantalla anterior.
                 t0 = time.monotonic()
+                marcas.append({"ruta": ruta, "inicio": t0 - t_ctx})
                 pagina.goto(f"{base}/?lang={idioma}#{ruta}")
                 try:
                     # 3 s y no 8: con el servidor ya caliente las APIs vuelven
@@ -393,32 +408,40 @@ def grabar(salida: str, plan: list[dict] | None = None,
                 if resto > 0:
                     pagina.wait_for_timeout(int(resto * 1000))
             video = pagina.video
+            wall = time.monotonic() - t_ctx
             ctx.close()                      # cierra y vuelca el webm
             crudo = video.path()
             navegador.close()
 
         os.makedirs(os.path.dirname(salida), exist_ok=True)
         shutil.move(crudo, salida)
-        return salida
+        return {"ruta": salida, "marcas": marcas, "wall_s": wall}
     finally:
         servidor.terminate()
 
 
-def _escribir_vtt(plan: list[dict], idioma: str, escala: float) -> str:
-    """Los subtítulos de ESTE video, con los tiempos de ESTA narración.
+def _escribir_vtt(plan: list[dict], idioma: str) -> str:
+    """Los subtítulos de ESTE video, en el mismo segundo que su voz.
 
-    `escala` corrige la diferencia entre el reloj del guion y el del webm que
-    escupe Playwright (medido: ~4,5% de más, constante entre tomas). Sin eso
-    el último subtítulo cae antes de la última pantalla.
+    Los tiempos ya vienen ubicados sobre el video real (`construir` los fija
+    con las marcas medidas durante la grabación), así que acá no hay ningún
+    ajuste que hacer: el subtítulo entra cuando entra la frase.
     """
     from marketing.subtitulos import _marca
     partes = ["WEBVTT", ""]
     for n, escena in enumerate(plan, start=1):
-        ini = escena["inicio"] * escala
+        ini = escena["inicio"]
         # El subtítulo se va con la voz (más un respiro), no se queda pegado
         # hasta el cambio de pantalla: leer un texto que ya nadie está
         # diciendo distrae de lo que se ve.
-        fin = ini + (escena["voz_s"] + 0.6) * escala
+        #
+        # El respiro se recorta si la frase siguiente entra antes: dos frases
+        # de la misma escena están separadas por PAUSA_ENTRE_FRASES_S, que es
+        # menos que la cola, y el reproductor mostraba los dos subtítulos
+        # encimados por una décima.
+        fin = ini + escena["voz_s"] + 0.6
+        if n < len(plan):
+            fin = min(fin, plan[n]["inicio"] - 0.05)
         partes += [str(n), f"{_marca(ini)} --> {_marca(fin)}",
                    escena["texto"], ""]
     ruta = subtitulo_de(idioma)
@@ -435,7 +458,7 @@ def construir(idioma: str = "es", motor: str | None = None,
     from marketing import audio_suite
     salida = salida or salida_de(idioma)
     if not con_voz:
-        return {"salida": grabar(salida, idioma=idioma), "idioma": idioma}
+        return {"salida": grabar(salida, idioma=idioma)["ruta"], "idioma": idioma}
 
     motor = motor or audio_suite.motor_disponible()
     voz = voz or audio_suite.VOZ_POR_IDIOMA[idioma]
@@ -443,17 +466,27 @@ def construir(idioma: str = "es", motor: str | None = None,
 
     plan = narracion(idioma, motor, voz, tmp)
     crudo = os.path.join(tmp, "crudo.webm")
-    grabar(crudo, plan=plan, idioma=idioma)
+    grabado = grabar(crudo, plan=plan, idioma=idioma)
 
-    # El webm sale con el reloj estirado respecto del guion; se mide y se
-    # corrige de una vez, para el audio y para los subtítulos.
-    guion_s = plan[-1]["inicio"] + plan[-1]["escena_s"]
+    # Cada frase entra en el segundo en que su pantalla apareció DE VERDAD.
+    # El único ajuste global es el desfasaje entre el reloj de pared y el del
+    # contenedor que escribe Playwright (medido: ~4%, constante entre tomas).
     real_s = audio_suite.duracion(crudo)
-    escala = real_s / guion_s if guion_s else 1.0
-    pistas = [(e["wav"], e["inicio"] * escala) for e in plan]
+    escala = real_s / grabado["wall_s"] if grabado["wall_s"] else 1.0
+    inicio_real = {m["ruta"]: m["inicio"] * escala for m in grabado["marcas"]}
+    t = 0.0
+    for e in plan:
+        base = inicio_real.get(e["ruta"])
+        # Dentro de una escena las frases van seguidas; entre escenas manda la
+        # marca medida (y nunca se retrocede, para no pisar la frase anterior).
+        t = max(base if base is not None else t, t)
+        e["inicio"] = t
+        t += e["voz_s"] + PAUSA_ENTRE_FRASES_S
+    pistas = [(e["wav"], e["inicio"]) for e in plan]
     inf = audio_suite.montar(crudo, salida, pistas, dur_video=real_s)
 
-    huecos = [round(e["escena_s"] * escala - e["voz_s"], 2) for e in plan]
+    huecos = [round(plan[i + 1]["inicio"] - (plan[i]["inicio"] + plan[i]["voz_s"]), 2)
+              for i in range(len(plan) - 1)]
     palabras = sum(audio_suite.palabras(e["texto"]) for e in plan)
     voz_total = sum(e["voz_s"] for e in plan)
     inf.update({
@@ -462,7 +495,7 @@ def construir(idioma: str = "es", motor: str | None = None,
         "escenas": len(plan), "escala": round(escala, 4),
         "hueco_max_s": max(huecos), "hueco_medio_s": round(sum(huecos) / len(huecos), 2),
         "wpm_promedio": round(palabras / voz_total * 60, 1) if voz_total else 0.0,
-        "subtitulos": _escribir_vtt(plan, idioma, escala),
+        "subtitulos": _escribir_vtt(plan, idioma),
     })
     return inf
 

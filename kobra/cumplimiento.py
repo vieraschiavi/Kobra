@@ -223,6 +223,57 @@ class Decision:
         return self.permitido
 
 
+# El `motivo` de una Decision se muestra en pantalla (la agenda dice por qué
+# no hay nadie a quien contactar ahora), así que necesita idioma. Se traduce
+# por CÓDIGO y no por texto: el código es el contrato estable del módulo, y
+# `detalle` ya trae los números que la frase necesita.
+_MOTIVOS = {
+    "FUERA_HORARIO": {
+        "pt": "Fora da faixa horária permitida ({inicio:02d}:00–{fin:02d}:00).",
+        "en": "Outside the permitted calling window ({inicio:02d}:00–{fin:02d}:00)."},
+    "DIA_NO_HABIL": {
+        "pt": "Dia não útil para contato segundo a política (por exemplo, domingo).",
+        "en": "Not a working day for contact under the policy (Sunday, for instance)."},
+    "FERIADO": {"pt": "Feriado em {pais}: {feriado}.",
+                "en": "Public holiday in {pais}: {feriado}."},
+    "OPT_OUT": {"pt": "O devedor está na lista de Não Contatar (opt-out).",
+                "en": "The debtor is on the Do Not Contact list (opt-out)."},
+    "TOPE_DIARIO": {"pt": "Atingiu o limite de {n} contato(s) por dia.",
+                    "en": "Daily cap of {n} contact(s) reached."},
+    "TOPE_SEMANAL": {
+        "pt": "Atingiu o limite de {n} contatos em 7 dias (antiassédio).",
+        "en": "Cap of {n} contacts in 7 days reached (anti-harassment)."},
+    "CANAL_NO_PERMITIDO": {
+        "pt": "O canal {canal} não está habilitado pela política.",
+        "en": "The {canal} channel is not enabled by the policy."},
+    "OK": {"pt": "Contato permitido pela política vigente.",
+           "en": "Contact allowed under the current policy."},
+}
+
+
+def motivo_en(decision: Decision, idioma: str = "es",
+              politica: PoliticaContacto | None = None) -> str:
+    """El motivo de una decisión, en el idioma pedido.
+
+    Cae al castellano —el `motivo` que ya trae la decisión— ante cualquier
+    código o idioma que no esté en el catálogo: mejor la frase en otro idioma
+    que una pantalla sin explicación.
+    """
+    plantilla = _MOTIVOS.get(decision.codigo, {}).get(idioma)
+    if not plantilla:
+        return decision.motivo
+    pol = politica or PoliticaContacto()
+    datos = {"inicio": pol.hora_inicio, "fin": pol.hora_fin, "pais": pol.pais,
+             "n": max(pol.max_por_dia if decision.codigo == "TOPE_DIARIO"
+                      else pol.max_por_semana, 0),
+             "canal": decision.detalle.get("canal", ""),
+             "feriado": decision.detalle.get("feriado", "")}
+    try:
+        return plantilla.format(**datos)
+    except (KeyError, IndexError, ValueError):
+        return decision.motivo
+
+
 # ---------------------------------------------------------------------------
 # Lista "No contactar" / opt-out
 # ---------------------------------------------------------------------------

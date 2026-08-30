@@ -1,91 +1,106 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:07.998
+00:00:00.000 --> 00:00:06.626
 Assim começa uma cobrança real: a inadimplência cresce,
 o painel mostra e o tempo não alcança.
 
 2
-00:00:07.998 --> 00:00:16.996
+00:00:07.425 --> 00:00:14.201
 Primeiro, medir o problema a sério: aging de saldos,
 DSO e efetividade, calculados sobre a carteira.
 
 3
-00:00:16.996 --> 00:00:25.994
+00:00:15.002 --> 00:00:24.356
 A mudança começa aqui: você sobe a sua carteira e a Kobra
 pontua na hora, com a probabilidade de pagamento e as razões.
 
 4
-00:00:25.994 --> 00:00:35.991
+00:00:25.154 --> 00:00:33.521
 O ProbPago ordena a carteira pelo que de fato dá para recuperar:
 estratégia, desconto certo e roteiro para cada devedor.
 
 5
-00:00:35.991 --> 00:00:43.989
+00:00:34.319 --> 00:00:39.783
 A agenda monta o dia sozinha:
 quem contatar, quando e por qual canal.
 
 6
-00:00:43.989 --> 00:00:55.986
+00:00:40.583 --> 00:00:48.765
 E o agente de inteligência artificial executa: liga com voz natural
-para o número do caso, negocia pelo WhatsApp e gera a cobrança com QR.
+para o número do caso e negocia pelo WhatsApp.
 
 7
-00:00:55.986 --> 00:01:03.984
+00:00:48.815 --> 00:00:57.241
+Aqui gera a cobrança na sua frente, com QR para escanear,
+e o saldo restante se negocia na mesma tela.
+
+8
+00:00:58.037 --> 00:01:04.964
 O devedor também pode pagar sozinho:
 entra no portal com um QR ou um link, e paga.
 
-8
-00:01:03.984 --> 00:01:12.982
+9
+00:01:05.766 --> 00:01:12.949
 O painel conversacional responde no seu idioma:
 cada número vem dos seus dados, não de uma estimativa.
 
-9
-00:01:12.982 --> 00:01:20.980
+10
+00:01:13.748 --> 00:01:19.665
 Uma dúvida sobre o produto? O assistente responde ali mesmo,
 com a documentação dentro.
 
-10
-00:01:20.980 --> 00:01:28.978
+11
+00:01:20.463 --> 00:01:26.439
 A equipe humana é medida aqui:
 recuperação por atendente, por mês e por canal.
 
-11
-00:01:28.978 --> 00:01:36.976
+12
+00:01:27.238 --> 00:01:33.109
 E a qualidade revisa cada atendimento:
 horários, limites e lista de não contatar, sempre.
 
-12
-00:01:36.976 --> 00:01:45.974
-Engenharia de dados incluída: conecte SQL, CSV ou Excel;
-perfis, junções e features sem escrever código.
-
 13
-00:01:45.974 --> 00:01:54.972
+00:01:33.908 --> 00:01:38.445
+Engenharia de dados incluída: conecte SQL, CSV ou Excel.
+
+14
+00:01:38.495 --> 00:01:47.129
+Subimos a carteira e ela é perfilada sozinha: tipos, chaves,
+qualidade e features prontas — sem escrever uma linha de código.
+
+15
+00:01:47.926 --> 00:01:54.981
 A governança responde qual dado é pessoal, quem vê
 e qual a qualidade, nas seis dimensões DAMA.
 
-14
-00:01:54.972 --> 00:02:02.970
+16
+00:01:55.780 --> 00:02:01.826
 KPIs próprios: defina o seu indicador com uma fórmula
 e use em todo o painel.
 
-15
-00:02:02.970 --> 00:02:15.966
-O AutoML treina aqui mesmo com o seu próprio dataset — veja —
-e a métrica vem de um holdout que não foi usado para escolher nada.
+17
+00:02:02.624 --> 00:02:10.388
+O AutoML treina aqui mesmo com o seu próprio dataset. Veja:
+subimos o histórico e escolhemos o que prever.
 
-16
-00:02:15.966 --> 00:02:23.964
+18
+00:02:10.438 --> 00:02:19.281
+Testa vários modelos e fica com o melhor. A métrica que mostra
+vem de um holdout que não foi usado para escolher nada.
+
+19
+00:02:20.080 --> 00:02:26.590
 Logística, um módulo à parte: o que ofertar,
 o que repor e qual cliente recuperar.
 
-17
-00:02:23.964 --> 00:02:31.962
+20
+00:02:27.391 --> 00:02:32.054
 E Projetos: saúde do portfólio
 e backlog ordenado por valor esperado.
 
-18
-00:02:31.962 --> 00:02:41.960
+21
+00:02:33.390 --> 00:02:41.363
 O resultado se mede aqui: mais recuperação com menos gestões.
 MV Kobra AI, de ponta a ponta. mvkobranzaia.com
+
