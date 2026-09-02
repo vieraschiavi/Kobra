@@ -444,7 +444,11 @@
     "emociones": "Emotions detected",
     "tecnicas": "Techniques used",
     "turnos": "Turns",
-    "nota_twilio": "This is the same negotiation logic that runs in production. Twilio only carries the real voice or WhatsApp (it needs credentials and a number); the offer, the objection handling and the close are these."
+    "nota_twilio": "This is the same negotiation logic that runs in production. Twilio only carries the real voice or WhatsApp (it needs credentials and a number); the offer, the objection handling and the close are these.",
+    "escuchar": "▶ Listen to the conversation",
+    "detener_audio": "■ Stop",
+    "nota_voz": "Browser voice, so you can hear the demo without configuring anything. On a real call it is the product's neural voice that speaks.",
+    "sin_voces": "This machine has no voices installed, so the conversation can only be read."
   },
   "calidad": {
     "titulo": "Interaction quality",

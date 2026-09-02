@@ -36,7 +36,23 @@ echo "[2/2] Instalando/verificando dependencias (puede tardar la 1a vez)..."
 .kobra_venv/bin/python -m pip install --no-cache-dir -r requirements.txt
 
 # 3) Arranque en modo owner, usando la UI ya compilada (sin necesitar Node)
-export KOBRA_OWNER=1
+# El sello firmado, no el viejo KOBRA_OWNER=1: ese "1" dejó de desbloquear
+# nada cuando la edición del dueño pasó a exigir un token firmado con la
+# privada, y este script quedó prometiendo "entra directo" y entregando la
+# pantalla de acceso.
+if [ -z "${KOBRA_OWNER_TOKEN:-}" ]; then
+  if [ -n "${KOBRA_OWNER_SELLO:-}" ]; then
+    export KOBRA_OWNER_TOKEN="$KOBRA_OWNER_SELLO"
+  elif [ -n "${KOBRA_OWNER_SELLO_ARCHIVO:-}" ] && [ -r "$KOBRA_OWNER_SELLO_ARCHIVO" ]; then
+    # tr -d: un token guardado desde un mail llega con saltos de línea, y un
+    # JWT no lleva espacios, así que juntarlo es seguro.
+    export KOBRA_OWNER_TOKEN="$(tr -d '[:space:]' < "$KOBRA_OWNER_SELLO_ARCHIVO")"
+  else
+    echo "  (i) Sin sello del dueño: el programa va a pedirte crear una clave."
+    echo "      Para entrar directo, dejá el token una sola vez:"
+    echo "        export KOBRA_OWNER_SELLO_ARCHIVO=~/.kobra_sello_owner.txt"
+  fi
+fi
 export KOBRA_UI_DIST="$(pwd)/owner/ui_dist"
 export KOBRA_APP_WINDOW=1
 exec .kobra_venv/bin/python packaging/kobra_launcher.py

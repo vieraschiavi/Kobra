@@ -1,13 +1,91 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
 
-import React, { useState } from "react";
-import { api, avisarPlan, getSesion } from "../api.js";
+import React, { useEffect, useState } from "react";
+import { api, avisarPlan, getIdioma, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
 
 const EMO_COLOR = {
   enojo: "var(--red)", frustracion: "var(--red)", ansiedad: "var(--amber)",
   resignacion: "var(--muted)", neutro: "var(--muted)", positivo: "var(--green-deep)",
 };
+
+// ── Escuchar la negociación ────────────────────────────────────────────────
+// El agente se llama "chatvoice" y hasta acá solo se LEÍA. Escucharlo cambia
+// la demostración: un gerente entiende en diez segundos de audio lo que no
+// entiende leyendo doce burbujas de chat.
+//
+// La voz es la del navegador (Web Speech API): no necesita clave, ni conexión,
+// ni un teléfono — funciona igual en la app de escritorio. NO es la voz neural
+// con la que el producto habla en una llamada real, y la pantalla lo dice: una
+// demo que se hace pasar por la producción es la peor forma de vender.
+//
+// Dos voces distintas (agente y cliente) porque una sola convierte el diálogo
+// en un monólogo indistinguible.
+const IDIOMA_VOZ = { es: "es", pt: "pt", en: "en" };
+
+function vocesDelIdioma() {
+  if (typeof window === "undefined" || !window.speechSynthesis) return [];
+  const pref = IDIOMA_VOZ[getIdioma()] || "es";
+  const todas = window.speechSynthesis.getVoices() || [];
+  const delIdioma = todas.filter((v) => (v.lang || "").toLowerCase().startsWith(pref));
+  return delIdioma.length ? delIdioma : todas;
+}
+
+function Reproductor({ turnos }) {
+  const [sonando, setSonando] = useState(false);
+  const [hayVoces, setHayVoces] = useState(true);
+
+  useEffect(() => {
+    // Chrome carga las voces de forma asincrónica: sin esto, la primera vez
+    // la lista viene vacía y el botón se deshabilitaría sin motivo.
+    const revisar = () => setHayVoces(vocesDelIdioma().length > 0);
+    revisar();
+    if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = revisar;
+    return () => {
+      if (!window.speechSynthesis) return;
+      // Soltar el handler y no solo cortar el audio: `onvoiceschanged` es una
+      // propiedad del objeto GLOBAL, así que sobrevive al desmontaje y seguiría
+      // llamando a `setHayVoces` de un componente que ya no está en pantalla.
+      window.speechSynthesis.onvoiceschanged = null;
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  if (typeof window === "undefined" || !window.speechSynthesis) return null;
+
+  const detener = () => { window.speechSynthesis.cancel(); setSonando(false); };
+
+  const escuchar = () => {
+    const voces = vocesDelIdioma();
+    if (!voces.length) return;
+    window.speechSynthesis.cancel();
+    setSonando(true);
+    const vozGestor = voces[0];
+    const vozCliente = voces[1] || voces[0];
+    turnos.forEach((tn, i) => {
+      const u = new SpeechSynthesisUtterance(tn.texto);
+      u.voice = tn.quien === "gestor" ? vozGestor : vozCliente;
+      u.lang = u.voice.lang;
+      u.rate = 1.02;
+      // Si las dos voces son la misma, el tono separa a quién se escucha.
+      u.pitch = tn.quien === "gestor" ? 1 : 0.85;
+      if (i === turnos.length - 1) u.onend = () => setSonando(false);
+      window.speechSynthesis.speak(u);
+    });
+  };
+
+  return (
+    <div className="toolbar" style={{ gap: 8, marginTop: 12, alignItems: "center" }}>
+      <button className="btn ghost" onClick={sonando ? detener : escuchar}
+              disabled={!hayVoces}>
+        {sonando ? t("gestor_demo.detener_audio") : t("gestor_demo.escuchar")}
+      </button>
+      <span style={{ color: "var(--faint)", fontSize: 11.5 }}>
+        {hayVoces ? t("gestor_demo.nota_voz") : t("gestor_demo.sin_voces")}
+      </span>
+    </div>
+  );
+}
 
 function GestorIADemo() {
   const [canal, setCanal] = useState("Llamada");
@@ -81,6 +159,8 @@ function GestorIADemo() {
               </div>
             ))}
           </div>
+
+          <Reproductor turnos={res.turnos} />
 
           {/* Conclusiones que van al ERP */}
           <div className="tablewrap">

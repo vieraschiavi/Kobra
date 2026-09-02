@@ -158,7 +158,11 @@ function Nuevo-Lanzador([string]$slug, [string]$destinoPy) {
         "set `"KOBRA_UI_DIST=$UiDist`"",
         "set KOBRA_APP_WINDOW=1"
     )
-    if ($Owner) { $lineas += "set KOBRA_OWNER=1" }
+    # El acceso directo del dueño resuelve el sello firmado en vez de poner el
+    # viejo `set KOBRA_OWNER=1`, que dejó de desbloquear nada: el ícono abría
+    # el programa y el programa pedía una clave. `cd /d $Codigo` ya se hizo
+    # arriba, así que la ruta relativa al resolutor es válida.
+    if ($Owner) { $lineas += "call `"owner\sello_owner.bat`"" }
     $lineas += "start `"`" `"$Python`" `"$destinoPy`""
     Set-Content -LiteralPath $cmd -Value $lineas -Encoding ASCII
 

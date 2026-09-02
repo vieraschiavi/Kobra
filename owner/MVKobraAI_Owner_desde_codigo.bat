@@ -252,7 +252,16 @@ rem --- 7) Arranque en modo OWNER (React + FastAPI, UI ya compilada) ---------
 echo.
 echo [7/7] Iniciando MV Kobra AI...
 echo.
-set KOBRA_OWNER=1
+rem El sello firmado, no el viejo `set KOBRA_OWNER=1`: ese "1" dejo de
+rem desbloquear nada y este .bat terminaba pidiendo una clave de acceso
+rem despues de prometer que entraba directo.
+call "%~dp0sello_owner.bat"
+if not defined KOBRA_OWNER_TOKEN (
+  echo   ^(i^) Sin sello del dueno: el programa va a pedirte crear una clave.
+  echo       Para entrar directo, deja el token una sola vez:
+  echo         setx KOBRA_OWNER_SELLO_ARCHIVO C:\ruta\sello_owner.txt
+  echo.
+)
 set "KOBRA_DATA_DIR=!DATOS!"
 set "KOBRA_UI_DIST=!CODIGO!\owner\ui_dist"
 set KOBRA_APP_WINDOW=1

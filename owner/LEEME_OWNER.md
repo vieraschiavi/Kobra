@@ -18,7 +18,18 @@ cada endpoint: **el owner llega a los 27/27**, la entrada directa responde 200
 y la licencia informa `plan: owner` sin días. La copia de un cliente sin
 licencia llega a 3/27 y esa misma entrada le devuelve 404. No queda ninguna
 puerta cerrada del lado del dueño (`tests/test_owner_sin_restricciones.py`).
-- Lo activa la variable de entorno `KOBRA_OWNER=1` sobre el modo standalone.
+- Lo activa el **sello firmado** del dueño, en `KOBRA_OWNER_TOKEN`. Los `.bat`
+  y el `.sh` de esta carpeta lo resuelven solos desde `KOBRA_OWNER_SELLO` o
+  desde el archivo que indique `KOBRA_OWNER_SELLO_ARCHIVO`; se deja una vez:
+
+  ```
+  setx KOBRA_OWNER_SELLO_ARCHIVO C:\ruta\sello_owner.txt
+  ```
+
+  **`KOBRA_OWNER=1` ya no desbloquea nada** y se sacó de todos los lanzadores.
+  Un `1` en una variable lo escribía cualquiera en diez segundos: el sello
+  ahora lleva un token RS256 que se verifica contra la pública embebida en el
+  programa, así que no se puede fabricar sin la privada.
   El server escucha **solo en 127.0.0.1** (tu propia máquina) — el endpoint
   de entrada directa devuelve 404 en cualquier otro modo, así que la copia
   de un cliente no lo tiene aunque conozca la URL.
@@ -31,7 +42,8 @@ puerta cerrada del lado del dueño (`tests/test_owner_sin_restricciones.py`).
 
 ## Desbloquear owner desde el instalador PÚBLICO
 
-Además de la vía por build (el ZIP Owner con `KOBRA_OWNER=1`), se puede tener
+Además de la vía por build (el instalador Owner, que trae el sello adentro y
+se construye en tu PC con `packaging\construir_instalador_owner.bat`), se puede tener
 una copia 100% operativa **partiendo del `MVKobraAI_Setup.exe` público**, sin
 armar nada aparte:
 

@@ -3,7 +3,21 @@ setlocal enabledelayedexpansion
 title MV Kobra AI - OWNER
 rem Arranca el programa INSTALADO (MVKobraAI_Setup.exe) en modo owner:
 rem sin licencia, sin trial, entra directo como Administrador.
-set KOBRA_OWNER=1
+rem
+rem El sello va por KOBRA_OWNER_TOKEN y no por el viejo `set KOBRA_OWNER=1`,
+rem que dejo de desbloquear nada cuando la edicion del dueno paso a exigir un
+rem token firmado. Este .bat quedo prometiendo "entra directo" y entregando la
+rem pantalla de licencia. El proceso que arranca hereda la variable.
+rem
+rem Si la copia instalada es la OWNER (MVKobraAI_Setup_OWNER.exe), ya trae el
+rem sello adentro y no hace falta nada de esto.
+call "%~dp0sello_owner.bat"
+if not defined KOBRA_OWNER_TOKEN (
+  echo   ^(i^) Sin sello a mano. Si la copia instalada es la de CLIENTE va a
+  echo       pedir licencia: convertila con packaging\Owner.bat, o instala
+  echo       MVKobraAI_Setup_OWNER.exe, que ya viene sellado.
+  echo.
+)
 
 rem App de escritorio Electron (instalador actual). electron-builder instala
 rem por usuario en %LocalAppData%\Programs; per-machine en Program Files.
