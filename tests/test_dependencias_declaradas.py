@@ -39,7 +39,10 @@ TESTS = ROOT / "tests"
 # alcanza con tener "packaging" en la lista.
 PROPIOS = {"kobra", "webapp", "backend_venta", "realtime", "data", "marketing",
            "app", "packaging", "tests", "electron", "owner",
-           "deteccion_instalacion",
+           # Módulos de `packaging/` que la suite importa por nombre (esa
+           # carpeta no es un paquete: se agrega a sys.path porque `packaging`
+           # ya lo ocupa la librería homónima de PyPI).
+           "deteccion_instalacion", "sellar_bundle_owner",
            # `conftest` es de la propia suite (tests/conftest.py): pytest lo
            # deja importable por nombre. No es un paquete de PyPI y pedirle un
            # requirements sería pedir que se declare a sí misma.

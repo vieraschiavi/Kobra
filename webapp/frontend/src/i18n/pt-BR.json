@@ -444,7 +444,11 @@
     "emociones": "Emoções detectadas",
     "tecnicas": "Técnicas usadas",
     "turnos": "Turnos",
-    "nota_twilio": "Esta é a mesma lógica de negociação que roda em produção. O Twilio apenas transporta a voz ou o WhatsApp real (precisa de credenciais e número); a oferta, o tratamento de objeções e o fechamento são estes."
+    "nota_twilio": "Esta é a mesma lógica de negociação que roda em produção. O Twilio apenas transporta a voz ou o WhatsApp real (precisa de credenciais e número); a oferta, o tratamento de objeções e o fechamento são estes.",
+    "escuchar": "▶ Ouvir a conversa",
+    "detener_audio": "■ Parar",
+    "nota_voz": "Voz do navegador, para ouvir a demonstração sem configurar nada. Em uma ligação real quem fala é a voz neural do produto.",
+    "sin_voces": "Este computador não tem vozes instaladas, então a conversa só pode ser lida."
   },
   "calidad": {
     "titulo": "Qualidade de atendimento",

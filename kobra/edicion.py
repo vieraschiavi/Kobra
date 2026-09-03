@@ -61,7 +61,15 @@ def sello_owner_valido(ed: dict) -> bool:
     edición del dueño.
     """
     token = ed.get("token_owner")
-    if not isinstance(token, str) or not token:
+    if not isinstance(token, str):
+        return False
+    # `.strip()`: el token llega de un archivo o de una variable de entorno
+    # (los lanzadores owner lo resuelven así), y un salto de línea o un espacio
+    # al final lo hacía fallar la verificación. El síntoma era el peor posible
+    # —la copia del dueño abriendo la pantalla de licencia sin decir por qué—
+    # y un JWT no lleva espacios, así que recortarlos no afloja nada.
+    token = token.strip()
+    if not token:
         return False
     try:
         import jwt

@@ -1,15 +1,65 @@
 @echo off
 setlocal enabledelayedexpansion
-title MV Kobra AI - Construir instalador (gratis, en esta PC)
 cd /d "%~dp0.."
 
-echo ============================================================
-echo   MV Kobra AI - CONSTRUIR EL INSTALADOR EN ESTA PC
-echo   Genera MVKobraAI_Setup.exe (Electron + React, con
-echo   desinstalador) sin usar GitHub Actions ni pagar nada.
-echo   Prepara TODO solo: Python, Node, dependencias y compilado.
-echo ============================================================
+rem Una sola tuberia de compilacion para las DOS ediciones. Se elige con el
+rem primer argumento ("owner" o nada). Antes de esto el instalador del dueno
+rem solo lo armaba .github/workflows/release_owner.yml, y con las Actions sin
+rem cupo no habia forma de generarlo; duplicar este .bat entero para cambiar
+rem tres lineas habria dejado dos tuberias que se separan sola.
+rem
+rem Lo que cambia entre ediciones:
+rem   * el bundle lleva edicion.json firmado (sin el, el .exe pide licencia);
+rem   * electron-builder usa electron-builder.owner.yml (appId, nombre y
+rem     carpeta propios, para que las dos copias convivan en la misma PC);
+rem   * la salida es dist_installer_owner\MVKobraAI_Setup_OWNER.exe.
+set "EDICION=cliente"
+if /i "%~1"=="owner" set "EDICION=owner"
+
+if "!EDICION!"=="owner" (
+  title MV Kobra AI - Construir instalador OWNER (en esta PC)
+  echo ============================================================
+  echo   MV Kobra AI - CONSTRUIR EL INSTALADOR *OWNER* EN ESTA PC
+  echo   Genera MVKobraAI_Setup_OWNER.exe: la copia del dueno,
+  echo   sin licencia, sin trial y sin vencimiento.
+  echo   Necesita el sello firmado ^(ver KOBRA_OWNER_SELLO abajo^).
+  echo ============================================================
+) else (
+  title MV Kobra AI - Construir instalador (gratis, en esta PC)
+  echo ============================================================
+  echo   MV Kobra AI - CONSTRUIR EL INSTALADOR EN ESTA PC
+  echo   Genera MVKobraAI_Setup.exe ^(Electron + React, con
+  echo   desinstalador^) sin usar GitHub Actions ni pagar nada.
+  echo   Prepara TODO solo: Python, Node, dependencias y compilado.
+  echo ============================================================
+)
 echo.
+
+rem El sello del dueno es lo unico que separa las dos ediciones, asi que se
+rem mira ANTES de compilar nada. La validacion criptografica va mas abajo
+rem (necesita las dependencias instaladas); esto de aca solo ataja el olvido,
+rem que es el caso comun, en el segundo cero y no a los veinte minutos.
+if "!EDICION!"=="owner" (
+  if not defined KOBRA_OWNER_SELLO if not defined KOBRA_OWNER_SELLO_ARCHIVO (
+    echo   Falta el sello del dueno.
+    echo.
+    echo   El instalador OWNER lleva un token firmado con tu clave privada.
+    echo   Sin el saldria pidiendo licencia igual que el de un cliente, asi
+    echo   que este .bat no lo construye a medias.
+    echo.
+    echo   Si ya lo tenes emitido, antes de correr este .bat:
+    echo     set KOBRA_OWNER_SELLO_ARCHIVO=C:\ruta\sello_owner.txt
+    echo.
+    echo   Si todavia no lo emitiste, una sola vez y en una PC con la privada:
+    rem Los parentesis van escapados: sin el ^, cmd los toma como el cierre
+    rem del bloque `if (` y el script se rompe justo en el caso que este
+    rem mensaje existe para explicar.
+    echo     python -c "from backend_venta import licencias as l; print^(l.emitir_sello_owner^(^)^)"
+    echo   ^(con KOBRA_LICENSE_PRIVATE_KEY puesta^) y guardas la salida en ese archivo.
+    echo.
+    pause & exit /b 1
+  )
+)
 
 rem --- 1) Python: usar el del sistema o instalarlo (igual que el owner) -----
 set "PYEXE="
@@ -124,6 +174,17 @@ if not !errorlevel!==0 (
 "%VPY%" -m pip install --no-cache-dir pyinstaller==6.11.1
 if not !errorlevel!==0 ( echo   Fallo instalando PyInstaller. & pause & exit /b 1 )
 
+rem Ahora si se puede VALIDAR el sello (hace falta PyJWT, recien instalado).
+rem Un token cortado al copiar produce un edicion.json de aspecto perfecto que
+rem el programa rechaza al arrancar: el .exe saldria pidiendo licencia despues
+rem de veinte minutos de compilacion. Se comprueba con el mismo codigo que
+rem corre en el arranque, y aca todavia no se compilo nada.
+if "!EDICION!"=="owner" (
+  echo [4/7] Verificando el sello del dueno...
+  "%VPY%" packaging\sellar_bundle_owner.py --solo-verificar
+  if not !errorlevel!==0 ( echo. & pause & exit /b 1 )
+)
+
 rem --- 5) Datos de demo + interfaz React ------------------------------------
 echo [5/7] Generando datos de demo y compilando la interfaz...
 "%VPY%" -m kobra.pipeline
@@ -141,6 +202,16 @@ echo [6/7] Empaquetando el motor ^(PyInstaller, tarda varios minutos^)...
 if not exist "dist\MVKobraAI\MVKobraAI.exe" (
   echo   Fallo el empaquetado del motor ^(no aparecio dist\MVKobraAI^).
   pause & exit /b 1
+)
+
+rem El sello va DENTRO del bundle, antes de que electron-builder lo copie a
+rem resources\backend: asi el .exe nace owner en vez de quedar convertible.
+rem Es el mismo paso que hace el workflow release_owner.yml, y el script
+rem relee lo que escribio para que un "listo" no sea de mentira.
+if "!EDICION!"=="owner" (
+  echo       Sellando el motor como edicion OWNER...
+  "%VPY%" packaging\sellar_bundle_owner.py --bundle dist\MVKobraAI
+  if not !errorlevel!==0 ( echo. & pause & exit /b 1 )
 )
 
 rem --- 7) Instalador Electron (NSIS con desinstalador) -----------------------
@@ -163,25 +234,46 @@ call npm pkg set version=!KVER!
 call npm ci --no-audit --no-fund
 if not !errorlevel!==0 ( popd & echo   Fallo npm ci de electron. & pause & exit /b 1 )
 set "CSC_IDENTITY_AUTO_DISCOVERY=false"
-call npx electron-builder --win nsis --publish never
-if not exist "dist_installer\MVKobraAI_Setup.exe" (
+rem Identidad propia para el owner: mismo appId significaria misma entrada en
+rem "Agregar o quitar programas", misma carpeta y mismos accesos directos, o
+rem sea que instalar el owner PISARIA la copia de cliente. Con el config
+rem aparte las dos conviven, que es lo que hace falta para ver que ve un
+rem comprador sin perder la propia.
+if "!EDICION!"=="owner" (
+  call npx electron-builder --win nsis --config electron-builder.owner.yml --publish never
+  set "SALIDA=dist_installer_owner\MVKobraAI_Setup_OWNER.exe"
+) else (
+  call npx electron-builder --win nsis --publish never
+  set "SALIDA=dist_installer\MVKobraAI_Setup.exe"
+)
+if not exist "!SALIDA!" (
   popd & echo   Fallo la construccion del instalador. & pause & exit /b 1
 )
 popd
 
-copy /y "electron\dist_installer\MVKobraAI_Setup.exe" "%USERPROFILE%\Desktop\" >nul 2>nul
+copy /y "electron\!SALIDA!" "%USERPROFILE%\Desktop\" >nul 2>nul
 
 echo.
 echo ============================================================
 echo   LISTO. Instalador generado:
 echo.
-echo   electron\dist_installer\MVKobraAI_Setup.exe
+echo   electron\!SALIDA!
 echo.
-echo   (tambien te deje una copia en el Escritorio)
+echo   ^(tambien te deje una copia en el Escritorio^)
 echo.
-echo   Ese .exe es el que se le da a los CLIENTES: instala la app
-echo   de escritorio con accesos directos a eleccion y desinstalador
-echo   en "Agregar o quitar programas".
+if "!EDICION!"=="owner" (
+  echo   Ese .exe es TUYO, no se le da a nadie: entra directo, sin
+  echo   licencia, sin trial y sin vencimiento. Se instala aparte del
+  echo   de clientes ^(otro nombre y otra carpeta^), asi que podes tener
+  echo   las dos copias en la misma PC y ver que ve un comprador.
+  echo.
+  echo   NO lo subas a mv-kobra-ai-releases: ese repo es publico y
+  echo   esta version no pide licencia.
+) else (
+  echo   Ese .exe es el que se le da a los CLIENTES: instala la app
+  echo   de escritorio con accesos directos a eleccion y desinstalador
+  echo   en "Agregar o quitar programas".
+)
 echo ============================================================
 echo.
 pause
