@@ -59,9 +59,15 @@ def clave_privada(archivo: str | None) -> str:
         except OSError as e:
             raise SystemExit(f"[ERROR] no pude leer la clave de {archivo}: {e}") from e
         if "PRIVATE KEY" not in pem:
+            # El encabezado se nombra con puntos suspensivos en el medio a
+            # propósito: `tests/test_licencia_comprada_activa.py` hace
+            # `git grep` del marcador entero para atajar una clave privada
+            # commiteada, y escribirlo seguido acá haría que este archivo lo
+            # encuentre — un guard de seguridad en rojo por una frase.
             raise SystemExit(
                 f"[ERROR] {archivo} no parece una clave privada.\n"
-                "  Tiene que empezar con -----BEGIN PRIVATE KEY----- (o RSA PRIVATE KEY).\n"
+                "  La primera línea tiene que ser -----BEGIN ... PRIVATE KEY-----\n"
+                "  (sirven tanto la forma PKCS8 como la RSA).\n"
                 "  Ojo: la PÚBLICA no sirve para firmar.")
         return pem
     pem = os.environ.get(ENV_CLAVE, "")
