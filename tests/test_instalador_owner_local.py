@@ -203,10 +203,16 @@ def test_el_bat_usa_la_identidad_separada_del_owner():
 
 
 def test_el_bat_avisa_como_emitir_el_sello_si_falta():
-    """El que corre esto es el dueño en su PC, sin nadie a quien preguntarle."""
+    """El que corre esto es el dueño en su PC, sin nadie a quien preguntarle.
+
+    Antes el mensaje lo mandaba a tipear un `python -c` con comillas
+    anidadas. Ahora apunta al `.bat` que hace todo — el pedido fue textual:
+    *"no quiero ejecutar esto es incómodo"*.
+    """
     bat = _texto(BAT_CLIENTE)
     assert "KOBRA_OWNER_SELLO_ARCHIVO" in bat
-    assert "emitir_sello_owner" in bat
+    assert "generar_sello_owner.bat" in bat, "no dice cómo conseguir el sello"
+    assert "python -c" not in bat, "sigue mandando a tipear el one-liner"
 
 
 def test_el_bat_recuerda_que_el_owner_no_va_al_repo_publico():

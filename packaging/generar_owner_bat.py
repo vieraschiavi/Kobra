@@ -73,15 +73,19 @@ def sello(token: str) -> str:
 
 
 def _token_o_morir() -> str:
-    t = os.environ.get(ENV_SELLO, "").strip()
-    if not t:
-        raise SystemExit(
-            f"falta {ENV_SELLO}: el sello Owner lleva un token firmado con la "
-            "privada del dueño. Emitilo con\n"
-            "  KOBRA_LICENSE_PRIVATE_KEY=... python3 -c "
-            "'from backend_venta import licencias as l; print(l.emitir_sello_owner())'\n"
-            f"y pasalo en {ENV_SELLO}.")
-    return t
+    """El token, de la variable o del archivo donde lo dejó el emisor.
+
+    La resolución la hace `sellar_bundle_owner` y no se duplica acá: el
+    emisor guarda el sello en un ARCHIVO y apunta `KOBRA_OWNER_SELLO_ARCHIVO`,
+    así que si esta herramienta mirara solo la variable, el dueño haría el
+    paso de emitir bien y este le diría que falta el sello.
+
+    El import va adentro de la función porque `sellar_bundle_owner` importa
+    este módulo (de acá sale la única definición del `sello()`): a nivel de
+    módulo serían un ciclo.
+    """
+    import sellar_bundle_owner
+    return sellar_bundle_owner.token_del_entorno()
 
 
 def _bat() -> str:
