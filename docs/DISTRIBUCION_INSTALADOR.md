@@ -19,24 +19,23 @@ que generaría GitHub Actions: la app Electron con desinstalador incluido.
 
 ## Y el instalador OWNER (el tuyo, sin licencia)
 
-Misma tubería, un argumento distinto:
+Misma tubería, un argumento distinto. **Dos doble clics, nada que tipear:**
 
-1. **Una sola vez**, dejá a mano el sello firmado del dueño. Se emite en una
-   PC que tenga la privada (`KOBRA_LICENSE_PRIVATE_KEY`):
+1. **Una sola vez:** doble clic en **`packaging\generar_sello_owner.bat`**.
+   Te pide el `.pem` de tu clave privada (o arrastrás el archivo sobre el
+   `.bat`), firma el sello, lo guarda en `%USERPROFILE%\.kobra\sello_owner.txt`
+   y deja `KOBRA_OWNER_SELLO_ARCHIVO` apuntada. No hay que copiar ni pegar
+   ningún token.
 
-   ```
-   python -c "from backend_venta import licencias as l; print(l.emitir_sello_owner())"
-   ```
-
-   Guardá esa salida en un archivo **fuera del repo** y apuntalo:
-
-   ```
-   setx KOBRA_OWNER_SELLO_ARCHIVO C:\ruta\sello_owner.txt
-   ```
+   ¿Dónde está la privada? Es la misma que firma las licencias vendidas:
+   Vercel → Settings → Environment Variables → `KOBRA_LICENSE_PRIVATE_KEY`.
+   Copiala a un `.pem` en tu PC, **fuera del repo**.
 
 2. Doble clic en **`packaging\construir_instalador_owner.bat`**.
 3. Sale **`MVKobraAI_Setup_OWNER.exe`** en `electron\dist_installer_owner\`
    (y una copia en el Escritorio).
+
+El paso 1 no se repite: el sello dura 10 años y queda guardado.
 
 Esa copia **entra directo: sin licencia, sin trial y sin vencimiento**. Se
 instala con nombre y carpeta propios (`MV Kobra AI Owner`), así que convive
@@ -52,8 +51,8 @@ programa.
 > esta edición no pide licencia. Publicarla ahí es regalar el producto.
 
 Si el programa **ya está instalado** y solo querés sacarle las trabas, no hace
-falta recompilar: generá `packaging\Owner.bat` (con `KOBRA_OWNER_SELLO` puesta,
-`python packaging/generar_owner_bat.py`), copialo a la carpeta del programa y
+falta recompilar: después del paso 1, generá `packaging\Owner.bat` con
+`python packaging/generar_owner_bat.py`, copialo a la carpeta del programa y
 doble clic.
 
 ## El problema que resuelve esto

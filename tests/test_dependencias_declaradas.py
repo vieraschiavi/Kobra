@@ -43,6 +43,7 @@ PROPIOS = {"kobra", "webapp", "backend_venta", "realtime", "data", "marketing",
            # carpeta no es un paquete: se agrega a sys.path porque `packaging`
            # ya lo ocupa la librería homónima de PyPI).
            "deteccion_instalacion", "sellar_bundle_owner",
+           "emitir_sello_owner",
            # `conftest` es de la propia suite (tests/conftest.py): pytest lo
            # deja importable por nombre. No es un paquete de PyPI y pedirle un
            # requirements sería pedir que se declare a sí misma.

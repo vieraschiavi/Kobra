@@ -81,12 +81,14 @@ def token_del_entorno(archivo: str | None = None) -> str:
     token = "".join(crudo.split())
     if not token:
         raise SystemExit(
-            f"[ERROR] falta el sello del dueño.\n"
-            f"  Ponelo en {ENV_SELLO} o pasá --sello-archivo <ruta>.\n"
-            f"  Se emite una sola vez, en una máquina con la privada:\n"
-            f"    KOBRA_LICENSE_PRIVATE_KEY=... python -c "
-            f"\"from backend_venta import licencias as l; print(l.emitir_sello_owner())\"\n"
-            f"  Sin él, el instalador saldría pidiendo licencia como el de un cliente.")
+            "[ERROR] falta el sello del dueño.\n"
+            "  Generalo una sola vez con doble clic en:\n"
+            "      packaging\\generar_sello_owner.bat\n"
+            "  (te pide el .pem de la clave privada, firma el sello, lo guarda\n"
+            "   y deja la variable puesta — no hay que copiar ni pegar nada)\n"
+            f"  Si ya lo tenés: ponelo en {ENV_SELLO}, apuntá {ENV_ARCHIVO}\n"
+            "  al archivo, o pasá --sello-archivo <ruta>.\n"
+            "  Sin él, el instalador saldría pidiendo licencia como el de un cliente.")
     return token
 
 

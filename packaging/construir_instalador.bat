@@ -47,15 +47,16 @@ if "!EDICION!"=="owner" (
     echo   Sin el saldria pidiendo licencia igual que el de un cliente, asi
     echo   que este .bat no lo construye a medias.
     echo.
-    echo   Si ya lo tenes emitido, antes de correr este .bat:
-    echo     set KOBRA_OWNER_SELLO_ARCHIVO=C:\ruta\sello_owner.txt
+    echo   Generalo con doble clic en:
     echo.
-    echo   Si todavia no lo emitiste, una sola vez y en una PC con la privada:
-    rem Los parentesis van escapados: sin el ^, cmd los toma como el cierre
-    rem del bloque `if (` y el script se rompe justo en el caso que este
-    rem mensaje existe para explicar.
-    echo     python -c "from backend_venta import licencias as l; print^(l.emitir_sello_owner^(^)^)"
-    echo   ^(con KOBRA_LICENSE_PRIVATE_KEY puesta^) y guardas la salida en ese archivo.
+    echo       packaging\generar_sello_owner.bat
+    echo.
+    echo   Te pide el .pem de tu clave privada, firma el sello, lo guarda y
+    echo   deja todo apuntado. No hay que copiar ni pegar nada. Despues volve
+    echo   a este .bat y anda solo.
+    echo.
+    echo   Si el sello ya lo tenes en otra parte:
+    echo     setx KOBRA_OWNER_SELLO_ARCHIVO C:\ruta\sello_owner.txt
     echo.
     pause & exit /b 1
   )
