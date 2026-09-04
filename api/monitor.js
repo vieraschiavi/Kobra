@@ -17,10 +17,17 @@
 // ya vimos que los reintentos existen. Acá el número sale de donde está la
 // plata de verdad.
 //
+// La excepción a la regla de arriba son los PEDIDOS DE DEMO: ahí no hay
+// ninguna API externa que sepa a quién se le mostró el producto, así que el
+// registro propio (`_pedidos.js`) es la única fuente que existe. Se listan acá
+// —detrás de la misma credencial del dueño— para poder responder "a cuántos y
+// a qué mails les mandé una demo" sin abrir los logs de Vercel.
+//
 // Lo que NO hace: descontar comisiones ni impuestos. MercadoPago informa el
 // monto bruto y el neto acreditado por pago; el neto que devolvemos es la
 // suma de lo que MercadoPago dice que quedó, no una estimación nuestra.
 const { exigirOwner } = require("./_owner_auth");
+const pedidos = require("./_pedidos");
 
 const MP = "https://api.mercadopago.com";
 const REPO_DESCARGAS = "vieraschiavi/mv-kobra-ai-releases";
@@ -106,6 +113,29 @@ async function descargas() {
   }
 }
 
+/**
+ * Los pedidos de demo, del más nuevo al más viejo.
+ *
+ * `disponible: false` cuando falta el Edge Config: no es lo mismo que "nadie
+ * pidió una demo", y confundirlos haría leer una lista vacía como si el
+ * formulario no captara a nadie.
+ */
+async function demosPedidas() {
+  if (!pedidos.disponible()) {
+    return {
+      total: 0, lista: [], disponible: false,
+      motivo: "falta el Edge Config (EDGE_CONFIG_ID, VC_API_TOKEN, VC_TEAM_ID): " +
+              "los pedidos solo quedan en el mail",
+    };
+  }
+  const lista = await pedidos.listar();
+  return {
+    total: lista.length,
+    lista: [...lista].reverse(),
+    disponible: true,
+  };
+}
+
 function resumir(pagos) {
   const porPlan = {};
   const porMes = {};
@@ -158,12 +188,19 @@ function resumir(pagos) {
 module.exports = async function handler(req, res) {
   if (exigirOwner(req, res)) return;
 
+  // Los pedidos de demo no dependen de MercadoPago: se leen igual, y también
+  // se devuelven en el 503 de abajo. Sin eso, no tener cargado el token de
+  // pagos escondería la lista de prospectos, que es justo el dato que sirve
+  // ANTES de que haya una sola venta.
+  const demos = await demosPedidas();
+
   const token = process.env.MP_ACCESS_TOKEN;
   if (!token) {
     res.status(503).json({
       error: "sin_configurar",
       detalle: "Falta MP_ACCESS_TOKEN: sin esa credencial no hay forma de " +
                "consultar las ventas. Cargala en Vercel.",
+      demos,
     });
     return;
   }
@@ -179,6 +216,7 @@ module.exports = async function handler(req, res) {
       ...resumen,
       truncado,   // true = hay más de 2.000 pagos y esto es un parcial
       descargas: desc,
+      demos,
       // Sirve para saber si el número es de HOY o de una respuesta cacheada.
       generado: new Date().toISOString(),
     });
@@ -194,3 +232,4 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports.resumir = resumir;
+module.exports.demosPedidas = demosPedidas;
