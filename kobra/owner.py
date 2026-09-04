@@ -43,9 +43,9 @@ import hmac
 EMAIL = "vieraschiavi@gmail.com"
 
 # scrypt(codigo, SAL). Publicables: sin el código no sirven de nada.
-_SAL = bytes.fromhex("13c8a3fa47e247bd5fc3d4b2650c8ccb")
+_SAL = bytes.fromhex("375047c687130a32ec9ba7741a4a913c")
 _HASH = bytes.fromhex(
-    "d6a1711f7c425876f1a75c5b84c86236fb8459c78a3bee8e1c64237d63eb6d61")
+    "80c15418ac087dba47a7900468c2772984c56c6579d2d082ae345c83a0d26bfc")
 
 # Parámetros de scrypt. `maxmem` explícito porque el default de OpenSSL
 # (32 MB) no alcanza para n=2**15 y falla con "memory limit exceeded".
