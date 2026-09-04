@@ -30,10 +30,42 @@ const req = (body, extra = {}) => ({
 const COMPLETO = { nombre: "Ana Pérez", empresa: "Cobranzas SA",
                    pais: "Uruguay", email: "ana@empresa.com" };
 
-function cargar() {
+const ECFG = { EDGE_CONFIG_ID: "ecfg_prueba", VC_API_TOKEN: "vt_prueba",
+               VC_TEAM_ID: "team_prueba" };
+
+function cargar({ almacen = false } = {}) {
+  for (const k of Object.keys(ECFG)) {
+    if (almacen) process.env[k] = ECFG[k];
+    else delete process.env[k];
+  }
   delete require.cache[require.resolve("./solicitar-demo")];
   delete require.cache[require.resolve("./_ratelimit")];
+  delete require.cache[require.resolve("./_pedidos")];
   return require("./solicitar-demo");
+}
+
+/**
+ * Doble de `fetch` que separa las dos salidas del handler: lo que se guarda
+ * (Edge Config) de lo que se manda (Resend). Sin separarlas no se puede probar
+ * lo único que importa acá — que el pedido queda guardado AUNQUE el mail falle.
+ */
+function red({ mailFalla = false } = {}) {
+  const reg = { guardado: null, mails: [] };
+  const anterior = global.fetch;
+  global.fetch = async (url, opts) => {
+    if (String(url).includes("api.resend.com")) {
+      reg.mails.push(JSON.parse(opts.body));
+      if (mailFalla) return { ok: false, status: 500, text: async () => "boom" };
+      return { ok: true, json: async () => ({}) };
+    }
+    if (opts && opts.method === "PATCH") {
+      reg.guardado = JSON.parse(opts.body).items[0].value;
+      return { ok: true, json: async () => ({}) };
+    }
+    return { ok: true, json: async () => ({ value: reg.guardado }) };
+  };
+  reg.restaurar = () => { global.fetch = anterior; };
+  return reg;
 }
 
 // ---------------------------------------------------------------------------
@@ -196,3 +228,137 @@ test("el freno por IP corta una ráfaga", async () => {
     global.fetch = fetchOriginal;
   }
 });
+
+// ---------------------------------------------------------------------------
+// El pedido no se pierde: queda guardado antes de intentar el mail
+// ---------------------------------------------------------------------------
+test("el pedido se guarda ANTES de mandar el mail", async () => {
+  // El orden es la regla. Guardando después de un envío exitoso, el prospecto
+  // se pierde exactamente cuando el correo está caído — el único momento en
+  // que el registro hace falta.
+  const h = cargar({ almacen: true });
+  process.env.RESEND_API_KEY = "re_prueba";
+  const orden = [];
+  const anterior = global.fetch;
+  global.fetch = async (url, opts) => {
+    if (String(url).includes("api.resend.com")) {
+      orden.push("mail");
+      return { ok: true, json: async () => ({}) };
+    }
+    if (opts && opts.method === "PATCH") orden.push("guardar");
+    return { ok: true, json: async () => ({ value: [] }) };
+  };
+  try {
+    const r = res();
+    await h(req(COMPLETO), r);
+    assert.equal(r.statusCode, 200);
+    assert.deepEqual(orden, ["guardar", "mail"],
+      "se mandó el mail antes de guardar: un SMTP caído pierde al prospecto");
+  } finally {
+    global.fetch = anterior;
+  }
+});
+
+test("si Resend rechaza el envío, el pedido YA está guardado", async () => {
+  const h = cargar({ almacen: true });
+  process.env.RESEND_API_KEY = "re_prueba";
+  const r0 = red({ mailFalla: true });
+  const errorOriginal = console.error;
+  console.error = () => {};
+  try {
+    const r = res();
+    await h(req(COMPLETO), r);
+    assert.equal(r.statusCode, 502);
+    assert.ok(Array.isArray(r0.guardado) && r0.guardado.length === 1,
+      "el mail falló y el prospecto no quedó en ningún lado");
+    assert.equal(r0.guardado[0].email, COMPLETO.email);
+  } finally {
+    r0.restaurar();
+    console.error = errorOriginal;
+  }
+});
+
+test("sin RESEND_API_KEY el pedido igual queda guardado", async () => {
+  // Es el caso más silencioso de todos: nadie configuró el mail y el
+  // formulario parece andar. Con el registro, al menos el prospecto existe.
+  const h = cargar({ almacen: true });
+  delete process.env.RESEND_API_KEY;
+  const r0 = red();
+  const errorOriginal = console.error;
+  console.error = () => {};
+  try {
+    const r = res();
+    await h(req(COMPLETO), r);
+    assert.equal(r.statusCode, 503);
+    assert.equal(r0.mails.length, 0, "mandó un mail sin clave");
+    assert.equal(r0.guardado[0].email, COMPLETO.email);
+  } finally {
+    r0.restaurar();
+    console.error = errorOriginal;
+  }
+});
+
+test("si el almacén falla, el pedido sale igual por mail", async () => {
+  // El registro es una red de contención, no un requisito. Que un Edge Config
+  // caído corte el formulario sería cambiar un modo de perder prospectos por
+  // otro peor.
+  const h = cargar({ almacen: true });
+  process.env.RESEND_API_KEY = "re_prueba";
+  const anterior = global.fetch;
+  const errorOriginal = console.error;
+  console.error = () => {};
+  let mails = 0;
+  global.fetch = async (url) => {
+    if (String(url).includes("api.resend.com")) {
+      mails += 1;
+      return { ok: true, json: async () => ({}) };
+    }
+    throw new Error("edge config caído");
+  };
+  try {
+    const r = res();
+    await h(req(COMPLETO), r);
+    assert.equal(r.statusCode, 200, "un almacén caído tumbó el formulario");
+    assert.equal(mails, 1);
+  } finally {
+    global.fetch = anterior;
+    console.error = errorOriginal;
+  }
+});
+
+test("sin Edge Config configurado el formulario funciona como antes", async () => {
+  const h = cargar({ almacen: false });
+  process.env.RESEND_API_KEY = "re_prueba";
+  const r0 = red();
+  const errorOriginal = console.error;
+  console.error = () => {};
+  try {
+    const r = res();
+    await h(req(COMPLETO), r);
+    assert.equal(r.statusCode, 200);
+    assert.equal(r0.mails.length, 1);
+    assert.equal(r0.guardado, null, "guardó sin tener dónde");
+  } finally {
+    r0.restaurar();
+    console.error = errorOriginal;
+  }
+});
+
+test("el id del pedido viaja en el mail, no en la respuesta al visitante",
+  async () => {
+    // El id es el enganche para atribuir después una copia filtrada a la demo
+    // de la que salió. Devolvérselo a quien llena el formulario es contarle
+    // que existe una marca y cuál es.
+    const h = cargar({ almacen: true });
+    process.env.RESEND_API_KEY = "re_prueba";
+    const r0 = red();
+    try {
+      const r = res();
+      await h(req(COMPLETO), r);
+      const id = r0.guardado[0].id;
+      assert.ok(r0.mails[0].text.includes(id), "el mail no trae el id del pedido");
+      assert.deepEqual(r.body, { ok: true });
+    } finally {
+      r0.restaurar();
+    }
+  });

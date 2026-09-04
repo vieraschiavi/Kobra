@@ -111,10 +111,49 @@
       Math.round(n).toLocaleString("es-UY");
   }
 
+  // Los pedidos de demo traen nombre, empresa y mail escritos por cualquiera
+  // que llene el formulario público. El servidor les saca los saltos de línea
+  // (para que no inyecten cabeceras en el mail) pero NO los signos de menor:
+  // pegarlos crudos en innerHTML sería un XSS en la única pantalla que muestra
+  // la facturación. Se escapan acá, que es donde se pintan.
+  function esc(v) {
+    return String(v === null || v === undefined ? "" : v)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
   function fila(celdas) {
     return "<tr>" + celdas.map(function (c, i) {
       return "<td" + (i ? ' class="num"' : "") + ">" + c + "</td>";
     }).join("") + "</tr>";
+  }
+
+  // Quién pidió una demo. Es el único número del monitor que NO sale de una
+  // API externa: no existe nadie afuera que sepa a quién se le mostró el
+  // producto. Sirve para dos cosas — ver si el formulario capta, y saber a qué
+  // mail salió cada demo si mañana aparece una copia del programa dando vueltas.
+  function bloqueDemos(demos) {
+    if (!demos) return "";
+    if (!demos.disponible) {
+      return '<h2>Pedidos de demo</h2><div class="aviso">' +
+        '<b>No se están registrando.</b> ' + esc(demos.motivo || "") + '.</div>';
+    }
+    var h = '<h2>Pedidos de demo <span class="pie">(' + demos.total +
+      ')</span></h2><div class="tabla"><table><thead><tr>' +
+      '<th>Fecha</th><th>Quién</th><th>Empresa</th><th>Mail</th>' +
+      '<th>País</th><th>Id</th></tr></thead><tbody>';
+    h += demos.lista.length
+      ? demos.lista.map(function (x) {
+          return "<tr>" +
+            "<td>" + esc(String(x.fecha || "").slice(0, 10)) + "</td>" +
+            "<td>" + esc(x.nombre) + "</td>" +
+            "<td>" + esc(x.empresa) + "</td>" +
+            "<td>" + esc(x.email) + "</td>" +
+            "<td>" + esc(x.pais) + "</td>" +
+            "<td>" + esc(x.id) + "</td></tr>";
+        }).join("")
+      : '<tr><td colspan="6">Todavía no pidió una demo nadie.</td></tr>';
+    return h + '</tbody></table></div>';
   }
 
   function pintar(d) {
@@ -162,6 +201,8 @@
         'publicado en el repo público, nadie puede bajar el producto.</div>';
     }
 
+    h += bloqueDemos(d.demos);
+
     if (d.truncado) {
       h += '<div class="aviso">Hay más de 2.000 pagos: estos números son ' +
         'un parcial de los más recientes.</div>';
@@ -189,6 +230,18 @@
       return r.json().then(function (b) { return { ok: r.ok, b: b }; });
     }).then(function (x) {
       if (!x.ok) {
+        // Falta el token de MercadoPago: no hay ventas que mostrar, pero los
+        // pedidos de demo sí se leyeron y son el dato que importa antes de la
+        // primera venta. Mostrarlos vale más que una pantalla de error.
+        if (x.b.error === "sin_configurar" && x.b.demos) {
+          $("cred").value = "";
+          $("datos").innerHTML =
+            '<div class="aviso"><b>Sin ventas que mostrar.</b> ' +
+            esc(x.b.detalle || "") + '</div>' + bloqueDemos(x.b.demos);
+          $("datos").hidden = false;
+          $("entrar").hidden = true;
+          return;
+        }
         throw new Error(
           x.b.error === "credencial_invalida"
             ? "Esa credencial no es válida."

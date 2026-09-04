@@ -13,6 +13,7 @@
 // pidió acceso, y la demostración se usa para vender en vez de que la miren
 // solos.
 const { limitar } = require("./_ratelimit");
+const pedidos = require("./_pedidos");
 
 const DESTINO = "vieraschiavi@gmail.com";
 const MAX = { nombre: 120, empresa: 120, pais: 60, email: 160, mensaje: 1500 };
@@ -74,6 +75,20 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  // El pedido se guarda ANTES de intentar el mail. Al revés —mandar primero y
+  // registrar si salió bien— el prospecto se pierde justo en el caso en que
+  // más importa no perderlo: cuando el correo está caído. Además queda el
+  // registro de a quién se le dio una demo, que es lo que permite atribuir
+  // después una copia filtrada del programa.
+  //
+  // `guardar` nunca levanta: si el almacén no está configurado o falla,
+  // devuelve null y el pedido sigue su camino igual.
+  const id = await pedidos.guardar(datos);
+  if (!id) {
+    console.error("solicitar-demo: no se pudo registrar el pedido de",
+                  datos.email, "| solo queda el mail");
+  }
+
   const clave = process.env.RESEND_API_KEY;
   if (!clave) {
     // 503 y no 500: no está roto, falta configurarlo. Y el mensaje que ve el
@@ -92,6 +107,7 @@ module.exports = async function handler(req, res) {
     `País:    ${datos.pais}\n` +
     `Mail:    ${datos.email}\n\n` +
     (datos.mensaje ? `Mensaje:\n${datos.mensaje}\n\n` : "") +
+    (id ? `Id del pedido: ${id}\n\n` : "") +
     "Respondé a este mail para coordinar el 1:1.";
 
   try {

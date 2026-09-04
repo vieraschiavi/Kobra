@@ -153,3 +153,100 @@ test("sin ventas devuelve ceros y no rompe", () => {
   assert.equal(r.moneda, null);
   assert.deepEqual(r.por_plan, []);
 });
+
+// ---------------------------------------------------------------------------
+// Los pedidos de demo
+// ---------------------------------------------------------------------------
+const ECFG = { EDGE_CONFIG_ID: "ecfg_prueba", VC_API_TOKEN: "vt_prueba",
+               VC_TEAM_ID: "team_prueba" };
+
+function cargarMonitor(almacen) {
+  for (const k of Object.keys(ECFG)) {
+    if (almacen) process.env[k] = ECFG[k];
+    else delete process.env[k];
+  }
+  delete require.cache[require.resolve("./monitor")];
+  delete require.cache[require.resolve("./_pedidos")];
+  return require("./monitor");
+}
+
+test("sin Edge Config la lista dice 'no disponible', no 'nadie pidió nada'",
+  async () => {
+    // Confundir las dos cosas hace leer una lista vacía como si el formulario
+    // no captara a nadie, cuando lo que falta es dónde guardar.
+    const m = cargarMonitor(false);
+    const d = await m.demosPedidas();
+    assert.equal(d.disponible, false);
+    assert.equal(d.total, 0);
+    assert.ok(d.motivo, "no explica por qué está vacía");
+  });
+
+test("lista los pedidos de demo del más nuevo al más viejo", async () => {
+  const m = cargarMonitor(true);
+  const anterior = global.fetch;
+  global.fetch = async () => ({ ok: true, json: async () => ({ value: [
+    { id: "a1", fecha: "2026-01-01T00:00:00.000Z", email: "vieja@a.com" },
+    { id: "b2", fecha: "2026-09-01T00:00:00.000Z", email: "nueva@a.com" },
+  ] }) });
+  try {
+    const d = await m.demosPedidas();
+    assert.equal(d.disponible, true);
+    assert.equal(d.total, 2);
+    assert.equal(d.lista[0].email, "nueva@a.com",
+      "el pedido más reciente tiene que estar primero");
+  } finally {
+    global.fetch = anterior;
+  }
+});
+
+test("los pedidos de demo se ven aunque falte el token de MercadoPago",
+  async () => {
+    // El dato de prospectos sirve ANTES de que haya una sola venta: esconderlo
+    // detrás del token de pagos lo haría inútil justo al principio.
+    //
+    // La credencial del dueño no se puede tipear en un test (el código no está
+    // en el repo, a propósito), así que se reemplaza `exigirOwner` por uno que
+    // deja pasar. Lo que se prueba acá es el cuerpo de la respuesta, no la
+    // puerta: la puerta la prueban los cuatro tests de credencial de arriba.
+    const ruta = require.resolve("./_owner_auth");
+    const real = require(ruta);
+    require.cache[ruta].exports = { ...real, exigirOwner: () => false };
+    const mpAnterior = process.env.MP_ACCESS_TOKEN;
+    delete process.env.MP_ACCESS_TOKEN;
+    const anterior = global.fetch;
+    global.fetch = async () => ({ ok: true, json: async () => ({ value: [
+      { id: "a1", fecha: "2026-09-01T00:00:00.000Z", email: "uno@a.com" },
+    ] }) });
+    let codigo = null, cuerpo = null;
+    const res = { status(c) { codigo = c; return this; },
+                  json(b) { cuerpo = b; return this; } };
+    try {
+      const m = cargarMonitor(true);
+      await m({ headers: {}, query: {} }, res);
+      assert.equal(codigo, 503, "sin MP_ACCESS_TOKEN el monitor responde 503");
+      assert.equal(cuerpo.demos.total, 1,
+        "el 503 de pagos se llevó puesta la lista de prospectos");
+      assert.equal(cuerpo.demos.lista[0].email, "uno@a.com");
+    } finally {
+      global.fetch = anterior;
+      require.cache[ruta].exports = real;
+      if (mpAnterior) process.env.MP_ACCESS_TOKEN = mpAnterior;
+      delete require.cache[require.resolve("./monitor")];
+    }
+  });
+
+test("la pantalla del monitor escapa lo que escribió un desconocido", () => {
+  // Nombre, empresa y mail de un pedido de demo los escribe cualquiera que
+  // entre a /pedir-demo. El servidor les saca los saltos de línea, no los
+  // signos de menor: pintarlos crudos sería un XSS en la pantalla que muestra
+  // la facturación.
+  const fs = require("node:fs");
+  const html = fs.readFileSync(path.join(RAIZ, "landing/monitor.html"), "utf8");
+  const bloque = html.slice(html.indexOf("function bloqueDemos"),
+                            html.indexOf("function pintar"));
+  assert.ok(bloque.length > 0, "desapareció el bloque de pedidos de demo");
+  for (const campo of ["x.nombre", "x.empresa", "x.email", "x.pais", "x.id"]) {
+    assert.ok(bloque.includes("esc(" + campo + ")"),
+      `${campo} se pinta sin escapar en landing/monitor.html`);
+  }
+});
