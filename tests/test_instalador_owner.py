@@ -169,12 +169,24 @@ def test_no_se_publica_en_el_repo_publico_de_descargas(wf):
                 f"el job '{nombre}' publica en el repo publico de descargas"
 
 
-def test_no_se_marca_como_latest(wf_texto):
+def test_no_se_marca_como_latest(wf):
     """`/releases/latest/download/` es el enlace que usa la landing para el
     instalador de CLIENTES. Si el Owner se marcara `latest`, un comprador se
-    bajaría la edición sin licencia."""
-    assert wf_texto.count("make_latest: false") >= 2, \
-        "algun paso del Owner puede quedar como release `latest`"
+    bajaría la edición sin licencia.
+
+    Se recorren los pasos que publican, en vez de contar cuántas veces aparece
+    el texto: antes se exigían «al menos 2» ocurrencias porque había dos pasos
+    de publicación, así que al unificarlos en uno el test se puso rojo sin que
+    nada estuviera mal. Peor todavía, agregar un tercer paso de publicación SIN
+    `make_latest` lo habría dejado en verde. Lo que importa no es el número:
+    es que ninguno pueda quedar como `latest`.
+    """
+    publicadores = [paso for job in wf["jobs"].values() for paso in job["steps"]
+                    if "action-gh-release" in str(paso.get("uses", ""))]
+    assert publicadores, "el workflow ya no publica ninguna release"
+    for paso in publicadores:
+        assert paso.get("with", {}).get("make_latest") is False, \
+            f"el paso {paso.get('name')!r} puede quedar como release `latest`"
 
 
 def test_el_tag_del_owner_no_choca_con_el_de_clientes(wf_texto):

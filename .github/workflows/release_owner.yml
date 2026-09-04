@@ -123,119 +123,6 @@ jobs:
             echo "owner-v$V no está publicada: se construye y publica."
           fi
 
-  publicar:
-    needs: decidir
-    if: needs.decidir.outputs.publicar == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Instalar dependencias mínimas del empaquetador
-        run: pip install -r requirements.txt
-
-      - name: Armar la edición Owner
-        id: armar
-        run: |
-          python - <<'PY'
-          import importlib.util, os, tempfile
-          spec = importlib.util.spec_from_file_location(
-              "br", "packaging/build_release.py")
-          br = importlib.util.module_from_spec(spec); spec.loader.exec_module(br)
-          with tempfile.TemporaryDirectory() as tmp:
-              z = br.build_edicion(tmp, "Owner")
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"zip={z}\n")
-              f.write(f"version={br.VERSION}\n")
-          print("Paquete:", z, os.path.getsize(z) // 1024, "KB")
-          PY
-
-      - name: Verificar que el paquete es realmente la edición Owner
-        # Un ZIP mal armado que igual se publica es peor que no publicar nada:
-        # se descarga, no arranca, y el error aparece recién en la PC.
-        run: |
-          python - <<'PY'
-          import json, sys, zipfile
-          z = "${{ steps.armar.outputs.zip }}"
-          with zipfile.ZipFile(z) as f:
-              nombres = f.namelist()
-              ed = json.loads(f.read("kobra_software/edicion.json"))
-              faltan = [n for n in (
-                  "INSTALAR.bat", "INICIAR_OWNER.bat",
-                  "kobra_software/kobra_launcher.py",
-                  "kobra_software/packaging/instalar_windows.ps1",
-                  "kobra_software/packaging/desinstalar_windows.ps1",
-                  "kobra_software/electron/build/icon.ico",
-              ) if n not in nombres]
-              con_bom = [n for n in nombres if n.lower().endswith(".bat")
-                         and f.read(n).startswith(b"\xef\xbb\xbf")]
-          if faltan:   sys.exit(f"Al paquete le faltan piezas: {faltan}")
-          if con_bom:  sys.exit(f".bat con BOM (cmd.exe falla al abrirlos): {con_bom}")
-          if not ed.get("owner"): sys.exit(f"edicion.json no es owner: {ed}")
-          if ed.get("dias") or ed.get("plan"):
-              sys.exit(f"la edición owner no puede llevar límite: {ed}")
-          print(f"OK: {len(nombres)} archivos, edicion={ed}")
-          PY
-
-      - name: Publicar la release (repo privado)
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: owner-v${{ inputs.version || steps.armar.outputs.version }}
-          name: MV Kobra AI · Owner v${{ inputs.version || steps.armar.outputs.version }}
-          files: ${{ steps.armar.outputs.zip }}
-          # Nunca `latest`: el enlace `/releases/latest/download/...` de la
-          # landing tiene que seguir apuntando al instalador de clientes.
-          make_latest: false
-          body: |
-            **Edición Owner — copia del dueño.** Sin licencia, sin trial y sin
-            vencimiento. Acceso completo a todas las empresas y pantallas.
-
-            ### ⬇️ Qué descargar
-            - **`MVKobraAI_Instaladores_v*.zip`** ← **este es el programa.**
-              Adentro viene la carpeta **`INSTALADOR/`** con los DOS
-              instaladores de escritorio (Electron + React, sin Streamlit,
-              sin Python; los dos con ícono en Escritorio, Menú Inicio y
-              desinstalador):
-              - `MVKobraAI_Setup.exe` — **versión CLIENTE**: demo completa
-                por 3 días; al vencer, el programa pide la licencia que el
-                cliente recibe al comprar y queda la versión oficial.
-              - `MVKobraAI_Setup_OWNER.exe` — **versión OWNER (solo tuya)**:
-                entra directo, sin clave ni vencimiento. No redistribuir.
-            - **`Owner.bat`** ← 2 KB, suelto. **Se ejecuta DESPUÉS del
-              instalador**, sobre la copia CLIENTE ya instalada: le saca el
-              trial, el vencimiento y la clave, sin reinstalar nada y sin
-              tocar tus datos. Doble clic y listo; si no encuentra la
-              instalación, copialo a la carpeta del programa (la que tiene
-              `MV Kobra AI.exe`) y hacé doble clic ahí. Es la vía rápida
-              cuando el programa ya está instalado y no querés bajar 270 MB
-              de nuevo.
-            - `MVKobraAI_Owner_v*.zip` — edición para correr desde el CÓDIGO
-              FUENTE con Python. **No contiene ningún `.exe`.** Solo si querés
-              tocar el código.
-
-            ### Cómo usar la edición de código fuente (opcional)
-            1. Descargá y descomprimí `MVKobraAI_Owner_v*.zip`.
-            2. `INSTALAR.bat` → deja el programa instalado con icono propio,
-               acceso en el Escritorio, entrada en el Menú Inicio y
-               desinstalador en «Agregar o quitar programas». No pide permisos
-               de administrador.
-            3. También podés abrirlo sin instalar, con `INICIAR_OWNER.bat`.
-
-            Al desinstalar, tus datos **no** se borran salvo que lo pidas.
-
-            ### No redistribuir
-            Esta edición no valida licencia: quien la tenga usa el producto
-            completo sin límite. Por eso se publica solo en este repositorio
-            privado y nunca en el repo público de descargas.
-
-            > El motor de cumplimiento (horarios de contacto, feriados, pedidos
-            > de no-contactar) sigue activo también acá. No es una restricción
-            > comercial: es lo que hace legal usar el producto con deudores
-            > reales (Ley 18.331). Desactivarlo te expondría a vos.
-
   # ---------------------------------------------------------------------------
   # Instalador .exe de la edición Owner
   # ---------------------------------------------------------------------------
@@ -298,25 +185,6 @@ jobs:
         # Llevan la versión adentro: sin esto, el instalador muestra el EULA
         # de una versión vieja (mismo paso que en build_windows.yml).
         run: python packaging/licencias_instalador.py
-
-      - name: Construir instalador de CLIENTES (NSIS)
-        # El mismo MVKobraAI_Setup.exe que publica build_windows.yml —
-        # Electron + React (sin Streamlit), ícono en Escritorio, entrada en
-        # Menú Inicio y desinstalador en «Agregar o quitar programas». Va
-        # adentro del ZIP en la carpeta INSTALADOR/ junto al Owner: una sola
-        # descarga con los dos instaladores.
-        shell: pwsh
-        run: |
-          cd electron
-          npm pkg set version=${{ steps.ver.outputs.KVER }}
-          npm ci
-          npx electron-builder --win nsis --publish never
-          if (-Not (Test-Path "dist_installer/MVKobraAI_Setup.exe")) {
-            Write-Error "No se genero el instalador de clientes"; exit 1
-          }
-          Copy-Item "dist_installer/MVKobraAI_Setup.exe" ../dist/
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Marcar el bundle como edición Owner
         # kobra_launcher.py::_activar_edicion lee edicion.json de _MEIPASS —
@@ -437,110 +305,83 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Armar carpeta INSTALADOR y ZIP con los DOS instaladores
-        # Pedido del dueño: una sola descarga con una carpeta INSTALADOR/
-        # que trae los dos .exe — el de CLIENTES (demo de 3 días; al vencer
-        # y pagar, la licencia lo convierte en la versión oficial) y el de
-        # OWNER (sin clave, solo para quien puede entrar a este repo
-        # privado). Ambos: Electron sin Streamlit, ícono en Escritorio,
-        # entrada en Menú Inicio y desinstalador.
+      - name: Generar Owner.bat (la vía sin volver a descargar 270 MB)
+        # Se genera en la corrida y NO se toma del repo: `packaging/Owner.bat`
+        # dejó de estar commiteado a propósito — un Owner.bat con sello válido
+        # dentro del repositorio es una herramienta lista para convertir
+        # cualquier instalación en la del dueño.
+        #
+        # Este paso vivía adentro del que armaba el ZIP. Al sacar el ZIP se fue
+        # con él, y la publicación quedó apuntando a un archivo que ya nadie
+        # creaba: la release habría fallado al subirlo.
         shell: pwsh
+        env:
+          KOBRA_OWNER_SELLO: ${{ secrets.OWNER_SELLO_TOKEN }}
         run: |
-          $ver = "${{ steps.ver.outputs.KVER }}"
-          New-Item -ItemType Directory -Force -Path stage/INSTALADOR | Out-Null
-          Copy-Item dist/MVKobraAI_Setup.exe        stage/INSTALADOR/
-          Copy-Item dist/MVKobraAI_Setup_OWNER.exe  stage/INSTALADOR/
-          # Instalar sin tocar C:. Todo instalador NSIS se auto-descomprime en
-          # %TEMP% antes de abrir su primera pantalla; si C: esta sin espacio o
-          # el antivirus bloquea esa carpeta, falla ahi y nunca llega a
-          # preguntar donde instalar. Este .bat manda %TEMP% al mismo disco
-          # donde este guardado. Va JUNTO a los .exe para que se use sin pensar.
-          python packaging/generar_instalar_bat.py
-          Copy-Item packaging/Instalar_en_otro_disco.bat stage/INSTALADOR/
-          # Owner.bat: se ejecuta DESPUES de instalar y convierte esa copia en
-          # la del dueño (escribe el sello en _internal). Va acá y además suelto
-          # en la release, para poder bajar un solo archivo de 2 KB en vez de un
-          # ZIP de 270 MB cuando el programa ya está instalado.
-          # `generar_owner_bat.py` exige KOBRA_OWNER_SELLO: el .bat escribe un
-          # sello que lleva el token firmado del dueño. Por eso el .bat NO está
-          # commiteado — un Owner.bat con sello válido dentro del repo es una
-          # herramienta lista para convertir cualquier instalación.
-          $env:KOBRA_OWNER_SELLO = "${{ secrets.OWNER_SELLO_TOKEN }}"
-          python packaging/generar_owner_bat.py
-          Copy-Item packaging/Owner.bat stage/INSTALADOR/
-          $leeme = @(
-            "MV Kobra AI v$ver - Carpeta INSTALADOR",
-            "=======================================",
-            "",
-            "Dos instaladores de escritorio (Electron + React, SIN Streamlit,",
-            "sin Python). Los dos crean icono en el Escritorio, entrada en el",
-            "Menu Inicio y desinstalador en 'Agregar o quitar programas'.",
-            "Se pueden instalar los dos en la misma PC: no se pisan.",
-            "",
-            "SI TU DISCO C: ESTA LLENO O EL ANTIVIRUS BLOQUEA LA CARPETA",
-            "TEMPORAL: copia esta carpeta a otro disco y ejecuta",
-            "Instalar_en_otro_disco.bat en vez del .exe. Manda los archivos",
-            "temporales del instalador a ese mismo disco, asi C: no se usa.",
-            "",
-            "1) MVKobraAI_Setup.exe  ->  VERSION CLIENTE",
-            "   Para entregar a clientes. Instala la DEMO completa por 3 dias.",
-            "   Al vencer, el programa pide la licencia que el cliente recibe",
-            "   al comprar: la activa y queda la version oficial, sin",
-            "   reinstalar nada.",
-            "",
-            "2) MVKobraAI_Setup_OWNER.exe  ->  VERSION OWNER (solo tuya)",
-            "   Entra directo, SIN clave, sin trial y sin vencimiento.",
-            "   NO REDISTRIBUIR: no valida licencia. Por eso esta release",
-            "   vive solo en el repo privado.",
-            "",
-            "3) Owner.bat  ->  PASAR UNA COPIA YA INSTALADA A OWNER",
-            "   Se usa DESPUES del instalador, sobre la version CLIENTE que",
-            "   ya quedo instalada: le saca el trial, el vencimiento y la",
-            "   clave. No reinstala nada ni toca tus datos.",
-            "   Como: hace doble clic. Si no encuentra la instalacion,",
-            "   copialo a la carpeta del programa (la que tiene",
-            "   'MV Kobra AI.exe') y hace doble clic ahi.",
-            "   Esta tambien suelto en la release: cuando el programa ya esta",
-            "   instalado alcanza con bajar ese archivo, sin el ZIP entero.",
-            ""
-          ) -join "`r`n"
-          Set-Content -Path stage/LEEME.txt -Value $leeme -Encoding utf8
-          Compress-Archive -Force -Path stage/INSTALADOR, stage/LEEME.txt `
-            -DestinationPath "dist/MVKobraAI_Instaladores_v$ver.zip"
-          Get-Item "dist/MVKobraAI_Instaladores_v$ver.zip" |
-            ForEach-Object { Write-Host "ZIP: $($_.Name) $([math]::Round($_.Length/1MB)) MB" }
-
-      - name: Verificar el contenido del ZIP
-        # Un ZIP publicado al que le falta un exe es exactamente el tipo de
-        # sorpresa que ya pasó una vez. Se chequea ANTES de publicar.
-        shell: pwsh
-        run: |
-          $ver = "${{ steps.ver.outputs.KVER }}"
-          $z = [System.IO.Compression.ZipFile]::OpenRead(
-            (Resolve-Path "dist/MVKobraAI_Instaladores_v$ver.zip"))
-          # Compress-Archive escribe las entradas con "\": normalizar a "/".
-          $nombres = $z.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }
-          $z.Dispose()
-          foreach ($req in @("INSTALADOR/MVKobraAI_Setup.exe",
-                             "INSTALADOR/MVKobraAI_Setup_OWNER.exe",
-                             "INSTALADOR/Instalar_en_otro_disco.bat",
-                             "INSTALADOR/Owner.bat",
-                             "LEEME.txt")) {
-            if ($nombres -notcontains $req) {
-              Write-Error "Al ZIP le falta $req. Contiene: $($nombres -join ', ')"; exit 1
-            }
+          if (-not $env:KOBRA_OWNER_SELLO) {
+            Write-Error "Falta el secret OWNER_SELLO_TOKEN: Owner.bat saldria escribiendo un sello sin firma, que el programa ignora."
+            exit 1
           }
-          Write-Host "ZIP OK: $($nombres -join ', ')"
+          python packaging/generar_owner_bat.py
+          if (-Not (Test-Path "packaging/Owner.bat")) {
+            Write-Error "No se genero packaging/Owner.bat"; exit 1
+          }
 
       - name: Publicar en la release Owner (repo privado)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: owner-v${{ inputs.version || steps.ver.outputs.KVER }}
           name: MV Kobra AI · Owner v${{ inputs.version || steps.ver.outputs.KVER }}
+          body: |
+            **Edición Owner — la copia del dueño.** Entra directo: sin
+            licencia, sin trial y sin vencimiento. Acceso completo a todas
+            las empresas y pantallas.
+
+            ### Qué bajar
+
+            - **`MVKobraAI_Setup_OWNER.exe`** ← esto es el programa.
+              Electron + React, sin Python. Deja ícono en el Escritorio,
+              entrada en el Menú Inicio y desinstalador en «Agregar o quitar
+              programas». Se instala con nombre y carpeta propios, así que
+              **convive** con la copia de clientes en la misma máquina —
+              que es lo que hace falta para ver qué ve un comprador sin
+              perder la tuya.
+            - `Owner.bat` — 2 KB. Solo si el programa de CLIENTES **ya está
+              instalado** y no querés bajar 270 MB de nuevo: le saca el
+              trial y la clave a esa copia. Doble clic; si no encuentra la
+              instalación, copialo a la carpeta del programa.
+
+            El instalador de **clientes** no está acá: vive en la release
+            `vX.Y.Z` de este mismo repo (y en el repo público de descargas).
+            Se instala como demo completa por 3 días y al vencer pide la
+            licencia que el cliente recibe al comprar.
+
+            ### No redistribuir
+
+            Esta edición no valida licencia: quien la tenga usa el producto
+            completo sin límite. Por eso se publica solo en este repositorio
+            privado y **nunca** en `mv-kobra-ai-releases`, que es público.
+
+            > El motor de cumplimiento (horarios de contacto, feriados,
+            > pedidos de no-contactar) sigue activo también acá. No es una
+            > restricción comercial: es lo que hace legal usar el producto
+            > con deudores reales (Ley 18.331). Desactivarlo te expondría a vos.
+          # UN solo instalador por release, y el .bat que convierte una copia
+          # ya instalada. Antes iban cuatro archivos y tres eran redundantes:
+          #
+          #   * el ZIP `MVKobraAI_Instaladores_*` (535 MB) traía los DOS .exe
+          #     adentro — los mismos que ya viajaban sueltos al lado;
+          #   * `MVKobraAI_Setup.exe` es el instalador de CLIENTES, que ya
+          #     publica build_windows.yml en la release vX.Y.Z. Duplicarlo acá
+          #     sumaba 268 MB y abría la puerta a que las dos copias quedaran
+          #     en versiones distintas;
+          #   * el ZIP de código fuente (`MVKobraAI_Owner_*`) necesitaba Python
+          #     instalado, que es justo lo que el .exe vino a evitar.
+          #
+          # Cada release pesa ahora ~270 MB en vez de ~1 GB, y no hay que
+          # explicar cuál de los cuatro archivos bajar.
           files: |
-            dist/MVKobraAI_Instaladores_v${{ steps.ver.outputs.KVER }}.zip
             dist/MVKobraAI_Setup_OWNER.exe
-            dist/MVKobraAI_Setup.exe
             packaging/Owner.bat
           # Nunca `latest`: ese enlace tiene que seguir sirviendo el instalador
           # de clientes.

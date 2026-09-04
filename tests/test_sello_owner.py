@@ -331,16 +331,50 @@ def test_la_herramienta_se_publica_suelta_en_la_release():
     assert "python packaging/generar_owner_bat.py" in ci
 
 
-def test_la_herramienta_tambien_viaja_dentro_del_zip():
-    ci = _workflow()
-    assert "Copy-Item packaging/Owner.bat stage/INSTALADOR/" in ci
-    assert '"INSTALADOR/Owner.bat"' in ci, (
-        "el ZIP no verifica que Owner.bat esté adentro antes de publicar")
+def _publicados():
+    """Los archivos que la release Owner sube, leídos del YAML."""
+    import yaml
+    wf = yaml.safe_load(_workflow())
+    subidos = []
+    for job in wf["jobs"].values():
+        for paso in job["steps"]:
+            if "action-gh-release" in str(paso.get("uses", "")):
+                subidos += paso["with"]["files"].split()
+    return subidos
 
 
-def test_el_leeme_explica_que_va_despues_del_instalador():
+def test_la_release_owner_no_publica_el_instalador_de_clientes():
+    """Antes subía los dos .exe. El de clientes ya lo publica
+    `build_windows.yml` en la release `vX.Y.Z`: duplicarlo sumaba 268 MB y
+    abría la puerta a que las dos copias quedaran en versiones distintas —
+    con el mismo nombre de archivo en dos releases del mismo repo."""
+    subidos = _publicados()
+    assert any("MVKobraAI_Setup_OWNER.exe" in f for f in subidos), \
+        "la release Owner no publica el instalador del dueño"
+    assert not any(f.rstrip().endswith("MVKobraAI_Setup.exe") for f in subidos), \
+        f"la release Owner volvió a publicar el .exe de clientes: {subidos}"
+
+
+def test_la_release_owner_no_vuelve_a_publicar_zips():
+    """Los tres ZIP que se sacaron: el de los dos instaladores (535 MB, con los
+    mismos .exe que ya viajaban sueltos) y el de código fuente, que necesitaba
+    Python instalado — justo lo que el .exe vino a evitar."""
+    zips = [f for f in _publicados() if f.endswith(".zip")]
+    assert not zips, f"volvió a publicarse un ZIP en la release Owner: {zips}"
+
+
+def test_el_cuerpo_explica_que_owner_bat_va_despues_del_instalador():
     """El orden importa: primero se instala, después se convierte. Al revés no
-    hay nada que sellar."""
-    ci = _workflow()
-    assert "Owner.bat  ->  PASAR UNA COPIA YA INSTALADA A OWNER" in ci
-    assert "DESPUES del instalador" in ci
+    hay nada que sellar. Antes lo decía el LEEME.txt de adentro del ZIP; ahora
+    que el ZIP no está, tiene que decirlo el cuerpo de la release, que es lo
+    único que el dueño ve al bajar."""
+    import yaml
+    wf = yaml.safe_load(_workflow())
+    cuerpos = [paso["with"]["body"]
+               for job in wf["jobs"].values() for paso in job["steps"]
+               if "action-gh-release" in str(paso.get("uses", ""))
+               and "body" in paso.get("with", {})]
+    assert cuerpos, "la release Owner se publica sin ninguna descripción"
+    texto = "\n".join(cuerpos).lower()
+    assert "ya está" in texto and "instalado" in texto, \
+        "el cuerpo no aclara que Owner.bat corre DESPUÉS de instalar"
