@@ -60,6 +60,45 @@ armar nada aparte:
 Es el mismo campo donde un cliente pega su licencia, a propósito: así no hay
 una pantalla de "modo dueño" que un cliente pueda ver o buscar.
 
+### ¿Cuál es el código? ¿Y si lo perdí?
+
+El código son **25 caracteres en 5 grupos de 5 separados por guiones**
+(en minúsculas para el ejemplo, porque el real va en mayúsculas:
+`abcde-fghij-klmno-pqrst-uvwxy`).
+
+> El ejemplo va en minúsculas a propósito. `test_el_codigo_en_claro_no_esta_en_el_repositorio`
+> busca cualquier cosa con forma de código —`[A-Z0-9]{5}` cinco veces— y no
+> puede distinguir un placeholder de la credencial de verdad. Un ejemplo en
+> mayúsculas deja ese guard en rojo, que es justo lo que uno querría si el
+> código real se colara acá.
+
+Se genera una vez y **se muestra una sola vez**: no está en el repo ni en
+ningún archivo, a propósito — si estuviera, cualquiera que clone se queda con
+el producto completo. Va a tu gestor de contraseñas apenas lo generás.
+
+**Si no sabés cuál es, no hay forma de recuperarlo**: de lo que se guarda es
+`scrypt(codigo, sal)`, y eso no se puede revertir (para eso existe). Lo que sí
+se hace es **generar uno nuevo**, que toma un minuto:
+
+```
+python -m kobra.owner --nuevo-codigo
+```
+
+Imprime el código nuevo y las dos constantes `_SAL` y `_HASH`. Esas dos van
+pegadas en **dos** archivos, y tienen que quedar iguales en los dos:
+
+| Archivo | Para qué |
+|---|---|
+| `kobra/owner.py` | Desbloquea el programa |
+| `api/_owner_auth.js` | Desbloquea el monitor de ventas |
+
+`api/owner-auth.test.js` falla si dejan de coincidir, así que no se puede
+rotar uno y olvidarse del otro.
+
+Rotar el código **no toca las licencias vendidas** (son otra clave, otra
+firma). Lo único que invalida es tu propio código anterior: si tenías una PC
+desbloqueada con el viejo, hay que escribir el nuevo ahí una vez.
+
 ### Por qué mail **y** código, y no solo el mail
 
 El instalador que baja un cliente y el que usás vos son **el mismo binario**.

@@ -14,9 +14,9 @@
 const crypto = require("crypto");
 
 const EMAIL = "vieraschiavi@gmail.com";
-const SAL = Buffer.from("13c8a3fa47e247bd5fc3d4b2650c8ccb", "hex");
+const SAL = Buffer.from("375047c687130a32ec9ba7741a4a913c", "hex");
 const HASH = Buffer.from(
-  "d6a1711f7c425876f1a75c5b84c86236fb8459c78a3bee8e1c64237d63eb6d61", "hex");
+  "80c15418ac087dba47a7900468c2772984c56c6579d2d082ae345c83a0d26bfc", "hex");
 
 // _N, _R, _P, _DKLEN y _MAXMEM de kobra/owner.py. `maxmem` explícito: el
 // default de OpenSSL (32 MB) no alcanza para N=2^15 y tira "memory limit
