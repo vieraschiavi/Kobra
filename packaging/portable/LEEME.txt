@@ -1,0 +1,72 @@
+MV KOBRA AI - CARPETA PORTABLE
+==============================================================
+
+QUE ES ESTO
+-----------
+El programa completo, sin instalador. Para la VM de un cliente o una
+laptop corporativa donde no te dejan instalar software.
+
+No instala nada, no toca el registro de Windows, no crea servicios y no
+pide permisos de administrador. Todo -programa y datos- vive dentro de
+esta carpeta.
+
+
+COMO SE USA (tres pasos)
+------------------------
+1. Descomprimir esta carpeta en una unidad donde puedas escribir.
+   Documentos suele andar; el Escritorio tambien.
+
+2. Doble clic en  MVKobraAI_Diagnostico.bat
+   Tarda 30 segundos y contesta si esta maquina lo va a dejar correr.
+   Si algo falla, te dice EXACTAMENTE que pedirle a IT: copias ese
+   texto y lo mandas por mail.
+
+3. Si el diagnostico dio verde: doble clic en  MVKobraAI_Portable.bat
+   Se abre solo en el navegador.
+
+
+DONDE QUEDAN LOS DATOS
+----------------------
+En la subcarpeta  datos\  de aca al lado. NO en el perfil del usuario
+ni en Archivos de programa.
+
+Eso importa cuando la maquina no es tuya: al terminar el proyecto
+borras esta carpeta y no queda nada disperso en el equipo del cliente.
+Es la primera pregunta que hace el area de seguridad, y con esto la
+respuesta es una sola frase.
+
+
+LO QUE ESTE PROGRAMA NO HACE
+----------------------------
+- No manda datos a internet. Corre entero en esta maquina.
+- No necesita conexion para operar.
+- No abre puertos hacia afuera. Levanta un servidor en 127.0.0.1
+  (localhost) y abre el navegador ahi: es comunicacion dentro de la
+  misma maquina, entre el programa y el navegador. Si el endpoint
+  protection lo bloquea, el diagnostico lo detecta y da la frase
+  exacta para pedirselo a IT.
+- No instala servicios ni tareas programadas.
+- No modifica el registro de Windows.
+
+
+PORTABLE O INSTALADOR: CUAL USAR
+--------------------------------
+  PORTABLE (esta carpeta)
+    - No sos administrador de la maquina, o no te dejan instalar.
+    - Es la VM de un cliente y no queres dejar rastro.
+    - Queres probarlo sin comprometer nada.
+
+  INSTALADOR (MVKobraAI_Setup.exe)
+    - Es tu maquina, o el cliente te autorizo a instalar.
+    - Queres icono en el Escritorio, entrada en el Menu Inicio y
+      desinstalador en "Agregar o quitar programas".
+
+Las dos formas corren EL MISMO programa, con las mismas pantallas y las
+mismas funciones. La unica diferencia es como llega a la maquina y
+donde guarda los datos.
+
+
+SI ALGO NO ANDA
+---------------
+Corre  MVKobraAI_Diagnostico.bat  y mandanos ese texto: dice en que
+paso falla y por que.

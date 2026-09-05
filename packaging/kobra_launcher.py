@@ -137,6 +137,22 @@ def _activar_edicion(base: str):
 def main():
     base = _base_dir()
 
+    # `--diagnostico`: contesta si ESTA máquina va a dejar correr el programa,
+    # sin instalar ni levantar nada. Es lo primero que se corre en la VM de un
+    # cliente o en una laptop corporativa, donde el fallo típico —no se puede
+    # escribir, el endpoint protection no deja escuchar en localhost— aparece
+    # hoy recién al abrir, con un mensaje que no dice qué pedirle a IT.
+    #
+    # Va ANTES de todo lo demás: si el entorno no da, levantar el servidor
+    # falla justamente en lo que se está diagnosticando.
+    if "--diagnostico" in sys.argv:
+        if base not in sys.path:
+            sys.path.insert(0, base)
+        from kobra import entorno as kentorno
+        print(kentorno.informe_texto(os.environ.get("KOBRA_DATA_DIR")))
+        raise SystemExit(0 if kentorno.diagnosticar(
+            os.environ.get("KOBRA_DATA_DIR"))["apto"] else 1)
+
     # Modo standalone: la app pide licencia (compra o trial), no contraseña.
     os.environ["KOBRA_MODO_STANDALONE"] = "1"
     _activar_edicion(base)
