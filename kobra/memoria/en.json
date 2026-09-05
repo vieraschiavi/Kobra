@@ -1,0 +1,132 @@
+{
+  "ingesta": {
+    "titulo": "Data ingestion",
+    "tecnico": "Reads the portfolio from three different sources and normalizes them into a single DataFrame: file (CSV/XLSX uploaded from the screen), database (SQLite, PostgreSQL, MySQL or SQL Server via SQLAlchemy) and the fixed-seed synthetic generator. Separator, encoding and type detection are automatic; columns are mapped to canonical names before anything else runs. A file that is not a table is rejected with a 400 and a message saying what was expected, not with a 500.",
+    "criollo": "This is the front door. You hand over your portfolio however you happen to have it — a spreadsheet, a plain text export, or a direct connection to your database — and the program works it out on its own: whether the file uses commas or semicolons, whether the accents came through garbled, and which column is which. Nothing has to be prepared beforehand, and nobody has to ask IT for a special format.",
+    "por_que": "No company keeps its portfolio in the format a new piece of software expects. If the very first screen demands a file with 27 columns in a fixed order, the trial dies right there: nobody is going to ask IT to prepare it just to evaluate a product they haven't bought yet.",
+    "repercusion": "Everything downstream assumes canonical column names. If this stage maps one wrong, the model trains on the wrong variable and nothing downstream notices: that is why the profiling in stage 2 runs immediately after and not at the end.",
+    "limites": "It will not guess a column that isn't there. If the debt amount or the days past due are missing, it says so and stops: making that data up would be worse than not having it.",
+    "entradas": "CSV / XLSX / database connection / synthetic generator",
+    "salidas": "Portfolio DataFrame with canonical column names"
+  },
+  "ingenieria": {
+    "titulo": "Data engineering and profiling",
+    "tecnico": "Profiles every column (inferred type, nulls, cardinality, range, outliers), proposes a role for each one (identifier, categorical, numeric, date, target), detects candidate keys and suggests joins across tables. It derives features: delinquency age in bands, amount/income ratios, per-debtor aggregates and historical contactability variables.",
+    "criollo": "Before calculating anything, the program looks at your data and tells you what it is dealing with: how many blanks there are, which columns look suspicious, which ones are worth using to predict and which are not. This is the step a consultancy bills you for as a 'data assessment', and here it comes out automatically and on screen.",
+    "por_que": "80% of scoring projects fail because of data, not because of the model. Showing the profile BEFORE training makes the problem surface while it is still cheap to fix — and it gives the client an honest picture of their own portfolio, which is often the first time they have seen it.",
+    "repercusion": "The features derived here are the ones the model will use. A mistyped column turns a predictive variable into noise, and the effect only shows up in the AUC of stage 4.",
+    "limites": "It suggests roles and joins; it does not apply them by itself. The decision about which column is the target is made by a person.",
+    "entradas": "Portfolio DataFrame",
+    "salidas": "Per-column profile + derived features"
+  },
+  "gobernanza": {
+    "titulo": "Governance, lineage and personal data",
+    "tecnico": "Classifies every column by sensitivity (public, internal, confidential, personal), applies pseudonymization and masking according to the user's role, and records the lineage of every transformation and export in a queryable log: what left, who took it, when, and over how many rows.",
+    "criollo": "The program knows which data is personal and who is allowed to see it. A collector does not see the debtor's full ID number; an auditor does, and the fact that they looked is on the record. Every file that leaves the system leaves a trail: what was taken, by whom and when.",
+    "por_que": "Collections works with the personal data of people who owe money: it is the setting where a leak hurts most. And without lineage, the first question in any audit — 'who exported this?' — has no answer.",
+    "repercusion": "Masking is applied in the data layer, not on the screen: that is why it also covers the exports in stages 12 and 13, which is where data actually leaves the company.",
+    "limites": "It protects against improper access inside the program. It does not encrypt the client's database and it does not replace their network controls.",
+    "entradas": "DataFrame + user role",
+    "salidas": "Authorized view of the data + lineage record"
+  },
+  "probpago": {
+    "titulo": "ProbPago — payment probability model",
+    "tecnico": "Trains and compares several classifiers (Gradient Boosting, Random Forest, logistic regression), selects by AUC-ROC on validation and calibrates the probabilities so that a 0.30 really does mean 30% of cases that pay. It reports AUC-ROC, average precision and top-decile lift. If there is no previously trained model, it falls back to an ad-hoc Gradient Boosting in the same run.",
+    "criollo": "It puts a number from 0 to 100% on every debtor: the chance that they will pay. It is not an opinion, and it is not a fixed rule like 'past 90 days it's uncollectible': it comes out of the patterns in your own historical portfolio. With that you can sort out who to call first, which is where the month is won or lost.",
+    "por_que": "Without a score, a portfolio gets worked by age or by amount, which is what everybody does — and that is why everybody recovers about the same. Top-decile lift says how much better it is to call the 10% the model picks than to call at random.",
+    "repercusion": "ProbPago is the input to EVERYTHING that follows: the strategy in stage 6, the prioritization in stage 8 and the expected recovery value in stage 12 are all computed from this number. A poorly calibrated model does not make things 'a bit worse': it scrambles the entire call queue.",
+    "limites": "It predicts over the population it was taught. A portfolio from another product or another country needs retraining; the numbers in the demo come from SYNTHETIC data and are illustrative.",
+    "entradas": "Portfolio with derived features",
+    "salidas": "probpago (0-1), decile, propensity segment, metrics"
+  },
+  "explicabilidad": {
+    "titulo": "Explainability — why that number",
+    "tecnico": "Generates reason codes per debtor: it compares the case against the portfolio baseline and returns the variables that pushed the prediction up or down the most, as readable text rather than as a vector of contributions.",
+    "criollo": "Next to every score it says WHY. 'Low probability: 180 days past due and three broken promises.' Without that, the collector does not believe the number and falls back on their own judgement — and the most expensive system is the one that gets bought and never used.",
+    "por_que": "A model that cannot be explained cannot be defended: not to the collector who uses it, not to the manager who approves it, and not to a regulator asking why that particular person was treated differently.",
+    "repercusion": "The reason travels attached to the debtor all the way to the script in stage 9: the AI Agent opens already knowing why this case is a hard one, instead of leading with generic wording.",
+    "limites": "It explains the model's prediction, not the real cause of the default. Those are different things and the text does not blur them.",
+    "entradas": "Trained model + scored portfolio",
+    "salidas": "motivo_probpago (text) per debtor"
+  },
+  "negociador": {
+    "titulo": "Negotiator Agent — strategy per debtor",
+    "tecnico": "Cross-references ProbPago, amount, delinquency band and contactability to assign a strategy (settlement, installment plan, follow-up, intensive handling), and computes the recommended discount, number of installments and expected recovery value per case. It also returns the aggregate summary by strategy.",
+    "criollo": "It decides what to offer each person. Someone who can pay and is about to does not get a discount handed to them; someone who will never pay without a write-down gets offered one before ten calls are burned on them. It is the difference between one policy for everybody and a decision per customer.",
+    "por_que": "A discount is money given up. Handing it out flat costs margin on the people who were going to pay anyway, and it is not enough for the ones who need more. Distributing it according to the probability of payment is what makes the same portfolio perform differently.",
+    "repercusion": "The strategy sets the script in stage 9 and the priority with which the case enters the day's agenda in stage 8. It is the translation of 'this debtor is a 0.42' into 'make this debtor this offer'.",
+    "limites": "It recommends within the limits the company configures. It does not approve write-downs on its own: the discount cap is a parameter, not a decision the model makes.",
+    "entradas": "Scored portfolio",
+    "salidas": "strategy, discount, installment plan, expected value, priority"
+  },
+  "cumplimiento": {
+    "titulo": "Legal compliance engine",
+    "tecnico": "Before allowing any contact it evaluates: legal calling window by country, public holidays, business day, cap on attempts per period and do-not-contact requests. It returns the decision with a coded and translated reason, not a bare boolean.",
+    "criollo": "The program will not let anyone call outside permitted hours, on a public holiday, or someone who asked not to be contacted again. And when it blocks a call, it says why. That is what separates 'the system is following the law' from 'the system is broken'.",
+    "por_que": "One fine for calling outside legal hours costs more than the software. And the risk is not theoretical: a collector under end-of-month pressure makes the call anyway if the system lets them.",
+    "repercusion": "It cuts in ahead of the campaign in stage 8: a blocked debtor never enters the day's plan. When the plan comes out empty, the screen shows the reason instead of a blank table.",
+    "limites": "It covers calling hours, holidays, attempt caps and do-not-contact. It does not replace legal advice or the company's own internal policy.",
+    "entradas": "Debtor + date and time + country + attempt history",
+    "salidas": "Contact decision + coded reason"
+  },
+  "campana": {
+    "titulo": "Campaign and channel selection",
+    "tecnico": "Builds the day's contact plan. The channel comes from the debtor's REAL contactability — where they were reached or where they settled in the last 90 days — and, with no history, from the business rule. Each row exposes the channel, its origin (history or rule) and the preferred time, so it is visible which of the two decided.",
+    "criollo": "It builds the list of who to contact today and through which channel. If someone has always answered on WhatsApp, they get WhatsApp; if they have never been reachable by phone, no calls get burned on them. And the screen marks when the decision came from history and when it came from the rule, so the operator knows how much to trust it.",
+    "por_que": "Choosing the channel out of habit spends the most expensive resource — the collector's time — on the medium that answers least. Contactability was already in the data; it just was not being used to decide anything.",
+    "repercusion": "It sets how the AI Agent in stage 9 makes contact: same case, different script depending on whether it is a call or a WhatsApp message. And it filters by whatever stage 7 decided.",
+    "limites": "It proposes; it does not dial on its own. Phone and WhatsApp integration requires the client's credentials.",
+    "entradas": "Prioritized portfolio + contactability history + compliance",
+    "salidas": "Day's contact plan (debtor, channel, origin, time, reason)"
+  },
+  "gestor_ia": {
+    "titulo": "AI negotiating agent (chat and voice)",
+    "tecnico": "Interprets what the debtor says, evaluates the offer against the configured limits and produces the response and the script turn by turn. The conversation is kept as a structure (who says what), not as flat text, so that it can be evaluated afterwards.",
+    "criollo": "It negotiates. It understands what the debtor replies — 'I lost my job', 'I'll pay half now' — and answers with an offer that stays inside what the company authorized. The whole conversation can be read, and it can also be listened to.",
+    "por_que": "The bottleneck in collections is how many conversations a team can hold in a day. And the quality of those conversations depends on who happens to be on shift.",
+    "repercusion": "What happens here feeds the quality scoring in stage 11 and the KPIs in stage 12: the conversation is the data, not a by-product.",
+    "limites": "It does not close a deal outside the configured limits. In the demo the voice is the browser's; in production the neural voice speaks, and the screen says so.",
+    "entradas": "Debtor + strategy + channel + debtor's message",
+    "salidas": "Negotiation turns + proposed offer + outcome"
+  },
+  "copiloto": {
+    "titulo": "Live copilot — sentiment and techniques",
+    "tecnico": "Over the conversation in progress it analyzes sentiment, detects negotiation techniques (evasion, vague promise, request for a write-down) and suggests the next move. It works over text and over transcribed voice.",
+    "criollo": "While the collector is talking, the program listens and prompts them: 'he's getting angry, lower your tone', 'that's a promise with no date, ask for a day'. It is the supervisor who cannot sit in on all 40 calls at once.",
+    "por_que": "The gap between the best collector and the average one is enormous, and an annual training session does not close it. Prompting in the moment is the only thing that changes the call that is happening right now.",
+    "repercusion": "The signals it detects stay on the case record and roll up into the analytics in stage 12: whether the team is improving becomes something you can measure.",
+    "limites": "It suggests; it does not interrupt or end the call. Voice transcription depends on the configured engine.",
+    "entradas": "Conversation in progress (text or transcribed voice)",
+    "salidas": "Sentiment, detected techniques, next-move suggestion"
+  },
+  "calidad": {
+    "titulo": "Collection quality",
+    "tecnico": "Scores each interaction against weighted criteria (identification, listening, objection handling, closing, regulatory compliance) and produces a score per interaction, a profile by criterion, a trend over time and a ranking. The team is compared against an external benchmark, not against its own average.",
+    "criollo": "It grades every interaction and says where each collector falls short: one does not close, another cannot handle objections. It replaces listening to three random calls a month with a picture of all of them.",
+    "por_que": "Comparing a team against its own average always gives zero: half are above and half below, and you never see whether the whole team is good or bad. Against an external benchmark the number says something.",
+    "repercusion": "It feeds the impact of quality on recovery in stage 12: it makes it possible to show that better-rated interactions collect more, which is the argument for investing in training.",
+    "limites": "It evaluates what was recorded. An interaction that was never logged does not exist as far as the system is concerned.",
+    "entradas": "Logged interactions + conversations",
+    "salidas": "Score per interaction, profile by criterion, ranking, trend"
+  },
+  "analitica": {
+    "titulo": "Analytics, KPIs and impact",
+    "tecnico": "Consolidates portfolio KPIs (debtors, total amount, expected recovery, average ProbPago, portfolio at risk), monthly trend, collector ranking, emotion matrix and the impact of quality on recovery. ROI is estimated with explicit, editable assumptions, not with a fixed number.",
+    "criollo": "The dashboard the manager looks at: how much is out there, how much is expected to come back, who is performing and what changed since last month. And the return estimate can be adjusted: if you disagree with an assumption, you change it and see the new number.",
+    "por_que": "An ROI with its assumptions hidden cannot be argued with, and what cannot be argued with does not get approved. Putting them on the table turns a promise into a conversation.",
+    "repercusion": "This is the layer that consumes everything above it. If a stage upstream changes, the effect shows up here — and that is why the numbers on this screen are the first place a regression becomes visible.",
+    "limites": "In the demo the data is synthetic and the impact figures are ILLUSTRATIVE. With client data the KPIs are real, and the ROI is still an estimate with its assumptions in plain sight.",
+    "entradas": "Scored portfolio + interactions + quality evaluations",
+    "salidas": "KPIs, monthly series, rankings, ROI estimate"
+  },
+  "exports": {
+    "titulo": "Reports and data output",
+    "tecnico": "Exports the scored portfolio (CSV/XLSX with summary sheets and model drivers), broken promises, quality, an executive report in PDF and this technical memo in HTML/Word/PDF. Every export goes through the governance layer and is written to the lineage. An error is never downloaded as a file: it is shown as an error.",
+    "criollo": "Everything on the screen can be downloaded: a spreadsheet to work with, a PDF to take to the board. And if something fails, it tells you — the error used to download as though it were the file, and then Excel would not open it.",
+    "por_que": "A report that never leaves the program never reaches the meeting where the decision is made. And an export that downloads an error dressed up as a spreadsheet is the worst way to fail, because it looks like it worked.",
+    "repercusion": "It is the last stage and the only place where data leaves the company: that is why the masking from stage 3 is applied in the data layer and not on the screen.",
+    "limites": "The content of an export is a snapshot of the moment it was requested. It does not refresh on its own.",
+    "entradas": "Everything above",
+    "salidas": "CSV, XLSX, PDF, HTML, DOCX + lineage record"
+  }
+}
