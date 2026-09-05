@@ -90,28 +90,85 @@ def test_el_criollo_no_es_el_texto_tecnico_con_otro_nombre():
 
 # La jerga que un gerente no tiene por qué saber. Si aparece en el texto
 # "en criollo", ese texto no está cumpliendo su función.
+# Siglas y nombres de librería: no cambian al traducir, y por eso la regla se
+# puede verificar igual en los tres idiomas.
 _JERGA = ("dataframe", "auc", "sqlalchemy", "gradient boosting", "endpoint",
-          "json", "encoding", "booleano", "csv/xlsx", "reason code")
+          "json", "encoding", "booleano", "boolean", "csv/xlsx", "reason code")
 
 
-def test_el_texto_en_criollo_no_usa_jerga_tecnica():
+@pytest.mark.parametrize("idioma", mt.IDIOMAS)
+def test_el_texto_en_criollo_no_usa_jerga_tecnica(idioma):
     """No es purismo: es el criterio que hace útil la columna. Un gerente que
-    encuentra «AUC-ROC» deja de leer, y el documento no cumplió su objetivo."""
+    encuentra «AUC-ROC» deja de leer, y el documento no cumplió su objetivo.
+
+    Vale en los tres idiomas: una traducción que "mejora" el texto metiéndole
+    los términos técnicos del original rompe justamente lo que se tradujo.
+    """
     sucias = []
-    for e in mt.etapas():
+    for e in mt.etapas(idioma):
         bajo = e.criollo.lower()
         for palabra in _JERGA:
             if palabra in bajo:
                 sucias.append(f"{e.id}: '{palabra}'")
-    assert not sucias, f"jerga en el texto para gerencia: {sucias}"
+    assert not sucias, f"[{idioma}] jerga en el texto para gerencia: {sucias}"
 
 
-def test_el_texto_tecnico_si_puede_ser_tecnico():
+@pytest.mark.parametrize("idioma", mt.IDIOMAS)
+def test_el_texto_tecnico_si_puede_ser_tecnico(idioma):
     """El control opuesto: si el lado técnico también evitara la jerga, no le
     serviría a un programador y el documento sería uno solo, más flojo."""
-    todo = " ".join(e.tecnico.lower() for e in mt.etapas())
+    todo = " ".join(e.tecnico.lower() for e in mt.etapas(idioma))
     assert sum(p in todo for p in _JERGA) >= 3, \
-        "el texto técnico es tan vago como el criollo: no le sirve a un programador"
+        f"[{idioma}] el texto técnico es tan vago como el criollo"
+
+
+# --- Los tres idiomas ------------------------------------------------------
+@pytest.mark.parametrize("idioma", mt.IDIOMAS)
+def test_ningun_idioma_tiene_agujeros(idioma):
+    """Se lee el JSON CRUDO y no `etapas()`: el fallback al castellano existe
+    para que un archivo a medio editar no deje la pantalla sin la pestaña,
+    pero acá taparía justamente el agujero que se busca."""
+    crudos = mt.textos_crudos(idioma)
+    ids = {e.id for e in mt.etapas()}
+    assert set(crudos) == ids, \
+        f"[{idioma}] faltan o sobran etapas: {ids ^ set(crudos)}"
+    vacios = [f"{k}.{c}" for k, v in crudos.items() for c in mt.CAMPOS_TEXTO
+              if c != "limites" and not str(v.get(c, "")).strip()]
+    assert not vacios, f"[{idioma}] textos vacíos: {vacios}"
+
+
+def test_los_tres_idiomas_describen_el_mismo_pipeline():
+    """La estructura es única por construcción; esto lo comprueba de punta a
+    punta. Un catálogo completo por idioma se separa solo — alcanza con
+    agregar una etapa en castellano y olvidarla en inglés."""
+    ref = [(e.orden, e.id, e.modulos) for e in mt.etapas("es")]
+    for idioma in mt.IDIOMAS[1:]:
+        assert [(e.orden, e.id, e.modulos) for e in mt.etapas(idioma)] == ref, \
+            f"[{idioma}] describe un pipeline distinto al castellano"
+
+
+@pytest.mark.parametrize("idioma", ["en", "pt"])
+def test_la_traduccion_no_quedo_en_castellano(idioma):
+    """El modo de fallar de una traducción a medias: el archivo existe, las
+    claves están, y adentro hay castellano copiado."""
+    es = mt.textos_crudos("es")
+    otro = mt.textos_crudos(idioma)
+    iguales = [f"{k}.{c}" for k in es for c in mt.CAMPOS_TEXTO
+               if es[k].get(c, "").strip()
+               and es[k].get(c, "").strip() == otro.get(k, {}).get(c, "").strip()]
+    # Un título como "ProbPago" puede coincidir legítimamente; una oración no.
+    largos = [x for x in iguales
+              if len(es[x.split(".")[0]][x.split(".")[1]].split()) > 6]
+    assert not largos, f"[{idioma}] quedó castellano sin traducir: {largos}"
+
+
+@pytest.mark.parametrize("idioma,esperado", [
+    ("pt-BR", "pt"), ("en-US", "en"), ("es-UY", "es"),
+    ("PT", "pt"), ("", "es"), (None, "es"), ("xx", "es")])
+def test_el_idioma_de_la_cabecera_se_normaliza(idioma, esperado):
+    """`Accept-Language` llega como `pt-BR` o `en-US`, y el catálogo se indexa
+    por dos letras. Un encabezado raro cae a castellano en vez de romper."""
+    assert mt.normalizar(idioma) == esperado
 
 
 def test_cada_etapa_explica_como_repercute():
@@ -222,7 +279,13 @@ def test_el_pdf_se_arma_desde_el_catalogo(exportador, monkeypatch):
     se puede comprobar que DEPENDE del catálogo: con menos etapas tiene que
     salir más chico. Un PDF con el texto quemado adentro pesaría igual."""
     completo = len(exportador.como_pdf())
-    monkeypatch.setattr(mt, "etapas", lambda: mt.ETAPAS[:2])
+    # Las dos etapas se toman ANTES de parchear: dentro del lambda, `mt.etapas`
+    # ya sería el propio lambda y la llamada se referenciaría a sí misma.
+    # Y `*_` y no `()`: desde que el catálogo es multiidioma el exportador
+    # llama `mt.etapas(idioma)`, y un lambda sin parámetros hacía fallar el
+    # test con un TypeError que no tenía nada que ver con lo que mide.
+    dos = mt.etapas("es")[:2]
+    monkeypatch.setattr(mt, "etapas", lambda *_: dos)
     recortado = len(exportador.como_pdf())
     assert recortado < completo, \
         "el PDF pesa lo mismo con 2 etapas que con todas: no lee el catálogo"
@@ -304,3 +367,30 @@ def test_sin_sesion_no_se_lee_ni_se_exporta():
     anon = TestClient(api.app)
     for ruta in ("/api/memoria-tecnica", "/api/memoria-tecnica/export.pdf"):
         assert anon.get(ruta).status_code in (401, 403), f"{ruta} quedó abierta"
+
+
+@pytest.mark.parametrize("idioma,marca,ajena", [
+    ("en", "What it does NOT do", "Qué NO hace"),
+    ("pt", "O que NÃO faz", "Qué NO hace"),
+    ("es", "Qué NO hace", "What it does NOT do"),
+])
+def test_el_export_no_mezcla_idiomas(exportador, idioma, marca, ajena):
+    """El riesgo real de un documento traducido a medias: las 13 etapas salen
+    en el idioma pedido y el envoltorio —títulos de bloque, «Entra»/«Sale», el
+    pie— se queda en castellano. El lector ve un documento bilingüe sin
+    quererlo, y eso desprestigia la traducción entera.
+
+    El envoltorio es lo ÚNICO que no sale del catálogo de etapas, así que es
+    justo lo que se puede olvidar al agregar un idioma.
+    """
+    h = exportador.como_html(True, idioma)
+    assert marca in h, f"[{idioma}] falta el envoltorio en su idioma"
+    assert ajena not in h, f"[{idioma}] el envoltorio quedó en otro idioma"
+
+
+@pytest.mark.parametrize("idioma,palabra", [
+    ("es", "ILUSTRATIVAS"), ("en", "ILLUSTRATIVE"), ("pt", "ILUSTRATIVOS")])
+def test_el_aviso_de_datos_sinteticos_va_en_cada_idioma(exportador, idioma, palabra):
+    """La aclaración más importante del documento. Que quede en castellano
+    dentro de un PDF en inglés es la forma más segura de que no se lea."""
+    assert palabra in exportador.como_html(True, idioma)

@@ -1,0 +1,132 @@
+{
+  "ingesta": {
+    "titulo": "Ingestão de dados",
+    "tecnico": "Lê a carteira a partir de três origens diferentes e normaliza tudo em um único DataFrame: arquivo (CSV/XLSX enviado pela tela), banco de dados (SQLite, PostgreSQL, MySQL ou SQL Server via SQLAlchemy) e o gerador sintético com semente fixa. A detecção de separador, encoding e tipos é automática; as colunas são mapeadas para nomes canônicos antes de seguir adiante. Um arquivo que não é tabela é rejeitado com 400 e uma mensagem que diz o que se esperava, não com um 500.",
+    "criollo": "É a porta de entrada. Você entrega a sua carteira do jeito que ela estiver — um Excel, um CSV, ou conectando direto no seu banco — e o programa entende sozinho: percebe se o arquivo usa vírgula ou ponto e vírgula, se os acentos vieram quebrados e qual coluna é qual. Não precisa preparar nada antes nem pedir para a área de sistemas montar um formato especial.",
+    "por_que": "Nenhuma empresa tem a carteira no formato que um programa novo espera. Se a primeira tela exige um CSV com 27 colunas em ordem, o teste morre ali: ninguém vai pedir para o TI preparar isso só para avaliar um produto que ainda não comprou.",
+    "repercusion": "Tudo o que vem depois assume nomes de coluna canônicos. Se esta etapa mapeia errado, o modelo treina com a coluna errada e nada rio abaixo percebe: por isso o perfilamento da etapa 2 roda logo em seguida e não no final.",
+    "limites": "Não adivinha uma coluna que não está lá. Se faltar o valor da dívida ou os dias de atraso, ele avisa e para: inventar esse dado seria pior do que não tê-lo.",
+    "entradas": "CSV / XLSX / conexão com banco / gerador sintético",
+    "salidas": "DataFrame da carteira com nomes de coluna canônicos"
+  },
+  "ingenieria": {
+    "titulo": "Engenharia de dados e perfilamento",
+    "tecnico": "Perfila cada coluna (tipo inferido, nulos, cardinalidade, faixa, outliers), propõe o papel de cada uma (identificador, categórica, numérica, data, alvo), detecta chaves candidatas e sugere joins entre tabelas. Deriva features: tempo de atraso em faixas, razões valor/renda, agregados por devedor e variáveis de contatabilidade histórica.",
+    "criollo": "Antes de calcular qualquer coisa, o programa olha os seus dados e diz o que tem em mãos: quantos vazios existem, quais colunas são suspeitas, quais servem para prever e quais não servem. É o passo que uma consultoria cobra como 'diagnóstico de dados' e que aqui sai automático e na tela.",
+    "por_que": "80% dos projetos de scoring fracassam por causa dos dados, não do modelo. Mostrar o perfilamento ANTES de treinar faz o problema aparecer enquanto ainda é barato consertar — e dá ao cliente uma foto honesta da própria carteira, que muitas vezes é a primeira vez que ele a vê.",
+    "repercusion": "As features derivadas aqui são as que o modelo vai usar. Uma coluna com o tipo errado transforma uma variável preditiva em ruído, e o efeito só aparece no AUC da etapa 4.",
+    "limites": "Sugere papéis e joins; não os aplica sozinho. A decisão sobre qual coluna é o alvo é de uma pessoa.",
+    "entradas": "DataFrame da carteira",
+    "salidas": "Perfil por coluna + features derivadas"
+  },
+  "gobernanza": {
+    "titulo": "Governança, linhagem e dados pessoais",
+    "tecnico": "Classifica cada coluna por sensibilidade (pública, interna, confidencial, pessoal), aplica pseudonimização e mascaramento conforme o papel do usuário, e registra a linhagem de cada transformação e de cada export em um log consultável: o que saiu, quem, quando e sobre quantas linhas.",
+    "criollo": "O programa sabe quais dados são pessoais e quem pode vê-los. Um operador não vê o documento completo do devedor; um auditor vê, e fica registrado que ele olhou. Cada arquivo que sai do sistema deixa rastro: o que levou, quem e quando.",
+    "por_que": "Cobrança trabalha com dados pessoais de gente que deve dinheiro: é o cenário em que um vazamento dói mais. E sem linhagem, a primeira pergunta de uma auditoria — 'quem exportou isso?' — fica sem resposta.",
+    "repercusion": "O mascaramento é aplicado na camada de dados, não na tela: por isso também protege os exports das etapas 12 e 13, que é por onde um dado realmente sai da empresa.",
+    "limites": "Protege contra o acesso indevido dentro do programa. Não criptografa o banco de dados do cliente nem substitui os controles de rede dele.",
+    "entradas": "DataFrame + papel do usuário",
+    "salidas": "Visão autorizada do dado + registro de linhagem"
+  },
+  "probpago": {
+    "titulo": "ProbPago — modelo de probabilidade de pagamento",
+    "tecnico": "Treina e compara vários classificadores (Gradient Boosting, Random Forest, regressão logística), seleciona pelo AUC-ROC na validação e calibra as probabilidades para que um 0,30 signifique de verdade 30% de casos que pagam. Reporta AUC-ROC, average precision e lift do décimo decil. Se não houver modelo treinado previamente, cai para um Gradient Boosting ad-hoc na mesma execução.",
+    "criollo": "Dá a cada devedor um número de 0 a 100%: qual é a chance de ele pagar. Não é opinião nem regra fixa do tipo 'acima de 90 dias é incobrável': sai dos padrões da sua própria carteira histórica. Com isso dá para ordenar quem ligar primeiro, que é onde o mês se ganha ou se perde.",
+    "por_que": "Sem score, a carteira é trabalhada por tempo de atraso ou por valor, que é o que todo mundo faz e por isso todo mundo recupera parecido. O lift do décimo decil diz quanto é melhor ligar para os 10% que o modelo escolhe do que ligar no aleatório.",
+    "repercusion": "A ProbPago é a entrada de TUDO o que vem depois: a estratégia da etapa 6, a priorização da 8 e o valor esperado de recuperação da 12 são calculados a partir desse número. Um modelo mal calibrado não fica 'um pouco pior': bagunça a fila de ligação inteira.",
+    "limites": "Prevê sobre a população que lhe foi ensinada. Uma carteira de outro produto ou de outro país precisa de retreinamento; os números da demo saem de dados SINTÉTICOS e são ilustrativos.",
+    "entradas": "Carteira com features derivadas",
+    "salidas": "probpago (0-1), decil, segmento de propensão, métricas"
+  },
+  "explicabilidad": {
+    "titulo": "Explicabilidade — por que esse número",
+    "tecnico": "Gera reason codes por devedor: compara o caso com a linha de base da carteira e devolve as variáveis que mais empurraram a predição para cima ou para baixo, em texto legível e não como um vetor de contribuições.",
+    "criollo": "Ao lado de cada score aparece o PORQUÊ. 'Probabilidade baixa: 180 dias de atraso e três promessas não cumpridas'. Sem isso, o operador não acredita no número e continua usando o próprio critério — e o sistema mais caro é aquele que se compra e não se usa.",
+    "por_que": "Um modelo que não se consegue explicar não se consegue defender: nem diante do operador que o usa, nem do gerente que o aprova, nem de um regulador que pergunta por que aquela pessoa foi tratada de forma diferente.",
+    "repercusion": "O motivo viaja colado ao devedor até o roteiro da etapa 9: o Agente IA começa sabendo por que este caso é difícil, em vez de abrir com um texto genérico.",
+    "limites": "Explica a predição do modelo, não a causa real da inadimplência. São coisas diferentes e o texto não as confunde.",
+    "entradas": "Modelo treinado + carteira scorada",
+    "salidas": "motivo_probpago (texto) por devedor"
+  },
+  "negociador": {
+    "titulo": "Agente Negociador — estratégia por devedor",
+    "tecnico": "Cruza ProbPago, valor, faixa de atraso e contatabilidade para atribuir a estratégia (abatimento, parcelamento, acompanhamento, cobrança intensiva) e calcula desconto recomendado, quantidade de parcelas e valor esperado de recuperação por caso. Devolve também o resumo agregado por estratégia.",
+    "criollo": "Decide o que oferecer para cada um. Para quem pode pagar e está prestes a pagar, não dá desconto de presente; para quem nunca vai pagar sem um abatimento, oferece o abatimento antes de gastar dez ligações. É a diferença entre uma política igual para todos e uma decisão por cliente.",
+    "por_que": "Desconto é dinheiro do qual se abre mão. Dar por igual custa margem com quem ia pagar de qualquer jeito, e não é suficiente para quem precisa de mais. Distribuí-lo conforme a probabilidade de pagamento é o que faz a mesma carteira render diferente.",
+    "repercusion": "A estratégia define o roteiro da etapa 9 e a prioridade com que o caso entra na agenda da etapa 8. É a tradução de 'este devedor tem 0,42' para 'a este devedor, faça esta oferta'.",
+    "limites": "Recomenda dentro dos limites que a empresa configura. Não aprova abatimentos sozinho: o teto de desconto é um parâmetro, não uma decisão do modelo.",
+    "entradas": "Carteira scorada",
+    "salidas": "estratégia, desconto, parcelamento, valor esperado, prioridade"
+  },
+  "cumplimiento": {
+    "titulo": "Motor de conformidade legal",
+    "tecnico": "Antes de liberar qualquer contato avalia: faixa de horário legal por país, feriados, dia útil, teto de tentativas por período e pedidos de não contatar. Devolve a decisão com o motivo codificado e traduzido, não um booleano pelado.",
+    "criollo": "O programa não deixa ligar fora de hora, nem em feriado, nem para quem pediu para não ser mais procurado. E quando bloqueia, diz por quê. É o que separa 'o sistema está cumprindo a lei' de 'o sistema não funciona'.",
+    "por_que": "Uma multa por cobrança fora de horário custa mais do que o software. E o risco não é teórico: o operador sob pressão de fechamento de mês liga do mesmo jeito se o sistema permitir.",
+    "repercusion": "Corta antes da campanha da etapa 8: um devedor bloqueado não entra no plano do dia. Quando o plano sai vazio, a tela mostra o motivo em vez de uma tabela em branco.",
+    "limites": "Cobre horários, feriados, teto de tentativas e pedidos de não contatar. Não substitui assessoria jurídica nem a política interna da empresa.",
+    "entradas": "Devedor + data e hora + país + histórico de tentativas",
+    "salidas": "Decisão de contato + motivo codificado"
+  },
+  "campana": {
+    "titulo": "Campanha e escolha do canal",
+    "tecnico": "Monta o plano de contato do dia. O canal sai da contatabilidade REAL do devedor — onde ele foi contatado ou onde fechou nos últimos 90 dias — e, sem histórico, da regra de negócio. Cada linha expõe o canal, a origem dele (histórico ou regra) e o horário preferido, para que se veja qual das duas decidiu.",
+    "criollo": "Monta a lista de quem contatar hoje e por onde. Se alguém sempre respondeu pelo WhatsApp, vai pelo WhatsApp; se nunca foi possível encontrá-lo por telefone, não se gastam ligações. E a tela marca quando a decisão veio do histórico e quando veio da regra, para o operador saber o quanto pode confiar.",
+    "por_que": "Escolher o canal por costume gasta o recurso mais caro — o tempo do operador — no meio que menos responde. A contatabilidade já estava nos dados; só não estava sendo usada para decidir.",
+    "repercusion": "Define por onde entra o Agente IA da etapa 9: mesmo caso, roteiro diferente conforme seja ligação ou WhatsApp. E filtra pelo que a etapa 7 decidiu.",
+    "limites": "Propõe; não disca sozinho. A integração com telefonia e com WhatsApp exige as credenciais do cliente.",
+    "entradas": "Carteira priorizada + histórico de contatabilidade + conformidade",
+    "salidas": "Plano de contato do dia (devedor, canal, origem, horário, motivo)"
+  },
+  "gestor_ia": {
+    "titulo": "Agente IA negociador (chat e voz)",
+    "tecnico": "Interpreta o que o devedor diz, avalia a oferta contra os limites configurados e produz a resposta e o roteiro turno a turno. A conversa fica guardada como estrutura (quem diz o quê), não como texto plano, para poder ser avaliada depois.",
+    "criollo": "Negocia. Entende o que o devedor responde — 'estou desempregado', 'pago metade agora' — e responde com uma oferta que está dentro do que a empresa autorizou. Dá para ler a conversa inteira e também para ouvi-la.",
+    "por_que": "O gargalo da cobrança é a quantidade de conversas que uma equipe consegue sustentar por dia. E a qualidade dessas conversas depende de quem está no turno.",
+    "repercusion": "O que acontece aqui alimenta a avaliação de qualidade da etapa 11 e os KPIs da 12: a conversa é o dado, não um subproduto.",
+    "limites": "Não fecha um acordo fora dos limites configurados. Na demo a voz é a do navegador; em produção quem fala é a voz neural, e a tela deixa isso claro.",
+    "entradas": "Devedor + estratégia + canal + mensagem do devedor",
+    "salidas": "Turnos de negociação + oferta proposta + resultado"
+  },
+  "copiloto": {
+    "titulo": "Copiloto ao vivo — sentimento e técnicas",
+    "tecnico": "Sobre a conversa em andamento analisa sentimento, detecta técnicas de negociação (evasiva, promessa vaga, pedido de abatimento) e sugere o próximo movimento. Funciona sobre texto e sobre voz transcrita.",
+    "criollo": "Enquanto o operador fala, o programa escuta e sopra no ouvido: 'ele está se irritando, baixe o tom', 'ele está te dando uma promessa sem data, peça o dia'. É o supervisor que não consegue estar nas 40 ligações ao mesmo tempo.",
+    "por_que": "A diferença entre o melhor operador e o operador médio é enorme e não se transfere com treinamento anual. Sugerir na hora é a única coisa que muda a ligação que está acontecendo.",
+    "repercusion": "Os sinais detectados ficam no atendimento e sobem para a analítica da etapa 12: dá para medir se a equipe melhora.",
+    "limites": "Sugere; não interrompe nem derruba a ligação. A transcrição da voz depende do motor configurado.",
+    "entradas": "Conversa em andamento (texto ou voz transcrita)",
+    "salidas": "Sentimento, técnicas detectadas, sugestão seguinte"
+  },
+  "calidad": {
+    "titulo": "Qualidade do atendimento",
+    "tecnico": "Avalia cada atendimento contra critérios ponderados (identificação, escuta, tratamento de objeções, fechamento, conformidade normativa) e produz nota por atendimento, perfil por critério, evolução no tempo e ranking. A comparação da equipe é feita contra uma referência externa, não contra a média dela mesma.",
+    "criollo": "Dá nota para cada atendimento e diz onde cada operador falha: um não fecha, outro não trata objeções. Substitui a escuta de três ligações aleatórias por mês por uma foto de todas.",
+    "por_que": "Comparar a equipe com a média dela mesma dá sempre zero: metade está acima e metade abaixo, e não se enxerga se a equipe inteira é boa ou ruim. Contra uma referência externa o número diz alguma coisa.",
+    "repercusion": "Alimenta o impacto da qualidade sobre a recuperação na etapa 12: permite mostrar que os atendimentos mais bem avaliados cobram mais, que é o argumento para investir em formação.",
+    "limites": "Avalia o que ficou registrado. Um atendimento que não foi registrado não existe para o sistema.",
+    "entradas": "Atendimentos registrados + conversas",
+    "salidas": "Nota por atendimento, perfil por critério, ranking, evolução"
+  },
+  "analitica": {
+    "titulo": "Analítica, KPIs e impacto",
+    "tecnico": "Consolida KPIs da carteira (devedores, valor total, recuperação esperada, ProbPago médio, carteira em risco), evolução mensal, ranking de operadores, matriz de emoções e impacto da qualidade sobre a recuperação. O ROI é estimado com premissas explícitas e editáveis, não com um número fixo.",
+    "criollo": "O painel que o gerente olha: quanto tem, quanto se espera recuperar, quem está rendendo e o que mudou em relação ao mês passado. E a estimativa de retorno pode ser mexida: se você não concorda com uma premissa, muda ela e vê o número novo.",
+    "por_que": "Um ROI com as premissas escondidas não dá para discutir, e o que não se pode discutir não se aprova. Mostrá-las transforma uma promessa em uma conversa.",
+    "repercusion": "É a camada que consome tudo o que veio antes. Se uma etapa lá de cima muda, o efeito aparece aqui — e por isso os números desta tela são o primeiro lugar onde uma regressão se percebe.",
+    "limites": "Na demo os dados são sintéticos e as cifras de impacto são ILUSTRATIVAS. Com dados do cliente, os KPIs são reais e o ROI continua sendo uma estimativa com as premissas à vista.",
+    "entradas": "Carteira scorada + atendimentos + avaliações de qualidade",
+    "salidas": "KPIs, séries mensais, rankings, estimativa de ROI"
+  },
+  "exports": {
+    "titulo": "Relatórios e saída de dados",
+    "tecnico": "Exporta a carteira scorada (CSV/XLSX com abas de resumo e drivers do modelo), promessas vencidas, qualidade, relatório executivo em PDF e esta memória técnica em HTML/Word/PDF. Todo export passa pela camada de governança e fica registrado na linhagem. Um erro nunca é baixado como arquivo: é mostrado como erro.",
+    "criollo": "Tudo o que aparece na tela pode ser baixado: Excel para trabalhar, PDF para levar à diretoria. E se algo falha, o programa avisa — antes o erro era baixado como se fosse o arquivo e o Excel não abria.",
+    "por_que": "O relatório que não sai do programa não chega à reunião onde se decide. E um export que baixa um erro disfarçado de Excel é a pior forma de falhar, porque parece que funcionou.",
+    "repercusion": "É a última etapa e a única por onde um dado sai da empresa: por isso o mascaramento da etapa 3 é aplicado na camada de dados e não na tela.",
+    "limites": "O conteúdo de um export é a foto do momento em que ele foi pedido. Não se atualiza sozinho.",
+    "entradas": "Tudo o que veio antes",
+    "salidas": "CSV, XLSX, PDF, HTML, DOCX + registro de linhagem"
+  }
+}

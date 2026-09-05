@@ -2433,16 +2433,24 @@ _MT_FORMATOS = {
 
 
 @app.get("/api/memoria-tecnica")
-def memoria_tecnica(u: Usuario = Depends(usuario_actual)):
-    """Las etapas del pipeline, en orden, con los dos registros por etapa."""
+def memoria_tecnica(u: Usuario = Depends(usuario_actual),
+                    idioma: str = Depends(idioma_pedido)):
+    """Las etapas del pipeline, en orden, con los dos registros por etapa.
+
+    El idioma sale de `Accept-Language`, igual que el resto del texto que
+    genera el motor: la pestaña no tiene selector propio de idioma porque el
+    de la barra lateral ya manda sobre toda la aplicación.
+    """
     from kobra import memoria_tecnica as kmt
-    return {"etapas": kmt.como_dicts(),
+    return {"etapas": kmt.como_dicts(idioma),
+            "idioma": kmt.normalizar(idioma),
             "etiquetas": kmt.etiquetas_disponibles(),
             "datos_demo": u.empresa == EMPRESA_DEFAULT}
 
 
 @app.get("/api/memoria-tecnica/export.{formato}")
-def memoria_tecnica_export(formato: str, u: Usuario = Depends(usuario_actual)):
+def memoria_tecnica_export(formato: str, u: Usuario = Depends(usuario_actual),
+                           idioma: str = Depends(idioma_pedido)):
     """La misma memoria en HTML, Word o PDF.
 
     Los tres salen del mismo catálogo: si salieran de plantillas separadas, a
@@ -2455,12 +2463,15 @@ def memoria_tecnica_export(formato: str, u: Usuario = Depends(usuario_actual)):
     from kobra import memoria_tecnica_export as kmtx
 
     demo = u.empresa == EMPRESA_DEFAULT
-    contenido = {"html": lambda: kmtx.como_html(demo).encode("utf-8"),
-                 "docx": lambda: kmtx.como_docx(demo),
-                 "pdf": lambda: kmtx.como_pdf(demo)}[formato]()
+    lang = kmtx.mt.normalizar(idioma)
+    contenido = {"html": lambda: kmtx.como_html(demo, lang).encode("utf-8"),
+                 "docx": lambda: kmtx.como_docx(demo, lang),
+                 "pdf": lambda: kmtx.como_pdf(demo, lang)}[formato]()
 
     media, ext = _MT_FORMATOS[formato]
-    nombre = f"MVKobraAI_Memoria_Tecnica_{_hoy_str()}.{ext}"
+    # El idioma va en el nombre: quien baja los tres para mandarlos a
+    # mercados distintos termina con tres archivos homónimos en Descargas.
+    nombre = f"MVKobraAI_Memoria_Tecnica_{lang.upper()}_{_hoy_str()}.{ext}"
     # Queda en el linaje como cualquier otro export: no lleva datos del
     # cliente, pero sí dice cómo funciona el producto por dentro. Mismo guardia
     # que el resto de los exports (`_hay_gobernanza`), para no depender de que

@@ -1,0 +1,159 @@
+[
+  {
+    "orden": 1,
+    "id": "ingesta",
+    "modulos": [
+      "kobra/fuentes_datos.py",
+      "kobra/cartera_manual.py",
+      "kobra/consulta_bd.py",
+      "data/generate_dataset.py"
+    ],
+    "etiquetas": [
+      "datos",
+      "entrada"
+    ]
+  },
+  {
+    "orden": 2,
+    "id": "ingenieria",
+    "modulos": [
+      "kobra/ingenieria_datos.py"
+    ],
+    "etiquetas": [
+      "datos",
+      "calidad"
+    ]
+  },
+  {
+    "orden": 3,
+    "id": "gobernanza",
+    "modulos": [
+      "kobra/gobernanza.py",
+      "kobra/auditoria.py"
+    ],
+    "etiquetas": [
+      "seguridad",
+      "cumplimiento"
+    ]
+  },
+  {
+    "orden": 4,
+    "id": "probpago",
+    "modulos": [
+      "kobra/probpago.py",
+      "kobra/train.py"
+    ],
+    "etiquetas": [
+      "ml",
+      "núcleo"
+    ]
+  },
+  {
+    "orden": 5,
+    "id": "explicabilidad",
+    "modulos": [
+      "kobra/explicabilidad.py"
+    ],
+    "etiquetas": [
+      "ml",
+      "confianza"
+    ]
+  },
+  {
+    "orden": 6,
+    "id": "negociador",
+    "modulos": [
+      "kobra/negociador.py"
+    ],
+    "etiquetas": [
+      "negocio",
+      "núcleo"
+    ]
+  },
+  {
+    "orden": 7,
+    "id": "cumplimiento",
+    "modulos": [
+      "kobra/cumplimiento.py"
+    ],
+    "etiquetas": [
+      "cumplimiento",
+      "riesgo"
+    ]
+  },
+  {
+    "orden": 8,
+    "id": "campana",
+    "modulos": [
+      "kobra/campana.py"
+    ],
+    "etiquetas": [
+      "negocio",
+      "operación"
+    ]
+  },
+  {
+    "orden": 9,
+    "id": "gestor_ia",
+    "modulos": [
+      "kobra/gestor_ia.py",
+      "kobra/llm.py",
+      "webapp/frontend/src/pages/Asistente.jsx"
+    ],
+    "etiquetas": [
+      "ia",
+      "núcleo"
+    ]
+  },
+  {
+    "orden": 10,
+    "id": "copiloto",
+    "modulos": [
+      "kobra/copiloto.py",
+      "kobra/voz.py",
+      "realtime/"
+    ],
+    "etiquetas": [
+      "ia",
+      "operación"
+    ]
+  },
+  {
+    "orden": 11,
+    "id": "calidad",
+    "modulos": [
+      "kobra/calidad_gestion.py"
+    ],
+    "etiquetas": [
+      "calidad",
+      "gestión"
+    ]
+  },
+  {
+    "orden": 12,
+    "id": "analitica",
+    "modulos": [
+      "kobra/analitica.py",
+      "kobra/roi.py",
+      "kobra/medidas.py"
+    ],
+    "etiquetas": [
+      "negocio",
+      "gerencia"
+    ]
+  },
+  {
+    "orden": 13,
+    "id": "exports",
+    "modulos": [
+      "kobra/informe_ejecutivo.py",
+      "kobra/memoria_tecnica.py",
+      "kobra/memoria_tecnica_export.py",
+      "kobra/pipeline.py"
+    ],
+    "etiquetas": [
+      "salida",
+      "gerencia"
+    ]
+  }
+]
