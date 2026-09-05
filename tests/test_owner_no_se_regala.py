@@ -86,14 +86,32 @@ def test_el_workflow_owner_exige_repo_privado():
 
 
 def test_el_gate_corre_antes_de_construir_nada():
-    """Tiene que estar en el job del que dependen los otros dos: si estuviera
-    al final, el instalador ya se habría construido y subido."""
-    wf = _leer(WF)
-    i_gate = wf.index("El repo tiene que ser privado")
-    i_publicar = wf.index("\n  publicar:")
-    i_instalador = wf.index("\n  instalador:")
-    assert i_gate < i_publicar and i_gate < i_instalador, \
-        "el chequeo de visibilidad corre después de los jobs que publican"
+    """Tiene que estar en el job del que dependen todos los demás: si corriera
+    al final, el instalador ya se habría construido y subido.
+
+    Se busca el job que TIENE el gate y se exige que los que publican dependan
+    de él, en vez de nombrar los jobs uno por uno. La versión anterior
+    comparaba posiciones contra `\\n  publicar:` y `\\n  instalador:` literales,
+    así que al eliminar un job reventaba con `ValueError` — un test que se
+    rompe por un cambio de nombre, no por una regresión.
+    """
+    import yaml
+    wf = yaml.safe_load(_leer(WF))
+    con_gate = [nombre for nombre, job in wf["jobs"].items()
+                if "El repo tiene que ser privado" in str(job.get("steps"))]
+    assert len(con_gate) == 1, f"el gate de visibilidad está en {con_gate}"
+    gate = con_gate[0]
+
+    publicadores = {nombre for nombre, job in wf["jobs"].items()
+                    for paso in job["steps"]
+                    if "action-gh-release" in str(paso.get("uses", ""))}
+    assert publicadores, "el workflow ya no publica nada"
+    for nombre in publicadores:
+        necesita = wf["jobs"][nombre].get("needs") or []
+        if isinstance(necesita, str):
+            necesita = [necesita]
+        assert gate in necesita, \
+            f"el job '{nombre}' publica sin depender del chequeo de visibilidad"
 
 
 # ---------------------------------------------------------------------------
