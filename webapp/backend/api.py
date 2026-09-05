@@ -2418,6 +2418,62 @@ def calidad_export_xlsx(gestor: str | None = None, anio: str | None = None,
         headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
 
 
+# ---------------------------------------------------------------------------
+# Memoria técnica: qué hace el pipeline, en orden, para las dos audiencias
+# ---------------------------------------------------------------------------
+# El contenido sale de `kobra/memoria_tecnica.py` y no de la base: describe el
+# programa, no los datos del cliente. Por eso no depende de la empresa ni lleva
+# enmascarado — no hay ningún dato personal que proteger acá.
+_MT_FORMATOS = {
+    "html": ("text/html; charset=utf-8", "html"),
+    "docx": ("application/vnd.openxmlformats-officedocument."
+             "wordprocessingml.document", "docx"),
+    "pdf": ("application/pdf", "pdf"),
+}
+
+
+@app.get("/api/memoria-tecnica")
+def memoria_tecnica(u: Usuario = Depends(usuario_actual)):
+    """Las etapas del pipeline, en orden, con los dos registros por etapa."""
+    from kobra import memoria_tecnica as kmt
+    return {"etapas": kmt.como_dicts(),
+            "etiquetas": kmt.etiquetas_disponibles(),
+            "datos_demo": u.empresa == EMPRESA_DEFAULT}
+
+
+@app.get("/api/memoria-tecnica/export.{formato}")
+def memoria_tecnica_export(formato: str, u: Usuario = Depends(usuario_actual)):
+    """La misma memoria en HTML, Word o PDF.
+
+    Los tres salen del mismo catálogo: si salieran de plantillas separadas, a
+    los tres meses el PDF diría una cosa y el HTML otra.
+    """
+    if formato not in _MT_FORMATOS:
+        raise HTTPException(
+            400, f"Formato no soportado: {formato}. "
+                 f"Disponibles: {', '.join(_MT_FORMATOS)}.")
+    from kobra import memoria_tecnica_export as kmtx
+
+    demo = u.empresa == EMPRESA_DEFAULT
+    contenido = {"html": lambda: kmtx.como_html(demo).encode("utf-8"),
+                 "docx": lambda: kmtx.como_docx(demo),
+                 "pdf": lambda: kmtx.como_pdf(demo)}[formato]()
+
+    media, ext = _MT_FORMATOS[formato]
+    nombre = f"MVKobraAI_Memoria_Tecnica_{_hoy_str()}.{ext}"
+    # Queda en el linaje como cualquier otro export: no lleva datos del
+    # cliente, pero sí dice cómo funciona el producto por dentro. Mismo guardia
+    # que el resto de los exports (`_hay_gobernanza`), para no depender de que
+    # el módulo esté disponible en toda edición.
+    if _hay_gobernanza():
+        kgob.registrar_linaje("export_memoria_tecnica", ["memoria_tecnica"],
+                              "export", filas=len(kmtx.mt.etapas()),
+                              detalle={"formato": formato, "rol": u.rol})
+    return Response(content=contenido, media_type=media,
+                    headers={"Content-Disposition":
+                             f'attachment; filename="{nombre}"'})
+
+
 class PreguntaIn(BaseModel):
     pregunta: str
 

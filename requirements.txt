@@ -26,3 +26,7 @@ httpx2>=2.0
 portalocker>=2.8
 apscheduler>=3.10
 fpdf2>=2.7
+# Memoria técnica en Word. Un .docx de verdad y no un HTML con la extensión
+# cambiada: ese atajo Word lo abre, pero se rompe al editarlo en Google Docs
+# o LibreOffice y deja al que lo recibe explicando por qué no le abre.
+python-docx>=1.1

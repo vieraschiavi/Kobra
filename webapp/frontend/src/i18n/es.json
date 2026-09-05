@@ -28,7 +28,8 @@
       "tablero": "Tablero",
       "logistica": "Logística",
       "proyectos": "Proyectos",
-      "ingenieria_datos": "Ingeniería de datos"
+      "ingenieria_datos": "Ingeniería de datos",
+      "memoria_tecnica": "Memoria técnica"
     },
     "sidebar": {
       "rol_admin": "Administrador",
@@ -1123,5 +1124,25 @@
       "personal": "personal",
       "sensible": "sensible"
     }
+  },
+  "memoria": {
+    "titulo": "Memoria técnica",
+    "subtitulo": "Qué hace el programa, en orden, contado dos veces: una para quien lee el código y otra para quien firma la compra.",
+    "tecnico": "Técnico",
+    "criollo": "En criollo",
+    "por_que": "Por qué se hizo",
+    "repercusion": "Cómo repercute aguas abajo",
+    "limites": "Qué NO hace",
+    "entra": "Entra",
+    "sale": "Sale",
+    "donde_vive": "Dónde vive",
+    "ver_mas": "Ver el fondo",
+    "ver_menos": "Ocultar el fondo",
+    "vista_ambos": "Los dos",
+    "vista_criollo": "En criollo",
+    "vista_tecnico": "Técnico",
+    "cargando": "Cargando la memoria técnica…",
+    "bajando": "Generando…",
+    "aviso_demo": "Esta instalación corre sobre datos sintéticos: las cifras de impacto son ilustrativas, no resultados medidos en producción."
   }
 }

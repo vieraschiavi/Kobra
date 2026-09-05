@@ -28,7 +28,8 @@
       "tablero": "Board",
       "logistica": "Logistics",
       "proyectos": "Projects",
-      "ingenieria_datos": "Data engineering"
+      "ingenieria_datos": "Data engineering",
+      "memoria_tecnica": "Technical memo"
     },
     "sidebar": {
       "rol_admin": "Administrator",
@@ -1123,5 +1124,25 @@
       "personal": "personal",
       "sensible": "sensitive"
     }
+  },
+  "memoria": {
+    "titulo": "Technical memo",
+    "subtitulo": "What the program does, in order, told twice: once for whoever reads the code and once for whoever signs the purchase.",
+    "tecnico": "Technical",
+    "criollo": "In plain terms",
+    "por_que": "Why it was built",
+    "repercusion": "How it ripples downstream",
+    "limites": "What it does NOT do",
+    "entra": "In",
+    "sale": "Out",
+    "donde_vive": "Where it lives",
+    "ver_mas": "See the detail",
+    "ver_menos": "Hide the detail",
+    "vista_ambos": "Both",
+    "vista_criollo": "Plain terms",
+    "vista_tecnico": "Technical",
+    "cargando": "Loading the technical memo…",
+    "bajando": "Generating…",
+    "aviso_demo": "This installation runs on synthetic data: the impact figures are illustrative, not results measured in production."
   }
 }
