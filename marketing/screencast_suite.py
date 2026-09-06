@@ -38,13 +38,16 @@ SALIDA_DEFAULT = os.path.join(RAIZ, "landing", "video", "MVKobraAI_Suite_Demo.we
 # El recorrido: (ruta del hash router, segundos en pantalla). Las duraciones
 # son la fuente de verdad de los tiempos de los subtítulos (subtitulos.py).
 RECORRIDO = [
-    ("/", 6),             # visión general: el producto que ya se conocía
-    ("/tablero", 8),      # tablero conversacional
-    ("/gobernanza", 8),   # clasificación, calidad DAMA, integridad
-    ("/medidas", 7),      # KPIs con fórmulas propias
-    ("/automl", 7),       # entrenar con datos propios
-    ("/logistica", 8),    # módulo suelto: ofertas/reposición
-    ("/proyectos", 8),    # módulo suelto: salud y backlog
+    ("/", 6),                    # visión general: el producto que ya se conocía
+    ("/tablero", 8),             # tablero conversacional
+    ("/gobernanza", 8),          # clasificación, calidad DAMA, integridad
+    ("/frecuencia-cargas", 6),   # ¿los datos de arriba están al día?
+    ("/medidas", 7),             # KPIs con fórmulas propias
+    ("/automl", 7),              # entrenar con datos propios
+    ("/proyeccion", 8),          # proyectar, y saber cuándo NO proyectar
+    ("/memoria-tecnica", 6),     # el pipeline explicado para las dos audiencias
+    ("/logistica", 8),           # módulo suelto: ofertas/reposición
+    ("/proyectos", 8),           # módulo suelto: salud y backlog
 ]
 VIEWPORT = {"width": 1280, "height": 800}   # igual que MVKobraAI_Demo_Real
 
@@ -70,6 +73,19 @@ def _preparar_datos(dir_datos: str) -> None:
     os.makedirs(outputs, exist_ok=True)
     shutil.copy(os.path.join(RAIZ, "outputs", "kobra_scored.csv"),
                 os.path.join(outputs, "kobra_scored.csv"))
+
+    # El historial de gestiones, que es de dónde salen DOS de las pantallas
+    # nuevas: la proyección de cobranza (necesita la serie diaria de pagos) y
+    # la frecuencia de cargas (necesita que la tabla exista para no marcarla
+    # «sin cargar»). Sin esto las dos se graban en su estado de error, y un
+    # video promocional mostrando «no hay historial para proyectar» es peor
+    # que no tener el video.
+    data = os.path.join(dir_datos, "data")
+    os.makedirs(data, exist_ok=True)
+    for archivo in ("kobra_gestiones.csv", "calidad_evaluaciones.csv"):
+        origen = os.path.join(RAIZ, "data", archivo)
+        if os.path.exists(origen):
+            shutil.copy(origen, os.path.join(data, archivo))
 
     n = 40
     productos = pd.DataFrame({

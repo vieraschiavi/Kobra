@@ -16,25 +16,40 @@ Governança de dados: o que é pessoal, quem vê,
 qualidade nas seis dimensões DAMA e linhagem auditável.
 
 4
-00:00:23.000 --> 00:00:30.500
+00:00:23.000 --> 00:00:29.500
+Frequência de cargas: quando cada tabela foi atualizada.
+Um painel com dados velhos parece igual a um correto.
+
+5
+00:00:29.500 --> 00:00:37.000
 KPIs próprios: defina-os com uma fórmula,
 sem tocar numa linha de código.
 
-5
-00:00:30.500 --> 00:00:38.000
+6
+00:00:37.000 --> 00:00:44.500
 AutoML: treine um modelo com o seu próprio dataset.
 A métrica vem de um holdout que não foi usado para escolher nada.
 
-6
-00:00:38.000 --> 00:00:46.500
+7
+00:00:44.500 --> 00:00:53.000
+Projeção de cobrança: se a série não tem sinal,
+mostra a média e te avisa. Não desenha uma curva.
+
+8
+00:00:53.000 --> 00:00:59.500
+Memória técnica: o pipeline em técnico e em linguagem simples,
+exportável em HTML, Word ou PDF.
+
+9
+00:00:59.500 --> 00:01:08.000
 Logística, um módulo comprado à parte:
 o que ofertar, o que repor e qual cliente recuperar.
 
-7
-00:00:46.500 --> 00:00:55.000
+10
+00:01:08.000 --> 00:01:16.500
 E Projetos: saúde do portfólio em seis dimensões
 e o backlog ordenado por valor esperado.
 
-8
-00:00:55.000 --> 00:00:58.000
+11
+00:01:16.500 --> 00:01:19.500
 Cada módulo, com o seu plano ou avulso. mvkobranzaia.com

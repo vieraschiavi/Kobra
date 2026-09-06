@@ -141,23 +141,35 @@ SUITE_CUES = [
         "es": "Gobernanza de datos: qué es personal, quién lo ve,\ncalidad en las seis dimensiones DAMA y linaje auditable.",
         "pt": "Governança de dados: o que é pessoal, quem vê,\nqualidade nas seis dimensões DAMA e linhagem auditável.",
         "en": "Data governance: what is personal, who can see it,\nquality across the six DAMA dimensions and auditable lineage."}),
-    (23.0, 30.5, {
+    (23.0, 29.5, {
+        "es": "Frecuencia de cargas: cuándo se actualizó cada tabla.\nUn tablero con datos viejos se ve igual que uno correcto.",
+        "pt": "Frequência de cargas: quando cada tabela foi atualizada.\nUm painel com dados velhos parece igual a um correto.",
+        "en": "Load freshness: when each table was last updated.\nA dashboard on stale data looks just like a correct one."}),
+    (29.5, 37.0, {
         "es": "KPIs propios: definilos con una fórmula,\nsin tocar una línea de código.",
         "pt": "KPIs próprios: defina-os com uma fórmula,\nsem tocar numa linha de código.",
         "en": "Custom KPIs: define them with a formula,\nwithout touching a line of code."}),
-    (30.5, 38.0, {
+    (37.0, 44.5, {
         "es": "AutoML: entrená un modelo con tu propio dataset.\nLa métrica sale de un holdout que no se usó para elegir nada.",
         "pt": "AutoML: treine um modelo com o seu próprio dataset.\nA métrica vem de um holdout que não foi usado para escolher nada.",
         "en": "AutoML: train a model on your own dataset.\nThe metric comes from a holdout never used to choose anything."}),
-    (38.0, 46.5, {
+    (44.5, 53.0, {
+        "es": "Proyección de cobranza: si la serie no tiene señal,\nte muestra el promedio y te lo dice. No dibuja una curva.",
+        "pt": "Projeção de cobrança: se a série não tem sinal,\nmostra a média e te avisa. Não desenha uma curva.",
+        "en": "Collection forecast: when the series carries no signal,\nit shows the average and says so. It draws no curve."}),
+    (53.0, 59.5, {
+        "es": "Memoria técnica: el pipeline en técnico y en criollo,\nexportable en HTML, Word o PDF.",
+        "pt": "Memória técnica: o pipeline em técnico e em linguagem simples,\nexportável em HTML, Word ou PDF.",
+        "en": "Technical memo: the pipeline in technical and plain language,\nexportable as HTML, Word or PDF."}),
+    (59.5, 68.0, {
         "es": "Logística, un módulo que se compra aparte:\nqué ofertar, qué reponer y a qué cliente recuperar.",
         "pt": "Logística, um módulo comprado à parte:\no que ofertar, o que repor e qual cliente recuperar.",
         "en": "Logistics, a module sold separately:\nwhat to discount, what to restock, which customer to win back."}),
-    (46.5, 55.0, {
+    (68.0, 76.5, {
         "es": "Y Proyectos: salud del portafolio en seis dimensiones\ny el backlog ordenado por valor esperado.",
         "pt": "E Projetos: saúde do portfólio em seis dimensões\ne o backlog ordenado por valor esperado.",
         "en": "And Projects: portfolio health across six dimensions\nand the backlog ranked by expected value."}),
-    (55.0, 58.0, {
+    (76.5, 79.5, {
         "es": "Cada módulo, con tu plan o suelto. mvkobranzaia.com",
         "pt": "Cada módulo, com o seu plano ou avulso. mvkobranzaia.com",
         "en": "Each module, with your plan or on its own. mvkobranzaia.com"}),

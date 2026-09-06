@@ -16,25 +16,40 @@ Data governance: what is personal, who can see it,
 quality across the six DAMA dimensions and auditable lineage.
 
 4
-00:00:23.000 --> 00:00:30.500
+00:00:23.000 --> 00:00:29.500
+Load freshness: when each table was last updated.
+A dashboard on stale data looks just like a correct one.
+
+5
+00:00:29.500 --> 00:00:37.000
 Custom KPIs: define them with a formula,
 without touching a line of code.
 
-5
-00:00:30.500 --> 00:00:38.000
+6
+00:00:37.000 --> 00:00:44.500
 AutoML: train a model on your own dataset.
 The metric comes from a holdout never used to choose anything.
 
-6
-00:00:38.000 --> 00:00:46.500
+7
+00:00:44.500 --> 00:00:53.000
+Collection forecast: when the series carries no signal,
+it shows the average and says so. It draws no curve.
+
+8
+00:00:53.000 --> 00:00:59.500
+Technical memo: the pipeline in technical and plain language,
+exportable as HTML, Word or PDF.
+
+9
+00:00:59.500 --> 00:01:08.000
 Logistics, a module sold separately:
 what to discount, what to restock, which customer to win back.
 
-7
-00:00:46.500 --> 00:00:55.000
+10
+00:01:08.000 --> 00:01:16.500
 And Projects: portfolio health across six dimensions
 and the backlog ranked by expected value.
 
-8
-00:00:55.000 --> 00:00:58.000
+11
+00:01:16.500 --> 00:01:19.500
 Each module, with your plan or on its own. mvkobranzaia.com
