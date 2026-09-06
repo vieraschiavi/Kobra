@@ -1,0 +1,56 @@
+{
+  "tablas": {
+    "scored": {
+      "nombre": "Carteira com score",
+      "para_que": "É a base de tudo: o painel, a agenda e a priorização saem daqui. Se estiver velha, o programa inteiro mostra a foto de ontem."
+    },
+    "gestiones": {
+      "nombre": "Histórico de acionamentos",
+      "para_que": "Alimenta a analítica por operador, o ranking e a evolução mensal. Atrasada, a equipe aparece com menos atividade do que teve."
+    },
+    "calidad": {
+      "nombre": "Avaliações de qualidade",
+      "para_que": "As notas de cada acionamento. Sem cargas novas, o painel de qualidade repete o mês anterior."
+    },
+    "cartera_real": {
+      "nombre": "Carteira real importada",
+      "para_que": "A carteira que o cliente sobe, quando o programa não roda sobre a demo sintética."
+    },
+    "modelo": {
+      "nombre": "Modelo ProbPago treinado",
+      "para_que": "O modelo com que se calcula a probabilidade de pagamento. É retreinado quando a carteira muda, não todos os dias."
+    }
+  },
+  "cada": {
+    "continua": "A cada hora",
+    "diaria": "Todos os dias",
+    "semanal": "Todas as semanas",
+    "mensual": "Todos os meses",
+    "manual": "Quando alguém sobe"
+  },
+  "frecuencia": {
+    "continua": "contínua",
+    "diaria": "diária",
+    "semanal": "semanal",
+    "mensual": "mensal",
+    "manual": "manual"
+  },
+  "dias": ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"],
+  "hace": {
+    "minutos": "{n} minutos",
+    "horas": "{n} horas",
+    "dias": "{n} dias",
+    "meses": "{n} meses"
+  },
+  "motivo": {
+    "sin_datos": "Ainda não foi carregada nenhuma vez nesta instalação.",
+    "manual": "É carregada à mão: não vence por antiguidade.",
+    "atrasada": "Esperava-se uma carga {frecuencia} e a última foi há {hace} ({atraso} a mais do que o previsto)."
+  },
+  "titular": {
+    "todo_al_dia": "Todas as tabelas estão em dia.",
+    "atrasadas": "{n} atrasada(s): {nombres}",
+    "sin_cargar": "{n} sem carregar: {nombres}",
+    "separador": " · "
+  }
+}

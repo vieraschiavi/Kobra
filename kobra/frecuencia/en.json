@@ -1,0 +1,56 @@
+{
+  "tablas": {
+    "scored": {
+      "nombre": "Scored portfolio",
+      "para_que": "Everything rests on this: the dashboard, the daily queue and the prioritisation all come from here. If it is stale, the whole program shows yesterday's picture."
+    },
+    "gestiones": {
+      "nombre": "Collection activity log",
+      "para_que": "Feeds the per-agent analytics, the ranking and the monthly trend. When it lags, the team looks less active than it actually was."
+    },
+    "calidad": {
+      "nombre": "Quality reviews",
+      "para_que": "The scores given to each interaction. With no new loads, the quality panel keeps repeating last month."
+    },
+    "cartera_real": {
+      "nombre": "Imported real portfolio",
+      "para_que": "The portfolio the client uploads, when the program is not running on the synthetic demo."
+    },
+    "modelo": {
+      "nombre": "Trained ProbPago model",
+      "para_que": "The model behind the probability of payment. It is retrained when the portfolio changes, not every day."
+    }
+  },
+  "cada": {
+    "continua": "Every hour",
+    "diaria": "Every day",
+    "semanal": "Every week",
+    "mensual": "Every month",
+    "manual": "Whenever someone uploads it"
+  },
+  "frecuencia": {
+    "continua": "hourly",
+    "diaria": "daily",
+    "semanal": "weekly",
+    "mensual": "monthly",
+    "manual": "manual"
+  },
+  "dias": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+  "hace": {
+    "minutos": "{n} minutes",
+    "horas": "{n} hours",
+    "dias": "{n} days",
+    "meses": "{n} months"
+  },
+  "motivo": {
+    "sin_datos": "It has never been loaded in this installation.",
+    "manual": "Uploaded by hand: it does not expire with age.",
+    "atrasada": "A {frecuencia} load was expected and the last one was {hace} ago ({atraso} later than planned)."
+  },
+  "titular": {
+    "todo_al_dia": "Every table is up to date.",
+    "atrasadas": "{n} late: {nombres}",
+    "sin_cargar": "{n} never loaded: {nombres}",
+    "separador": " · "
+  }
+}

@@ -15,6 +15,13 @@ rem     carpeta propios, para que las dos copias convivan en la misma PC);
 rem   * la salida es dist_installer_owner\MVKobraAI_Setup_OWNER.exe.
 set "EDICION=cliente"
 if /i "%~1"=="owner" set "EDICION=owner"
+rem `solo-motor`: prepara todo y corta DESPUES de PyInstaller, sin armar el
+rem instalador. Lo usa construir_portable.bat, que necesita el mismo motor
+rem pero no quiere el paso que convierte al programa en algo que "se
+rem instala". Reusar esta tuberia y no duplicarla es lo que evita que el
+rem portable termine siendo una version distinta del producto.
+set "SOLO_MOTOR="
+if /i "%~1"=="solo-motor" set "SOLO_MOTOR=1"
 
 if "!EDICION!"=="owner" (
   title MV Kobra AI - Construir instalador OWNER (en esta PC)
@@ -216,6 +223,13 @@ if "!EDICION!"=="owner" (
 )
 
 rem --- 7) Instalador Electron (NSIS con desinstalador) -----------------------
+if defined SOLO_MOTOR (
+  echo.
+  echo   Motor listo en dist\MVKobraAI. Se omite el instalador
+  echo   ^(modo solo-motor: lo pidio construir_portable.bat^).
+  exit /b 0
+)
+
 echo [7/7] Construyendo el instalador ^(electron-builder^)...
 rem VPY es ruta relativa sin espacios: va SIN comillas a proposito - con mas
 rem de dos comillas en el comando, el for /f las recorta y lo rompe.
