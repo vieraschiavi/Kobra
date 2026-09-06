@@ -30,7 +30,8 @@
       "proyectos": "Projetos",
       "ingenieria_datos": "Engenharia de dados",
       "memoria_tecnica": "Memória técnica",
-      "frecuencia_cargas": "Frequência de cargas"
+      "frecuencia_cargas": "Frequência de cargas",
+      "proyeccion": "Projeção de cobrança"
     },
     "sidebar": {
       "rol_admin": "Administrador",
@@ -1162,5 +1163,35 @@
     "res_al_dia": "em dia",
     "res_atrasadas": "atrasadas",
     "res_sin_datos": "sem carregar"
+  },
+  "proyeccion": {
+    "titulo": "Projeção de cobrança",
+    "subtitulo": "Quanto será cobrado nos próximos dias — e, antes disso, se dá para acreditar.",
+    "cargando": "Rodando o backtest…",
+    "dias": "{{n}} dias",
+    "hoy": "hoje",
+    "serie_real": "Cobrado",
+    "serie_pred": "Projetado",
+    "titular_sirve": "A projeção passou no teste cego.",
+    "titular_promedio": "Isto é uma média, não uma previsão.",
+    "veredicto_sirve": "«{{modelo}}» ganha de todos os modelos que não aprendem nada: {{mejora}} melhor que {{trivial}} no holdout cego, o trecho que não foi usado para escolhê-lo.",
+    "veredicto_sin_senal": "Quem melhor prevê é «{{modelo}}», que não aprende nada da série: a cobrança diária desta carteira é ruído em torno de uma média. Mostra-se essa média e não uma curva, porque uma curva aqui seria dar cara de dado ao ruído.",
+    "veredicto_sin_margen": "«{{modelo}}» supera «{{trivial}}» em apenas {{mejora}} no holdout. Com esta quantidade de janelas, uma diferença assim não se distingue da sorte: mostra-se a média.",
+    "veredicto_sin_holdout": "Não foi possível avaliar o modelo no holdout cego, então não se projeta nada.",
+    "sin_historia": "Avaliar uma projeção com honestidade exige pelo menos {{minimo}} dias de histórico, e há {{n}}.",
+    "modelo_usado": "Modelo usado",
+    "mase_holdout": "MASE no holdout",
+    "error_medio": "Erro médio por dia",
+    "ventanas": "Janelas cegas",
+    "promedio_historico": "Média histórica",
+    "nota_metodo": "Backtest de origem rolante com janela dupla: o modelo é escolhido em um trecho e medido em outro que nunca foi usado para escolher.",
+    "modelo_media": "média",
+    "modelo_ingenuo": "repetir o último dia",
+    "modelo_estacional_7": "repetir a semana anterior",
+    "modelo_media_movil_28": "média de 4 semanas",
+    "modelo_perfil_semanal": "perfil da semana",
+    "modelo_deriva": "tendência",
+    "modelo_timesfm_2p5": "TimesFM 2.5",
+    "fuera_de_escala": "{{n}} dia(s) ficam fora da escala para que o resto se veja: {{detalle}}."
   }
 }

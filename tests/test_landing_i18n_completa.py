@@ -29,6 +29,8 @@ from html.parser import HTMLParser
 from kobra import rutas as krutas
 
 LANDING = os.path.join(krutas.ROOT_REPO, "landing", "index.html")
+# Las tarjetas de la grilla de plataforma: f1t/f1p … f10t/f10p.
+_RE_TARJETA = re.compile(r"f\d+[tp]")
 IDIOMAS = ("pt", "en")
 
 
@@ -150,21 +152,45 @@ def test_ninguna_traduccion_es_una_fraccion_del_original():
                 f"español — parece que se perdió texto: {traducido!r}")
 
 
+# Las funciones que se sumaron DESPUÉS del lanzamiento, con la frase que
+# tiene que aparecer en el aviso de novedades de cada idioma. Cada vez que se
+# suma una a la plataforma, se agrega una fila acá: es lo que impide que una
+# funcionalidad nueva se anuncie solo en castellano y, para dos de cada tres
+# visitantes, la plataforma no la tenga.
+NOVEDADES = (
+    ("cuentas por cobrar", "contas a receber", "accounts receivable"),
+    ("portal de pagos", "portal de pagamentos", "payment portal"),
+    ("proyección de cobranza", "projeção de cobrança", "collection forecast"),
+    ("frescura de datos", "frescor dos dados", "data freshness"),
+    ("memoria técnica", "memória técnica", "technical memo"),
+    ("portable", "portátil", "portable"),
+)
+
+
 def test_lo_nuevo_de_la_plataforma_se_anuncia_en_los_tres_idiomas():
-    """Cuentas por cobrar y el portal de pagos son las dos funciones que se
-    sumaron después del lanzamiento. Si solo se anuncian en español, para dos
-    de cada tres visitantes la plataforma no las tiene."""
-    es = _es()
-    assert "cuentas por cobrar" in es["vnuevo"].lower()
-    assert "portal de pagos" in es["vnuevo"].lower()
-    esperado = {
-        "pt": ("contas a receber", "portal de pagamentos"),
-        "en": ("accounts receivable", "payment portal"),
-    }
-    for idioma, frases in esperado.items():
-        aviso = _diccionario(idioma)["vnuevo"].lower()
-        for frase in frases:
-            assert frase in aviso, f"{idioma}: la novedad no menciona «{frase}»: {aviso!r}"
+    """El aviso de novedades es lo único que lee alguien que ya conocía el
+    producto. Si una función nueva no está ahí en su idioma, para ese visitante
+    no existe."""
+    avisos = {"es": _es()["vnuevo"].lower(),
+              "pt": _diccionario("pt")["vnuevo"].lower(),
+              "en": _diccionario("en")["vnuevo"].lower()}
+    for es_frase, pt_frase, en_frase in NOVEDADES:
+        for idioma, frase in (("es", es_frase), ("pt", pt_frase), ("en", en_frase)):
+            assert frase in avisos[idioma], (
+                f"{idioma}: la novedad no menciona «{frase}»: {avisos[idioma]!r}")
+
+
+def test_cada_funcion_nueva_tiene_su_tarjeta_en_los_tres_idiomas():
+    """Anunciarla en el aviso y no explicarla en la grilla deja al visitante
+    con el titular y sin el contenido."""
+    cuerpo = _es()
+    claves_nuevas = [c for c in cuerpo if _RE_TARJETA.fullmatch(c)]
+    assert len(claves_nuevas) >= 10, (
+        f"la grilla de la plataforma perdió tarjetas: {sorted(claves_nuevas)}")
+    for idioma in ("pt", "en"):
+        dic = _diccionario(idioma)
+        faltan = [c for c in claves_nuevas if not dic.get(c, "").strip()]
+        assert not faltan, f"{idioma}: tarjetas sin traducir: {faltan}"
 
 
 def test_precios_aclara_en_los_tres_idiomas_que_la_licencia_no_se_pierde():

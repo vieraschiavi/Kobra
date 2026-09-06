@@ -126,6 +126,25 @@ def test_las_filas_se_cuentan_sin_contar_el_encabezado(tmp_path):
     assert kfc.estado_de(ruta, _tabla("scored"), AHORA)["filas"] == 3
 
 
+def test_un_binario_no_reporta_registros(tmp_path):
+    """El modelo entrenado es un `.joblib`: contarle "líneas" devuelve un
+    número con toda la pinta de ser un dato —la pantalla llegó a decir «45
+    registros»— y un número inventado en el panel que existe para dar
+    confianza es exactamente lo que no puede pasar."""
+    ruta = _archivo(tmp_path, "modelo.joblib", "\x80\x04\n\n\x95bin\nario\n",
+                    hace_horas=1)
+    ficha = kfc.estado_de(ruta, _tabla("modelo"), AHORA)
+    assert ficha["filas"] is None
+    assert ficha["estado"] == kfc.AL_DIA      # el resto del veredicto sigue
+    assert ficha["carga"] is not None
+
+
+def test_solo_el_modelo_esta_marcado_como_no_tabular():
+    """Un CSV marcado como binario perdería el conteo de filas en silencio."""
+    no_tabulares = {t.id for t in kfc.TABLAS if not t.tabular}
+    assert no_tabulares == {"modelo"}
+
+
 def test_el_dia_de_la_semana_acompana_a_la_fecha_de_carga(tmp_path):
     """«cargó un domingo» se detecta más rápido por el nombre del día que por
     la fecha."""
@@ -322,6 +341,16 @@ def test_la_pantalla_muestra_las_dos_fechas_y_no_solo_la_de_carga():
     assert "frecuencia.fecha_carga" in pagina
 
 
+def test_los_miles_salen_en_el_idioma_elegido_y_no_en_el_del_navegador():
+    """`toLocaleString()` sin argumento usa el locale del navegador: el mismo
+    programa mostraría «12,000» en una pantalla en castellano y «12.000» en la
+    de al lado, que se lee como un error de datos."""
+    pagina = _fuente("webapp", "frontend", "src", "pages",
+                     "FrecuenciaCargas.jsx")
+    assert "getIdioma" in pagina
+    assert "toLocaleString(" + ")" not in pagina.replace(" ", "")
+
+
 @pytest.mark.parametrize("archivo", ["es.json", "en.json", "pt-BR.json"])
 def test_la_interfaz_tiene_las_etiquetas_de_la_pestana_en_los_tres_idiomas(
         archivo):
@@ -333,3 +362,33 @@ def test_la_interfaz_tiene_las_etiquetas_de_la_pestana_en_los_tres_idiomas(
                   "estado_sin_datos", "actualizado", "revisar"):
         assert dic["frecuencia"][clave].strip(), f"{archivo}: falta {clave}"
     assert "{{cuando}}" in dic["frecuencia"]["actualizado"]
+
+
+def test_una_fecha_con_hora_no_desaparece_de_la_columna(tmp_path):
+    """Una cartera real trae «2026-01-01» y «2026-06-30 23:50» en la MISMA
+    columna. Sin `format="mixed"`, pandas infiere el formato de la primera
+    fila y convierte en NaT todas las que traen hora: con la fecha más nueva
+    en una de esas filas, el panel informaba un dato de febrero cuando el
+    último era de junio.
+
+    Cinco meses de atraso inventados, en silencio, en la única pantalla que
+    existe para que un atraso NO pase inadvertido.
+    """
+    contenido = ("fecha_gestion,gestor\n"
+                 "2026-01-01,ana\n"
+                 "2026-02-01,ana\n"
+                 "2026-06-30 23:50,ana\n")
+    ruta = _archivo(tmp_path, "gestiones.csv", contenido, hace_horas=1)
+    ficha = kfc.estado_de(ruta, _tabla("gestiones"), AHORA)
+    assert ficha["fecha_dato"] == "2026-06-30", (
+        "se perdió la fila con hora: el panel reporta el dato más viejo de lo "
+        f"que es ({ficha['fecha_dato']})")
+
+
+def test_una_columna_entera_con_hora_tampoco_se_pierde(tmp_path):
+    """El caso simétrico: si TODAS traen hora, el formato inferido funciona —
+    pero el test lo fija para que el arreglo no se revierta a medias."""
+    contenido = ("fecha_gestion,gestor\n"
+                 "2026-05-01 08:00,ana\n2026-05-02 17:30,ana\n")
+    ruta = _archivo(tmp_path, "gestiones.csv", contenido, hace_horas=1)
+    assert kfc.estado_de(ruta, _tabla("gestiones"), AHORA)["fecha_dato"] == "2026-05-02"
