@@ -29,7 +29,8 @@
       "logistica": "Logistics",
       "proyectos": "Projects",
       "ingenieria_datos": "Data engineering",
-      "memoria_tecnica": "Technical memo"
+      "memoria_tecnica": "Technical memo",
+      "frecuencia_cargas": "Load freshness"
     },
     "sidebar": {
       "rol_admin": "Administrator",
@@ -1144,5 +1145,22 @@
     "cargando": "Loading the technical memo…",
     "bajando": "Generating…",
     "aviso_demo": "This installation runs on synthetic data: the impact figures are illustrative, not results measured in production."
+  },
+  "frecuencia": {
+    "titulo": "Load freshness",
+    "subtitulo": "When each table the program uses was last updated, and whether that arrived late.",
+    "cargando": "Checking the loads…",
+    "fecha_dato": "Data date",
+    "fecha_carga": "Last load",
+    "registros": "Records",
+    "esperada": "Expected",
+    "estado_al_dia": "Up to date",
+    "estado_atrasada": "Late",
+    "estado_sin_datos": "Never loaded",
+    "actualizado": "Checked on {{cuando}}",
+    "revisar": "Check again",
+    "res_al_dia": "up to date",
+    "res_atrasadas": "late",
+    "res_sin_datos": "never loaded"
   }
 }

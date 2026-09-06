@@ -1,0 +1,56 @@
+{
+  "tablas": {
+    "scored": {
+      "nombre": "Cartera scoreada",
+      "para_que": "Es la base de todo: el tablero, la agenda y la priorización salen de acá. Si está vieja, todo el programa muestra la foto de ayer."
+    },
+    "gestiones": {
+      "nombre": "Historial de gestiones",
+      "para_que": "Alimenta la analítica por gestor, el ranking y la evolución mensual. Atrasada, el equipo aparece con menos actividad de la que tuvo."
+    },
+    "calidad": {
+      "nombre": "Evaluaciones de calidad",
+      "para_que": "Las notas por gestión. Sin cargas nuevas, el panel de calidad repite el mes anterior."
+    },
+    "cartera_real": {
+      "nombre": "Cartera real importada",
+      "para_que": "La cartera que sube el cliente, cuando el programa no corre sobre la demo sintética."
+    },
+    "modelo": {
+      "nombre": "Modelo ProbPago entrenado",
+      "para_que": "El modelo con el que se calcula la probabilidad de pago. Se reentrena cuando cambia la cartera, no todos los días."
+    }
+  },
+  "cada": {
+    "continua": "Cada hora",
+    "diaria": "Todos los días",
+    "semanal": "Todas las semanas",
+    "mensual": "Todos los meses",
+    "manual": "Cuando alguien la sube"
+  },
+  "frecuencia": {
+    "continua": "continua",
+    "diaria": "diaria",
+    "semanal": "semanal",
+    "mensual": "mensual",
+    "manual": "manual"
+  },
+  "dias": ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"],
+  "hace": {
+    "minutos": "{n} minutos",
+    "horas": "{n} horas",
+    "dias": "{n} días",
+    "meses": "{n} meses"
+  },
+  "motivo": {
+    "sin_datos": "Todavía no se cargó nunca en esta instalación.",
+    "manual": "Se carga a mano: no vence por antigüedad.",
+    "atrasada": "Se esperaba una carga {frecuencia} y la última fue hace {hace} ({atraso} más de lo previsto)."
+  },
+  "titular": {
+    "todo_al_dia": "Todas las tablas están al día.",
+    "atrasadas": "{n} atrasada(s): {nombres}",
+    "sin_cargar": "{n} sin cargar: {nombres}",
+    "separador": " · "
+  }
+}

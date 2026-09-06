@@ -29,7 +29,8 @@
       "logistica": "Logística",
       "proyectos": "Projetos",
       "ingenieria_datos": "Engenharia de dados",
-      "memoria_tecnica": "Memória técnica"
+      "memoria_tecnica": "Memória técnica",
+      "frecuencia_cargas": "Frequência de cargas"
     },
     "sidebar": {
       "rol_admin": "Administrador",
@@ -1144,5 +1145,22 @@
     "cargando": "Carregando a memória técnica…",
     "bajando": "Gerando…",
     "aviso_demo": "Esta instalação roda sobre dados sintéticos: os números de impacto são ilustrativos, não resultados medidos em produção."
+  },
+  "frecuencia": {
+    "titulo": "Frequência de cargas",
+    "subtitulo": "Quando cada tabela que o programa usa foi atualizada pela última vez, e se isso chegou atrasado.",
+    "cargando": "Revisando as cargas…",
+    "fecha_dato": "Data do dado",
+    "fecha_carga": "Última carga",
+    "registros": "Registros",
+    "esperada": "Espera-se",
+    "estado_al_dia": "Em dia",
+    "estado_atrasada": "Atrasada",
+    "estado_sin_datos": "Sem carregar",
+    "actualizado": "Revisado em {{cuando}}",
+    "revisar": "Revisar de novo",
+    "res_al_dia": "em dia",
+    "res_atrasadas": "atrasadas",
+    "res_sin_datos": "sem carregar"
   }
 }

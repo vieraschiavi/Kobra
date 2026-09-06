@@ -25,6 +25,7 @@ import Medidas from "./pages/Medidas.jsx";
 import Asistente from "./pages/Asistente.jsx";
 import Roi from "./pages/Roi.jsx";
 import MemoriaTecnica from "./pages/MemoriaTecnica.jsx";
+import FrecuenciaCargas from "./pages/FrecuenciaCargas.jsx";
 import Configuracion from "./pages/Configuracion.jsx";
 import PortalCobros from "./pages/PortalCobros.jsx";
 import DemoVivo from "./pages/DemoVivo.jsx";
@@ -47,6 +48,7 @@ const NAV = [
   { ruta: "/gestores", ico: <IcoEquipo />, clave: "app.nav.gestores" },
   { ruta: "/calidad", ico: <IcoCalidad />, clave: "app.nav.calidad" },
   { ruta: "/ingenieria-datos", ico: <IcoLista />, clave: "app.nav.ingenieria_datos" },
+  { ruta: "/frecuencia-cargas", ico: <IcoCalendario />, clave: "app.nav.frecuencia_cargas" },
   { ruta: "/gobernanza", ico: <IcoEscudo />, clave: "app.nav.gobernanza" },
   { ruta: "/medidas", ico: <IcoTendencia />, clave: "app.nav.medidas" },
   { ruta: "/automl", ico: <IcoCalidad />, clave: "app.nav.automl", admin: true },
@@ -327,6 +329,7 @@ export default function App() {
           <Route path="/asistente" element={<Asistente />} />
           <Route path="/roi" element={<Roi />} />
           <Route path="/memoria-tecnica" element={<MemoriaTecnica />} />
+          <Route path="/frecuencia-cargas" element={<FrecuenciaCargas />} />
           <Route path="/portal-cobros" element={<PortalCobros />} />
           <Route path="/demo-vivo" element={<DemoVivo />} />
           <Route path="/configuracion" element={<Configuracion />} />

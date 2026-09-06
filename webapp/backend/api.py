@@ -2419,6 +2419,42 @@ def calidad_export_xlsx(gestor: str | None = None, anio: str | None = None,
 
 
 # ---------------------------------------------------------------------------
+# Frecuencia de cargas: ¿está al día cada tabla?
+# ---------------------------------------------------------------------------
+# El backend es el ÚNICO que sabe dónde viven los datos de cada empresa, así
+# que resuelve las rutas acá y `kobra/frecuencia_cargas.py` solo interpreta el
+# estado. Si el módulo conociera la estructura de carpetas del tenant, habría
+# que tocarlo cada vez que cambia el layout de datos.
+def _rutas_de_tablas(empresa: str) -> dict:
+    datos = _datos_de(empresa)
+    return {
+        "scored": datos["scored"],
+        "gestiones": datos["gestiones"],
+        "calidad": _archivo_calidad(empresa),
+        "cartera_real": _archivo_real(empresa),
+        # El modelo entrenado es del programa, no del tenant: se reentrena
+        # sobre la cartera activa y vive en outputs/.
+        "modelo": os.path.join(DIR_DATOS, "outputs", "probpago_model.joblib"),
+    }
+
+
+@app.get("/api/frecuencia-cargas")
+def frecuencia_cargas(u: Usuario = Depends(usuario_actual),
+                      idioma: str = Depends(idioma_pedido)):
+    """Cuándo se cargó por última vez cada tabla, y si eso llegó tarde.
+
+    Un dashboard con datos viejos no se ve roto: se ve igual que uno correcto.
+    Esta pantalla es la que hace visible la diferencia.
+
+    El texto que arma el motor —el nombre de cada tabla, el motivo del atraso,
+    el titular— viaja traducido: la pantalla en inglés con los motivos en
+    castellano es la mitad de la traducción, que es peor que no tenerla.
+    """
+    from kobra import frecuencia_cargas as kfc
+    return kfc.panel(_rutas_de_tablas(u.empresa), idioma)
+
+
+# ---------------------------------------------------------------------------
 # Memoria técnica: qué hace el pipeline, en orden, para las dos audiencias
 # ---------------------------------------------------------------------------
 # El contenido sale de `kobra/memoria_tecnica.py` y no de la base: describe el
