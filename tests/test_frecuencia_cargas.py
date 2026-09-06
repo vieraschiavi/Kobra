@@ -126,6 +126,25 @@ def test_las_filas_se_cuentan_sin_contar_el_encabezado(tmp_path):
     assert kfc.estado_de(ruta, _tabla("scored"), AHORA)["filas"] == 3
 
 
+def test_un_binario_no_reporta_registros(tmp_path):
+    """El modelo entrenado es un `.joblib`: contarle "líneas" devuelve un
+    número con toda la pinta de ser un dato —la pantalla llegó a decir «45
+    registros»— y un número inventado en el panel que existe para dar
+    confianza es exactamente lo que no puede pasar."""
+    ruta = _archivo(tmp_path, "modelo.joblib", "\x80\x04\n\n\x95bin\nario\n",
+                    hace_horas=1)
+    ficha = kfc.estado_de(ruta, _tabla("modelo"), AHORA)
+    assert ficha["filas"] is None
+    assert ficha["estado"] == kfc.AL_DIA      # el resto del veredicto sigue
+    assert ficha["carga"] is not None
+
+
+def test_solo_el_modelo_esta_marcado_como_no_tabular():
+    """Un CSV marcado como binario perdería el conteo de filas en silencio."""
+    no_tabulares = {t.id for t in kfc.TABLAS if not t.tabular}
+    assert no_tabulares == {"modelo"}
+
+
 def test_el_dia_de_la_semana_acompana_a_la_fecha_de_carga(tmp_path):
     """«cargó un domingo» se detecta más rápido por el nombre del día que por
     la fecha."""
@@ -320,6 +339,16 @@ def test_la_pantalla_muestra_las_dos_fechas_y_no_solo_la_de_carga():
                      "FrecuenciaCargas.jsx")
     assert "frecuencia.fecha_dato" in pagina
     assert "frecuencia.fecha_carga" in pagina
+
+
+def test_los_miles_salen_en_el_idioma_elegido_y_no_en_el_del_navegador():
+    """`toLocaleString()` sin argumento usa el locale del navegador: el mismo
+    programa mostraría «12,000» en una pantalla en castellano y «12.000» en la
+    de al lado, que se lee como un error de datos."""
+    pagina = _fuente("webapp", "frontend", "src", "pages",
+                     "FrecuenciaCargas.jsx")
+    assert "getIdioma" in pagina
+    assert "toLocaleString(" + ")" not in pagina.replace(" ", "")
 
 
 @pytest.mark.parametrize("archivo", ["es.json", "en.json", "pt-BR.json"])

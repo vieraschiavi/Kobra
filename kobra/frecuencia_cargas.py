@@ -87,6 +87,11 @@ class Tabla:
     # carga: ver el docstring del módulo.
     columna_fecha: str | None = None
     etiquetas: tuple[str, ...] = field(default_factory=tuple)
+    # ¿Es un archivo de filas? El modelo entrenado es un binario: contarle
+    # "líneas" da un número que parece un dato y no lo es —el `.joblib` decía
+    # «45 registros», que no significa nada— y un número inventado en un panel
+    # que existe para dar confianza es exactamente lo que no puede pasar.
+    tabular: bool = True
 
 
 # El catálogo de tablas que la aplicación lee de verdad. Los ids coinciden con
@@ -98,7 +103,7 @@ TABLAS: tuple[Tabla, ...] = (
           etiquetas=("núcleo",)),
     Tabla("calidad", "semanal", columna_fecha="fecha", etiquetas=("calidad",)),
     Tabla("cartera_real", "manual", etiquetas=("datos",)),
-    Tabla("modelo", "mensual", etiquetas=("ml",)),
+    Tabla("modelo", "mensual", etiquetas=("ml",), tabular=False),
 )
 
 
@@ -142,8 +147,14 @@ def _fecha_dato(ruta: str, columna: str | None) -> str | None:
         return None
 
 
-def _filas(ruta: str) -> int | None:
-    """Cuenta filas sin cargar el archivo en memoria."""
+def _filas(ruta: str, tabular: bool = True) -> int | None:
+    """Cuenta filas sin cargar el archivo en memoria.
+
+    `None` para lo que no son filas: un `.joblib` tiene saltos de línea adentro
+    y contarlos devuelve un número con toda la pinta de ser un dato.
+    """
+    if not tabular:
+        return None
     try:
         with open(ruta, "rb") as f:
             return max(0, sum(1 for _ in f) - 1)   # menos el encabezado
@@ -211,7 +222,7 @@ def estado_de(ruta: str, tabla: Tabla, ahora: datetime | None = None,
         # detecta "cargó un domingo" más rápido por el nombre que por la fecha.
         "dia_carga": txt["dias"][carga.weekday()],
         "fecha_dato": _fecha_dato(ruta, tabla.columna_fecha),
-        "filas": _filas(ruta),
+        "filas": _filas(ruta, tabla.tabular),
         "horas_desde_carga": round(horas, 1),
         "motivo": motivo,
     }

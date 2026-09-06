@@ -1,8 +1,14 @@
 // © 2026 Martín Viera. Todos los derechos reservados.
 
 import React, { useEffect, useState } from "react";
-import { api } from "../api.js";
+import { api, getIdioma } from "../api.js";
 import { t } from "../i18n/index.js";
+
+// Los miles con el separador del idioma elegido, no con el del navegador: el
+// mismo programa mostrando "12,000" en una pantalla en castellano y "12.000"
+// en la de al lado se lee como un error de datos.
+const LOCALE = { es: "es-UY", pt: "pt-BR", en: "en-US" };
+const miles = (n) => n.toLocaleString(LOCALE[getIdioma()] || LOCALE.es);
 
 // ¿Está al día cada tabla que usa el programa?
 //
@@ -51,7 +57,7 @@ function Tarjeta({ tabla }) {
 
         <b>{t("frecuencia.registros")}:</b>
         <span className="tnum">
-          {tabla.filas != null ? tabla.filas.toLocaleString() : "—"}
+          {tabla.filas != null ? miles(tabla.filas) : "—"}
         </span>
 
         {/* La cadencia esperada la manda el backend ya traducida (viaja por
