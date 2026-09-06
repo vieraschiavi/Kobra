@@ -30,7 +30,8 @@
       "proyectos": "Projects",
       "ingenieria_datos": "Data engineering",
       "memoria_tecnica": "Technical memo",
-      "frecuencia_cargas": "Load freshness"
+      "frecuencia_cargas": "Load freshness",
+      "proyeccion": "Collection forecast"
     },
     "sidebar": {
       "rol_admin": "Administrator",
@@ -1162,5 +1163,35 @@
     "res_al_dia": "up to date",
     "res_atrasadas": "late",
     "res_sin_datos": "never loaded"
+  },
+  "proyeccion": {
+    "titulo": "Collection forecast",
+    "subtitulo": "How much will be collected in the coming days — and, before that, whether you can believe it.",
+    "cargando": "Running the backtest…",
+    "dias": "{{n}} days",
+    "hoy": "today",
+    "serie_real": "Collected",
+    "serie_pred": "Forecast",
+    "titular_sirve": "The forecast passed the blind test.",
+    "titular_promedio": "This is an average, not a prediction.",
+    "veredicto_sirve": "«{{modelo}}» beats every model that learns nothing: {{mejora}} better than {{trivial}} on the blind holdout, the stretch that was not used to choose it.",
+    "veredicto_sin_senal": "The best predictor is «{{modelo}}», which learns nothing from the series: this portfolio's daily collection is noise around an average. What you see is that average and not a curve, because a curve here would give noise the face of data.",
+    "veredicto_sin_margen": "«{{modelo}}» is only {{mejora}} better than «{{trivial}}» on the holdout. With this many windows, a difference that small is indistinguishable from luck: the average is shown instead.",
+    "veredicto_sin_holdout": "The model could not be evaluated on the blind holdout, so nothing is forecast.",
+    "sin_historia": "Evaluating a forecast honestly takes at least {{minimo}} days of history, and there are {{n}}.",
+    "modelo_usado": "Model used",
+    "mase_holdout": "MASE on holdout",
+    "error_medio": "Average daily error",
+    "ventanas": "Blind windows",
+    "promedio_historico": "Historical average",
+    "nota_metodo": "Rolling-origin backtest with two windows: the model is chosen on one stretch and measured on another that was never used to choose it.",
+    "modelo_media": "average",
+    "modelo_ingenuo": "repeat the last day",
+    "modelo_estacional_7": "repeat last week",
+    "modelo_media_movil_28": "4-week average",
+    "modelo_perfil_semanal": "weekly profile",
+    "modelo_deriva": "trend",
+    "modelo_timesfm_2p5": "TimesFM 2.5",
+    "fuera_de_escala": "{{n}} day(s) fall outside the scale so the rest stays readable: {{detalle}}."
   }
 }

@@ -30,7 +30,8 @@
       "proyectos": "Proyectos",
       "ingenieria_datos": "Ingeniería de datos",
       "memoria_tecnica": "Memoria técnica",
-      "frecuencia_cargas": "Frecuencia de cargas"
+      "frecuencia_cargas": "Frecuencia de cargas",
+      "proyeccion": "Proyección de cobranza"
     },
     "sidebar": {
       "rol_admin": "Administrador",
@@ -1162,5 +1163,35 @@
     "res_al_dia": "al día",
     "res_atrasadas": "atrasadas",
     "res_sin_datos": "sin cargar"
+  },
+  "proyeccion": {
+    "titulo": "Proyección de cobranza",
+    "subtitulo": "Cuánto se va a cobrar en los próximos días — y, antes que eso, si se le puede creer.",
+    "cargando": "Corriendo el backtest…",
+    "dias": "{{n}} días",
+    "hoy": "hoy",
+    "serie_real": "Cobrado",
+    "serie_pred": "Proyectado",
+    "titular_sirve": "La proyección pasó el examen ciego.",
+    "titular_promedio": "Esto es un promedio, no una predicción.",
+    "veredicto_sirve": "«{{modelo}}» le gana a todos los modelos que no aprenden nada: {{mejora}} mejor que {{trivial}} en el holdout ciego, el tramo que no se usó para elegirlo.",
+    "veredicto_sin_senal": "El que mejor predice es «{{modelo}}», que no aprende nada de la serie: la cobranza diaria de esta cartera es ruido alrededor de un promedio. Se muestra ese promedio y no una curva, porque una curva acá sería ponerle cara de dato al ruido.",
+    "veredicto_sin_margen": "«{{modelo}}» le saca apenas {{mejora}} a «{{trivial}}» en el holdout. Con esta cantidad de ventanas, una diferencia así no se distingue de la suerte: se muestra el promedio.",
+    "veredicto_sin_holdout": "No se pudo evaluar el modelo en el holdout ciego, así que no se proyecta.",
+    "sin_historia": "Hacen falta al menos {{minimo}} días de historia para evaluar honestamente una proyección, y hay {{n}}.",
+    "modelo_usado": "Modelo usado",
+    "mase_holdout": "MASE en holdout",
+    "error_medio": "Error medio por día",
+    "ventanas": "Ventanas ciegas",
+    "promedio_historico": "Promedio histórico",
+    "nota_metodo": "Backtest de origen rodante con doble ventana: se elige el modelo en un tramo y se lo mide en otro que nunca se usó para elegir.",
+    "modelo_media": "promedio",
+    "modelo_ingenuo": "repetir el último día",
+    "modelo_estacional_7": "repetir la semana anterior",
+    "modelo_media_movil_28": "promedio de 4 semanas",
+    "modelo_perfil_semanal": "perfil de la semana",
+    "modelo_deriva": "tendencia",
+    "modelo_timesfm_2p5": "TimesFM 2.5",
+    "fuera_de_escala": "{{n}} día(s) quedan fuera de la escala para que el resto se vea: {{detalle}}."
   }
 }

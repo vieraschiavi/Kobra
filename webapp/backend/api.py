@@ -2438,6 +2438,52 @@ def _rutas_de_tablas(empresa: str) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Proyección de cobranza: cuánto se va a cobrar, y si se puede creer
+# ---------------------------------------------------------------------------
+# El veredicto viaja como CÓDIGO y no como frase: la pantalla lo traduce a los
+# tres idiomas con sus propias claves, y `kobra/proyeccion.py` no necesita
+# saber que existen los idiomas. Un módulo de backtest con archivos de
+# traducción adentro es un módulo que ya se salió de su trabajo.
+@app.get("/api/proyeccion-cobranza")
+def proyeccion_cobranza(dias: int = 14, u: Usuario = Depends(usuario_actual)):
+    """La cobranza diaria proyectada — o el motivo por el que no se proyecta.
+
+    Lo importante de este endpoint no es la curva: es que puede devolver
+    `sirve: false`. Una serie sin señal igual admite que se le dibuje una
+    línea prolija, y esa línea se lee como un compromiso.
+    """
+    from kobra import proyeccion as kpr
+
+    dias = max(1, min(int(dias), 60))
+    g = _gestiones(u.empresa)
+    if g is None or g.empty or "fecha_pago" not in g.columns:
+        raise HTTPException(404, "No hay historial de pagos para proyectar.")
+
+    cobrado = g["recupero"].where(g["resultado"].eq("Pago"), 0.0)
+    serie = kpr.serie_diaria(g["fecha_pago"], cobrado)
+    if serie.empty:
+        raise HTTPException(404, "No hay historial de pagos para proyectar.")
+
+    veredicto = kpr.comparar(serie, horizonte=dias)
+    modelo = veredicto.get("modelo_a_usar") if veredicto["suficiente"] else None
+    futuro = kpr.proyectar(serie, horizonte=dias, modelo=modelo)
+
+    # Solo los últimos 90 días de historia: la pantalla dibuja un gráfico, no
+    # descarga la serie entera.
+    reciente = serie.tail(90)
+    return {
+        "historia": [{"fecha": f.strftime("%Y-%m-%d"), "valor": float(v)}
+                     for f, v in reciente.items()],
+        "proyeccion": [{"fecha": f.strftime("%Y-%m-%d"), "valor": float(v)}
+                       for f, v in zip(futuro["fecha"], futuro["proyeccion"])],
+        "modelo": modelo or kpr.REFERENCIA,
+        "dias": dias,
+        "veredicto": veredicto,
+        "promedio_historico": float(serie.mean()),
+    }
+
+
 @app.get("/api/frecuencia-cargas")
 def frecuencia_cargas(u: Usuario = Depends(usuario_actual),
                       idioma: str = Depends(idioma_pedido)):
