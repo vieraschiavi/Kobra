@@ -362,3 +362,33 @@ def test_la_interfaz_tiene_las_etiquetas_de_la_pestana_en_los_tres_idiomas(
                   "estado_sin_datos", "actualizado", "revisar"):
         assert dic["frecuencia"][clave].strip(), f"{archivo}: falta {clave}"
     assert "{{cuando}}" in dic["frecuencia"]["actualizado"]
+
+
+def test_una_fecha_con_hora_no_desaparece_de_la_columna(tmp_path):
+    """Una cartera real trae «2026-01-01» y «2026-06-30 23:50» en la MISMA
+    columna. Sin `format="mixed"`, pandas infiere el formato de la primera
+    fila y convierte en NaT todas las que traen hora: con la fecha más nueva
+    en una de esas filas, el panel informaba un dato de febrero cuando el
+    último era de junio.
+
+    Cinco meses de atraso inventados, en silencio, en la única pantalla que
+    existe para que un atraso NO pase inadvertido.
+    """
+    contenido = ("fecha_gestion,gestor\n"
+                 "2026-01-01,ana\n"
+                 "2026-02-01,ana\n"
+                 "2026-06-30 23:50,ana\n")
+    ruta = _archivo(tmp_path, "gestiones.csv", contenido, hace_horas=1)
+    ficha = kfc.estado_de(ruta, _tabla("gestiones"), AHORA)
+    assert ficha["fecha_dato"] == "2026-06-30", (
+        "se perdió la fila con hora: el panel reporta el dato más viejo de lo "
+        f"que es ({ficha['fecha_dato']})")
+
+
+def test_una_columna_entera_con_hora_tampoco_se_pierde(tmp_path):
+    """El caso simétrico: si TODAS traen hora, el formato inferido funciona —
+    pero el test lo fija para que el arreglo no se revierta a medias."""
+    contenido = ("fecha_gestion,gestor\n"
+                 "2026-05-01 08:00,ana\n2026-05-02 17:30,ana\n")
+    ruta = _archivo(tmp_path, "gestiones.csv", contenido, hace_horas=1)
+    assert kfc.estado_de(ruta, _tabla("gestiones"), AHORA)["fecha_dato"] == "2026-05-02"

@@ -133,13 +133,21 @@ def _fecha_dato(ruta: str, columna: str | None) -> str | None:
     el panel se abre en cada carga de pantalla. Traer el archivo entero para
     mirar una columna es la diferencia entre una pantalla que responde y una
     que tarda cinco segundos.
+
+    `format="mixed"` no es un detalle: una cartera real trae `2026-01-01` y
+    `2026-06-30 23:50` en la MISMA columna, y sin eso pandas infiere el
+    formato de la primera fila y convierte en NaT todas las que traen hora.
+    Con la fecha más nueva justo en una de esas filas, el panel informaba un
+    dato de febrero cuando el último era de junio: cinco meses de atraso
+    inventados, en silencio y en la pantalla que existe para que el atraso
+    NO pase inadvertido.
     """
     if not columna:
         return None
     try:
         import pandas as pd
         serie = pd.read_csv(ruta, usecols=[columna])[columna]
-        fecha = pd.to_datetime(serie, errors="coerce").max()
+        fecha = pd.to_datetime(serie, format="mixed", errors="coerce").max()
         return None if pd.isna(fecha) else fecha.strftime("%Y-%m-%d")
     except Exception:
         # Una tabla sin esa columna, o con basura adentro, no puede tirar
