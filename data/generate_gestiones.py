@@ -19,6 +19,7 @@ Uso:
     python data/generate_gestiones.py --seed 42
 """
 import argparse
+import calendar
 import os
 
 import numpy as np
@@ -29,6 +30,38 @@ CARTERA_CSV = os.path.join(ROOT, "data", "kobra_cartera.csv")
 
 MESES = ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12",
          "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06"]
+
+# La semana de una operación de cobranza REAL no es plana: se gestiona de
+# lunes a viernes, el sábado a media máquina y el domingo casi nada. Y los
+# pagos se amontonan alrededor del cobro del sueldo — principio y fin de mes.
+#
+# Antes el día salía de `rng.integers(1, 28)`, o sea repartido parejo y sin
+# saber siquiera qué día de la semana era. Eso no es un detalle cosmético: la
+# serie diaria de cobranza quedaba siendo ruido plano alrededor de un
+# promedio, que es justo la forma que NINGUNA cartera real tiene, y dejaba a
+# la pantalla de proyección mostrando una demo que no se parece a lo que ve
+# un cliente con sus propios datos.
+PESO_DIA_SEMANA = {0: 1.00, 1: 1.05, 2: 1.05, 3: 1.00, 4: 0.95,   # lun a vie
+                   5: 0.30, 6: 0.08}                              # sáb y dom
+# Empuje de los días de cobro (sueldos): arranque y cierre de mes.
+DIAS_DE_COBRO = 1.45
+
+
+def _dias_del_mes(mes: str):
+    """Los días de un mes con su peso: qué tan probable es gestionar ese día.
+
+    Se calcula una vez por mes y no por fila — son 7.000 filas y el calendario
+    del mes no cambia entre una y otra.
+    """
+    anio, num = int(mes[:4]), int(mes[5:7])
+    total = calendar.monthrange(anio, num)[1]
+    dias = np.arange(1, total + 1)
+    pesos = np.array([
+        PESO_DIA_SEMANA[calendar.weekday(anio, num, d)]
+        * (DIAS_DE_COBRO if (d <= 5 or d >= total - 2) else 1.0)
+        for d in dias])
+    return dias, pesos / pesos.sum()
+
 
 # Emoción dominante típica por tramo de mora (probabilidades)
 EMO_POR_TRAMO = {
@@ -94,6 +127,8 @@ def generar(seed=42, gestiones_por_gestor_mes=42, cartera=None):
                 plan.append((gia, f"Gestor {gia}", mes, True, 84.0, 4.0,
                              gestiones_por_gestor_mes * 4))
 
+    # El calendario de cada mes, una sola vez.
+    _CALENDARIO = {mes: _dias_del_mes(mes) for mes in MESES}
     rows = []
     gid = 0
     for gestor_id, gestor_nombre, mes, usa_kobra, calidad_media, calidad_sd, n in plan:
@@ -147,9 +182,12 @@ def generar(seed=42, gestiones_por_gestor_mes=42, cartera=None):
                     recupero = monto * (0.3 + 0.3 * prob)
                 else:
                     recupero = 0.0
-                dia = int(rng.integers(1, 28))
+                dias, pesos = _CALENDARIO[mes]
+                dia = int(rng.choice(dias, p=pesos))
                 fecha_g = f"{mes}-{dia:02d}"
-                fecha_comp = f"{mes}-{min(dia + 5, 28):02d}" if resultado == "Promesa" else ""
+                ultimo = int(dias[-1])
+                fecha_comp = (f"{mes}-{min(dia + 5, ultimo):02d}"
+                              if resultado == "Promesa" else "")
                 fecha_pg = fecha_g if resultado == "Pago" else ""
                 _NOTAS = {"Pago": "Abonó el total de la deuda.",
                           "Promesa": "Arreglo de pago acordado; enviar comprobante.",

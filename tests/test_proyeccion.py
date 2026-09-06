@@ -354,10 +354,13 @@ def test_el_endpoint_devuelve_el_veredicto_y_no_solo_la_curva():
     assert d["veredicto"]["codigo"] in {"sirve", "sin_senal", "sin_margen",
                                         "sin_holdout"}
     assert "sirve" in d["veredicto"]
-    # La cartera de demostración es ruido: el panel no puede decir que sí.
-    assert d["veredicto"]["sirve"] is False, (
-        "la demo sintética no tiene señal temporal; decir que sí sería vender "
-        "ruido como predicción")
+    # La cartera de demostración tiene la forma de una semana real (ver
+    # data/generate_gestiones.py::PESO_DIA_SEMANA), así que el gate TIENE que
+    # dejarla pasar. Si un cambio en el generador o en el modelo la vuelve a
+    # dejar sin señal, la demo pasa a mostrar un promedio y este test avisa.
+    assert d["veredicto"]["sirve"] is True, (
+        f"la demo dejó de tener señal aprovechable: {d['veredicto']['veredicto']}")
+    assert d["veredicto"]["mejora_vs_trivial"] >= 0.10
 
 
 def test_el_endpoint_acota_el_horizonte_que_le_piden():

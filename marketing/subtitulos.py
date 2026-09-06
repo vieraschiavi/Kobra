@@ -154,9 +154,9 @@ SUITE_CUES = [
         "pt": "AutoML: treine um modelo com o seu próprio dataset.\nA métrica vem de um holdout que não foi usado para escolher nada.",
         "en": "AutoML: train a model on your own dataset.\nThe metric comes from a holdout never used to choose anything."}),
     (44.5, 53.0, {
-        "es": "Proyección de cobranza: si la serie no tiene señal,\nte muestra el promedio y te lo dice. No dibuja una curva.",
-        "pt": "Projeção de cobrança: se a série não tem sinal,\nmostra a média e te avisa. Não desenha uma curva.",
-        "en": "Collection forecast: when the series carries no signal,\nit shows the average and says so. It draws no curve."}),
+        "es": "Proyección de cobranza: aprende la forma de tu semana\ny se valida en un tramo que nunca usó para elegir el modelo.",
+        "pt": "Projeção de cobrança: aprende a forma da sua semana\ne se valida num trecho que nunca usou para escolher o modelo.",
+        "en": "Collection forecast: it learns the shape of your week\nand is validated on a stretch never used to pick the model."}),
     (53.0, 59.5, {
         "es": "Memoria técnica: el pipeline en técnico y en criollo,\nexportable en HTML, Word o PDF.",
         "pt": "Memória técnica: o pipeline em técnico e em linguagem simples,\nexportável em HTML, Word ou PDF.",

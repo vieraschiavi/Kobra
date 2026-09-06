@@ -32,8 +32,8 @@ The metric comes from a holdout never used to choose anything.
 
 7
 00:00:44.500 --> 00:00:53.000
-Collection forecast: when the series carries no signal,
-it shows the average and says so. It draws no curve.
+Collection forecast: it learns the shape of your week
+and is validated on a stretch never used to pick the model.
 
 8
 00:00:53.000 --> 00:00:59.500
