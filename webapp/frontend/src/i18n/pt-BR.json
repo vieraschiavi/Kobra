@@ -424,7 +424,8 @@
     "boton_activar": "Ativar",
     "boton_activando": "Ativando…",
     "link_comprar": "Ver planos em mvkobranzaia.com",
-    "banner_trial": "Versão de teste — faltam {{dias}} dias."
+    "banner_trial": "Versão de teste — faltam {{dias}} dias.",
+    "sello_titulo": "Esta cópia diz ser a edição Owner e não conseguiu entrar sozinha:"
   },
   "gestor_demo": {
     "titulo": "Testar o Agente de IA (demo ao vivo)",

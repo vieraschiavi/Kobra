@@ -57,7 +57,16 @@ def _sin_owner_heredado():
     previo = {k: os.environ.get(k) for k in ("KOBRA_OWNER", "KOBRA_OWNER_TOKEN")}
     for k in previo:
         os.environ.pop(k, None)
+    # Mismo motivo, otra variable: `activar()` recuerda la carpeta del paquete
+    # para poder DIAGNOSTICAR después por qué una copia no entró como owner. Un
+    # test que la activa sobre un tmp_path dejaba esa carpeta apuntada, y el
+    # test siguiente diagnosticaba el paquete del anterior —que además ya no
+    # existe— dando un motivo inventado.
+    from kobra import edicion as kedicion
+    base_previa = kedicion._ULTIMA_BASE
+    kedicion._ULTIMA_BASE = None
     yield
+    kedicion._ULTIMA_BASE = base_previa
     for k, v in previo.items():
         if v is None:
             os.environ.pop(k, None)

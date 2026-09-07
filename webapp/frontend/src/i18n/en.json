@@ -424,7 +424,8 @@
     "boton_activar": "Activate",
     "boton_activando": "Activating…",
     "link_comprar": "See plans at mvkobranzaia.com",
-    "banner_trial": "Trial version — {{dias}} days left."
+    "banner_trial": "Trial version — {{dias}} days left.",
+    "sello_titulo": "This copy claims to be the Owner edition and could not enter on its own:"
   },
   "gestor_demo": {
     "titulo": "Try the AI agent (live demo)",

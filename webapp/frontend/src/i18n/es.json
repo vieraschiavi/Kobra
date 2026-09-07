@@ -424,7 +424,8 @@
     "boton_activar": "Activar",
     "boton_activando": "Activando…",
     "link_comprar": "Ver planes en mvkobranzaia.com",
-    "banner_trial": "Versión de prueba — quedan {{dias}} días."
+    "banner_trial": "Versión de prueba — quedan {{dias}} días.",
+    "sello_titulo": "Esta copia dice ser la edición Owner y no pudo entrar sola:"
   },
   "gestor_demo": {
     "titulo": "Probar el Gestor IA (demo en vivo)",

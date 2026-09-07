@@ -297,6 +297,7 @@ export default function App() {
     return (
       <Activacion
         vencida={licEstado.error === "licencia_expirada"}
+        sello={licEstado.sello}
         onActivada={(r) => setLicEstado({ standalone: true, activa: true,
                                           plan: r.plan, trial: r.trial, dias_restantes: r.dias_restantes })}
       />
