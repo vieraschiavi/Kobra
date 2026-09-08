@@ -36,6 +36,22 @@ ENV_SELLO_OWNER = "KOBRA_OWNER_TOKEN"
 CLAVE_OWNER_CREDENCIAL = "KOBRA_OWNER_CREDENCIAL"
 
 
+# La última base que se le pasó a `activar()`. El backend corre en el mismo
+# proceso que el launcher pero no recibe la ruta del bundle, y sin ella no
+# puede decir POR QUÉ una copia no entró como owner.
+_ULTIMA_BASE: str | None = None
+
+# Los estados que puede tener el sello. Existen para que la copia del dueño
+# que abre la pantalla de licencia diga cuál de las cinco causas la trajo
+# hasta acá, en vez de fallar igual para todas.
+SELLO_OK = "ok"
+SELLO_SIN_EDICION = "sin_edicion"     # no hay edicion.json: no es paquete Owner
+SELLO_NO_OWNER = "no_owner"           # es un paquete de cliente o demo
+SELLO_AUSENTE = "ausente"             # dice owner pero no trae token
+SELLO_INVALIDO = "invalido"           # el token no valida con la pública
+SELLO_VENCIDO = "vencido"             # validaba, pero se pasó de fecha
+
+
 def leer(base: str) -> dict | None:
     """El `edicion.json` del paquete, o None si es una copia del repo."""
     ruta = os.path.join(base, ARCHIVO)
@@ -93,6 +109,8 @@ def activar(base: str) -> dict | None:
     Idempotente: solo siembra el token la primera vez, para no pisar uno que
     el usuario haya activado después (por ejemplo, al comprar un plan).
     """
+    global _ULTIMA_BASE
+    _ULTIMA_BASE = base
     ed = leer(base)
     if ed is None:
         return None
@@ -165,6 +183,94 @@ def es_owner() -> bool:
 # Alias retrocompatible: el resto de este archivo y los tests existentes usan
 # el nombre viejo con guion bajo.
 _es_owner = es_owner
+
+
+def base_probable() -> str:
+    """Dónde buscar el `edicion.json` cuando nadie pasó la ruta.
+
+    En el .exe empaquetado el bundle es `sys._MEIPASS`; corriendo desde el
+    repo, la raíz del proyecto. Se usa solo para diagnosticar: `activar()`
+    sigue recibiendo la base explícita del launcher.
+    """
+    import sys
+    # El bundle real manda sobre cualquier otra pista: es la única fuente que
+    # no se puede desactualizar. `_ULTIMA_BASE` la escribe `activar()` y sirve
+    # para el layout ZIP, donde no hay `_MEIPASS`.
+    empaquetado = getattr(sys, "_MEIPASS", None)
+    if empaquetado:
+        return empaquetado
+    if _ULTIMA_BASE:
+        return _ULTIMA_BASE
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def diagnostico_sello(base: str | None = None) -> dict:
+    """Por qué esta copia entra —o no— como la del dueño.
+
+    Existe por un pedido concreto y repetido: «me sigue pidiendo licencia
+    cuando abro el Owner». Hasta acá las CINCO causas posibles —no es un
+    paquete Owner, es el de clientes, el sello no se inyectó, el sello no
+    valida, el sello venció— daban exactamente la misma pantalla y ningún
+    mensaje. Con eso, la única forma de averiguarlo era leer el código.
+
+    Devuelve `{estado, detalle, ruta, credencial}`. `credencial` dice si hay
+    una credencial del dueño guardada y válida, que desbloquea igual aunque
+    el sello del paquete no sirva.
+    """
+    base = base or base_probable()
+    ruta = os.path.join(base, ARCHIVO)
+    credencial = False
+    try:
+        from kobra import config as kconfig
+        from kobra import owner as kowner
+        guardada = kconfig.leer_extra(CLAVE_OWNER_CREDENCIAL)
+        credencial = bool(guardada) and kowner.verificar(guardada)
+    except Exception:
+        credencial = False
+
+    ed = leer(base)
+    if ed is None:
+        return {"estado": SELLO_SIN_EDICION, "ruta": ruta,
+                "credencial": credencial,
+                "detalle": ("Este paquete no trae edicion.json: no es la "
+                            "edición Owner. Si instalaste las dos copias, "
+                            "puede que estés abriendo la de clientes.")}
+    if not ed.get("owner"):
+        return {"estado": SELLO_NO_OWNER, "ruta": ruta,
+                "credencial": credencial,
+                "detalle": (f"Este paquete es la edición "
+                            f"«{ed.get('edition') or 'de clientes'}», no la "
+                            f"del dueño.")}
+
+    token = (ed.get("token_owner") or "").strip()
+    if not token:
+        return {"estado": SELLO_AUSENTE, "ruta": ruta,
+                "credencial": credencial,
+                "detalle": ("El paquete dice ser Owner pero no trae el sello "
+                            "firmado. Se construyó sin KOBRA_OWNER_SELLO.")}
+    try:
+        import jwt
+
+        from backend_venta import licencia_clave
+        claims = jwt.decode(token, licencia_clave.PUBLICA,
+                            algorithms=[licencia_clave.ALGORITMO])
+    except Exception as e:
+        vencido = type(e).__name__ == "ExpiredSignatureError"
+        return {"estado": SELLO_VENCIDO if vencido else SELLO_INVALIDO,
+                "ruta": ruta, "credencial": credencial,
+                "detalle": ("El sello Owner venció: emitilo de nuevo con "
+                            "packaging/generar_sello_owner.bat y volvé a "
+                            "construir." if vencido else
+                            "El sello Owner no valida contra la clave pública "
+                            "del programa: se firmó con otra privada o el "
+                            "archivo quedó cortado.")}
+    if claims.get("plan") != "owner":
+        return {"estado": SELLO_INVALIDO, "ruta": ruta,
+                "credencial": credencial,
+                "detalle": ("El token del paquete es una licencia común, no "
+                            "un sello Owner.")}
+    return {"estado": SELLO_OK, "ruta": ruta, "credencial": credencial,
+            "detalle": "El sello Owner es válido: la copia entra sin licencia."}
 
 
 def vigencia() -> dict:

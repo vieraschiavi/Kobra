@@ -807,7 +807,25 @@ def licencia_estado():
     if _es_owner():
         return {"standalone": True, "activa": True, "owner": True,
                 "plan": "owner", "trial": False, "dias_restantes": None}
-    return {"standalone": True, **_estado_licencia(kconfig.leer_extra(_CLAVE_LICENCIA))}
+    estado = {"standalone": True,
+              **_estado_licencia(kconfig.leer_extra(_CLAVE_LICENCIA))}
+
+    # Si el paquete DICE ser Owner y sin embargo llegamos hasta acá, el sello
+    # no sirvió. Se informa por qué: las cinco causas posibles daban la misma
+    # pantalla de licencia sin una palabra de explicación.
+    #
+    # El campo aparece SOLO cuando el paquete se declara Owner. En la copia de
+    # un cliente la respuesta es idéntica a la de siempre: no se le cuenta que
+    # existe otra edición ni cómo se desbloquea.
+    try:
+        diag = kedicion.diagnostico_sello()
+        if diag["estado"] in (kedicion.SELLO_AUSENTE, kedicion.SELLO_INVALIDO,
+                              kedicion.SELLO_VENCIDO):
+            estado["sello"] = {"estado": diag["estado"],
+                               "detalle": diag["detalle"]}
+    except Exception:
+        pass                      # un diagnóstico roto no bloquea el arranque
+    return estado
 
 
 @app.get("/api/plan")

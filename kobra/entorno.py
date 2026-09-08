@@ -201,6 +201,33 @@ def _ascii(texto: str) -> str:
             .encode("ascii", "ignore").decode("ascii"))
 
 
+def _lineas_edicion() -> list[str]:
+    """La edición de esta copia y, si dice ser Owner y no lo es, por qué.
+
+    Sin esto, «me sigue pidiendo licencia en el Owner» solo se podía
+    responder leyendo el código: las cinco causas posibles dan exactamente la
+    misma pantalla.
+    """
+    try:
+        from kobra import edicion as kedicion
+        d = kedicion.diagnostico_sello()
+    except Exception as e:                       # nunca romper el diagnóstico
+        return [f"[INFO] Edicion: no se pudo determinar ({type(e).__name__})"]
+
+    ok = d["estado"] == kedicion.SELLO_OK or d["credencial"]
+    lineas = [f"[{'OK' if ok else 'AVISO'}] Edicion de esta copia",
+              f"       {_ascii(d['detalle'])}",
+              f"       Archivo: {_ascii(d['ruta'])}"]
+    if d["credencial"]:
+        lineas.append("       Hay una credencial de dueno activada: entra "
+                      "como Owner igual.")
+    elif d["estado"] != kedicion.SELLO_OK:
+        lineas += ["", "       COMO ENTRAR AHORA:",
+                   "       Pega tu credencial de dueno (mail|codigo) en el "
+                   "campo de licencia."]
+    return lineas
+
+
 def informe_texto(carpeta_datos: str | None = None) -> str:
     """El diagnóstico como texto plano, para pegar en un mail a IT.
 
@@ -218,6 +245,11 @@ def informe_texto(carpeta_datos: str | None = None) -> str:
             lineas += ["", "       QUE PEDIR A IT:",
                        f"       {_ascii(c['remedio'])}"]
         lineas.append("")
+    # Qué edición es esta copia. Va en el mismo informe porque es la pregunta
+    # que aparece cuando el programa "no abre como debería", y hasta acá la
+    # copia del dueño que pedía licencia no daba ninguna pista de por qué.
+    lineas += _lineas_edicion() + [""]
+
     lineas.append("=" * 52)
     if r["apto"]:
         lineas.append("RESULTADO: esta maquina puede correr MV Kobra AI.")
