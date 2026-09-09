@@ -15,6 +15,42 @@
 # Después se entra con  http://localhost:8000/?t=EL-TOKEN
 
 services:
+  # La app completa para el SERVIDOR O LA VM DEL CLIENTE.
+  #
+  # Es el modo para trabajar desde una laptop corporativa donde no se puede
+  # instalar nada: el programa corre acá, se usa por el navegador, y la cartera
+  # del cliente queda en los volúmenes de ESTA máquina. Nada se copia a la
+  # laptop de quien lo usa, que es la pregunta que hace el área de seguridad.
+  #
+  #   KOBRA_OWNER_TOKEN=...  docker compose up -d app
+  #   Navegador:             http://<este-servidor>:8080
+  app:
+    build: .
+    image: kobra:latest
+    command: ["app"]
+    ports:
+      # 127.0.0.1 a propósito: por defecto solo se llega desde la propia
+      # máquina (o por un túnel SSH), porque este modo entra SIN contraseña.
+      # Para exponerlo en la red del cliente, sacar el prefijo y poner el
+      # servicio detrás de su proxy con autenticación. Está explicado en
+      # docs/MODOS_INSTALACION.md.
+      - "127.0.0.1:8080:8080"
+    environment:
+      - PORT=8080
+      - KOBRA_CONFIG_DIR=/config
+      # El sello firmado del dueño: entra sin licencia y sin trial. NO va
+      # dentro de la imagen — se pasa acá o como secreto montado en archivo
+      # (KOBRA_OWNER_TOKEN_FILE).
+      - KOBRA_OWNER_TOKEN=${KOBRA_OWNER_TOKEN:-}
+      - KOBRA_OWNER_TOKEN_FILE=${KOBRA_OWNER_TOKEN_FILE:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - kobra-config:/config
+      - kobra-data:/app/data
+      - kobra-outputs:/app/outputs
+    restart: unless-stopped
+
   dashboard:
     build: .
     image: kobra:latest

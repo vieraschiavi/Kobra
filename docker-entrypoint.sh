@@ -9,6 +9,34 @@ set -e
 [ -f outputs/kobra_bundle.json ] || python -m kobra.pipeline
 
 case "${1:-dashboard}" in
+  app)
+    # La app completa (React + FastAPI) para el servidor o la VM del cliente.
+    #
+    # Entra sin pedir licencia porque el sello Owner viaja por el entorno
+    # (`kobra/edicion.py::es_owner` lo verifica contra la pública embebida).
+    # El sello es una CREDENCIAL: llega por variable de entorno o por secreto
+    # del orquestador, nunca horneado en la imagen — una imagen con el sello
+    # adentro convierte a cualquiera que la baje en el dueño.
+    if [ -z "${KOBRA_OWNER_TOKEN:-}" ] && [ -n "${KOBRA_OWNER_TOKEN_FILE:-}" ]; then
+      # Secreto montado como archivo (docker secrets / Kubernetes): la vía que
+      # no deja la credencial en `docker inspect` ni en el historial del shell.
+      KOBRA_OWNER_TOKEN="$(cat "${KOBRA_OWNER_TOKEN_FILE}")"
+      export KOBRA_OWNER_TOKEN
+    fi
+    if [ -z "${KOBRA_OWNER_TOKEN:-}" ]; then
+      echo "ERROR: falta KOBRA_OWNER_TOKEN (o KOBRA_OWNER_TOKEN_FILE)." >&2
+      echo "Sin el sello firmado, la app arrancaria pidiendo licencia — que es" >&2
+      echo "exactamente lo que este modo viene a evitar. Emitilo una vez con" >&2
+      echo "packaging/generar_sello_owner.bat y pasalo como variable." >&2
+      exit 1
+    fi
+    # Sin contraseña: el gateo es el sello, no un login. Ver la advertencia de
+    # docs/MODOS_INSTALACION.md sobre publicar este puerto en una red donde
+    # llegue alguien más.
+    export KOBRA_MODO_STANDALONE=1
+    exec python -m uvicorn webapp.backend.api:app \
+      --host 0.0.0.0 --port "${PORT:-8080}" --log-level warning
+    ;;
   dashboard)
     exec streamlit run app/app.py \
       --server.port "${PORT:-8501}" --server.address 0.0.0.0 --server.headless true
