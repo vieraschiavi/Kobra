@@ -87,6 +87,14 @@ data/*.lock
 data/*.db
 data/tenants/
 outputs/
+# ...salvo el modelo entrenado y su selección. `docker-entrypoint.sh` corre
+# `kobra.pipeline` si falta el bundle, pero NO corre `kobra.train`: sin estos
+# dos archivos el contenedor sirve el modelo de fallback, y medido sobre la
+# cartera de la demo eso mueve de decil a 4.635 de 12.000 deudores (38,6%),
+# con hasta 0,43 de diferencia en ProbPago. O sea: la priorización que ve el
+# cliente sería otra, sin ningún aviso.
+!outputs/probpago_model.joblib
+!outputs/model_selection.json
 .uploads/
 .streamlit/
 **/*.log

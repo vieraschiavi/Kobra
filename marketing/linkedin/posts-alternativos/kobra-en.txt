@@ -8,12 +8,14 @@ The honest number is the other one: how far the model falls on a slice you never
 
 I recorded the platform I'm building showing exactly that, on screen, unprompted:
 
-· Walk-forward AUC: 0.8381
+· Origination scoring AUC: 0.8381
 · KS: 0.5662
-· Against the rule the business uses today: +0.2134
+· Against a typical loan-officer rule ("decline if there were past arrears or income is in the bottom quartile"): +0.2134
 · AutoML selection→holdout gap: +0.0729
 
-Temporal validation: 75% past to train, 25% future to evaluate. Never random — in collections, time order IS the signal.
+Two things a technical reader will ask, so I'll answer them first. One: the dataset is synthetic and has no regime change, so splitting by application date demonstrates the validation mechanics, not robustness to a shifting market. Two: the officer rule is binary, so its AUC is structurally handicapped — that 0.2134 gap is inflated by the comparison.
+
+The collections model (ProbPago) is validated differently, and that's worth saying out loud: the portfolio is a cross-section with no time axis, so there the split is stratified random. With real data, which arrives with dates, it becomes walk-forward.
 
 That +0.0729 is the uncomfortable number. We leave it visible anyway, because a model that hides its own drop is a model you can't put money decisions on.
 

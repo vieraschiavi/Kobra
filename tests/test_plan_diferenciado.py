@@ -54,8 +54,7 @@ def _entorno(tmp_path, monkeypatch, plan=None, owner=False, sub="cliente-1",
     if plan:
         from backend_venta import licencias as klicencias
         token = klicencias.emitir_licencia(sub, plan, cupo_mensual=cupo,
-                                           features=features, dias=dias,
-                                           secreto=SECRETO)
+                                           features=features, dias=dias)
         kconfig.guardar_extra("LICENCIA_TOKEN", token)
     return kplan
 
@@ -252,7 +251,7 @@ def test_una_licencia_nueva_no_hereda_lo_gastado(tmp_path, monkeypatch):
     from backend_venta import licencias as klicencias
     from kobra import config as kconfig
     kconfig.guardar_extra("LICENCIA_TOKEN",
-                          klicencias.emitir_licencia("empresa-B", "pro", secreto=SECRETO))
+                          klicencias.emitir_licencia("empresa-B", "pro"))
     # En producción esto lo hace el endpoint que activa la licencia
     # (`webapp/backend/api.py::licencia_activar`) inmediatamente después de
     # guardar el token nuevo — si no, el caché corto de `claims()` seguiría
@@ -280,7 +279,7 @@ def test_activar_la_licencia_invalida_el_cache_sola(tmp_path, monkeypatch):
     cliente = TestClient(api.app)
 
     from backend_venta import licencias as klicencias
-    token_b = klicencias.emitir_licencia("empresa-B", "pro", secreto=SECRETO)
+    token_b = klicencias.emitir_licencia("empresa-B", "pro")
     r = cliente.post("/api/licencia/activar", json={"token": token_b})
     assert r.status_code == 200
 
@@ -343,8 +342,7 @@ def test_un_cupo_agotado_no_es_un_secuestro_de_datos(tmp_path, monkeypatch):
     informes y sus exportaciones. Solo se le corta GENERAR gestiones nuevas."""
     kplan, cliente = _api(tmp_path, monkeypatch)
     from backend_venta import licencias as klicencias
-    token = klicencias.emitir_licencia("empresa-X", "basico", cupo_mensual=1,
-                                       secreto=SECRETO)
+    token = klicencias.emitir_licencia("empresa-X", "basico", cupo_mensual=1)
     r = cliente.post("/api/licencia/activar", json={"token": token})
     assert r.status_code == 200
     cab = {"Authorization": f"Bearer {r.json()['token']}"}
@@ -373,8 +371,7 @@ def test_la_api_niega_lo_que_el_plan_no_incluye(tmp_path, monkeypatch):
     # Un plan sin ERP (se emite explícito: hoy todos los planes lo traen, y
     # el día que se venda uno sin integración el gateo ya está puesto).
     token = klicencias.emitir_licencia("empresa-Y", "basico",
-                                       features=["voz", "whatsapp", "copiloto"],
-                                       secreto=SECRETO)
+                                       features=["voz", "whatsapp", "copiloto"])
     r = cliente.post("/api/licencia/activar", json={"token": token})
     cab = {"Authorization": f"Bearer {r.json()['token']}"}
 

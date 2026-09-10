@@ -116,10 +116,56 @@ def test_una_licencia_firmada_con_otra_clave_no_entra(
     assert not klic.licencia_activa(token)["ok"]
 
 
+def test_el_usuario_no_elige_la_llave_con_la_que_se_valida_su_licencia(
+        tmp_path, monkeypatch):
+    """Una variable de entorno no puede ganarle al secreto sellado del paquete.
+
+    Las licencias del checkout web se firman HS256 con un secreto compartido
+    que viaja adentro de la edición. `edicion.activar()` lo publicaba con
+    `os.environ.setdefault(...)`, o sea RESPETANDO lo que el usuario ya
+    hubiera puesto. Y ese secreto es contra el que se verifica la licencia,
+    así que quien abría el programa con
+
+        export KOBRA_LICENSE_SECRET=me-lo-invento-yo
+
+    elegía la llave con la que se iba a validar su propia licencia y se
+    firmaba un `enterprise` a 99 años. Offline: no hay dónde notarlo.
+
+    Es el mismo razonamiento que el propio módulo ya tenía escrito para el
+    sello Owner doce líneas más arriba —"un KOBRA_OWNER=1 puesto a mano valía
+    tanto como el sello verificado"—, que no se había aplicado acá.
+    """
+    import json
+
+    from kobra import edicion as kedicion
+    paquete = tmp_path / "paquete"
+    paquete.mkdir()
+    (paquete / kedicion.ARCHIVO).write_text(json.dumps(
+        {"edition": "Pro", "plan": "pro", "dias": 365,
+         "secreto": "el-secreto-que-vino-sellado-en-el-paquete"}),
+        encoding="utf-8")
+
+    monkeypatch.setenv("KOBRA_LICENSE_SECRET", "me-lo-invento-yo")
+    kedicion.activar(str(paquete))
+
+    import os
+    assert os.environ["KOBRA_LICENSE_SECRET"] == (
+        "el-secreto-que-vino-sellado-en-el-paquete"), (
+        "el usuario pudo elegir contra qué llave se valida su licencia")
+
+
 def test_el_camino_hosted_con_secreto_compartido_sigue_andando(
         instalacion_limpia, monkeypatch):
     """En hosted el mismo proceso emite y valida, así que HS256 alcanza y no
-    hay que desplegar ninguna clave. Ese camino no se rompe."""
+    hay que desplegar ninguna clave.
+
+    Este camino NO se toca, y no es un detalle: es el que usa el checkout web
+    (`api/_license.js` firma HS256 con el secreto compartido, ver
+    `tests/test_licencia_puente.py`). Romperlo dejaría a un cliente que pagó
+    con "Licencia inválida", que es exactamente el bug que aquel archivo
+    existe para que no vuelva a pasar.
+    """
+    monkeypatch.delenv("KOBRA_LICENSE_PRIVATE_KEY", raising=False)
     monkeypatch.setenv("KOBRA_LICENSE_SECRET", "secreto-compartido-de-prueba")
     import importlib
     importlib.reload(klic)

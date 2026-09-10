@@ -501,7 +501,7 @@
     "mejora_conversion": "Brecha de conversión",
     "mejora_recupero_prom": "Recupero prom. por gestión",
     "mejora_recupero_adicional": "Recupero adicional potencial",
-    "mejora_nota": "Estimación ilustrativa a partir de la brecha real observada entre ambos grupos (datos sintéticos de demo).",
+    "mejora_nota": "Cifra de demostración: ilustra el cálculo, no un resultado. En estos datos sintéticos la ventaja del Gestor IA está fijada por el generador. Sobre tu operación, la misma cuenta se hace con la brecha que midan tus gestores.",
     "audio_titulo": "Cargar y evaluar una llamada (MP3/WAV)",
     "audio_sub": "Subí una grabación real: se transcribe por hablante y se evalúa contra la rúbrica de 14 criterios. Podés escuchar la llamada mientras revisás el puntaje.",
     "audio_boton": "Transcribir y evaluar",

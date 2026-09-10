@@ -74,6 +74,88 @@ def _sin_owner_heredado():
             os.environ[k] = v
 
 
+_PAR_LICENCIAS: tuple[str, str] | None = None
+
+
+def _par_licencias() -> tuple[str, str]:
+    """Par RSA de prueba, generado una sola vez por corrida."""
+    global _PAR_LICENCIAS
+    if _PAR_LICENCIAS is None:
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+
+        k = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        _PAR_LICENCIAS = (
+            k.private_bytes(serialization.Encoding.PEM,
+                            serialization.PrivateFormat.PKCS8,
+                            serialization.NoEncryption()).decode(),
+            k.public_key().public_bytes(
+                serialization.Encoding.PEM,
+                serialization.PublicFormat.SubjectPublicKeyInfo).decode())
+    return _PAR_LICENCIAS
+
+
+def pytest_runtest_setup(item):
+    """Reponer la privada de prueba ANTES de cada test, fixtures incluidos.
+
+    No alcanza con ponerla una vez al arrancar la sesión, y el motivo es una
+    conducta CORRECTA del producto: `packaging/generar_sello_owner.py` borra
+    `KOBRA_LICENSE_PRIVATE_KEY` de `os.environ` apenas termina de firmar, para
+    no dejar la clave del dueño dando vueltas en el proceso —hay un test que
+    lo exige, `test_no_deja_la_clave_en_el_entorno`—. Esa limpieza se lleva
+    puesta la variable del fixture, y a partir de ahí toda la suite vuelve a
+    emitir HS256: 70 tests en rojo, ninguno reproducible corriendo el archivo
+    solo.
+
+    Este hook corre antes que los fixtures del test —también los de scope
+    módulo, que es donde `test_e2e_escenarios.py` emite su licencia—, así que
+    es el único lugar desde el que se puede reponer a tiempo. Un test que
+    quiera correr SIN privada la saca con `monkeypatch.delenv`, que se aplica
+    después y se deshace al terminar.
+    """
+    import os
+    privada, publica = _par_licencias()
+    os.environ["KOBRA_LICENSE_PRIVATE_KEY"] = privada
+    from backend_venta import licencia_clave
+    licencia_clave.PUBLICA = publica
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _licencias_firmadas_como_en_produccion():
+    """La suite emite y valida licencias por el MISMO camino que un cliente.
+
+    Antes no: sin `KOBRA_LICENSE_PRIVATE_KEY`, `emitir_licencia` caía a HS256
+    con un secreto de entorno, y `validar_licencia` tenía un fallback que lo
+    aceptaba. O sea que decenas de tests ejercitaban un camino que en una
+    instalación real es un agujero —el cliente pone la variable y se firma su
+    propia licencia enterprise— y NINGUNO ejercitaba el camino asimétrico, que
+    es el único que de verdad corre en la máquina de un comprador.
+
+    Con este fixture, `emitir_licencia` firma RS256 (hay privada) y la
+    validación verifica contra esta pública. Un test que quiera el otro camino
+    lo pide explícito, que es como quedó la interfaz: pasando `secreto=`.
+
+    **Es de sesión y no de función a propósito.** Pytest instancia primero los
+    fixtures de scope más ancho, así que uno de función llega TARDE para un
+    `_montar()` que vive en un fixture de módulo (`test_e2e_escenarios.py`):
+    ese módulo emitía su licencia antes de que existiera la privada y se
+    quedaba sin plan. Costó diez tests en rojo encontrarlo.
+
+    Generar una clave de 2048 bits cuesta decenas de milisegundos; una sola vez
+    por corrida no se nota, una por test sí.
+
+    La reposición por test la hace `pytest_runtest_setup` (arriba): el producto
+    borra la privada del entorno después de firmar un sello, y sin reponerla la
+    suite entera se cae detrás de ese test.
+    """
+    privada, publica = _par_licencias()
+    from backend_venta import licencia_clave
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("KOBRA_LICENSE_PRIVATE_KEY", privada)
+        mp.setattr(licencia_clave, "PUBLICA", publica)
+        yield
+
+
 @pytest.fixture()
 def par_owner(monkeypatch):
     """Par RSA de prueba, ya instalado como la pública que valida el programa.

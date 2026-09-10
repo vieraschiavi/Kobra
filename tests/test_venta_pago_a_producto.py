@@ -179,7 +179,13 @@ def test_una_licencia_de_otro_vendedor_no_activa_la_app(tmp_path, monkeypatch):
     que el usuario entienda, no con un 500."""
     script = ('const {sign} = require("./api/_license");'
               'process.stdout.write(sign({plan:"pro",pid:"1"}, "secreto-de-otro-vendedor"));')
-    r = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True, text=True)
+    r = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+                       text=True,
+                       # Sin la privada: acá se simula un vendedor que firma
+                       # HS256 con SU secreto. Con la privada en el entorno,
+                       # `_license.js` firmaria RS256 y la app la aceptaria.
+                       env={k: v for k, v in os.environ.items()
+                            if k != "KOBRA_LICENSE_PRIVATE_KEY"})
     assert r.returncode == 0, r.stderr
 
     cliente = _app_instalada(tmp_path, monkeypatch)

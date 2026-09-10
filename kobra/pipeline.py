@@ -110,7 +110,13 @@ def run():
         json.dump(bundle["metrics"], f, ensure_ascii=False, indent=2)
 
     # 5) Data file JS para el dashboard estático (funciona con file://)
-    dash_dir = os.path.join(ROOT, "dashboard_estatico")
+    #
+    # Va a DIR_DATOS y no a ROOT: en el .exe empaquetado y en un contenedor con
+    # `read_only: true`, la carpeta del programa NO se puede escribir. Escribir
+    # acá mataba el pipeline con `OSError: [Errno 30] Read-only file system`
+    # DESPUÉS de entrenar y scorear — o sea, quemando todo el cómputo para
+    # abortar en el último paso. `kobra/rutas.py` existe justamente para esto.
+    dash_dir = os.path.join(krutas.DIR_DATOS, "dashboard_estatico")
     os.makedirs(dash_dir, exist_ok=True)
     with open(os.path.join(dash_dir, "kobra_data.js"), "w", encoding="utf-8") as f:
         f.write("window.KOBRA = ")
@@ -130,9 +136,25 @@ def run():
 def _analitica_gestiones():
     """Genera (si falta) el historial de gestiones y exporta la analítica."""
     from kobra import analitica
-    gest_csv = os.path.join(ROOT, "data", "kobra_gestiones.csv")
-    if not os.path.exists(gest_csv):
+    # Leer y escribir no van al mismo lado, y la asimetría es a propósito:
+    #
+    #   * se LEE el que exista — primero el de datos, después el que viene
+    #     dentro del paquete, que en una instalación empaquetada es el de la
+    #     demo y es perfectamente válido;
+    #   * se ESCRIBE siempre en DIR_DATOS, porque generar es escribir y la
+    #     carpeta del programa puede ser de solo lectura (.exe instalado en
+    #     Program Files, contenedor con `read_only: true`).
+    #
+    # Antes las dos cosas apuntaban a ROOT y el pipeline moría con
+    # `OSError: [Errno 30] Read-only file system` justo al final.
+    gest_datos = os.path.join(krutas.DIR_DATOS, "data", "kobra_gestiones.csv")
+    gest_paquete = os.path.join(ROOT, "data", "kobra_gestiones.csv")
+    gest_csv = next((r for r in (gest_datos, gest_paquete) if os.path.exists(r)),
+                    None)
+    if gest_csv is None:
         from data.generate_gestiones import generar as gen_g
+        gest_csv = gest_datos
+        os.makedirs(os.path.dirname(gest_csv), exist_ok=True)
         gen_g(42).to_csv(gest_csv, index=False)
     g = pd.read_csv(gest_csv)
     with pd.ExcelWriter(os.path.join(OUT_DIR, "kobra_analitica_gestion.xlsx"),

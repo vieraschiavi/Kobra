@@ -201,6 +201,11 @@ ADENTRO = [
     "data/generate_gestiones.py",
     "app/app.py",
     "env.example",
+    # El entrypoint corre `kobra.pipeline` pero no `kobra.train`: si el modelo
+    # entrenado no viaja, el contenedor sirve el de fallback y la priorización
+    # que ve el cliente es otra (38,6% de la cartera cambia de decil).
+    "outputs/probpago_model.joblib",
+    "outputs/model_selection.json",
 ]
 
 

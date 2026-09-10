@@ -445,8 +445,20 @@ def evolucion(gestiones, canal: str | None = None) -> dict:
 
 def mejora_potencial(gestiones, canal: str | None = None) -> dict:
     """Cuánto MEJORARÍA la cobranza si los gestores humanos alcanzaran la
-    calidad (y por ende la efectividad) del Gestor IA. Estimación honesta a
-    partir de la brecha real observada entre ambos grupos."""
+    calidad (y por ende la efectividad) del Gestor IA.
+
+    La brecha entre los dos grupos se mide sobre los datos que haya cargados.
+    En la demo, esos datos son sintéticos y la ventaja del Gestor IA está
+    FIJADA por el generador (`data/generate_gestiones.py` escribe la calidad
+    de la IA en 84.0), así que el monto que sale de acá ilustra la cuenta, no
+    un resultado. Decir "brecha real observada" en esa situación es lo único
+    que convierte una demo honesta en una afirmación falsa, y encima sobre el
+    número más grande de la pantalla: un monto en pesos que un gerente lleva a
+    un directorio.
+
+    Sobre la operación de un cliente, la misma cuenta se hace con la brecha
+    que midan sus propios gestores, y ahí sí es observada.
+    """
     g = _filtrar(gestiones, canal, None)
     if g is None or g.empty or "tipo_gestor" not in g.columns:
         return None

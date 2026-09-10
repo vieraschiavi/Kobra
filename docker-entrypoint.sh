@@ -30,12 +30,27 @@ case "${1:-dashboard}" in
       echo "packaging/generar_sello_owner.bat y pasalo como variable." >&2
       exit 1
     fi
-    # Sin contraseña: el gateo es el sello, no un login. Ver la advertencia de
-    # docs/MODOS_INSTALACION.md sobre publicar este puerto en una red donde
-    # llegue alguien más.
+    # Sin contraseña: el gateo es el sello, no un login.
+    #
+    # Adentro del contenedor 0.0.0.0 es lo correcto y no una imprudencia —el
+    # contenedor tiene su propio namespace de red, y un proceso atado a SU
+    # loopback no responde por el puerto publicado; es el mismo razonamiento
+    # que está escrito más abajo para el servicio en vivo. Quien decide la
+    # exposición real es el que publica el puerto: el compose lo hace en
+    # 127.0.0.1.
+    #
+    # El agujero es `docker run -p 8080:8080`, que publica en 0.0.0.0 del host.
+    # Ahí cualquiera que llegue al puerto se pide un token de admin en
+    # /api/licencia/owner-login SIN credencial, porque el proceso ya está en
+    # modo owner. Por eso el arranque lo dice en voz alta en vez de dejarlo
+    # solo escrito en la doc, y por eso el bind se puede fijar a mano.
     export KOBRA_MODO_STANDALONE=1
+    KOBRA_APP_HOST="${KOBRA_APP_HOST:-0.0.0.0}"
+    echo "MV Kobra AI - modo servidor. Entra SIN contrasena (el sello es la" >&2
+    echo "puerta). Publica este puerto en 127.0.0.1 o detras de un proxy con" >&2
+    echo "autenticacion: quien llegue al puerto entra como duenio." >&2
     exec python -m uvicorn webapp.backend.api:app \
-      --host 0.0.0.0 --port "${PORT:-8080}" --log-level warning
+      --host "${KOBRA_APP_HOST}" --port "${PORT:-8080}" --log-level warning
     ;;
   dashboard)
     exec streamlit run app/app.py \
