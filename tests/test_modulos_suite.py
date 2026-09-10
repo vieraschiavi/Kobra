@@ -57,7 +57,7 @@ def _plan_activo(tmp_path, monkeypatch, plan, features=None):
     importlib.reload(kplan)
 
     token = klicencias.emitir_licencia("cliente-test", plan,
-                                       features=features, secreto=SECRETO)
+                                       features=features)
     kconfig.guardar_extra("LICENCIA_TOKEN", token)
     return kplan
 
@@ -230,7 +230,7 @@ def test_la_licencia_de_un_modulo_no_trae_cupo_de_cobranzas(tmp_path, monkeypatc
     from kobra import plan as kplan
     importlib.reload(kplan)
 
-    token = klicencias.emitir_modulo("distribuidora", "logistica", secreto=SECRETO)
+    token = klicencias.emitir_modulo("distribuidora", "logistica")
     kconfig.guardar_extra("LICENCIA_TOKEN", token)
 
     assert kplan.permite("logistica") is True

@@ -60,7 +60,7 @@ def _montar(tmp_path, monkeypatch, plan="basico"):
 
     from backend_venta import licencias as klic
     kconfig.guardar_extra("LICENCIA_TOKEN",
-                          klic.emitir_licencia("cliente-tab", plan, secreto=SECRETO))
+                          klic.emitir_licencia("cliente-tab", plan))
 
     from webapp.backend import api
     importlib.reload(api)

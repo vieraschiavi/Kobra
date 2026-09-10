@@ -140,7 +140,22 @@ def activar(base: str) -> dict | None:
         ed = {k: v for k, v in ed.items() if k != "owner"}
     secreto, token = ed.get("secreto"), ed.get("token")
     if secreto:
-        os.environ.setdefault("KOBRA_LICENSE_SECRET", secreto)
+        # Asignación y no `setdefault`, por el MISMO motivo que está escrito
+        # doce líneas más arriba para el sello Owner.
+        #
+        # `setdefault` respeta lo que el usuario ya haya puesto en el entorno.
+        # Y ese secreto es con el que se valida la licencia (`secreto_firma()`
+        # en backend_venta/licencias.py), así que quien abría el programa con
+        #
+        #     export KOBRA_LICENSE_SECRET=me-lo-invento-yo
+        #
+        # elegía la llave contra la que se iba a verificar su propia licencia,
+        # y a partir de ahí se firmaba un `enterprise` a 99 años. La validación
+        # es 100% offline: no hay ningún lugar donde eso se note.
+        #
+        # El secreto de la edición viene adentro del paquete y es el que
+        # corresponde a las licencias que emite el checkout. Manda ese.
+        os.environ["KOBRA_LICENSE_SECRET"] = secreto
     if token:
         try:
             from kobra import config as kconfig

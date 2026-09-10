@@ -1,7 +1,114 @@
-.git
-__pycache__/
-*.pyc
+# Qué NO viaja adentro de la imagen.
+#
+# Esto no es higiene para que la imagen pese menos. La imagen de este repo está
+# pensada para correr en el SERVIDOR DE UN CLIENTE (docs/MODOS_INSTALACION.md):
+# la construye el dueño en su máquina y la corre gente de otra empresa. Todo lo
+# que quede adentro se lo estás entregando.
+#
+# Dos cosas que no son obvias y que este archivo tenía mal:
+#
+# 1. `Dockerfile` hace `COPY . .`, y COPY copia el contexto de build tal como
+#    está EN EL DISCO, no lo que está commiteado. Que un archivo esté en
+#    `.gitignore` no lo saca del contexto: son dos listas distintas, y para la
+#    imagen manda esta. El razonamiento que el `.gitignore` ya tiene escrito
+#    sobre `.env` y sobre `packaging/Owner.bat` vale igual acá.
+#
+# 2. Los patrones son RELATIVOS A LA RAÍZ del contexto y `*` no cruza `/`. O
+#    sea que `node_modules/` a secas no tapa `webapp/frontend/node_modules`, y
+#    `*.pyc` no tapa `kobra/__pycache__/x.pyc`. Para lo anidado va `**/`.
+#
+#    Y si `**/` cubre además el caso de cero carpetas —o sea, si `**/.env`
+#    tapa el `.env` de la raíz— depende de la implementación. Acá no se
+#    apuesta: lo que no puede filtrarse va escrito en las DOS formas, la de
+#    raíz y la anidada. Una regla repetida no cuesta nada; una imagen con la
+#    privada de licencias adentro cuesta el producto.
+
+# --- Credenciales -----------------------------------------------------------
+# Un `.env` de este proyecto es por definición un archivo de secretos: el
+# README manda a poner ahí OPENAI_API_KEY, ANTHROPIC_API_KEY, MP_ACCESS_TOKEN,
+# TWILIO_AUTH_TOKEN y —la peor— KOBRA_LICENSE_PRIVATE_KEY. Esa privada firma
+# las licencias y los sellos Owner: adentro de una imagen que corre en otra
+# empresa, cualquiera se emite las suyas y el producto se termina. Y
+# `docker-compose.yml` documenta el `.env` como forma válida de pasar las
+# keys, así que no es un archivo hipotético.
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+**/*.env
+!env.example
+*.pem
+*.key
+*.p12
+*.pfx
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+secrets/
+
+# --- El sello del dueño -----------------------------------------------------
+# El Dockerfile ya argumenta que KOBRA_OWNER_TOKEN nunca va horneado, porque
+# "una imagen con el sello adentro convierte en dueño a cualquiera que la
+# baje". El sello entraba igual por otras dos puertas:
+#   * `edicion.json`, que es donde vive `token_owner`;
+#   * `dist/`, donde `packaging/` deja el ZIP de la edición Owner ya armado —
+#     con su `edicion.json` sellado adentro.
+edicion.json
+licencia.json
+**/edicion.json
+**/licencia.json
+packaging/Owner.bat
+dist/
+build/
+*.spec
+
+# `owner/` es el lanzador de la edición del dueño y su manual. No trae ningún
+# sello adentro (los `.bat` nombran las variables, no las escriben), así que
+# esto no tapa una fuga: lo que evita es entregarle al área de sistemas de un
+# cliente el mapa de cómo se abre la edición sin límites. Nada del runtime lo
+# usa — `owner/ui_dist` solo se monta si el lanzador setea KOBRA_UI_DIST a
+# mano (webapp/backend/api.py:3568), cosa que el contenedor no hace.
+owner/
+
+# La interfaz la compila la etapa `ui` del Dockerfile; un dist local viejo en
+# el contexto solo puede confundir.
+webapp/frontend/dist/
+
+# --- Rastro y estado de quien construye ------------------------------------
+# `data/auditoria.log` es la cadena de auditoría de ESTA instalación: usuario,
+# rol, empresa, filas exportadas. Es el registro de actividad del dueño y no
+# tiene por qué llegar al servidor de un cliente. `outputs/` son exports ya
+# calculados: el entrypoint los regenera solos si faltan, así que lo único que
+# aportarían es viajar viejos.
+data/auditoria.log*
+data/*.lock
+data/*.db
+data/tenants/
+outputs/
+# ...salvo el modelo entrenado y su selección. `docker-entrypoint.sh` corre
+# `kobra.pipeline` si falta el bundle, pero NO corre `kobra.train`: sin estos
+# dos archivos el contenedor sirve el modelo de fallback, y medido sobre la
+# cartera de la demo eso mueve de decil a 4.635 de 12.000 deudores (38,6%),
+# con hasta 0,43 de diferencia en ProbPago. O sea: la priorización que ve el
+# cliente sería otra, sin ningún aviso.
+!outputs/probpago_model.joblib
+!outputs/model_selection.json
 .uploads/
 .streamlit/
-node_modules/
-*.log
+**/*.log
+
+# --- Ruido de build ---------------------------------------------------------
+.git
+.github
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.pyc
+**/node_modules/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+htmlcov/
+.coverage

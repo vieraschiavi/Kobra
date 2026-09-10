@@ -8,12 +8,14 @@ O número honesto é outro: quanto o modelo cai quando você olha um trecho que 
 
 Gravei a plataforma que estou construindo mostrando exatamente isso, na tela, sem ninguém pedir:
 
-· AUC walk-forward: 0,8381
+· AUC do scoring de originação: 0,8381
 · KS: 0,5662
-· Contra a regra que a empresa usa hoje: +0,2134
+· Contra uma regra de analista típica ("recuso se houve atrasos ou a renda está no quartil baixo"): +0,2134
 · Diferença seleção→holdout do AutoML: +0,0729
 
-Validação temporal: 75% do passado para treinar, 25% do futuro para avaliar. Nunca aleatória — em cobrança, a ordem do tempo É a informação.
+Duas coisas que um técnico vai perguntar, então respondo antes. Uma: a base é sintética e sem mudança de regime, então o split por data de solicitação demonstra a mecânica de validação, não robustez a um mercado que se move. Duas: a regra de analista é binária, então o AUC dela joga em desvantagem estrutural — essa diferença de 0,2134 está inflada pela comparação.
+
+O scoring de cobrança (ProbPago) se valida de outro jeito, e vale dizer: a carteira é um corte transversal, sem eixo temporal, então ali o split é aleatório estratificado. Com dados reais, que chegam com data, passa a walk-forward.
 
 Esse +0,0729 é o número incômodo. Deixamos à vista mesmo assim, porque um modelo que esconde a própria queda é um modelo em que você não apoia uma decisão de dinheiro.
 

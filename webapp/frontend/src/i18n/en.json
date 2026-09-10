@@ -501,7 +501,7 @@
     "mejora_conversion": "Conversion gap",
     "mejora_recupero_prom": "Avg. recovery per interaction",
     "mejora_recupero_adicional": "Potential additional recovery",
-    "mejora_nota": "Illustrative estimate based on the real gap observed between the two groups (synthetic demo data).",
+    "mejora_nota": "Demo figure: it illustrates the calculation, not a result. In this synthetic data the AI Agent's advantage is set by the generator. On your operation, the same math runs on the gap your own agents measure.",
     "audio_titulo": "Upload and score a call (MP3/WAV)",
     "audio_sub": "Upload a real recording: it is transcribed by speaker and scored against the 14-criterion rubric. You can listen to the call while you review the score.",
     "audio_boton": "Transcribe and score",

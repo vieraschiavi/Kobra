@@ -142,10 +142,26 @@ if ROL_ACTIVO is None:
 # ----------------------------------------------------------------------------
 # Datos + modelo (cacheado)
 # ----------------------------------------------------------------------------
+def _dato(*partes: str) -> str | None:
+    """El primer archivo que exista: el de DIR_DATOS o el que trae el paquete.
+
+    Este tablero leía siempre de `ROOT` mientras la API leía de `DIR_DATOS`
+    (`webapp/backend/api.py`). Con el programa empaquetado las dos carpetas son
+    distintas, así que las dos pantallas del MISMO producto miraban carteras
+    distintas — y el tablero se caía con `FileNotFoundError` aunque los datos
+    estuvieran perfectamente generados donde correspondía.
+    """
+    for base in (krutas.DIR_DATOS, ROOT):
+        ruta = os.path.join(base, *partes)
+        if os.path.exists(ruta):
+            return ruta
+    return None
+
+
 @st.cache_data(show_spinner="Entrenando ProbPago y corriendo el negociador…")
 def cargar():
-    csv = os.path.join(ROOT, "data", "kobra_cartera.csv")
-    if os.path.exists(csv):
+    csv = _dato("data", "kobra_cartera.csv")
+    if csv:
         df = pd.read_csv(csv)
     else:
         from data.generate_dataset import generar
@@ -171,11 +187,17 @@ df, metrics, importancia = cargar()
 
 @st.cache_data(show_spinner="Cargando historial de gestiones…")
 def cargar_gestiones():
-    csv = os.path.join(ROOT, "data", "kobra_gestiones.csv")
-    if os.path.exists(csv):
+    csv = _dato("data", "kobra_gestiones.csv")
+    if csv:
         return pd.read_csv(csv)
     from data.generate_gestiones import generar as gen_g
-    return gen_g(42)
+    # Con la cartera YA cargada, no leyéndola del disco.
+    #
+    # Esta rama es el plan B para cuando falta el historial, y el generador
+    # abre por su cuenta `data/kobra_cartera.csv`. O sea que el plan B dependía
+    # de un archivo del mismo directorio que faltaba: cuando de verdad hacía
+    # falta, moría con FileNotFoundError. `generar` ya acepta `cartera=`.
+    return gen_g(42, cartera=df)
 
 
 gest = cargar_gestiones()
@@ -2022,7 +2044,12 @@ with tab8:
                               })
         from kobra import cartera_manual as _cm
         contactos = _cm.desde_dataframe(edit)
-    elif modo.startswith(""):
+    # `startswith("")` es SIEMPRE verdadero: acá quedó un string vacío donde
+    # iba el prefijo de la opción (se ve que se perdió un emoji en alguna
+    # edición). Con eso, esta rama se comía también "Traer de mi base de
+    # datos", y la tercera opción del menú era código muerto: se podía elegir
+    # y no pasaba nada.
+    elif modo.startswith("Subir"):
         up = st.file_uploader("Subí un CSV o Excel con columnas: nombre, telefono, deuda "
                               "[, dias_mora]", type=["csv", "xlsx"])
         plantilla = "nombre,telefono,deuda,dias_mora\nWendy,099000001,10000,25\n"

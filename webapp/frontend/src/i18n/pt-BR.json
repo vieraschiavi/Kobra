@@ -501,7 +501,7 @@
     "mejora_conversion": "Diferença de conversão",
     "mejora_recupero_prom": "Recuperação média por atendimento",
     "mejora_recupero_adicional": "Recuperação adicional potencial",
-    "mejora_nota": "Estimativa ilustrativa a partir da diferença real observada entre os dois grupos (dados sintéticos de demonstração).",
+    "mejora_nota": "Número de demonstração: ilustra o cálculo, não um resultado. Nestes dados sintéticos a vantagem do Agente IA está fixada pelo gerador. Na sua operação, a mesma conta se faz com a diferença que seus agentes medirem.",
     "audio_titulo": "Carregar e avaliar uma ligação (MP3/WAV)",
     "audio_sub": "Envie uma gravação real: é transcrita por interlocutor e avaliada com a rubrica de 14 critérios. Você pode ouvir a ligação enquanto revisa a nota.",
     "audio_boton": "Transcrever e avaliar",

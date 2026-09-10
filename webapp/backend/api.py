@@ -195,8 +195,42 @@ def solo_admin(u: Usuario = Depends(usuario_actual)) -> Usuario:
 # ---------------------------------------------------------------------------
 # Datos por empresa (multi-tenant por directorio)
 # ---------------------------------------------------------------------------
+_EMPRESA_PROHIBIDO = re.compile(r"[^a-z0-9-]")
+
+
+def _slug_empresa(empresa: str) -> str:
+    """El nombre de empresa reducido a lo que puede ser un nombre de carpeta.
+
+    Esta regla ya existía, pero solo la aplicaba `tenant_alta`. `auth_setup` y
+    `auth_login` metían el nombre crudo en el JWT, y de ahí salía derecho a
+    `os.path.join(..., "tenants", empresa)`. Con `../../..` la escritura se iba
+    del árbol de datos, y `auth_setup` no pide credenciales en el primer
+    arranque: la cadena entera se hacía sin estar autenticado.
+
+    Ahora la regla vive en un solo lugar y la aplican los tres.
+    """
+    slug = _EMPRESA_PROHIBIDO.sub("-", (empresa or "").strip().lower())[:40].strip("-")
+    if len(slug) < 3:
+        raise HTTPException(
+            400, "El nombre de empresa debe tener al menos 3 caracteres "
+                 "(letras, números o guiones).")
+    return slug
+
+
 def _dir_tenant(empresa: str) -> str:
-    return os.path.join(DIR_DATOS, "data", "tenants", empresa)
+    """La carpeta de datos de una empresa, garantizada adentro del árbol.
+
+    El slug ya saca las barras y los puntos, así que la comprobación de abajo
+    no debería poder fallar. Está igual porque es la última línea antes del
+    disco: cubre un token emitido ANTES de este arreglo (que lleva el nombre
+    sucio adentro y sigue siendo válido hasta que venza) y cualquier futuro
+    cambio del slug que aflojara la regla sin que nadie lo note.
+    """
+    base = os.path.realpath(os.path.join(DIR_DATOS, "data", "tenants"))
+    destino = os.path.realpath(os.path.join(base, _slug_empresa(empresa)))
+    if os.path.commonpath([base, destino]) != base:
+        raise HTTPException(400, "Nombre de empresa inválido.")
+    return destino
 
 
 def _datos_de(empresa: str) -> dict:
@@ -241,19 +275,41 @@ def _modo_cartera(empresa: str) -> str:
     return "demo"
 
 
+def _csv(ruta: str, que: str) -> pd.DataFrame:
+    """Un CSV del disco, con el error contado en vez de un 500 pelado.
+
+    Un archivo de 0 bytes o con una comilla sin cerrar hacía reventar
+    `pd.read_csv` adentro del handler, y el cliente veía «Internal Server
+    Error» en la pantalla de KPIs. No es un error del programa: es un archivo
+    roto, y quien lo tiene que arreglar necesita que se lo digan. El caso no es
+    raro —una carga que se corta a la mitad deja exactamente esto—.
+    """
+    try:
+        return pd.read_csv(ruta)
+    except pd.errors.EmptyDataError as e:
+        raise HTTPException(
+            422, f"El archivo de {que} está vacío. Volvé a cargarlo.") from e
+    except (pd.errors.ParserError, UnicodeDecodeError) as e:
+        # El detalle real queda en el log del servidor por el `from e`; al
+        # cliente no se le manda la ruta del archivo en el disco.
+        raise HTTPException(
+            422, f"El archivo de {que} no se pudo leer: parece dañado o "
+                 f"no es un CSV válido.") from e
+
+
 def _scored(empresa: str) -> pd.DataFrame:
     # El botón demo decide la fuente: real (la subida) o demo (la sintética).
     if _modo_cartera(empresa) == "real":
-        return pd.read_csv(_archivo_real(empresa))
+        return _csv(_archivo_real(empresa), "la cartera")
     ruta = _datos_de(empresa)["scored"]
     if not os.path.exists(ruta):
         raise HTTPException(404, f"La empresa '{empresa}' no tiene cartera scoreada cargada.")
-    return pd.read_csv(ruta)
+    return _csv(ruta, "la cartera scoreada")
 
 
 def _gestiones(empresa: str) -> pd.DataFrame | None:
     ruta = _datos_de(empresa)["gestiones"]
-    return pd.read_csv(ruta) if os.path.exists(ruta) else None
+    return _csv(ruta, "las gestiones") if os.path.exists(ruta) else None
 
 
 # ---------------------------------------------------------------------------
@@ -732,9 +788,12 @@ def auth_setup(datos: SetupIn, request: Request):
     pw = (datos.password or "").strip()
     if len(pw) < 6:
         raise HTTPException(422, "La contraseña debe tener al menos 6 caracteres.")
+    # El nombre se sanea ANTES de firmarlo: lo que entra al token es lo que
+    # después se convierte en una ruta del disco.
+    empresa = _slug_empresa(datos.empresa)
     kauth.establecer_password("admin", pw)
-    return {"token": _emitir_token("admin", datos.empresa), "rol": "admin",
-            "empresa": datos.empresa}
+    return {"token": _emitir_token("admin", empresa), "rol": "admin",
+            "empresa": empresa}
 
 
 @app.post("/api/auth/login")
@@ -767,7 +826,7 @@ def auth_login(datos: LoginIn, request: Request):
     # No se distingue "esa empresa no existe" de "la contraseña no es": las dos
     # dan el mismo 401. Diferenciarlas convierte el login en un enumerador de
     # clientes.
-    empresa = (datos.empresa or EMPRESA_DEFAULT).strip().lower()
+    empresa = _slug_empresa(datos.empresa or EMPRESA_DEFAULT)
     rol = None
     for candidato in ("admin", "gestor"):
         if (kauth.tiene_password(candidato, empresa)
@@ -1353,6 +1412,28 @@ def medidas_guardar(lista: list[MedidaIn], u: Usuario = Depends(solo_admin)):
 # ---------------------------------------------------------------------------
 _MODULO_AUTOML = "el entrenamiento con tus propios datos"
 MAX_MB_DATASET = 50
+# El audio de una llamada larga en WAV sin comprimir pesa más que un CSV de
+# cartera, así que va con su propio tope.
+MAX_MB_AUDIO = 100
+
+
+async def _leer_subida(archivo: UploadFile, max_mb: int) -> bytes:
+    """El contenido de un archivo subido, cortando ANTES de quedarse sin RAM.
+
+    `await archivo.read()` a secas trae el archivo entero a memoria y recién
+    después se mira el tamaño — o sea que el tope llegaba tarde: medido, un
+    CSV de 120 MB llevaba el worker de 286 MB a 1,06 GB de RSS antes de que
+    nadie pudiera rechazarlo. En hosted ese worker es compartido entre
+    clientes, así que la subida de uno se lleva puesta la sesión de otro.
+
+    Pidiendo `max+1` bytes, lo más que entra a memoria es el tope más uno, y
+    ese uno es justamente el que delata que había más.
+    """
+    tope = max_mb * 1024 * 1024
+    contenido = await archivo.read(tope + 1)
+    if len(contenido) > tope:
+        raise HTTPException(413, f"El archivo supera los {max_mb} MB.")
+    return contenido
 
 
 @app.post("/api/automl/columnas")
@@ -1548,10 +1629,7 @@ def automl_bd_entrenar(datos: AutomlBdIn, u: Usuario = Depends(solo_admin)):
 
 async def _leer_dataset(archivo: UploadFile) -> pd.DataFrame:
     """CSV o Excel subido por el cliente, con tope de tamaño."""
-    contenido = await archivo.read()
-    if len(contenido) > MAX_MB_DATASET * 1024 * 1024:
-        raise HTTPException(
-            413, f"El archivo supera los {MAX_MB_DATASET} MB.")
+    contenido = await _leer_subida(archivo, MAX_MB_DATASET)
     nombre = (archivo.filename or "").lower()
     try:
         if nombre.endswith((".xlsx", ".xls")):
@@ -1704,7 +1782,7 @@ async def modulo_cargar(modulo: str, tabla: str,
             400, f"Tabla desconocida para {modulo}: {tabla}. "
                  f"Se esperan: {', '.join(permitidas)}.")
 
-    contenido = await archivo.read()
+    contenido = await _leer_subida(archivo, MAX_MB_DATASET)
     nombre = (archivo.filename or "").lower()
     try:
         df = (pd.read_excel(io.BytesIO(contenido))
@@ -1884,10 +1962,7 @@ def tenant_alta(datos: AltaTenantIn, u: Usuario = Depends(solo_admin)):
     """Crea una empresa nueva con una muestra sintética de la demo, lista
     para entrar (login con la misma contraseña + nombre de empresa). Cierra
     el aprovisionamiento manual que quedaba documentado como pendiente."""
-    import re as _re
-    slug = _re.sub(r"[^a-z0-9-]", "-", datos.empresa.strip().lower())[:40].strip("-")
-    if len(slug) < 3:
-        raise HTTPException(400, "El nombre de empresa debe tener al menos 3 caracteres (letras/números).")
+    slug = _slug_empresa(datos.empresa)
     if slug == EMPRESA_DEFAULT:
         raise HTTPException(400, "Ese nombre está reservado.")
     destino = _dir_tenant(slug)
@@ -2228,7 +2303,7 @@ async def calidad_evaluar_audio(archivo: UploadFile = File(...), canal: str = "L
     # Va acá y no arriba: sin Whisper no se procesa nada, y cobrarle una
     # gestión a quien recibe un aviso de "falta configurar" sería un robo.
     kplan.verificar_cupo()
-    contenido = await archivo.read()
+    contenido = await _leer_subida(archivo, MAX_MB_AUDIO)
     if not contenido:
         raise HTTPException(400, "El archivo llegó vacío.")
 
@@ -2880,7 +2955,7 @@ async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends
     nombre = (archivo.filename or "").lower()
     if not nombre.endswith((".csv", ".xlsx", ".xls")):
         raise HTTPException(400, "Subí un archivo .csv o .xlsx.")
-    contenido = await archivo.read()
+    contenido = await _leer_subida(archivo, MAX_MB_DATASET)
     try:
         df_bruto = (pd.read_csv(io.BytesIO(contenido), dtype=str) if nombre.endswith(".csv")
                     else pd.read_excel(io.BytesIO(contenido), dtype=str))
@@ -2962,7 +3037,7 @@ async def voz_analizar(archivo: UploadFile = File(...), id_deudor: str | None = 
     nombre = (archivo.filename or "").lower()
     if not nombre.endswith((".wav", ".mp3")):
         raise HTTPException(400, "Subí un archivo .wav o .mp3.")
-    contenido = await archivo.read()
+    contenido = await _leer_subida(archivo, MAX_MB_AUDIO)
     if not contenido:
         raise HTTPException(400, "El archivo llegó vacío.")
 

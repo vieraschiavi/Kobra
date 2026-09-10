@@ -43,7 +43,13 @@ def emitir_con_el_checkout(datos: dict, secreto: str = SECRETO) -> str:
             json.dumps(datos),
         ],
         cwd=ROOT, capture_output=True, text=True,
-        env={**os.environ, "KOBRA_LICENSE_SECRET": secreto},
+        # Sin la privada: este emisor simula el checkout configurado para
+        # firmar HS256 con el secreto compartido, que es de lo que trata
+        # este archivo. Si la privada llega por el entorno, `_license.js`
+        # firma RS256 y el test mide otra cosa.
+        env={**{k: v for k, v in os.environ.items()
+                if k != "KOBRA_LICENSE_PRIVATE_KEY"},
+             "KOBRA_LICENSE_SECRET": secreto},
     )
     assert r.returncode == 0, f"el emisor falló: {r.stderr}"
     return r.stdout.strip()

@@ -116,9 +116,8 @@ def test_standalone_no_permite_saltear_la_licencia_con_password(tmp_path, monkey
     c = TestClient(api.app)
 
     # Demo cuya licencia ya venció.
-    secreto = klic.secreto_firma()
     kconfig.guardar_extra("LICENCIA_TOKEN",
-                          klic.emitir_licencia("demo", "trial", dias=-1, secreto=secreto))
+                          klic.emitir_licencia("demo", "trial", dias=-1))
     assert c.get("/api/licencia/estado").json()["activa"] is False
     # La puerta por contraseña no existe en la copia del cliente.
     assert c.post("/api/auth/setup", json={"password": "CualquieraSirve1"}).status_code == 404

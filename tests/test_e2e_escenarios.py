@@ -65,7 +65,7 @@ def _montar(tmp_path, monkeypatch):
     features = [*klic.PLANES["enterprise"]["features"], "logistica", "proyectos"]
     kconfig.guardar_extra(
         "LICENCIA_TOKEN",
-        klic.emitir_licencia("cliente-e2e", "enterprise", secreto=SECRETO,
+        klic.emitir_licencia("cliente-e2e", "enterprise",
                              cupo_mensual=None, features=features))
 
     from webapp.backend import api

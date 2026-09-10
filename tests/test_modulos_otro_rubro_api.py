@@ -58,8 +58,7 @@ def _montar(tmp_path, monkeypatch, plan="basico", extras=()):
 
     from backend_venta import licencias as klic
     feats = [*klic.PLANES[plan]["features"], *extras]
-    token = klic.emitir_licencia("cliente-rubro", plan, features=feats,
-                                 secreto=SECRETO)
+    token = klic.emitir_licencia("cliente-rubro", plan, features=feats)
     kconfig.guardar_extra("LICENCIA_TOKEN", token)
 
     from webapp.backend import api
