@@ -33,6 +33,7 @@ sys.path.insert(0, ROOT)
 ENTRYPOINT = os.path.join(ROOT, "docker-entrypoint.sh")
 DOCKERFILE = os.path.join(ROOT, "Dockerfile")
 COMPOSE = os.path.join(ROOT, "docker-compose.yml")
+DOCKERIGNORE = os.path.join(ROOT, ".dockerignore")
 
 
 def _leer(ruta):
@@ -106,6 +107,121 @@ def test_la_imagen_no_trae_el_sello_adentro():
             assert "KOBRA_OWNER_SELLO" not in linea, linea
     assert "KOBRA_LICENSE_PRIVATE_KEY" not in docker, (
         "la privada del dueño no puede estar ni nombrada en la imagen")
+
+
+def _patrones_dockerignore():
+    lineas = _leer(DOCKERIGNORE).splitlines()
+    return [ln.strip() for ln in lineas
+            if ln.strip() and not ln.strip().startswith("#")]
+
+
+def _a_regex(patron):
+    """Un patrón de `.dockerignore` como lo entiende Docker, no como fnmatch.
+
+    La diferencia importa acá: en `fnmatch` el `*` cruza las barras, así que
+    `*.env` "taparía" `webapp/.env` y el test daría verde sobre un archivo que
+    `docker build` igual mete en la imagen. Docker usa `filepath.Match`, donde
+    `*` NO cruza `/`, más `**` para lo anidado.
+    """
+    salida, i = [], 0
+    while i < len(patron):
+        if patron[i] == "*":
+            if patron[i:i + 2] == "**":
+                salida.append(".*")
+                i += 2
+                continue
+            salida.append("[^/]*")
+        elif patron[i] == "?":
+            salida.append("[^/]")
+        else:
+            salida.append(re.escape(patron[i]))
+        i += 1
+    return re.compile("^" + "".join(salida) + "$")
+
+
+def _queda_afuera(ruta):
+    """¿`docker build` deja esta ruta afuera del contexto?
+
+    Un patrón que coincide con una carpeta se lleva todo lo que cuelga de
+    ella, así que se prueba contra la ruta y contra cada prefijo suyo. Gana el
+    último patrón que coincide: por eso `!env.example` puede rescatar un
+    archivo que una regla anterior excluyó.
+    """
+    partes = ruta.strip("/").split("/")
+    prefijos = ["/".join(partes[:i]) for i in range(1, len(partes) + 1)]
+    veredicto = False
+    for patron in _patrones_dockerignore():
+        niega = patron.startswith("!")
+        rx = _a_regex(patron.lstrip("!").rstrip("/"))
+        if any(rx.match(p) for p in prefijos):
+            veredicto = not niega
+    return veredicto
+
+
+# Lo que NO puede terminar adentro de una imagen que corre en otra empresa.
+# Cada ruta es un archivo que existe (o que aparece apenas alguien usa el
+# programa como dice el README), no un caso inventado.
+AFUERA = [
+    # `.env` de este proyecto lleva KOBRA_LICENSE_PRIVATE_KEY: con esa clave,
+    # quien tenga la imagen se firma sus propias licencias y sellos Owner.
+    ".env",
+    ".env.produccion",
+    "webapp/.env",
+    "clave_licencias.pem",
+    "licencias.key",
+    # El ZIP de la edición Owner que deja `packaging/`, con su sello adentro.
+    "dist/MVKobraAI_Owner_v1.5.0.zip",
+    "edicion.json",
+    "packaging/Owner.bat",
+    # El lanzador de la edición del dueño: no lleva sello, pero es el mapa de
+    # cómo se abre. El contenedor no lo usa.
+    "owner/MVKobraAI_Owner.bat",
+    "owner/ui_dist/index.html",
+    # La cadena de auditoría de la instalación del dueño.
+    "data/auditoria.log",
+    "data/uso_licencias.db",
+    # 68 MB de dependencias de desarrollo. El patrón viejo `node_modules/` no
+    # las tapaba: es relativo a la raíz y estas cuelgan de webapp/frontend.
+    "webapp/frontend/node_modules/vite/package.json",
+    "kobra/__pycache__/pipeline.cpython-311.pyc",
+]
+
+# Lo que SÍ tiene que viajar, o la imagen no se construye ni arranca.
+ADENTRO = [
+    "requirements.txt",
+    "Dockerfile",
+    "docker-entrypoint.sh",
+    "kobra/pipeline.py",
+    "webapp/backend/api.py",
+    "webapp/frontend/package.json",
+    "webapp/frontend/package-lock.json",
+    # El entrypoint regenera los datos si faltan: sin los generadores, el
+    # contenedor arranca sin cartera.
+    "data/generate_dataset.py",
+    "data/generate_gestiones.py",
+    "app/app.py",
+    "env.example",
+]
+
+
+@pytest.mark.parametrize("ruta", AFUERA)
+def test_el_contexto_de_build_no_arrastra_secretos_ni_la_edicion_owner(ruta):
+    """`.gitignore` no alcanza: son dos listas distintas.
+
+    `COPY . .` copia el contexto tal como está en el DISCO. Los tres archivos
+    más peligrosos de esta lista —el `.env`, el ZIP Owner y `edicion.json`—
+    están todos en `.gitignore`, o sea que no están en el repo pero sí en la
+    máquina de quien construye, que es justo la que arma la imagen.
+    """
+    assert _queda_afuera(ruta), (
+        f"{ruta} entraría en la imagen que corre en el servidor de un cliente")
+
+
+@pytest.mark.parametrize("ruta", ADENTRO)
+def test_el_contexto_de_build_no_se_come_lo_que_la_imagen_necesita(ruta):
+    """El contrapeso del test de arriba: excluir de más rompe el build, y lo
+    rompe recién en el servidor del cliente, que es el peor lugar."""
+    assert not _queda_afuera(ruta), f"{ruta} hace falta para construir o arrancar"
 
 
 def test_el_compose_toma_el_sello_del_entorno_y_no_lo_escribe(compose):
