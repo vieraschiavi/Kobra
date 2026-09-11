@@ -3647,7 +3647,44 @@ _DIST_CANDIDATOS = [
     os.environ.get("KOBRA_UI_DIST", ""),
     os.path.join(ROOT, "webapp", "frontend", "dist"),
 ]
+_MONTADO = False
 for _d in _DIST_CANDIDATOS:
     if _d and os.path.isdir(_d):
         app.mount("/", StaticFiles(directory=_d, html=True), name="frontend")
+        _MONTADO = True
         break
+
+def respuesta_sin_interfaz() -> dict:
+    """Qué contesta `/` cuando la interfaz no está compilada.
+
+    Antes contestaba `{"detail":"Not Found"}` y nada más.
+    `webapp/frontend/dist` no está commiteado a propósito —un dist versionado
+    muestra la interfaz del día que alguien se acordó de recompilarla—, pero ni
+    `run.sh` ni el CLAUDE.md dicen que hay que compilarla. Así que quien
+    clonaba el repo y levantaba el backend siguiendo la documentación se
+    encontraba un 404 mudo, y el síntoma de "no compilaste la interfaz" es
+    idéntico al de "escribiste mal la URL".
+
+    La API responde igual en `/api/*`: lo único que falta es la pantalla. Por
+    eso esto no es un error, es una instrucción.
+
+    Está afuera del `if` para que se pueda testear en cualquier máquina: adonde
+    se corre esto el dist a veces existe y a veces no, y un test que dependiera
+    de eso daría verde por el motivo equivocado.
+    """
+    return {
+        "ok": True,
+        "api": "MV Kobra AI",
+        "interfaz": "no compilada",
+        "como_compilarla": [
+            "npm --prefix webapp/frontend ci",
+            "npm --prefix webapp/frontend run build",
+        ],
+        "mientras_tanto": ("La API funciona: probá /api/health o /docs. El "
+                           "dashboard Streamlit es otra pantalla y no necesita "
+                           "Node: streamlit run app/app.py"),
+    }
+
+
+if not _MONTADO:
+    app.get("/", include_in_schema=False)(respuesta_sin_interfaz)
