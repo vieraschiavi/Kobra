@@ -2975,13 +2975,19 @@ async def cartera_importar(archivo: UploadFile = File(...), u: Usuario = Depends
 
     export = _guardar_cartera_real(u.empresa, full, archivo.filename)
     detectadas = "; ".join(f"«{orig}» → {campo}" for orig, campo in mapeo.items())
+    # Si la cartera trae montos por encima de lo que el modelo de referencia
+    # vio, ProbPago para esos casos es extrapolación. Se dice acá y no en un
+    # log: son justamente las cuentas más grandes del cliente.
+    aviso = kcartera.aviso_fuera_de_rango(export["monto_deuda"])
     return {"deudores": int(len(export)),
             "cartera_total_uyu": float(export["monto_deuda"].sum()),
             "columnas_detectadas": mapeo,
+            "aviso": aviso,
             "mensaje": f"Cartera real cargada y activada: {len(export)} deudor(es). "
                       + (f"Reconocí tus columnas ({detectadas}). " if detectadas else "")
                       + "El dashboard ya refleja estos datos (podés volver a la demo "
-                      "con el botón)."}
+                      "con el botón)."
+                      + (f" {aviso}" if aviso else "")}
 
 
 class ImportarSQLIn(BaseModel):

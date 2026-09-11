@@ -234,9 +234,36 @@ def _norm_col(c) -> str:
     return s.strip("_")
 
 
+# Notacion cientifica tal como la escribe un Excel: 1.23E+09, 1,23E+09, 8.9e5.
+_CIENTIFICA = re.compile(r"^[+-]?\d+(?:[.,]\d+)?[eE][+-]?\d+$")
+
+
 def _a_numero(v):
     """Convierte a numero tolerando formato de moneda es/en: '$ 1.234.567,89',
-    '1,234,567.89', 'UYU 5.000', '45%'. Devuelve float o NaN."""
+    '1,234,567.89', 'UYU 5.000', '45%'. Devuelve float o NaN.
+
+    Tres formas que parecen raras y no lo son —ninguna la escribe una persona,
+    las tres las produce un Excel o un ERP solo— y que antes daban un numero
+    EQUIVOCADO EN SILENCIO, que es mucho peor que fallar:
+
+      '1.23E+09'    Excel exporta asi cualquier numero grande, sin avisar.
+                    Daba 1.2309, porque el filtro de abajo se come la `E` y
+                    deja "1.2309". Medido de punta a punta: una deuda de
+                    1.230 millones entraba como $U 1,23 y el deudor mas grande
+                    de la cartera caia al decil 1, o sea al fondo de la lista
+                    de llamado. La cartera total reportada daba $U 47.501 donde
+                    habia $U 1.230.042.499.
+
+      '(2.500,50)'  Parentesis contables = NEGATIVO (nota de credito, saldo a
+                    favor). Daba +2500,50: en vez de restar, sumaba.
+
+      '1.234,00-'   Signo al final, tipico de SAP y de sistemas viejos. Daba
+                    NaN y la fila se perdia.
+
+    El orden importa: el signo y la notacion cientifica se resuelven ANTES del
+    `re.sub` que deja solo digitos, porque ese filtro es justamente el que se
+    lleva puestos los parentesis, el guion final y la `E`.
+    """
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return float("nan")
     if isinstance(v, (int, float)):
@@ -245,6 +272,26 @@ def _a_numero(v):
     if not s:
         return float("nan")
     es_pct = "%" in s
+
+    negativo = False
+    # `(2.500,50)` y tambien `$(2.500,50)`, con el simbolo de moneda afuera.
+    envuelto = re.fullmatch(r"[^\d(]*\((.+)\)[^\d)]*", s)
+    if envuelto:
+        negativo, s = True, envuelto.group(1)
+
+    s = re.sub(r"[^0-9,.\-+eE]", "", s)       # sin moneda ni espacios
+    if s.endswith("-"):                       # 1.234,00-  (SAP)
+        negativo, s = True, s[:-1]
+
+    if _CIENTIFICA.match(s):
+        mantisa, exponente = re.split(r"[eE]", s, maxsplit=1)
+        try:
+            n = float(f"{mantisa.replace(',', '.')}e{exponente}")
+        except ValueError:
+            return float("nan")
+        n = n / 100 if es_pct else n
+        return -n if negativo else n
+
     s = re.sub(r"[^0-9,.\-]", "", s)          # deja solo digitos, . , y signo
     if not s or s in ("-", ".", ","):
         return float("nan")
@@ -264,9 +311,10 @@ def _a_numero(v):
             s = s.replace(".", "")
     try:
         n = float(s)
-        return n / 100 if es_pct else n
     except ValueError:
         return float("nan")
+    n = n / 100 if es_pct else n
+    return -n if negativo and n > 0 else n
 
 
 def mapear_columnas(columnas) -> dict:
@@ -383,6 +431,56 @@ def modelo_prior():
         base = _load_or_generate()
         _MODELO_PRIOR = ProbPagoModel().fit_seleccionado(base)
     return _MODELO_PRIOR
+
+
+_RANGO_REFERENCIA = None
+
+
+def rango_referencia() -> tuple[float, float]:
+    """Entre qué montos fue entrenado el modelo con el que se puntúa una
+    cartera recién subida. Es el de `modelo_prior()`, así que el rango sale de
+    la misma cartera."""
+    global _RANGO_REFERENCIA
+    if _RANGO_REFERENCIA is None:
+        from kobra.pipeline import _load_or_generate
+        base = _load_or_generate()
+        _RANGO_REFERENCIA = (float(base["monto_deuda"].min()),
+                             float(base["monto_deuda"].max()))
+    return _RANGO_REFERENCIA
+
+
+def aviso_fuera_de_rango(montos) -> str | None:
+    """Aviso cuando la cartera subida tiene montos por encima del rango en que
+    el modelo fue entrenado. `None` si está toda adentro.
+
+    Una cartera nueva no trae la columna de resultado (`pago`), así que se la
+    puntúa con el modelo de referencia. Para un monto muy por arriba de lo que
+    ese modelo vio, la logística satura y ProbPago se va a cero: medido sobre
+    la cartera de referencia actual (tope $U 8.000.000), a los $U 50.000.000 da
+    0,0136 y a los $U 100.000.000 da exactamente 0.
+
+    No está mal el cálculo — es extrapolación, y extrapolar es lo que hay
+    cuando todavía no existe histórico propio. Lo que estaba mal era no
+    decirlo: el porcentaje aparecía en pantalla con la misma cara de certeza
+    que el de un deudor de $U 45.000, y justo en las cuentas más grandes.
+
+    El orden de llamado aguanta igual, porque `prioridad` se calcula con el
+    recupero esperado (probpago × monto) y no con el porcentaje pelado —
+    verificado: con $U 50M y ProbPago 0,0136 el caso sigue saliendo prioridad 1.
+    """
+    _, tope = rango_referencia()
+    serie = pd.to_numeric(pd.Series(list(montos)), errors="coerce").dropna()
+    if serie.empty:
+        return None
+    afuera = serie[serie > tope]
+    if afuera.empty:
+        return None
+    return (f"{len(afuera)} de {len(serie)} deudores superan el monto más alto "
+            f"de la cartera de referencia ($U {tope:,.0f}). Para esos casos "
+            f"ProbPago es una extrapolación y el porcentaje no está validado en "
+            f"ese rango; el orden de llamado igual los ubica arriba, porque se "
+            f"calcula con el recupero esperado. Se corrige entrenando con tu "
+            f"propio histórico de pagos.")
 
 
 def importar_y_scorear(df_bruto: pd.DataFrame) -> pd.DataFrame:
