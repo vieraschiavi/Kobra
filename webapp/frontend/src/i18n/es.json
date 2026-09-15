@@ -31,7 +31,8 @@
       "ingenieria_datos": "Ingeniería de datos",
       "memoria_tecnica": "Memoria técnica",
       "frecuencia_cargas": "Frecuencia de cargas",
-      "proyeccion": "Proyección de cobranza"
+      "proyeccion": "Proyección de cobranza",
+      "campanas": "Campañas"
     },
     "sidebar": {
       "rol_admin": "Administrador",
@@ -1194,5 +1195,38 @@
     "modelo_deriva": "tendencia",
     "modelo_timesfm_2p5": "TimesFM 2.5",
     "fuera_de_escala": "{{n}} día(s) quedan fuera de la escala para que el resto se vea: {{detalle}}."
+  },
+  "campanas": {
+    "titulo": "Campañas",
+    "subtitulo": "Segmentos, retención y cómo le fue a la campaña — contra un período normal y contra su propia edición anterior.",
+    "col_metrica": "Métrica",
+    "col_campania": "Campaña",
+    "col_vs_normal": "vs. normal",
+    "col_vs_anterior": "vs. edición anterior",
+    "fila_unidades": "Unidades",
+    "fila_precio": "Precio promedio",
+    "fila_margen": "Rentabilidad",
+    "fila_clientes": "Clientes",
+    "fila_descuento": "Descuento",
+    "descuento_nota": "Sobre el precio de lista de lo vendido.",
+    "tab_segmentos": "Segmentos (RFM)",
+    "tab_cohortes": "Cohortes",
+    "tab_stock": "Stock",
+    "col_segmento": "Segmento",
+    "col_clientes": "Clientes",
+    "col_monto": "Monto",
+    "col_peso": "% del monto",
+    "col_recencia": "Días sin comprar (mediana)",
+    "col_cohorte": "Cohorte",
+    "col_sku": "SKU",
+    "col_producto": "Producto",
+    "col_vendidas": "Vendidas",
+    "col_stock": "Stock",
+    "col_cobertura": "Cobertura (días)",
+    "sin_clientes": "Tu tabla de ventas no trae la columna de cliente, así que no se puede segmentar.",
+    "sin_cohortes": "Todavía no hay suficiente historia para armar cohortes.",
+    "sin_stock": "Elegí una campaña para ver qué pasó con su stock.",
+    "sin_campanias": "No hay ninguna campaña marcada en tus ventas. Agregá una columna «campania» con el nombre de la promoción para comparar.",
+    "faltan_datos": "Todavía no cargaste productos y ventas. Se suben desde la pantalla de Logística: son las mismas tablas."
   }
 }
