@@ -30,6 +30,7 @@ from __future__ import annotations
 import hmac
 import io
 import json
+import math
 import os
 import re
 import secrets
@@ -55,6 +56,7 @@ from kobra import auditoria as kauditoria  # noqa: E402
 from kobra import autenticacion as kauth  # noqa: E402
 from kobra import automl as kautoml  # noqa: E402
 from kobra import ayuda as kayuda  # noqa: E402
+from kobra import campanas as kcamp  # noqa: E402
 from kobra import cartera_manual as kcartera  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
 from kobra import cuentas_por_cobrar as kcxc  # noqa: E402
@@ -1818,6 +1820,63 @@ def logistica_resumen(u: Usuario = Depends(usuario_actual),
     return {
         "indicadores": d["indicadores"],
         **{k: v.to_dict("records") for k, v in d.items() if k != "indicadores"},
+    }
+
+
+def _sin_infinitos(registros: list[dict]) -> list[dict]:
+    """`NaN` e `inf` no existen en JSON.
+
+    El caso que lo dispara es corriente: un SKU que se vendió y NO está en el
+    maestro de productos —un alta nueva, un catálogo desactualizado—. El merge
+    le deja `stock` y `cobertura_dias` en NaN, y `json.dumps` lo escribe como
+    `NaN`, que no es JSON válido: el `fetch` del navegador falla entero y la
+    pantalla queda vacía sin ningún error visible. Verificado con
+    `json.dumps(..., allow_nan=False)`, que es lo que hace un parser estricto.
+
+    Va como `null`, que la pantalla ya sabe mostrar como «—». El infinito se
+    cubre por las dudas, aunque hoy `stock_de_campania` no puede producirlo:
+    un SKU solo aparece ahí si vendió algo, así que el ritmo nunca es cero.
+    """
+    return [{k: (None if isinstance(v, float) and not math.isfinite(v) else v)
+             for k, v in fila.items()} for fila in registros]
+
+
+@app.get("/api/campanas/resumen")
+def campanas_resumen(campania: str | None = None,
+                     u: Usuario = Depends(usuario_actual),
+                     idi: str = Depends(idioma_pedido)):
+    """Campañas segmentadas: RFM, cohortes y la campaña contra sus dos
+    comparaciones (el período normal y su propia edición anterior).
+
+    Va con el mismo candado que logística y sobre las MISMAS tablas: quien ya
+    cargó productos y ventas no tiene que subir nada nuevo para usar esto.
+    """
+    kplan.exigir("logistica", _MODULO_LOG)
+    productos = _tabla_modulo(u.empresa, "logistica", "productos")
+    ventas = _tabla_modulo(u.empresa, "logistica", "ventas")
+    clientes = _tabla_modulo(u.empresa, "logistica", "clientes", obligatoria=False)
+    try:
+        d = kcamp.todas(productos, ventas, clientes if len(clientes) else None,
+                        campania=campania, idioma=idi)
+    except klog.DatosIncompletos as e:
+        raise HTTPException(400, str(e)) from e
+
+    detalle = d["detalle"]
+    if detalle is not None:
+        detalle = {**detalle,
+                   "stock": _sin_infinitos(detalle["stock"].to_dict("records"))}
+    return {
+        "titulos": d["titulos"],
+        "rfm": d["rfm"].to_dict("records"),
+        "segmentos": d["segmentos"].to_dict("records"),
+        "aviso_rfm": d["aviso_rfm"],
+        "cohortes": d["cohortes"].to_dict("records"),
+        "ediciones": [{**e, "desde": str(pd.to_datetime(e["desde"]).date()),
+                       "hasta": str(pd.to_datetime(e["hasta"]).date())}
+                      for e in d["ediciones"].to_dict("records")],
+        "detalle": detalle,
+        "descuento_medible": d["descuento_medible"],
+        "aviso_descuento": d["aviso_descuento"],
     }
 
 
