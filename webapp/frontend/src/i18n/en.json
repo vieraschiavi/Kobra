@@ -31,7 +31,8 @@
       "ingenieria_datos": "Data engineering",
       "memoria_tecnica": "Technical memo",
       "frecuencia_cargas": "Load freshness",
-      "proyeccion": "Collection forecast"
+      "proyeccion": "Collection forecast",
+      "campanas": "Campaigns"
     },
     "sidebar": {
       "rol_admin": "Administrator",
@@ -1194,5 +1195,38 @@
     "modelo_deriva": "trend",
     "modelo_timesfm_2p5": "TimesFM 2.5",
     "fuera_de_escala": "{{n}} day(s) fall outside the scale so the rest stays readable: {{detalle}}."
+  },
+  "campanas": {
+    "titulo": "Campaigns",
+    "subtitulo": "Segments, retention and how the campaign did — against a normal period and against its own previous run.",
+    "col_metrica": "Metric",
+    "col_campania": "Campaign",
+    "col_vs_normal": "vs. normal",
+    "col_vs_anterior": "vs. previous run",
+    "fila_unidades": "Units",
+    "fila_precio": "Average price",
+    "fila_margen": "Profitability",
+    "fila_clientes": "Customers",
+    "fila_descuento": "Discount",
+    "descuento_nota": "Against the list price of what sold.",
+    "tab_segmentos": "Segments (RFM)",
+    "tab_cohortes": "Cohorts",
+    "tab_stock": "Stock",
+    "col_segmento": "Segment",
+    "col_clientes": "Customers",
+    "col_monto": "Amount",
+    "col_peso": "% of amount",
+    "col_recencia": "Days since purchase (median)",
+    "col_cohorte": "Cohort",
+    "col_sku": "SKU",
+    "col_producto": "Product",
+    "col_vendidas": "Sold",
+    "col_stock": "Stock",
+    "col_cobertura": "Cover (days)",
+    "sin_clientes": "Your sales table has no customer column, so it can't be segmented.",
+    "sin_cohortes": "There isn't enough history yet to build cohorts.",
+    "sin_stock": "Pick a campaign to see what happened to its stock.",
+    "sin_campanias": "No campaign is tagged in your sales. Add a «campania» column with the promotion name to compare.",
+    "faltan_datos": "You haven't loaded products and sales yet. They're uploaded from the Logistics screen — same tables."
   }
 }

@@ -31,7 +31,8 @@
       "ingenieria_datos": "Engenharia de dados",
       "memoria_tecnica": "Memória técnica",
       "frecuencia_cargas": "Frequência de cargas",
-      "proyeccion": "Projeção de cobrança"
+      "proyeccion": "Projeção de cobrança",
+      "campanas": "Campanhas"
     },
     "sidebar": {
       "rol_admin": "Administrador",
@@ -1194,5 +1195,38 @@
     "modelo_deriva": "tendência",
     "modelo_timesfm_2p5": "TimesFM 2.5",
     "fuera_de_escala": "{{n}} dia(s) ficam fora da escala para que o resto se veja: {{detalle}}."
+  },
+  "campanas": {
+    "titulo": "Campanhas",
+    "subtitulo": "Segmentos, retenção e como foi a campanha — contra um período normal e contra a própria edição anterior.",
+    "col_metrica": "Métrica",
+    "col_campania": "Campanha",
+    "col_vs_normal": "vs. normal",
+    "col_vs_anterior": "vs. edição anterior",
+    "fila_unidades": "Unidades",
+    "fila_precio": "Preço médio",
+    "fila_margen": "Rentabilidade",
+    "fila_clientes": "Clientes",
+    "fila_descuento": "Desconto",
+    "descuento_nota": "Sobre o preço de tabela do que foi vendido.",
+    "tab_segmentos": "Segmentos (RFM)",
+    "tab_cohortes": "Coortes",
+    "tab_stock": "Estoque",
+    "col_segmento": "Segmento",
+    "col_clientes": "Clientes",
+    "col_monto": "Valor",
+    "col_peso": "% do valor",
+    "col_recencia": "Dias sem comprar (mediana)",
+    "col_cohorte": "Coorte",
+    "col_sku": "SKU",
+    "col_producto": "Produto",
+    "col_vendidas": "Vendidas",
+    "col_stock": "Estoque",
+    "col_cobertura": "Cobertura (dias)",
+    "sin_clientes": "Sua tabela de vendas não traz a coluna de cliente, então não dá para segmentar.",
+    "sin_cohortes": "Ainda não há histórico suficiente para montar coortes.",
+    "sin_stock": "Escolha uma campanha para ver o que aconteceu com o estoque.",
+    "sin_campanias": "Não há nenhuma campanha marcada nas suas vendas. Adicione uma coluna «campania» com o nome da promoção para comparar.",
+    "faltan_datos": "Você ainda não carregou produtos e vendas. Sobem pela tela de Logística: são as mesmas tabelas."
   }
 }

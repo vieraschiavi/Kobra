@@ -213,3 +213,30 @@ def test_los_indicadores_cuadran_con_los_datos(productos, ventas):
     esperado = float((productos["stock"] * productos["costo"]).sum())
     assert abs(i["valor_stock"] - esperado) < 0.01
     assert 0 <= i["margen_pct"] <= 100
+
+
+def test_una_fecha_con_hora_no_borra_la_venta():
+    """Una tabla de ventas real trae «2026-01-01» y «2026-01-01 09:32:00» en la
+    MISMA columna: una carga manual y una del ERP.
+
+    Sin `format="mixed"`, pandas infiere el formato de la primera fila y manda
+    a NaT todas las que no coinciden. Y como `enriquecer` hace `dropna`, esas
+    filas no dan error: DESAPARECEN. Medido antes del arreglo, con tres ventas
+    de 1, 1 y 5 unidades: el módulo informaba 2 de 7.
+
+    Es el mismo defecto que ya se había arreglado en `kobra/proyeccion.py` y en
+    `kobra/frecuencia_cargas.py`; acá seguía vivo.
+    """
+    import pandas as pd
+
+    from kobra import logistica as klog
+
+    productos = pd.DataFrame({"sku": ["S0"], "nombre": ["A"], "categoria": ["A"],
+                              "precio": [100.0], "costo": [60.0], "stock": [10]})
+    ventas = pd.DataFrame({
+        "fecha": ["2026-01-01 00:00:00", "2026-01-02 00:00:00", "2026-04-03"],
+        "sku": ["S0"] * 3, "cantidad": [1, 1, 5]})
+
+    v = klog.enriquecer(ventas, productos)
+    assert len(v) == 3, "se perdió una venta por el formato de la fecha"
+    assert int(v["cantidad"].sum()) == 7

@@ -158,7 +158,13 @@ def enriquecer(ventas: pd.DataFrame, productos: pd.DataFrame,
         return ventas
 
     v = ventas.copy()
-    v["fecha"] = pd.to_datetime(v["fecha"], errors="coerce")
+    # `format="mixed"` y no la inferencia por defecto: una tabla de ventas real
+    # trae "2026-01-01" y "2026-01-01 09:32:00" en la MISMA columna (una carga
+    # manual y una del ERP), y sin esto pandas infiere el formato de la primera
+    # fila y manda a NaT todas las demás. Como acá abajo se hace dropna, esas
+    # filas NO dan error: desaparecen. Medido con tres ventas de 1, 1 y 5
+    # unidades, la última con otro formato: el módulo informaba 2 unidades de 7.
+    v["fecha"] = pd.to_datetime(v["fecha"], format="mixed", errors="coerce")
     v = v.dropna(subset=["fecha"])
 
     if "precio_unit" not in v.columns or v["precio_unit"].isna().all():
