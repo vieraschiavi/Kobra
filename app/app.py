@@ -158,6 +158,44 @@ def _dato(*partes: str) -> str | None:
     return None
 
 
+@st.cache_data(show_spinner=False)
+def _excel(hojas: dict) -> bytes:
+    """Un .xlsx con una hoja por DataFrame, armado UNA vez por contenido.
+
+    Streamlit corre este archivo entero en cada interacción, y los cuatro
+    botones de descarga armaban su Excel en cada una: ocho `to_excel` por
+    render, 350.000 celdas, **6 de los 10 segundos** que tardaba cada clic
+    en el dashboard (medido con cProfile sobre el hilo del guion). El
+    archivo se rehace sólo cuando cambia lo que va adentro.
+    """
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="xlsxwriter") as xl:
+        for nombre, df in hojas.items():
+            df.to_excel(xl, sheet_name=nombre, index=False)
+    return buf.getvalue()
+
+
+@st.cache_data(show_spinner="Analizando la grabación…")
+def _analizar_audio(path: str, mtime: float, tamano: int, turnos, probpago,
+                    estrategia, idioma: str) -> dict:
+    """Diarización + emoción + copiloto sobre UNA grabación, una sola vez.
+
+    Se analizaba en CADA render del dashboard —cualquier clic en cualquier
+    pestaña volvía a diarizar la demo, 0,4 s— y, peor, cada una de esas
+    pasadas **registraba una gestión del plan**: el cupo mensual se gastaba
+    con clics, no con gestiones. La clave del caché es el archivo (ruta,
+    fecha y tamaño) más lo que cambia el análisis; la gestión se cobra
+    adentro, así que se cobra cuando el análisis se hace, y una sola vez.
+    """
+    from kobra import voz as kvoz
+
+    res = kvoz.copiloto_desde_audio(
+        path, transcript_turnos=[{"emisor": e, "texto": t} for e, t in turnos] if turnos else None,
+        probpago=probpago, estrategia=estrategia, idioma=idioma)
+    kplan.registrar_gestion()
+    return res
+
+
 @st.cache_data(show_spinner="Entrenando ProbPago y corriendo el negociador…")
 def cargar():
     csv = _dato("data", "kobra_cartera.csv")
@@ -610,15 +648,12 @@ with tab3:
     st.markdown("#### ⬇ Exportar para reporting")
     exp = f.sort_values("prioridad")[cols_show + ["guion"]]
     csv_bytes = exp.to_csv(index=False).encode("utf-8-sig")
-    xbuf = io.BytesIO()
-    with pd.ExcelWriter(xbuf, engine="xlsxwriter") as xl:
-        exp.to_excel(xl, sheet_name="Cartera_priorizada", index=False)
-        negociador.resumen_estrategias(f).to_excel(
-            xl, sheet_name="Resumen_estrategias", index=False)
+    xlsx_cartera = _excel({"Cartera_priorizada": exp,
+                           "Resumen_estrategias": negociador.resumen_estrategias(f)})
     e1, e2, e3 = st.columns([0.2, 0.2, 0.6])
     e1.download_button("Descargar CSV", csv_bytes, "kobra_cartera.csv",
                        "text/csv", use_container_width=True)
-    e2.download_button("Descargar Excel", xbuf.getvalue(), "kobra_cartera.xlsx",
+    e2.download_button("Descargar Excel", xlsx_cartera, "kobra_cartera.xlsx",
                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                        use_container_width=True)
     e3.caption(f"{len(exp):,} registros filtrados · incluye estrategia y guion por deudor.")
@@ -776,7 +811,6 @@ with tab5:
     st.markdown("### Analizar grabación de la llamada (voz)")
     st.caption("Diarización (quién habla) + emoción acústica por prosodia (tono, energía, "
                "ritmo). Detecta la tensión del cliente en la voz, más allá de las palabras.")
-    from kobra import voz as kvoz
     audio_up = st.file_uploader("Subir grabación (.wav)", type=["wav"], key="audio_up")
     audio_demo = os.path.join(ROOT, "data", "ejemplo_llamada.wav")
     usar_demo = st.checkbox("Usar grabación de demo (dual-channel)", value=not audio_up)
@@ -804,11 +838,11 @@ with tab5:
             # que ya había con el vencimiento de la demo (ver kobra/edicion.py).
             kplan.exigir("voz", "el copiloto de voz")
             kplan.verificar_cupo()
-            res_audio = kvoz.copiloto_desde_audio(
-                audio_path, transcript_turnos=tt, probpago=probpago_ref,
-                estrategia=estrategia_ref, idioma=copiloto.idioma_configurado())
+            res_audio = _analizar_audio(
+                audio_path, os.path.getmtime(audio_path), os.path.getsize(audio_path),
+                tuple((t["emisor"], t["texto"]) for t in tt) if tt else None,
+                probpago_ref, estrategia_ref, copiloto.idioma_configurado())
             va = res_audio["voz"]
-            kplan.registrar_gestion()
         except kplan.LimitePlan as e:
             va = res_audio = None
             st.warning(e.mensaje)
@@ -1091,14 +1125,14 @@ with tab6:
 
         # --- Export ---
         st.markdown("#### ⬇ Exportar analítica")
-        xbuf2 = io.BytesIO()
-        with pd.ExcelWriter(xbuf2, engine="xlsxwriter") as xl:
-            analitica.ranking_gestores(gf).to_excel(xl, sheet_name="Ranking_gestores", index=False)
-            analitica.mejora_por_gestor(gf).to_excel(xl, sheet_name="Mejora_gestores", index=False)
-            analitica.evolucion_mensual(gf).to_excel(xl, sheet_name="Evolucion_mensual", index=False)
-            analitica.caracteristicas_por(gf, "tramo_mora").to_excel(xl, sheet_name="Por_tramo", index=False)
-            analitica.caracteristicas_por(gf, "segmento").to_excel(xl, sheet_name="Por_segmento", index=False)
-        st.download_button("Descargar analítica (Excel)", xbuf2.getvalue(),
+        xlsx_analitica = _excel({
+            "Ranking_gestores": analitica.ranking_gestores(gf),
+            "Mejora_gestores": analitica.mejora_por_gestor(gf),
+            "Evolucion_mensual": analitica.evolucion_mensual(gf),
+            "Por_tramo": analitica.caracteristicas_por(gf, "tramo_mora"),
+            "Por_segmento": analitica.caracteristicas_por(gf, "segmento"),
+        })
+        st.download_button("Descargar analítica (Excel)", xlsx_analitica,
                            "kobra_analitica_gestion.xlsx",
                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
@@ -1165,7 +1199,8 @@ with tabERP:
     d = st.columns(3)
     d[0].download_button("CSV", kerp.a_csv(_sab), file_name="kobra_sabana_gestiones.csv",
                          mime="text/csv", use_container_width=True)
-    d[1].download_button("Excel", kerp.a_excel(_sab),
+    # Misma hoja «Gestiones» que `kerp.a_excel`, pero cacheada por contenido.
+    d[1].download_button("Excel", _excel({"Gestiones": _sab}),
                          file_name="kobra_sabana_gestiones.xlsx", use_container_width=True,
                          mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     d[2].download_button("JSON", kerp.a_json(_sab).encode("utf-8"),
@@ -2130,10 +2165,7 @@ with tab8:
         d1.download_button("⬇ Descargar resultados (CSV)",
                            tabla.to_csv(index=False).encode("utf-8"),
                            file_name="kobra_resultados_prueba.csv", mime="text/csv")
-        buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine="xlsxwriter") as xl:
-            tabla.to_excel(xl, sheet_name="Resultados", index=False)
-        d2.download_button("⬇ Descargar resultados (Excel)", buf.getvalue(),
+        d2.download_button("⬇ Descargar resultados (Excel)", _excel({"Resultados": tabla}),
                            file_name="kobra_resultados_prueba.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
