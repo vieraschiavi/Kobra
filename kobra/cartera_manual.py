@@ -414,6 +414,96 @@ def leer_csv(ruta: str) -> list[dict]:
     return desde_dataframe(pd.read_csv(ruta, dtype=str).fillna(""))
 
 
+#: Los contactos del modo demo. Sintéticos a propósito y sin excepción: en
+#: esta pestaña se cargan nombres y teléfonos, así que es el último lugar
+#: del producto donde podría colarse un dato de una persona real.
+#:
+#: Los montos y las moras son distintos entre sí porque la pantalla existe
+#: para mostrar que ProbPago los separa: cinco contactos iguales darían
+#: cinco scores iguales y la demo no mostraría nada.
+_DEMO = (
+    ("Ana Sintética", "099000001", 12_500.0, 18),
+    ("Bruno Ficticio", "099000002", 3_200.0, 95),
+    ("Carla Ejemplo", "099000003", 48_000.0, 210),
+    ("Daniel Prueba", "099000004", 7_800.0, 45),
+    ("Elena Muestra", "099000005", 22_300.0, 130),
+)
+
+
+def cartera_demo() -> list[dict]:
+    """Una cartera sintética chica, para recorrer la pantalla sin cargar nada.
+
+    Antes la única forma de ver funcionar este tab era tipear tres contactos
+    de mentira en la tabla editable — o sea, rehacer la demo a mano en cada
+    sesión, y con la tentación de probar con datos de verdad.
+    """
+    return [{"nombre": n, "telefono": t, "monto_deuda": d, "dias_mora": m}
+            for n, t, d, m in _DEMO]
+
+
+def puntaje_cartera(df: pd.DataFrame) -> int:
+    """Qué tan cartera es esta tabla. 0 = no lo es.
+
+    Sin `monto_deuda` no hay cartera que valga: es el único dato que el
+    pipeline no puede suponer —`DEFAULTS` completa los días de mora y el
+    score de buró, pero un monto inventado sería inventar la deuda—. Por eso
+    es requisito y no suma puntos.
+
+    Arriba de eso, gana la que trae MÁS campos reconocidos: entre una hoja
+    con sólo un importe y otra con nombre, teléfono, deuda y mora, la
+    segunda es la cartera y la primera es cualquier otra cosa con plata
+    adentro —una hoja de cobros, un resumen de ventas—. Contar campos, y no
+    filas, es lo que distingue eso.
+    """
+    campos = set(mapear_columnas(df.columns).values())
+    if "monto_deuda" not in campos:
+        return 0
+    return len(campos)
+
+
+def hoja_con_cartera(hojas: dict) -> tuple[str, pd.DataFrame]:
+    """De un libro de varias hojas, la que ES la cartera. ("", None) si ninguna.
+
+    Un `.xlsx` exportado de un ERP trae la cartera y, al lado, el
+    diccionario de campos, una hoja de parámetros y tres de resúmenes.
+    `pd.read_excel(archivo)` devuelve la PRIMERA, que casi nunca es la que
+    se quiere, y sin avisar de que había otras siete.
+
+    Ante un empate gana la primera, que es el orden en que el ERP las
+    exportó: cuando dos hojas puntúan igual no hay nada en los datos que
+    permita elegir, y respetar el orden del archivo al menos es una regla
+    que el usuario puede predecir.
+    """
+    mejor_nombre, mejor_df, mejor = "", None, 0
+    for nombre, df in hojas.items():
+        if df is None or not len(df):
+            continue
+        p = puntaje_cartera(df)
+        if p > mejor:
+            mejor_nombre, mejor_df, mejor = nombre, df, p
+    return mejor_nombre, mejor_df
+
+
+def desde_excel(origen) -> tuple[list[dict], str, int]:
+    """Los contactos de un Excel, mirando TODAS las hojas.
+
+    Devuelve (contactos, hoja_elegida, cuántas hojas tenía el libro), para
+    que la pantalla pueda decir de dónde salieron: elegir una hoja por el
+    usuario y no decírselo es peor que pedirle que la elija.
+    """
+    hojas = pd.read_excel(origen, sheet_name=None, dtype=str)
+    nombre, df = hoja_con_cartera(hojas)
+    if df is None:
+        # Ninguna califica: se devuelve la primera, para que el error que
+        # vea el usuario sea sobre columnas —que es el problema real— y no
+        # un «no encontré nada» que no dice qué le falta al archivo.
+        nombre = next(iter(hojas), "")
+        df = hojas.get(nombre)
+        if df is None:
+            return [], "", len(hojas)
+    return desde_dataframe(df.fillna("")), nombre, len(hojas)
+
+
 _MODELO_PRIOR = None
 
 
