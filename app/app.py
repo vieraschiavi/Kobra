@@ -2055,13 +2055,31 @@ with tab8:
             "**llamar de verdad** a un tercero necesitás su consentimiento y telefonía "
             "(ver la guía de Twilio).")
 
-    modo = st.radio("¿Cómo cargás los contactos?",
-                    ["✍ Escribir en una tabla", "Subir archivo (CSV/Excel)",
-                     "Traer de mi base de datos"],
-                    horizontal=True, key="modo_cartera")
+    # El interruptor de demo, como en el resto de las pestañas. Prendido,
+    # la cartera sintética entra sola y se puede recorrer el tab entero sin
+    # tener ni un archivo a mano; apagado, se carga la propia. Antes la
+    # única forma de ver funcionar esta pantalla era tipear tres contactos
+    # de mentira en la tabla, que es una demo hecha a mano cada vez.
+    demo_cartera = st.toggle(
+        "Modo demo", value=False, key="demo_cartera",
+        help="Prendido: cartera 100 % sintética, para recorrer la pantalla "
+             "sin cargar nada. Apagado: tus propios contactos.")
 
-    contactos = []
-    if modo.startswith("✍"):
+    if demo_cartera:
+        from kobra import cartera_manual as _cm
+        _sint = _cm.cartera_demo()
+        st.info(f"Cartera **sintética** de {len(_sint)} contactos: ningún dato "
+                "es de una persona real. Apagá el interruptor para probar la tuya.")
+        st.dataframe(pd.DataFrame(_sint), use_container_width=True, hide_index=True)
+        contactos = _sint
+        modo = None
+    else:
+        modo = st.radio("¿Cómo cargás los contactos?",
+                        ["✍ Escribir en una tabla", "Subir archivo (CSV/Excel)",
+                         "Traer de mi base de datos"],
+                        horizontal=True, key="modo_cartera")
+        contactos = []
+    if modo and modo.startswith("✍"):
         ejemplo = pd.DataFrame({
             "nombre": ["Contacto 1", "Contacto 2", "Contacto 3"],
             "telefono": ["099000001", "099000002", "099000003"],
@@ -2084,7 +2102,7 @@ with tab8:
     # edición). Con eso, esta rama se comía también "Traer de mi base de
     # datos", y la tercera opción del menú era código muerto: se podía elegir
     # y no pasaba nada.
-    elif modo.startswith("Subir"):
+    elif modo and modo.startswith("Subir"):
         up = st.file_uploader("Subí un CSV o Excel con columnas: nombre, telefono, deuda "
                               "[, dias_mora]", type=["csv", "xlsx"])
         plantilla = "nombre,telefono,deuda,dias_mora\nWendy,099000001,10000,25\n"
@@ -2092,11 +2110,22 @@ with tab8:
                            file_name="plantilla_cartera.csv", mime="text/csv")
         if up is not None:
             from kobra import cartera_manual as _cm
-            raw = (pd.read_csv(up, dtype=str) if up.name.lower().endswith(".csv")
-                   else pd.read_excel(up, dtype=str))
-            contactos = _cm.desde_dataframe(raw.fillna(""))
+            if up.name.lower().endswith(".csv"):
+                raw = pd.read_csv(up, dtype=str)
+                contactos = _cm.desde_dataframe(raw.fillna(""))
+            else:
+                # TODAS las hojas, y se elige la que ES la cartera.
+                # `pd.read_excel(archivo)` devuelve la primera, que en un
+                # export de ERP suele ser el diccionario de campos o una
+                # portada — y no avisa de que había otras siete.
+                contactos, hoja, cuantas = _cm.desde_excel(up)
+                raw = pd.read_excel(up, sheet_name=hoja, dtype=str) if hoja else pd.DataFrame()
+                if cuantas > 1:
+                    st.success(f"El archivo trae **{cuantas} hojas**; la cartera "
+                               f"se detectó en «**{hoja}**» por sus columnas. "
+                               "No hace falta que la busques vos.")
             st.dataframe(raw, use_container_width=True, hide_index=True)
-    else:
+    elif modo:
         st.caption("Conectá tu base (PostgreSQL, MySQL, SQL Server, SQLite… vía SQLAlchemy) "
                    "y traé la cartera con una consulta de **solo lectura**. La consulta debe "
                    "devolver al menos la columna **deuda** (o `monto_deuda`/`monto`) y, "
