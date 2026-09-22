@@ -9,11 +9,16 @@ hacía a mano en cada implementación.
 Lo que se fija acá es lo que, si se rompe, no da error — devuelve un número
 distinto. Que es la clase de falla que llega hasta el informe del cliente.
 """
+import io
+import os
+
 import pandas as pd
 import pytest
 
 from kobra import fuentes_datos as fd
 from kobra import ingenieria_datos as ing
+
+RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # --- Tipado: la corrupción silenciosa ---------------------------------------
@@ -569,3 +574,67 @@ def test_un_excel_grande_dice_el_tope_del_formato_y_la_alternativa(tmp_path):
     aviso = fd.advertencia_tamano(str(p))
     assert "1.048.576" in aviso or "1,048,576" in aviso
     assert "parquet" in aviso and "CSV" in aviso
+
+
+# ---------------------------------------------------------------------------
+# El archivo que sube el usuario: no todo el mundo exporta en UTF-8
+# ---------------------------------------------------------------------------
+class _Subido(io.BytesIO):
+    """Lo mismo que entrega `st.file_uploader`: bytes con un `.name`."""
+
+    def __init__(self, datos: bytes, nombre: str):
+        super().__init__(datos)
+        self.name = nombre
+
+
+def test_un_csv_en_latin1_se_lee_en_vez_de_tirar_el_programa():
+    """El defecto reportado, con el byte del traceback:
+
+        UnicodeDecodeError: 'utf-8' codec can't decode byte 0xed in
+        position 361: invalid continuation byte
+
+    `0xed` es una `í`. La pantalla de cargar la cartera usaba
+    `pd.read_csv(up, dtype=str)` a secas mientras este módulo ya tenía el
+    lector que prueba latin-1 y cp1252.
+    """
+    crudo = ("nombre;telefono;deuda;dias_mora\n"
+             "Martín Pérez;099000001;10000;25\n"
+             "José Muñiz;099000002;5000;60\n").encode("latin-1")
+
+    with pytest.raises(UnicodeDecodeError):
+        pd.read_csv(_Subido(crudo, "cartera.csv"))       # lo de antes
+
+    df = fd.leer_subida(_Subido(crudo, "cartera.csv"), dtype=str)
+    assert list(df.columns) == ["nombre", "telefono", "deuda", "dias_mora"]
+    assert df["nombre"].tolist() == ["Martín Pérez", "José Muñiz"]
+
+
+def test_el_cero_de_adelante_del_telefono_no_se_pierde():
+    """`dtype` va EN la lectura, no con un `astype` después: `099000001`
+    leído como número queda en 99000001 y ese teléfono ya no existe. En un
+    producto de cobranzas, llamar es el producto."""
+    crudo = b"nombre,telefono,deuda\nWendy,099000001,10000\n"
+    df = fd.leer_subida(_Subido(crudo, "cartera.csv"), dtype=str)
+    assert df["telefono"].iloc[0] == "099000001"
+
+
+def test_la_cartera_subida_se_carga_entera_y_no_recortada():
+    """El tope de 50.000 filas es para PERFILAR. Aplicarlo a la cartera que
+    alguien sube dejaría deudores afuera sin decir nada."""
+    filas = "\n".join(f"C{i},09900{i:04d},{i * 10}" for i in range(fd.LIMITE_FILAS + 25))
+    crudo = ("nombre,telefono,deuda\n" + filas + "\n").encode("utf-8")
+    assert len(fd.leer_subida(_Subido(crudo, "cartera.csv"))) == fd.LIMITE_FILAS + 25
+    # Y con tope explícito, se respeta: es lo que pide la pestaña de perfilado.
+    assert len(fd.leer_subida(_Subido(crudo, "cartera.csv"),
+                              limite=fd.LIMITE_FILAS)) == fd.LIMITE_FILAS
+
+
+def test_la_pantalla_de_cartera_usa_el_lector_adaptable():
+    """Que exista el lector no sirve si la pantalla sigue con el crudo: es
+    exactamente lo que pasaba."""
+    import re
+
+    app = open(os.path.join(RAIZ, "app", "app.py"), encoding="utf-8").read()
+    crudos = re.findall(r"pd\.read_csv\(\s*(up|_sub)\b", app)
+    assert not crudos, f"quedó un lector crudo sobre un archivo subido: {crudos}"
+    assert "leer_subida(up" in app

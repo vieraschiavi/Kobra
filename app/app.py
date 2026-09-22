@@ -1449,9 +1449,15 @@ with tabIngDatos:
                                 key="ing_archivo")
         if _sub is not None:
             try:
-                _df = (pd.read_excel(_sub) if _sub.name.lower().endswith((".xlsx", ".xls"))
-                       else pd.read_csv(_sub))
+                # El mismo lector adaptable que usa el resto del módulo: acá
+                # también llegaba un CSV en latin-1 y el `except` lo mostraba
+                # como «no pude leer el archivo», que es cierto pero no tiene
+                # arreglo del lado del usuario.
+                _df = kfuentes.leer_subida(_sub, limite=kfuentes.LIMITE_FILAS)
                 _tablas = {_sub.name.rsplit(".", 1)[0]: _df}
+                if len(_df) >= kfuentes.LIMITE_FILAS:
+                    st.caption(f"ⓘ Se perfilan las primeras "
+                               f"{kfuentes.LIMITE_FILAS:,} filas.")
             except Exception as _e:                      # noqa: BLE001
                 st.error(f"No pude leer el archivo: {_e}")
     else:
@@ -2176,8 +2182,15 @@ with tab8:
                            file_name="plantilla_cartera.csv", mime="text/csv")
         if up is not None:
             from kobra import cartera_manual as _cm
+            from kobra import fuentes_datos as _fd
             if up.name.lower().endswith(".csv"):
-                raw = pd.read_csv(up, dtype=str)
+                # Por el lector adaptable y no `pd.read_csv` pelado: un CSV
+                # exportado de cualquier ERP o guardado desde un Excel en
+                # español llega en latin-1/cp1252 y muchas veces con `;`.
+                # Con el lector crudo, subirlo tiraba al programa entero:
+                # «UnicodeDecodeError: 'utf-8' codec can't decode byte 0xed»
+                # —ese 0xed es una í— y no había forma de cargar la cartera.
+                raw = _fd.leer_subida(up, dtype=str)
                 contactos = _cm.desde_dataframe(raw.fillna(""))
             else:
                 # TODAS las hojas, y se elige la que ES la cartera.

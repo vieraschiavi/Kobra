@@ -44,7 +44,7 @@ class FuenteInvalida(ValueError):
 
 
 def _leer_csv(path: str, sep: str | None = None, encoding: str | None = None,
-              limite: int | None = LIMITE_FILAS) -> pd.DataFrame:
+              limite: int | None = LIMITE_FILAS, dtype=None) -> pd.DataFrame:
     """CSV real, no CSV de manual.
 
     Un export de un ERP latinoamericano llega en `latin-1` con `;` de
@@ -59,9 +59,19 @@ def _leer_csv(path: str, sep: str | None = None, encoding: str | None = None,
     respaldo = None
     for enc in encodings:
         for s in seps:
+            # Rebobinar antes de CADA intento: cuando `path` no es una ruta
+            # sino el archivo que alguien acaba de subir, el intento
+            # anterior dejó el cursor donde se rompió y el siguiente leería
+            # desde la mitad. Con una ruta esto no aplica y no molesta.
+            if hasattr(path, "seek"):
+                try:
+                    path.seek(0)
+                except (OSError, ValueError):         # pragma: no cover
+                    pass
             try:
                 df = pd.read_csv(path, sep=s, encoding=enc, nrows=limite,
-                                 engine="python", on_bad_lines="skip")
+                                 dtype=dtype, engine="python",
+                                 on_bad_lines="skip")
             except (UnicodeDecodeError, pd.errors.ParserError, ValueError) as exc:
                 ultimo_error = exc
                 continue
@@ -327,3 +337,36 @@ def cargar(fuente: str, tabla: str | None = None, query: str | None = None,
     if not os.path.exists(path):
         raise FuenteInvalida(f"No existe la ruta: {path}")
     return _leer_archivo(path, hoja, limite, sep, encoding)
+
+
+def leer_subida(archivo, *, limite: int | None = None,
+                dtype=None, hoja=None) -> pd.DataFrame:
+    """Un archivo que el usuario acaba de subir, leído como llegó.
+
+    `pd.read_csv(subido)` a secas asume UTF-8 y coma. Un export de
+    cualquier ERP o cualquier Excel guardado como CSV en una PC en español
+    llega en `latin-1`/`cp1252` y muchas veces con `;`, y lo que el usuario
+    ve es el programa cayéndose:
+
+        UnicodeDecodeError: 'utf-8' codec can't decode byte 0xed in
+        position 361: invalid continuation byte
+
+    Ese `0xed` es una `í`. Acá se reusa `_leer_csv`, que ya prueba las
+    combinaciones de separador y codificación — era el lector del módulo de
+    ingeniería de datos y la pantalla de cargar la cartera no lo usaba.
+
+    `limite=None` por defecto: la cartera que alguien sube se carga entera.
+    El tope es para perfilar, no para operar — recortarla en silencio
+    dejaría deudores afuera sin decirlo.
+    """
+    nombre = str(getattr(archivo, "name", archivo) or "")
+    if nombre.lower().endswith((".xlsx", ".xlsm", ".xls")):
+        df = pd.read_excel(archivo, sheet_name=hoja, dtype=dtype) if hoja \
+            else pd.read_excel(archivo, dtype=dtype)
+        return df.head(limite) if limite else df
+    # El `dtype` va EN la lectura, no con un `astype` después: un teléfono
+    # `099000001` leído como número pierde el cero de adelante y ya no se
+    # puede recuperar. En un producto de cobranzas ese cero es el teléfono.
+    # La heurística de separadores no sufre: mide cuántas COLUMNAS salieron,
+    # y eso no depende del tipo.
+    return _leer_csv(archivo, limite=limite, dtype=dtype)
