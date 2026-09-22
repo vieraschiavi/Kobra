@@ -221,6 +221,32 @@ def cargar():
     return full, model.metrics, model.feature_importance()
 
 
+@st.cache_data(show_spinner="Cargando historial de gestiones…")
+def cargar_gestiones(_cartera):
+    """El historial de gestiones de la DEMO.
+
+    `_cartera` va con guion bajo a propósito: así Streamlit no la hashea.
+    Es siempre la cartera de demo —12.000 filas— y hashearla en cada
+    render sería pagar el costo de la caché sin cobrar su beneficio.
+
+    Recibirla por parámetro y no leer el global `df` no es cosmético:
+    esta función se llama AHORA desde `_fuente_activa()`, o sea antes de
+    que `df` exista. Con el global, la rama del plan B moría con
+    NameError la primera vez que faltara el CSV.
+    """
+    csv = _dato("data", "kobra_gestiones.csv")
+    if csv:
+        return pd.read_csv(csv)
+    from data.generate_gestiones import generar as gen_g
+    # Con la cartera YA cargada, no leyéndola del disco.
+    #
+    # Esta rama es el plan B para cuando falta el historial, y el generador
+    # abre por su cuenta `data/kobra_cartera.csv`. O sea que el plan B dependía
+    # de un archivo del mismo directorio que faltaba: cuando de verdad hacía
+    # falta, moría con FileNotFoundError. `generar` ya acepta `cartera=`.
+    return gen_g(42, cartera=_cartera)
+
+
 def _fuente_activa():
     """La cartera que mira TODO el tablero: la del cliente si subió una.
 
@@ -237,27 +263,11 @@ def _fuente_activa():
     _propia = st.session_state.get(kfuente.CLAVE_SESION)
     if _propia is not None and not _propia.empty:
         return kfuente.desde_propia(_propia), _imp
-    return kfuente.desde_demo(_demo_df, cargar_gestiones(), _met), _imp
+    return kfuente.desde_demo(_demo_df, cargar_gestiones(_demo_df), _met), _imp
 
 
 fuente, importancia = _fuente_activa()
 df, metrics = fuente.df, fuente.metricas or {}
-
-
-@st.cache_data(show_spinner="Cargando historial de gestiones…")
-def cargar_gestiones():
-    csv = _dato("data", "kobra_gestiones.csv")
-    if csv:
-        return pd.read_csv(csv)
-    from data.generate_gestiones import generar as gen_g
-    # Con la cartera YA cargada, no leyéndola del disco.
-    #
-    # Esta rama es el plan B para cuando falta el historial, y el generador
-    # abre por su cuenta `data/kobra_cartera.csv`. O sea que el plan B dependía
-    # de un archivo del mismo directorio que faltaba: cuando de verdad hacía
-    # falta, moría con FileNotFoundError. `generar` ya acepta `cartera=`.
-    return gen_g(42, cartera=df)
-
 
 # El historial sale de la fuente activa: con la cartera del cliente
 # viene VACÍO porque no existe. Con `cargar_gestiones()` a secas, una
