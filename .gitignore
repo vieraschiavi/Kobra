@@ -2,7 +2,14 @@ __pycache__/
 *.pyc
 .DS_Store
 node_modules/
-.streamlit/
+# `.streamlit/` entero estaba ignorado, y eso se llevaba puesto también al
+# `config.toml` — que no tiene secretos y SÍ tiene que viajar: ahí vive el
+# tope de subida (sin él rige el default de Streamlit, 200 MB, y una cartera
+# de millones de filas se rechaza en el navegador). Lo que hay que ocultar es
+# `secrets.toml`, y eso sigue ignorado abajo.
+.streamlit/*
+!.streamlit/config.toml
+.streamlit/secrets.toml
 .ipynb_checkpoints/
 .uploads/
 # Exports de Canva: el maestro editable es el propio Canva (enlace en el
