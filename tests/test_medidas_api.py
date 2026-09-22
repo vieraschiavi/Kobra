@@ -252,3 +252,107 @@ def test_los_endpoints_piden_sesion(tmp_path, monkeypatch, ruta, metodo):
     cli = TestClient(api.app)
     r = cli.post(ruta, json=[]) if metodo == "post" else cli.get(ruta)
     assert r.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Owner vs. cliente con licencia
+# ---------------------------------------------------------------------------
+# Son dos caminos distintos y conviene que estén fijados por separado:
+#
+#   * el CLIENTE pasa si su licencia trae `dax` en `features` y no pasa si no;
+#   * el DUEÑO pasa siempre, porque `plan.features()` devuelve None para él
+#     (`kobra/plan.py`) y entonces `permite()` da True para cualquier cosa.
+#
+# Sin el segundo test, alguien podría "arreglar" el gateo de forma que también
+# le corte al dueño y la suite no se enteraría — la copia del dueño es
+# justamente la que nadie prueba porque siempre anduvo.
+def _montar_owner(tmp_path, monkeypatch, sello_owner):
+    """La API corriendo como la copia del dueño: sello firmado, sin licencia."""
+    import json as _json
+
+    monkeypatch.setenv("KOBRA_CONFIG_DIR", str(tmp_path / "config"))
+    monkeypatch.setenv("KOBRA_DATA_DIR", str(tmp_path / "datos"))
+    monkeypatch.setenv("KOBRA_MODO_STANDALONE", "1")
+
+    paquete = tmp_path / "paquete"
+    paquete.mkdir()
+    from kobra import edicion as kedicion
+    (paquete / kedicion.ARCHIVO).write_text(_json.dumps(sello_owner),
+                                            encoding="utf-8")
+
+    from kobra import config as kconfig
+    importlib.reload(kconfig)
+    from kobra import rutas as krutas
+    importlib.reload(krutas)
+    importlib.reload(kedicion)
+    kedicion.activar(str(paquete))          # exporta el sello al entorno
+    from kobra import plan as kplan
+    importlib.reload(kplan)
+    kplan.invalidar_cache()
+
+    from webapp.backend import api
+    importlib.reload(api)
+    return api
+
+
+def test_el_cliente_sin_dax_no_entra_a_las_medidas(tmp_path, monkeypatch):
+    api = _montar(tmp_path, monkeypatch, "basico")
+    cli, _ = _cliente(api)
+    r = cli.get("/api/medidas")
+    assert r.status_code == 403, r.text
+    assert "plan" in r.text.lower()
+
+
+def test_el_cliente_con_dax_entra(tmp_path, monkeypatch):
+    api = _montar(tmp_path, monkeypatch, "enterprise")
+    cli, _ = _cliente(api)
+    assert cli.get("/api/medidas").status_code == 200
+
+
+def test_el_dueno_entra_sin_ninguna_licencia(tmp_path, monkeypatch, sello_owner):
+    """No es que el dueño tenga una licencia enterprise: no tiene NINGUNA.
+
+    `plan.features()` devuelve None cuando `es_owner()`, y `permite()` trata
+    ese None como "sin plan que aplicar". Si alguien cambiara eso por una
+    lista vacía, al dueño se le cerraría su propio producto.
+    """
+    from kobra import plan as kplan
+    api = _montar_owner(tmp_path, monkeypatch, sello_owner)
+    assert kplan.features() is None, "el dueño no está gobernado por features"
+    assert kplan.permite("dax") is True
+    cli, _ = _cliente(api)
+    r = cli.get("/api/medidas")
+    assert r.status_code == 200, r.text
+    assert r.json()["medidas"], "el dueño ve las medidas de ejemplo"
+
+
+def test_el_dueno_tiene_las_funciones_nuevas_igual_que_un_cliente(
+        tmp_path, monkeypatch, sello_owner):
+    """Las funciones son del motor, no del plan: owner y cliente con `dax` ven
+    exactamente la misma lista. Una diferencia acá sería una edición distinta
+    del producto, no un permiso."""
+    (tmp_path / "o").mkdir()
+    api_owner = _montar_owner(tmp_path / "o", monkeypatch, sello_owner)
+    cli_o, _ = _cliente(api_owner)
+    del_dueno = set(cli_o.get("/api/medidas").json()["funciones"])
+
+    (tmp_path / "c").mkdir()
+    api_cli = _montar(tmp_path / "c", monkeypatch, "enterprise")
+    cli_c, _ = _cliente(api_cli)
+    del_cliente = set(cli_c.get("/api/medidas").json()["funciones"])
+
+    assert del_dueno == del_cliente
+    assert {"suma_si", "promedio_si", "si"} <= del_dueno
+
+
+def test_una_medida_con_condicion_se_calcula_por_la_api(tmp_path, monkeypatch):
+    """De punta a punta: la fórmula nueva atraviesa el endpoint y da el número
+    correcto sobre la cartera de prueba (200+300 de los que pasan 90 días)."""
+    api = _montar(tmp_path, monkeypatch, "enterprise")
+    cli, _ = _cliente(api)
+    r = cli.post("/api/medidas/validar", json={
+        "nombre": "Mora alta $", "formula": "suma_si(monto_deuda, dias_mora > 90)",
+        "descripcion": "", "formato": "moneda"})
+    assert r.status_code == 200, r.text
+    assert r.json()["ok"] is True
+    assert r.json()["vista_previa"]["valor"] == 500.0
