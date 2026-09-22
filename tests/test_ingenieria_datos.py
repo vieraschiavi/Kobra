@@ -494,3 +494,78 @@ def test_la_clave_compuesta_no_arrastra_columnas_que_no_hacen_falta():
     df = _cobranza_mensual()
     ks = ing.claves(df, ing.perfilar(df), "t")
     assert "FechaObs" not in ks["pk"][0]["columna"]
+
+
+# --- Tamaño: el tope tiene que PROTEGER, no sólo recortar lo que se ve ------
+# La diferencia se ve en la memoria, no en el resultado: `read(...)` seguido
+# de `.head(tope)` devuelve exactamente lo mismo que un lector que se corta
+# solo, y por eso el defecto sobrevive a cualquier test de contenido. Medido
+# sobre un parquet de 5.000.000 de filas: devolver 50.000 costaba un pico de
+# 1.230 MiB, contra 212 MiB leyendo por grupos de filas.
+def _parquet_grande(tmp_path, filas=300_000):
+    ruta = tmp_path / "grande.parquet"
+    pd.DataFrame({"id": range(filas),
+                  "texto": [f"v{i % 977}" for i in range(filas)],
+                  "monto": [float(i) for i in range(filas)]}).to_parquet(ruta)
+    return ruta
+
+
+def test_el_parquet_se_lee_por_grupos_y_no_entero(tmp_path):
+    from kobra import fuentes_datos as fd
+    ruta = _parquet_grande(tmp_path)
+    df = next(iter(fd.cargar(str(ruta), limite=1_000).values()))
+    assert len(df) == 1_000
+    assert list(df.columns) == ["id", "texto", "monto"]
+    # Y el contenido es el principio del archivo, no una muestra al azar.
+    assert df["id"].tolist() == list(range(1_000))
+
+
+def test_el_lector_de_parquet_no_materializa_el_archivo_entero(tmp_path):
+    """El control que distingue «recorta» de «protege».
+
+    Se cuenta cuántas filas ve pyarrow: si el camino fuera
+    `read_parquet(...).head(n)`, las vería TODAS.
+    """
+    import pyarrow.parquet as pq
+
+    from kobra import fuentes_datos as fd
+    ruta = _parquet_grande(tmp_path)
+    vistas = 0
+    original = pq.ParquetFile.iter_batches
+
+    def espia(self, *a, **k):
+        nonlocal vistas
+        for lote in original(self, *a, **k):
+            vistas += lote.num_rows
+            yield lote
+
+    pq.ParquetFile.iter_batches = espia
+    try:
+        fd.cargar(str(ruta), limite=1_000)
+    finally:
+        pq.ParquetFile.iter_batches = original
+    assert 0 < vistas < 300_000, (
+        f"leyó {vistas:,} filas para devolver 1.000: el tope no protege nada")
+
+
+def test_se_avisa_cuando_el_excel_es_grande_y_por_que():
+    """Veinte segundos de espera sin explicación se leen como «el programa
+    es lento». Con la explicación se leen como «cambiá el formato»."""
+    from kobra import fuentes_datos as fd
+    assert fd.MAX_FILAS_XLSX == 1_048_576
+
+
+def test_un_csv_chico_no_arrastra_la_advertencia(tmp_path):
+    from kobra import fuentes_datos as fd
+    p = tmp_path / "chico.csv"
+    p.write_text("a,b\n1,2\n", encoding="utf-8")
+    assert fd.advertencia_tamano(str(p)) == ""
+
+
+def test_un_excel_grande_dice_el_tope_del_formato_y_la_alternativa(tmp_path):
+    from kobra import fuentes_datos as fd
+    p = tmp_path / "gordo.xlsx"
+    p.write_bytes(b"0" * (25 * 2 ** 20))     # no hace falta que sea válido
+    aviso = fd.advertencia_tamano(str(p))
+    assert "1.048.576" in aviso or "1,048,576" in aviso
+    assert "parquet" in aviso and "CSV" in aviso

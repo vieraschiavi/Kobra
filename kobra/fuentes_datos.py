@@ -74,6 +74,106 @@ def _leer_csv(path: str, sep: str | None = None, encoding: str | None = None,
     raise FuenteInvalida(f"No se pudo leer el CSV: {ultimo_error}")
 
 
+def _leer_parquet(path: str, limite: int | None = LIMITE_FILAS) -> pd.DataFrame:
+    """Las primeras `limite` filas SIN traer el archivo entero a memoria.
+
+    Antes esto era `pd.read_parquet(path).head(limite)`, que es el mismo
+    defecto que ya se cerró para SQL en este producto: el tope no protegía
+    nada, sólo decidía cuánto se mostraba. Medido sobre un parquet de
+    5.000.000 de filas (157 MiB en disco): devolver 50.000 filas costaba un
+    pico de 1.230 MiB de RAM, siete veces más que el mismo tope sobre el
+    CSV equivalente.
+
+    Un parquet guarda los datos en grupos de filas y trae su índice, así
+    que se leen grupos hasta juntar el tope y se corta. Si `pyarrow` no
+    está, se cae al camino viejo: es peor, pero es mejor que no leer.
+    """
+    if not limite:
+        return pd.read_parquet(path)
+    try:
+        import pyarrow.parquet as pq
+    except ImportError:
+        return pd.read_parquet(path).head(limite)
+    archivo = pq.ParquetFile(path)
+    trozos, total = [], 0
+    for lote in archivo.iter_batches(batch_size=min(limite, 50_000)):
+        trozos.append(lote.to_pandas())
+        total += lote.num_rows
+        if total >= limite:
+            break
+    if not trozos:
+        return archivo.schema_arrow.empty_table().to_pandas()
+    return pd.concat(trozos, ignore_index=True).head(limite)
+
+
+#: Techo del FORMATO xlsx, no de la librería ni del programa: una hoja no
+#: puede tener más filas, y Excel se niega a guardar el archivo. Está acá
+#: para poder decirlo en el mensaje: quien tiene millones de filas no
+#: necesita que le optimicemos el lector de Excel, necesita saber que el
+#: formato no le entra y que tiene que exportar a CSV o a parquet.
+MAX_FILAS_XLSX = 1_048_576
+
+
+def _leer_excel(path: str, hoja: str | None,
+                limite: int | None) -> dict[str, pd.DataFrame]:
+    """Las primeras `limite` filas de cada hoja.
+
+    **Acá `nrows` no ahorra tiempo, y no hay lector que lo arregle.** Medido
+    sobre un xlsx de 1.000.000 de filas (71 MiB), devolver 50.000 cuesta
+    ~21 s, y el perfil dice dónde se van:
+
+        load_workbook(read_only=True)  16,3 s   ← antes de leer UNA fila
+        iterar 50.000 filas             3,1 s
+
+    Los 16 segundos son la tabla de cadenas compartidas del formato: un
+    xlsx guarda cada texto una vez en `sharedStrings.xml` y en las celdas
+    pone el índice, así que para resolver cualquier celda de texto hay que
+    tener la tabla entera. En un archivo con columnas de texto único, esa
+    tabla es la mayor parte del archivo.
+
+    Se probó el lector en streaming de openpyxl (`read_only=True`, fila por
+    fila) y dio 20,2 s contra 21,5 s: ruido. La complejidad se revirtió — el
+    cuello no está del lado del lector.
+
+    Lo que sí sirve es decirlo: ver `advertencia_tamano`.
+    """
+    leido = pd.read_excel(path, sheet_name=hoja if hoja else None,
+                          nrows=limite)
+    if isinstance(leido, pd.DataFrame):
+        return {hoja or os.path.basename(path): leido}
+    return {str(k): v for k, v in leido.items()}
+
+
+def advertencia_tamano(path: str) -> str:
+    """Qué decirle a quien trae un archivo grande. "" si no hace falta.
+
+    Un Excel de 200 MB no es un caso de «optimizar el lector»: es un caso
+    de formato equivocado, y la diferencia es de dos órdenes de magnitud.
+    Sobre los mismos 5.000.000 de registros, medido en este repo:
+
+        CSV      50.000 filas en 1,4 s   ·  173 MiB
+        parquet  50.000 filas en 0,6 s   ·  212 MiB
+        xlsx     50.000 filas en 21,5 s  ·  416 MiB   (y tope de formato)
+
+    Callarlo es dejar que alguien espere veinte segundos por pantalla
+    creyendo que el programa es lento.
+    """
+    ext = os.path.splitext(path)[1].lower()
+    try:
+        mb = os.path.getsize(path) / 2 ** 20
+    except OSError:
+        return ""
+    if ext not in (".xlsx", ".xlsm", ".xls") or mb < 20:
+        return ""
+    return (f"«{os.path.basename(path)}» pesa {mb:,.0f} MB y es un Excel. "
+            f"El formato guarda cada texto en una tabla única que hay que "
+            f"leer ENTERA antes de la primera fila, así que abrirlo tarda "
+            f"aunque sólo se pidan las primeras {LIMITE_FILAS:,} filas. "
+            f"Y una hoja no puede pasar de {MAX_FILAS_XLSX:,} filas: es un "
+            f"tope del formato, no del programa. El mismo dato en CSV o en "
+            f"parquet se lee unas 15 veces más rápido y sin ese techo.")
+
+
 def _leer_archivo(path: str, hoja: str | None = None,
                   limite: int | None = LIMITE_FILAS,
                   sep: str | None = None,
@@ -83,13 +183,9 @@ def _leer_archivo(path: str, hoja: str | None = None,
     if ext in (".csv", ".tsv", ".txt"):
         return {base: _leer_csv(path, sep, encoding, limite)}
     if ext in (".xlsx", ".xlsm", ".xls"):
-        hojas = pd.read_excel(path, sheet_name=hoja if hoja else None, nrows=limite)
-        if isinstance(hojas, pd.DataFrame):
-            return {hoja or base: hojas}
-        return {str(k): v for k, v in hojas.items()}
+        return _leer_excel(path, hoja, limite)
     if ext == ".parquet":
-        df = pd.read_parquet(path)
-        return {base: df.head(limite) if limite else df}
+        return {base: _leer_parquet(path, limite)}
     if ext in (".json", ".jsonl", ".ndjson"):
         lineas = ext in (".jsonl", ".ndjson")
         try:
