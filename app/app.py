@@ -28,6 +28,7 @@ from kobra import (
     negociador,  # noqa: E402
 )
 from kobra import config as kconfig  # noqa: E402
+from kobra import fuente as kfuente  # noqa: E402
 from kobra import roi as kroi  # noqa: E402
 from kobra import rutas as krutas  # noqa: E402
 from kobra.probpago import ProbPagoModel  # noqa: E402
@@ -220,7 +221,27 @@ def cargar():
     return full, model.metrics, model.feature_importance()
 
 
-df, metrics, importancia = cargar()
+def _fuente_activa():
+    """La cartera que mira TODO el tablero: la del cliente si subió una.
+
+    Antes esto era `df, metrics, importancia = cargar()` y punto: la
+    cartera propia servía para UNA pestaña y las otras once seguían
+    dibujando los 12.000 deudores sintéticos. El que sube su cartera
+    quiere ver la suya.
+
+    Se resuelve acá arriba, antes de las pestañas, porque `df` las
+    alimenta a todas. «Probar mi cartera» sólo deja la cartera scoreada
+    en la sesión y pide un rerun; quién manda lo decide esta función.
+    """
+    _demo_df, _met, _imp = cargar()
+    _propia = st.session_state.get(kfuente.CLAVE_SESION)
+    if _propia is not None and not _propia.empty:
+        return kfuente.desde_propia(_propia), _imp
+    return kfuente.desde_demo(_demo_df, cargar_gestiones(), _met), _imp
+
+
+fuente, importancia = _fuente_activa()
+df, metrics = fuente.df, fuente.metricas or {}
 
 
 @st.cache_data(show_spinner="Cargando historial de gestiones…")
@@ -238,7 +259,11 @@ def cargar_gestiones():
     return gen_g(42, cartera=df)
 
 
-gest = cargar_gestiones()
+# El historial sale de la fuente activa: con la cartera del cliente
+# viene VACÍO porque no existe. Con `cargar_gestiones()` a secas, una
+# cartera propia habría dibujado la evolución de los deudores
+# sintéticos con el nombre de los suyos.
+gest = fuente.gestiones
 
 
 @st.cache_resource(show_spinner="Preparando el Gestor IA…")
@@ -340,6 +365,18 @@ k[3].metric("ProbPago promedio", f"{f['probpago'].mean():.1%}")
 k[4].metric("Mora promedio", f"{f['dias_mora'].mean():.0f} días")
 k[5].metric("Cartera en riesgo", f"$U {en_riesgo/1e6:,.1f}M",
             f"{en_riesgo/cartera:.1%}", delta_color="inverse")
+
+# Qué cartera se está mirando. Va ARRIBA de las pestañas y no adentro de
+# una: cambiar la fuente de datos del tablero entero sin decirlo es cómo
+# alguien termina presentando la cartera de otro creyendo que es la suya.
+# Con la demo no se dibuja nada — un cartel permanente deja de leerse.
+_aviso_fuente = kfuente.aviso(fuente)
+if _aviso_fuente:
+    _cf1, _cf2 = st.columns([0.78, 0.22])
+    _cf1.info(_aviso_fuente)
+    if _cf2.button("Volver a la demo", key="volver_demo_global"):
+        st.session_state.pop(kfuente.CLAVE_SESION, None)
+        st.rerun()
 
 st.markdown("---")
 
@@ -946,195 +983,202 @@ with tab6:
                "que ves acá **no son resultados medidos**. Con el registro post-llamada, esta "
                "misma pestaña se alimenta de llamadas reales y los números pasan a ser evidencia.")
 
-    # Filtros propios del historial
-    fg = st.columns(4)
-    with fg[0]:
-        g_meses = sorted(gest["mes"].unique())
-        rango_m = st.select_slider("Rango de meses", options=g_meses,
-                                   value=(g_meses[0], g_meses[-1]))
-    with fg[1]:
-        g_seg = st.multiselect("Segmento ", sorted(gest["segmento"].unique()),
-                               default=sorted(gest["segmento"].unique()))
-    with fg[2]:
-        g_can = st.multiselect("Canal", sorted(gest["canal"].unique()),
-                               default=sorted(gest["canal"].unique()))
-    with fg[3]:
-        g_gestor = st.multiselect("Gestor", sorted(gest["gestor"].unique()),
-                                  default=sorted(gest["gestor"].unique()))
-
-    mask = (gest["mes"].between(rango_m[0], rango_m[1]) &
-            gest["segmento"].isin(g_seg) & gest["canal"].isin(g_can) &
-            gest["gestor"].isin(g_gestor))
-    gf = gest[mask].copy()
-
-    if gf.empty:
-        st.warning("No hay gestiones para los filtros seleccionados.")
+    # Sin historial —la cartera del cliente no lo trae— esta pestaña no
+    # tiene de qué hablar: `gest["mes"]` reventaría con KeyError. Se dice
+    # por qué está vacía en vez de dibujar acá la evolución del demo.
+    _sin_hist = kfuente.sin_historial(fuente)
+    if _sin_hist:
+        st.info(_sin_hist)
     else:
-        # --- Impacto MV Kobra AI (KPIs) ---
-        ik = analitica.impacto_kobra(gf)
-        st.markdown("#### Impacto de las herramientas MV Kobra AI *(ilustrativo · datos sintéticos)*")
-        ck = st.columns(4)
-        ck[0].metric("Calidad de gestión", f"{ik['con_kobra']['calidad_prom']:.0f}",
-                     f"+{ik['uplift_calidad']:.1f} vs sin MV Kobra AI")
-        ck[1].metric("Tasa de conversión", f"{ik['con_kobra']['tasa_conversion']:.0%}",
-                     f"+{ik['uplift_conversion']*100:.1f} pp")
-        ck[2].metric("Tasa de recupero", f"{ik['con_kobra']['tasa_recupero']:.0%}",
-                     f"+{ik['uplift_recupero']*100:.1f} pp")
-        ck[3].metric("Sentimiento cliente", f"{ik['con_kobra']['sentimiento_prom']:+.2f}",
-                     f"{(ik['con_kobra']['sentimiento_prom']-ik['sin_kobra']['sentimiento_prom']):+.2f}")
+        # Filtros propios del historial
+        fg = st.columns(4)
+        with fg[0]:
+            g_meses = sorted(gest["mes"].unique())
+            rango_m = st.select_slider("Rango de meses", options=g_meses,
+                                       value=(g_meses[0], g_meses[-1]))
+        with fg[1]:
+            g_seg = st.multiselect("Segmento ", sorted(gest["segmento"].unique()),
+                                   default=sorted(gest["segmento"].unique()))
+        with fg[2]:
+            g_can = st.multiselect("Canal", sorted(gest["canal"].unique()),
+                                   default=sorted(gest["canal"].unique()))
+        with fg[3]:
+            g_gestor = st.multiselect("Gestor", sorted(gest["gestor"].unique()),
+                                      default=sorted(gest["gestor"].unique()))
 
-        # --- Evolución temporal ---
-        st.markdown("#### Evolución mes a mes")
-        ev = analitica.evolucion_mensual(gf)
-        ev_kobra = analitica.evolucion_mensual(gf, por="usa_kobra")
-        e1, e2 = st.columns(2)
-        with e1:
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=ev["mes"], y=ev["calidad_prom"], mode="lines+markers",
-                                     name="Calidad", line=dict(color=PRIMARY, width=3)))
-            fig.add_trace(go.Scatter(x=ev["mes"], y=ev["tasa_conversion"]*100, mode="lines+markers",
-                                     name="Conversión %", line=dict(color=ACCENT, width=3), yaxis="y2"))
-            fig.update_layout(template="plotly_dark", height=340,
-                              title="Calidad y conversión en el tiempo",
-                              yaxis=dict(title="Calidad"),
-                              yaxis2=dict(title="Conversión %", overlaying="y", side="right"),
-                              legend=dict(orientation="h", y=1.15))
-            st.plotly_chart(fig, use_container_width=True)
-        with e2:
-            fig = px.line(ev_kobra, x="mes", y="calidad_prom", color="usa_kobra",
-                          markers=True, color_discrete_map={True: PRIMARY, False: "#FF7675"},
-                          title="Calidad: con MV Kobra AI vs. sin MV Kobra AI",
-                          labels={"usa_kobra": "Usa MV Kobra AI"})
-            fig.update_layout(template="plotly_dark", height=340,
-                              legend=dict(orientation="h", y=1.15))
-            st.plotly_chart(fig, use_container_width=True)
+        mask = (gest["mes"].between(rango_m[0], rango_m[1]) &
+                gest["segmento"].isin(g_seg) & gest["canal"].isin(g_can) &
+                gest["gestor"].isin(g_gestor))
+        gf = gest[mask].copy()
 
-        # --- Características por dimensión ---
-        st.markdown("#### Características más frecuentes")
-        dim = st.selectbox("Analizar por", ["tramo_mora", "segmento", "canal", "producto"])
-        c1, c2 = st.columns([0.55, 0.45])
-        with c1:
-            car = analitica.caracteristicas_por(gf, dim)
-            car_show = car[[dim, "gestiones", "calidad_prom", "tasa_conversion",
-                            "tasa_recupero", "emocion_top"]].copy()
-            car_show["tasa_conversion"] = (car_show["tasa_conversion"] * 100).round(0)
-            car_show["tasa_recupero"] = (car_show["tasa_recupero"] * 100).round(0)
-            st.dataframe(
-                car_show, use_container_width=True, hide_index=True,
-                column_config={
-                    "tasa_conversion": st.column_config.NumberColumn("Conversión", format="%.0f%%"),
-                    "tasa_recupero": st.column_config.NumberColumn("Recupero", format="%.0f%%"),
-                    "calidad_prom": st.column_config.NumberColumn("Calidad", format="%.0f"),
-                })
-        with c2:
-            mat = analitica.matriz_emociones(gf, dim if dim in
-                                             ("tramo_mora", "segmento") else "tramo_mora")
-            mcol = mat.columns[0]
-            fig = px.imshow(mat.set_index(mcol).T, text_auto=".0f", aspect="auto",
-                            color_continuous_scale="Teal",
-                            title=f"Emociones del cliente por {mcol} (%)")
-            fig.update_layout(template="plotly_dark", height=340, coloraxis_showscale=False)
-            st.plotly_chart(fig, use_container_width=True)
+        if gf.empty:
+            st.warning("No hay gestiones para los filtros seleccionados.")
+        else:
+            # --- Impacto MV Kobra AI (KPIs) ---
+            ik = analitica.impacto_kobra(gf)
+            st.markdown("#### Impacto de las herramientas MV Kobra AI *(ilustrativo · datos sintéticos)*")
+            ck = st.columns(4)
+            ck[0].metric("Calidad de gestión", f"{ik['con_kobra']['calidad_prom']:.0f}",
+                         f"+{ik['uplift_calidad']:.1f} vs sin MV Kobra AI")
+            ck[1].metric("Tasa de conversión", f"{ik['con_kobra']['tasa_conversion']:.0%}",
+                         f"+{ik['uplift_conversion']*100:.1f} pp")
+            ck[2].metric("Tasa de recupero", f"{ik['con_kobra']['tasa_recupero']:.0%}",
+                         f"+{ik['uplift_recupero']*100:.1f} pp")
+            ck[3].metric("Sentimiento cliente", f"{ik['con_kobra']['sentimiento_prom']:+.2f}",
+                         f"{(ik['con_kobra']['sentimiento_prom']-ik['sin_kobra']['sentimiento_prom']):+.2f}")
 
-        # --- Impacto de la calidad en el recupero ---
-        st.markdown("#### Impacto de la calidad de gestión en la cobranza")
-        ic = analitica.impacto_calidad(gf)
-        i1, i2 = st.columns([0.6, 0.4])
-        with i1:
-            fig = go.Figure()
-            fig.add_bar(x=ic["rango_calidad"].astype(str), y=ic["tasa_conversion"]*100,
-                        marker_color=PRIMARY, name="Conversión %")
-            fig.add_trace(go.Scatter(x=ic["rango_calidad"].astype(str), y=ic["tasa_recupero"]*100,
-                                     mode="lines+markers", name="Recupero %",
-                                     line=dict(color=YELLOW, width=3)))
-            fig.update_layout(template="plotly_dark", height=330,
-                              title="A mayor calidad de gestión, mayor conversión y recupero",
-                              xaxis_title="Rango de calidad", legend=dict(orientation="h", y=1.2))
-            st.plotly_chart(fig, use_container_width=True)
-        with i2:
-            st.metric("Correlación calidad ↔ conversión",
-                      f"{ic.attrs['correlacion_calidad_conversion']:.2f}")
-            st.info("La calidad de gestión (medida por el Copiloto) se traduce en "
-                    "más conversión y más recupero. MV Kobra AI la mejora sistemáticamente.")
-
-        # --- Gestor IA vs. humanos ---
-        comp = analitica.comparativa_ia(gf)
-        if comp:
-            st.markdown("#### Gestor IA vs. gestores humanos "
-                        "*(ilustrativo · datos sintéticos)*")
-            st.caption("El Gestor IA atiende/llama por voz o WhatsApp, negocia según "
-                       "ProbPago, completa los campos ERP y registra cada gestión — "
-                       "hasta 50 conversaciones simultáneas. Acá se mide contra los "
-                       "humanos en los mismos meses.")
-            ci_ = st.columns(4)
-            ci_[0].metric("Gestiones / gestor / mes",
-                          f"{comp['ia']['gestiones_por_gestor_mes']:,.0f}",
-                          f"{comp['volumen_x']}x vs humano")
-            ci_[1].metric("Conversión IA", f"{comp['ia']['tasa_conversion']:.0%}",
-                          f"{(comp['ia']['tasa_conversion']-comp['humanos']['tasa_conversion'])*100:+.1f} pp vs humanos")
-            ci_[2].metric("Calidad IA", f"{comp['ia']['calidad_prom']:.0f}",
-                          f"{comp['ia']['calidad_prom']-comp['humanos']['calidad_prom']:+.1f} vs humanos")
-            ci_[3].metric("Recupero IA (período)",
-                          f"$U {comp['ia']['recupero_total']/1e6:,.1f}M")
-            comp_df = pd.DataFrame({
-                "Métrica": ["Conversión %", "Calidad", "Gestiones/gestor/mes"],
-                "Gestor IA": [comp["ia"]["tasa_conversion"] * 100,
-                              comp["ia"]["calidad_prom"],
-                              comp["ia"]["gestiones_por_gestor_mes"]],
-                "Humanos": [comp["humanos"]["tasa_conversion"] * 100,
-                            comp["humanos"]["calidad_prom"],
-                            comp["humanos"]["gestiones_por_gestor_mes"]],
-            })
-            fig = go.Figure()
-            fig.add_bar(x=comp_df["Métrica"], y=comp_df["Gestor IA"],
-                        name="Gestor IA", marker_color=ACCENT)
-            fig.add_bar(x=comp_df["Métrica"], y=comp_df["Humanos"],
-                        name="Humanos", marker_color=PRIMARY)
-            fig.update_layout(template="plotly_dark", height=300, barmode="group",
-                              title="Gestor IA vs. humanos (mismos meses)",
-                              legend=dict(orientation="h", y=1.2))
-            st.plotly_chart(fig, use_container_width=True)
-
-        # --- Ranking y mejora por gestor ---
-        st.markdown("#### Ranking de gestores y mejora en el tiempo")
-        r1, r2 = st.columns(2)
-        with r1:
-            rk = analitica.ranking_gestores(gf)[
-                ["gestor", "gestiones", "calidad_prom", "tasa_conversion",
-                 "recupero", "usa_kobra"]].copy()
-            rk["tasa_conversion"] = (rk["tasa_conversion"] * 100).round(0)
-            st.dataframe(
-                rk, use_container_width=True, hide_index=True, height=330,
-                column_config={
-                    "recupero": st.column_config.NumberColumn("Recupero (UYU)", format="%.0f"),
-                    "tasa_conversion": st.column_config.NumberColumn("Conversión", format="%.0f%%"),
-                    "calidad_prom": st.column_config.NumberColumn("Calidad", format="%.0f"),
-                    "usa_kobra": st.column_config.CheckboxColumn("MV Kobra AI"),
-                })
-        with r2:
-            mej = analitica.mejora_por_gestor(gf)
-            if not mej.empty:
-                fig = px.bar(mej, x="delta_calidad", y="gestor", orientation="h",
-                             color="usa_kobra", color_discrete_map={True: PRIMARY, False: "#FF7675"},
-                             title="Mejora de calidad (últimos 3m vs. primeros 3m)",
-                             labels={"delta_calidad": "Δ calidad", "usa_kobra": "Usa MV Kobra AI"})
-                fig.update_layout(template="plotly_dark", height=330,
-                                  yaxis=dict(autorange="reversed"),
+            # --- Evolución temporal ---
+            st.markdown("#### Evolución mes a mes")
+            ev = analitica.evolucion_mensual(gf)
+            ev_kobra = analitica.evolucion_mensual(gf, por="usa_kobra")
+            e1, e2 = st.columns(2)
+            with e1:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=ev["mes"], y=ev["calidad_prom"], mode="lines+markers",
+                                         name="Calidad", line=dict(color=PRIMARY, width=3)))
+                fig.add_trace(go.Scatter(x=ev["mes"], y=ev["tasa_conversion"]*100, mode="lines+markers",
+                                         name="Conversión %", line=dict(color=ACCENT, width=3), yaxis="y2"))
+                fig.update_layout(template="plotly_dark", height=340,
+                                  title="Calidad y conversión en el tiempo",
+                                  yaxis=dict(title="Calidad"),
+                                  yaxis2=dict(title="Conversión %", overlaying="y", side="right"),
+                                  legend=dict(orientation="h", y=1.15))
+                st.plotly_chart(fig, use_container_width=True)
+            with e2:
+                fig = px.line(ev_kobra, x="mes", y="calidad_prom", color="usa_kobra",
+                              markers=True, color_discrete_map={True: PRIMARY, False: "#FF7675"},
+                              title="Calidad: con MV Kobra AI vs. sin MV Kobra AI",
+                              labels={"usa_kobra": "Usa MV Kobra AI"})
+                fig.update_layout(template="plotly_dark", height=340,
                                   legend=dict(orientation="h", y=1.15))
                 st.plotly_chart(fig, use_container_width=True)
 
-        # --- Export ---
-        st.markdown("#### ⬇ Exportar analítica")
-        xlsx_analitica = _excel({
-            "Ranking_gestores": analitica.ranking_gestores(gf),
-            "Mejora_gestores": analitica.mejora_por_gestor(gf),
-            "Evolucion_mensual": analitica.evolucion_mensual(gf),
-            "Por_tramo": analitica.caracteristicas_por(gf, "tramo_mora"),
-            "Por_segmento": analitica.caracteristicas_por(gf, "segmento"),
-        })
-        st.download_button("Descargar analítica (Excel)", xlsx_analitica,
-                           "kobra_analitica_gestion.xlsx",
-                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            # --- Características por dimensión ---
+            st.markdown("#### Características más frecuentes")
+            dim = st.selectbox("Analizar por", ["tramo_mora", "segmento", "canal", "producto"])
+            c1, c2 = st.columns([0.55, 0.45])
+            with c1:
+                car = analitica.caracteristicas_por(gf, dim)
+                car_show = car[[dim, "gestiones", "calidad_prom", "tasa_conversion",
+                                "tasa_recupero", "emocion_top"]].copy()
+                car_show["tasa_conversion"] = (car_show["tasa_conversion"] * 100).round(0)
+                car_show["tasa_recupero"] = (car_show["tasa_recupero"] * 100).round(0)
+                st.dataframe(
+                    car_show, use_container_width=True, hide_index=True,
+                    column_config={
+                        "tasa_conversion": st.column_config.NumberColumn("Conversión", format="%.0f%%"),
+                        "tasa_recupero": st.column_config.NumberColumn("Recupero", format="%.0f%%"),
+                        "calidad_prom": st.column_config.NumberColumn("Calidad", format="%.0f"),
+                    })
+            with c2:
+                mat = analitica.matriz_emociones(gf, dim if dim in
+                                                 ("tramo_mora", "segmento") else "tramo_mora")
+                mcol = mat.columns[0]
+                fig = px.imshow(mat.set_index(mcol).T, text_auto=".0f", aspect="auto",
+                                color_continuous_scale="Teal",
+                                title=f"Emociones del cliente por {mcol} (%)")
+                fig.update_layout(template="plotly_dark", height=340, coloraxis_showscale=False)
+                st.plotly_chart(fig, use_container_width=True)
+
+            # --- Impacto de la calidad en el recupero ---
+            st.markdown("#### Impacto de la calidad de gestión en la cobranza")
+            ic = analitica.impacto_calidad(gf)
+            i1, i2 = st.columns([0.6, 0.4])
+            with i1:
+                fig = go.Figure()
+                fig.add_bar(x=ic["rango_calidad"].astype(str), y=ic["tasa_conversion"]*100,
+                            marker_color=PRIMARY, name="Conversión %")
+                fig.add_trace(go.Scatter(x=ic["rango_calidad"].astype(str), y=ic["tasa_recupero"]*100,
+                                         mode="lines+markers", name="Recupero %",
+                                         line=dict(color=YELLOW, width=3)))
+                fig.update_layout(template="plotly_dark", height=330,
+                                  title="A mayor calidad de gestión, mayor conversión y recupero",
+                                  xaxis_title="Rango de calidad", legend=dict(orientation="h", y=1.2))
+                st.plotly_chart(fig, use_container_width=True)
+            with i2:
+                st.metric("Correlación calidad ↔ conversión",
+                          f"{ic.attrs['correlacion_calidad_conversion']:.2f}")
+                st.info("La calidad de gestión (medida por el Copiloto) se traduce en "
+                        "más conversión y más recupero. MV Kobra AI la mejora sistemáticamente.")
+
+            # --- Gestor IA vs. humanos ---
+            comp = analitica.comparativa_ia(gf)
+            if comp:
+                st.markdown("#### Gestor IA vs. gestores humanos "
+                            "*(ilustrativo · datos sintéticos)*")
+                st.caption("El Gestor IA atiende/llama por voz o WhatsApp, negocia según "
+                           "ProbPago, completa los campos ERP y registra cada gestión — "
+                           "hasta 50 conversaciones simultáneas. Acá se mide contra los "
+                           "humanos en los mismos meses.")
+                ci_ = st.columns(4)
+                ci_[0].metric("Gestiones / gestor / mes",
+                              f"{comp['ia']['gestiones_por_gestor_mes']:,.0f}",
+                              f"{comp['volumen_x']}x vs humano")
+                ci_[1].metric("Conversión IA", f"{comp['ia']['tasa_conversion']:.0%}",
+                              f"{(comp['ia']['tasa_conversion']-comp['humanos']['tasa_conversion'])*100:+.1f} pp vs humanos")
+                ci_[2].metric("Calidad IA", f"{comp['ia']['calidad_prom']:.0f}",
+                              f"{comp['ia']['calidad_prom']-comp['humanos']['calidad_prom']:+.1f} vs humanos")
+                ci_[3].metric("Recupero IA (período)",
+                              f"$U {comp['ia']['recupero_total']/1e6:,.1f}M")
+                comp_df = pd.DataFrame({
+                    "Métrica": ["Conversión %", "Calidad", "Gestiones/gestor/mes"],
+                    "Gestor IA": [comp["ia"]["tasa_conversion"] * 100,
+                                  comp["ia"]["calidad_prom"],
+                                  comp["ia"]["gestiones_por_gestor_mes"]],
+                    "Humanos": [comp["humanos"]["tasa_conversion"] * 100,
+                                comp["humanos"]["calidad_prom"],
+                                comp["humanos"]["gestiones_por_gestor_mes"]],
+                })
+                fig = go.Figure()
+                fig.add_bar(x=comp_df["Métrica"], y=comp_df["Gestor IA"],
+                            name="Gestor IA", marker_color=ACCENT)
+                fig.add_bar(x=comp_df["Métrica"], y=comp_df["Humanos"],
+                            name="Humanos", marker_color=PRIMARY)
+                fig.update_layout(template="plotly_dark", height=300, barmode="group",
+                                  title="Gestor IA vs. humanos (mismos meses)",
+                                  legend=dict(orientation="h", y=1.2))
+                st.plotly_chart(fig, use_container_width=True)
+
+            # --- Ranking y mejora por gestor ---
+            st.markdown("#### Ranking de gestores y mejora en el tiempo")
+            r1, r2 = st.columns(2)
+            with r1:
+                rk = analitica.ranking_gestores(gf)[
+                    ["gestor", "gestiones", "calidad_prom", "tasa_conversion",
+                     "recupero", "usa_kobra"]].copy()
+                rk["tasa_conversion"] = (rk["tasa_conversion"] * 100).round(0)
+                st.dataframe(
+                    rk, use_container_width=True, hide_index=True, height=330,
+                    column_config={
+                        "recupero": st.column_config.NumberColumn("Recupero (UYU)", format="%.0f"),
+                        "tasa_conversion": st.column_config.NumberColumn("Conversión", format="%.0f%%"),
+                        "calidad_prom": st.column_config.NumberColumn("Calidad", format="%.0f"),
+                        "usa_kobra": st.column_config.CheckboxColumn("MV Kobra AI"),
+                    })
+            with r2:
+                mej = analitica.mejora_por_gestor(gf)
+                if not mej.empty:
+                    fig = px.bar(mej, x="delta_calidad", y="gestor", orientation="h",
+                                 color="usa_kobra", color_discrete_map={True: PRIMARY, False: "#FF7675"},
+                                 title="Mejora de calidad (últimos 3m vs. primeros 3m)",
+                                 labels={"delta_calidad": "Δ calidad", "usa_kobra": "Usa MV Kobra AI"})
+                    fig.update_layout(template="plotly_dark", height=330,
+                                      yaxis=dict(autorange="reversed"),
+                                      legend=dict(orientation="h", y=1.15))
+                    st.plotly_chart(fig, use_container_width=True)
+
+            # --- Export ---
+            st.markdown("#### ⬇ Exportar analítica")
+            xlsx_analitica = _excel({
+                "Ranking_gestores": analitica.ranking_gestores(gf),
+                "Mejora_gestores": analitica.mejora_por_gestor(gf),
+                "Evolucion_mensual": analitica.evolucion_mensual(gf),
+                "Por_tramo": analitica.caracteristicas_por(gf, "tramo_mora"),
+                "Por_segmento": analitica.caracteristicas_por(gf, "segmento"),
+            })
+            st.download_button("Descargar analítica (Excel)", xlsx_analitica,
+                               "kobra_analitica_gestion.xlsx",
+                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 @st.cache_data(show_spinner="Calculando la agenda de seguimiento…")
 def _agenda_hoy_cacheada(g):
@@ -1149,7 +1193,10 @@ with tabAgenda:
                "respetando horario, feriados, topes de frecuencia y la lista de No Contactar "
                "(los mismos límites que ya aplica el Gestor IA en cada llamada/WhatsApp).")
 
-    _agenda = _agenda_hoy_cacheada(gest)
+    _sin_hist_ag = kfuente.sin_historial(fuente)
+    if _sin_hist_ag:
+        st.info(_sin_hist_ag)
+    _agenda = pd.DataFrame() if gest.empty else _agenda_hoy_cacheada(gest)
     if _agenda.empty:
         st.success("✓ No hay promesas ni arreglos de pago vencidos sin seguimiento.")
     else:
@@ -1185,7 +1232,11 @@ with tabERP:
                "fechas, montos y notas. Esa **sábana de datos** se exporta o **sincroniza "
                "a cualquier ERP o base de datos** vía API o conexión SQL.")
 
-    _sab = kerp.sabana(gest)
+    _sin_hist_sab = kfuente.sin_historial(fuente)
+    if _sin_hist_sab:
+        st.info(_sin_hist_sab)
+    _sab = (pd.DataFrame(columns=["tipo_gestor"]) if gest.empty
+            else kerp.sabana(gest))
     c = st.columns(4)
     c[0].metric("Gestiones", f"{len(_sab):,}")
     c[1].metric("Por Gestor IA", f"{(_sab['tipo_gestor']=='IA').sum():,}")
@@ -2151,6 +2202,29 @@ with tab8:
         if contactos:
             st.success(f"✓ {len(contactos)} contacto(s) traídos de tu base — listos para negociar.")
             st.dataframe(pd.DataFrame(contactos), use_container_width=True, hide_index=True)
+
+    # Adoptar la cartera para TODO el tablero. `importar_y_scorear` ya
+    # devolvía la cartera scoreada «lista para reemplazar los datos de
+    # demo del dashboard» —su propio docstring— y nadie la llamaba desde
+    # acá: la capacidad estaba escrita y sin enchufar.
+    if contactos:
+        st.markdown("---")
+        _ad1, _ad2 = st.columns([0.62, 0.38])
+        _ad1.markdown(
+            f"**¿Usar estos {len(contactos)} contactos en todo el tablero?** "
+            "Visión general, ProbPago, Cartera & Export y Caso de negocio "
+            "pasan a calcularse con ellos.")
+        if _ad2.button("Usar en todas las pestañas", key="adoptar_cartera"):
+            from kobra import cartera_manual as _cm_ad
+            try:
+                st.session_state[kfuente.CLAVE_SESION] = \
+                    _cm_ad.importar_y_scorear(pd.DataFrame(contactos))
+                st.rerun()
+            except ValueError as _exc:
+                # El error de `importar_y_scorear` dice QUÉ columna falta y
+                # cuáles leyó. Va tal cual: un «no se pudo» genérico deja al
+                # usuario adivinando qué tiene que renombrar.
+                st.error(str(_exc))
 
     usar_claude = st.checkbox(
         "Usar Claude para redactar más natural (necesita ANTHROPIC_API_KEY)", value=False,
