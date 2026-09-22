@@ -416,3 +416,74 @@ def test_la_calidad_llega_al_brief_que_mira_el_gestor():
     for campo in ("id_deudor", "monto_deuda", "probpago", "estrategia",
                   "descuento_recomendado", "plan_cuotas"):
         assert campo in brief
+
+
+# ==========================================================================
+# Detectar DÓNDE está la cartera adentro del archivo
+# ==========================================================================
+def _libro(hojas: dict) -> str:
+    import tempfile
+    ruta = os.path.join(tempfile.mkdtemp(), "export_erp.xlsx")
+    with pd.ExcelWriter(ruta) as w:
+        for nombre, df in hojas.items():
+            df.to_excel(w, sheet_name=nombre, index=False)
+    return ruta
+
+
+def test_entre_varias_hojas_se_detecta_la_cartera_por_sus_columnas():
+    """Un export de ERP trae la cartera y, al lado, el diccionario de campos
+    y dos resúmenes. `pd.read_excel(archivo)` devuelve la PRIMERA, que casi
+    nunca es la que se quiere, y sin avisar de que había otras."""
+    from kobra import cartera_manual
+    ruta = _libro({
+        "Diccionario": pd.DataFrame({"Tabla": ["cartera"], "Campo": ["deuda"]}),
+        "Resumen": pd.DataFrame({"Mes": ["ene"], "Cobrado": [1000]}),
+        "Deudores": pd.DataFrame({"Nombre": ["Ana"], "Telefono": ["099000001"],
+                                  "Deuda Total": ["12.500,00"], "Dias Mora": ["18"]}),
+    })
+    contactos, hoja, cuantas = cartera_manual.desde_excel(ruta)
+    assert hoja == "Deudores" and cuantas == 3
+    assert len(contactos) == 1 and contactos[0]["monto_deuda"] == 12500.0
+
+
+def test_gana_la_hoja_con_MAS_campos_reconocidos_no_la_primera_con_plata():
+    """Una hoja de cobros tiene un importe y nada más; la cartera tiene
+    nombre, teléfono, deuda y mora. Contar campos —y no filas— es lo que
+    las distingue."""
+    from kobra import cartera_manual
+    ruta = _libro({
+        "Cobros": pd.DataFrame({"Importe": ["100"], "Fecha": ["2026-01-01"]}),
+        "Cartera": pd.DataFrame({"Nombre": ["Ana"], "Telefono": ["099"],
+                                 "Saldo Vencido": ["500"], "Dias Mora": ["30"]}),
+    })
+    assert cartera_manual.desde_excel(ruta)[1] == "Cartera"
+
+
+def test_sin_monto_de_deuda_una_hoja_NO_es_cartera():
+    """`DEFAULTS` completa los días de mora y el score de buró, pero un
+    monto inventado sería inventar la deuda. Por eso es requisito."""
+    from kobra import cartera_manual
+    sin_plata = pd.DataFrame({"Nombre": ["Ana"], "Telefono": ["099"]})
+    assert cartera_manual.puntaje_cartera(sin_plata) == 0
+
+
+def test_si_ninguna_hoja_es_cartera_el_error_habla_de_columnas():
+    """Devolver vacío daría «no encontré nada», que no dice qué le falta al
+    archivo. Se devuelve la primera para que el error sea sobre columnas."""
+    from kobra import cartera_manual
+    ruta = _libro({"Solo": pd.DataFrame({"a": ["1"], "b": ["2"]})})
+    contactos, hoja, cuantas = cartera_manual.desde_excel(ruta)
+    assert hoja == "Solo" and cuantas == 1 and contactos == []
+
+
+def test_la_cartera_demo_es_100_por_ciento_sintetica():
+    """Es el último lugar del producto donde podría colarse un dato real:
+    acá se cargan nombres y teléfonos."""
+    from kobra import cartera_manual
+    demo = cartera_manual.cartera_demo()
+    assert len(demo) >= 3
+    assert all(c["telefono"].startswith("099000") for c in demo)
+    # montos y moras distintos: cinco contactos iguales darían cinco scores
+    # iguales y la demo no mostraría que ProbPago los separa
+    assert len({c["monto_deuda"] for c in demo}) == len(demo)
+    assert len({c["dias_mora"] for c in demo}) == len(demo)
