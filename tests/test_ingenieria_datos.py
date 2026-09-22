@@ -309,3 +309,188 @@ def test_una_tabla_vacia_no_rompe_el_analisis():
     una excepción sin explicación."""
     r = ing.analizar({"vacia": pd.DataFrame({"a": [], "b": []})})
     assert r["perfiles"]["vacia"]["filas"] == 0
+
+
+# --- Cuando NO hay clave: decir cuál de los tres caminos fue ----------------
+# «No se encontró una columna que identifique cada fila» es el mensaje que
+# recibió un archivo real de cobranzas de 504 filas × 23 columnas. Hay tres
+# caminos distintos que terminan ahí y desde la pantalla se veían iguales, así
+# que no había nada que hacer con el aviso salvo adivinar.
+def _cartera_de_cobranzas(filas: int = 504, repetidas: int = 17):
+    """La forma de un export de cobranzas que de verdad NO tiene clave.
+
+    `repetidas` filas son idénticas en TODAS las columnas salvo el importe:
+    el mismo cliente, el mismo comprobante, el mismo vencimiento, dos veces,
+    con montos distintos. Es la forma normal de un export que trae una fila
+    por movimiento del comprobante —cuota, nota de crédito, ajuste— y es la
+    razón más probable de que un archivo así no tenga clave: lo único que
+    distingue esas filas es una columna de plata, que se descarta a propósito.
+
+    Importa que el fixture sea así y no «casi único»: con una columna que se
+    repite pero filas distintas en lo demás, el par cliente + comprobante SÍ
+    es clave y el camino que se quiere probar nunca se ejecuta.
+    """
+    base = filas - repetidas
+    idx = list(range(base)) + list(range(repetidas))   # las últimas, repetidas
+    return pd.DataFrame({
+        "cod_cliente": [f"C{i % 120:04d}" for i in idx],
+        "nro_documento": [f"D{i:05d}" for i in idx],
+        "sucursal": [f"Suc. {i % 8}" for i in idx],
+        "fecha_vto": pd.to_datetime("2026-01-01") + pd.to_timedelta(
+            [i % 90 for i in idx], unit="D"),
+        "dias_de_atraso": [i % 300 for i in idx],
+        # Lo único distinto entre las filas repetidas, y es plata.
+        "saldo_vencido": [1000.0 + i for i in range(filas)],
+    })
+
+
+def test_el_fixture_de_cobranzas_no_tiene_clave_de_verdad():
+    """Si esta forma tuviera clave, los dos tests de abajo se saltearían
+    solos y pasarían sin afirmar nada. Se fija acá, explícito."""
+    df = _cartera_de_cobranzas()
+    assert len(df) == 504
+    assert ing.claves(df, ing.perfilar(df), "cobranzas")["pk"] == []
+
+
+def test_sin_clave_se_dice_cual_columna_estuvo_cerca_y_por_cuanto():
+    """«487 de 504» no se lee igual que «12 de 504»: el número es lo que
+    dice si falta un ajuste o si la tabla directamente no tiene clave."""
+    df = _cartera_de_cobranzas()
+    ks = ing.claves(df, ing.perfilar(df), "cobranzas")
+    diag = ks["diagnostico"]
+    assert diag["filas"] == 504
+    assert diag["mejor"]["columna"] == "nro_documento"
+    assert diag["mejor"]["repetidas"] == 17
+
+
+def test_el_importe_descartado_se_nombra_en_vez_de_desaparecer():
+    """Un saldo único de casualidad no es una clave y por eso se saltea. Pero
+    si no se dice, el usuario ve «no hay clave» mirando una columna que él
+    sabe única y concluye que el programa está roto."""
+    df = pd.DataFrame({"categoria": ["A", "A", "B", "B"],
+                       "monto_deuda": [1.0, 2.0, 3.0, 4.0]})
+    ks = ing.claves(df, ing.perfilar(df), "t")
+    diag = ks.get("diagnostico")
+    assert diag is not None
+    assert "monto_deuda" in diag["descartadas_monto"]
+    assert "monto_deuda" in ing.explicar_falta_de_clave(diag)
+
+
+def test_la_clave_compuesta_se_busca_por_cardinalidad_y_no_por_posicion():
+    """El defecto que hacía fallar una tabla ancha: se tomaban las primeras
+    6 columnas POR POSICIÓN. En un export de 23 columnas, la candidata
+    verdadera se quedaba afuera por estar en la posición 11."""
+    relleno = {f"marca_{i}": ["si", "no"] * 6 for i in range(9)}
+    df = pd.DataFrame({
+        **relleno,                                    # 9 columnas de relleno
+        "cod_cliente": [f"C{i:02d}" for i in range(12)],
+        "periodo": pd.to_datetime("2026-01-01") + pd.to_timedelta(
+            [0] * 12, unit="D"),
+    })
+    ks = ing.claves(df, ing.perfilar(df), "ancha")
+    assert any(k["tipo"] in ("PK simple", "PK candidata", "PK compuesta")
+               for k in ks["pk"]), ks
+
+
+def test_cuando_hay_clave_no_se_arrastra_un_diagnostico_al_pedo():
+    df = pd.DataFrame({"id": range(100), "valor": [1] * 100})
+    assert "diagnostico" not in ing.claves(df, ing.perfilar(df), "t")
+
+
+def test_la_explicacion_nombra_las_columnas_que_se_probaron():
+    """Sin la lista, «se probaron todos los pares» es una afirmación que el
+    usuario no puede verificar ni corregir."""
+    df = _cartera_de_cobranzas()
+    ks = ing.claves(df, ing.perfilar(df), "cobranzas")
+    texto = ing.explicar_falta_de_clave(ks["diagnostico"])
+    for col in ks["diagnostico"]["compuesta_probadas"]:
+        assert f"`{col}`" in texto
+
+
+def test_sin_diagnostico_la_explicacion_no_revienta():
+    """La app la llama con `.get(...) or {}`: nunca puede tirar."""
+    assert ing.explicar_falta_de_clave({}) == ""
+
+
+# --- El archivo real: «cobranzas al 3105», 504 filas × 23 columnas ----------
+# El usuario reportó «No se encontró una columna que identifique cada fila»
+# sobre una tabla que tiene clave perfecta. La causa, medida sobre el archivo:
+# la tabla es un agregado mensual con grano
+# `Año + Mes + Estado + TipoCliente` — 36 períodos × 14 combinaciones = 504 —
+# y el detector fallaba por DOS razones independientes, las dos necesarias:
+#
+#   1. `Año` y `Mes` son enteros, y toda columna numérica se leía como
+#      métrica. Las métricas no entran a la búsqueda de claves, así que las
+#      únicas candidatas eran `Estado` (13) y `TipoCliente` (3): 39
+#      combinaciones para 504 filas.
+#   2. La búsqueda sólo probaba PARES. Aun con las cuatro candidatas, el par
+#      de mayor cardinalidad da 13 × 12 = 156. Ninguna búsqueda por pares
+#      podía encontrarla, por exhaustiva que fuera.
+def _cobranza_mensual():
+    """La forma exacta del archivo: 4 años × ... = 36 períodos × 14 combos."""
+    estados = ["Cobranza/Mora Temprana", "Cobranza/Negociación",
+               "Comercial/Normal", "Comercial/Promesa Gerencia",
+               "Comercial/Suspensión SC", "Contaduría/Fallecido",
+               "Contaduría/Socios a Gestionar", "Contaduría/Venta",
+               "Jurídica/Extrajudicial", "Jurídica/Extrajudicial SOMA",
+               "Jurídica/Judicial", "Prejurídica/Gestión", "Suspendidos/Baja"]
+    # 14 combinaciones: `Cobranza/Negociación` viene partida en Puro/Impuro.
+    combos = [(e, "N/A") for e in estados if e != "Cobranza/Negociación"]
+    combos += [("Cobranza/Negociación", "Puro"),
+               ("Cobranza/Negociación", "Impuro")]
+    periodos = [(a, m) for a in (2023, 2024, 2025, 2026) for m in range(1, 13)]
+    filas = [{"FechaObs": "00:00.0", "Año": a, "Mes": m,
+              "Estado": e, "TipoCliente": t,
+              "MontoACobrarVencido": float(1000 + i),
+              "SociosCobrados": i % 97}
+             for i, ((a, m), (e, t)) in enumerate(
+                 (p, c) for p in periodos[:36] for c in combos)]
+    return pd.DataFrame(filas)
+
+
+def test_el_archivo_de_cobranzas_del_cliente_tiene_clave_y_se_encuentra():
+    df = _cobranza_mensual()
+    assert df.shape[0] == 504, "el fixture tiene que ser el tamaño del real"
+    ks = ing.claves(df, ing.perfilar(df), "cobranzas al 3105")
+    assert ks["pk"], "volvió a quedarse sin clave: " + str(ks.get("diagnostico"))
+    cols = set(ks["pk"][0]["columna"].split(" + "))
+    assert cols == {"Año", "Mes", "Estado", "TipoCliente"}, cols
+    # Y es clave de verdad, no una casualidad del detector.
+    assert len(df.drop_duplicates(subset=list(cols))) == len(df)
+
+
+def test_un_ano_y_un_mes_son_dimension_temporal_y_no_una_medida():
+    """Causa 1. Sumar meses no significa nada; promediar años tampoco. Con
+    rol de métrica quedaban fuera de la búsqueda de claves."""
+    df = _cobranza_mensual()
+    roles = {c["columna"]: c["rol"] for c in ing.perfilar(df)["detalle"]}
+    assert roles["Año"] == ing.FECHA
+    assert roles["Mes"] == ing.FECHA
+
+
+@pytest.mark.parametrize("columna", ["meses_de_atraso", "semanas_sin_pagar",
+                                     "cantidad_cuotas"])
+def test_una_cantidad_medida_en_meses_sigue_siendo_una_medida(columna):
+    """El contra-caso, que es lo que hace estrecha la regla: `mes` tiene que
+    pegar en `Mes` y NO en `meses_de_atraso`, que sí se promedia."""
+    s = pd.Series([1, 2, 3, 4, 5] * 20)
+    assert ing.rol_columna(columna, s) == ing.METRICA
+
+
+def test_una_clave_de_cuatro_columnas_no_se_encuentra_probando_pares():
+    """Causa 2, aislada: con las cuatro candidatas bien clasificadas, el par
+    de MAYOR cardinalidad da 13 × 12 = 156 para 504 filas. Si alguien vuelve
+    a bajar la aridad a 2, este test lo agarra."""
+    assert ing._MAX_ARIDAD_COMPUESTA >= 4
+    df = _cobranza_mensual()
+    mejores = [("Estado", "Mes"), ("Estado", "Año"), ("Mes", "TipoCliente")]
+    for par in mejores:
+        assert df.duplicated(subset=list(par)).any(), par
+
+
+def test_la_clave_compuesta_no_arrastra_columnas_que_no_hacen_falta():
+    """La búsqueda agrega de a una; sin podar, `FechaObs` —que tiene UN solo
+    valor en las 504 filas— podía quedar adentro de la clave."""
+    df = _cobranza_mensual()
+    ks = ing.claves(df, ing.perfilar(df), "t")
+    assert "FechaObs" not in ks["pk"][0]["columna"]

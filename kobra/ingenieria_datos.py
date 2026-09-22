@@ -80,6 +80,27 @@ _DIMENSION_SIEMPRE_HASTA = 25      # tan pocos valores que es categoría sí o s
 _TOPE_ABSOLUTO_DIMENSION = 200     # techo: más que esto no es una categoría
 
 
+#: Nombres de columna que son una PARTE de una fecha, no una cantidad.
+#:
+#: Sin la `s` final a propósito: `mes` tiene que pegar en `Mes` y NO en
+#: `meses_de_atraso`, que sí es una medida y se promedia. Lo mismo con
+#: `semana` vs. `semanas_sin_pagar`.
+_PAT_PARTE_DE_FECHA = re.compile(
+    r"(?:^|_)(an[io]o?|año|year|mes|month|trimestre|quarter|semestre|"
+    r"semana|week|periodo|período|ejercicio|bimestre)(?:$|_)", re.I)
+
+#: Techo de valores distintos para que una parte de fecha siga siéndolo.
+#: 12 meses, 4 trimestres, 53 semanas del año, décadas de años: 60 cubre
+#: todo eso y sigue siendo bajísimo al lado de cualquier medida real.
+_MAX_VALORES_PARTE_FECHA = 60
+
+
+def _es_parte_de_fecha(nombre: str, unicos: int) -> bool:
+    """`Año`, `Mes`, `Trimestre`: dimensión temporal, no medida."""
+    return (unicos <= _MAX_VALORES_PARTE_FECHA
+            and bool(_PAT_PARTE_DE_FECHA.search(str(nombre or ""))))
+
+
 def rol_columna(nombre: str, serie: pd.Series) -> str:
     """Qué ES esta columna para el negocio, no de qué tipo es."""
     filas = len(serie)
@@ -101,6 +122,21 @@ def rol_columna(nombre: str, serie: pd.Series) -> str:
                                              pd.api.types.is_numeric_dtype(serie)):
         return BOOLEANO
     if pd.api.types.is_numeric_dtype(serie):
+        # Un año o un mes vienen como enteros y NO son una medida: sumar
+        # meses no significa nada, promediar años tampoco. Son la parte de
+        # fecha por la que está agregada la tabla.
+        #
+        # Esto salió de un archivo real: una cobranza mensual de 504 filas
+        # cuya clave es `Año + Mes + Estado + TipoCliente`. Con `Año` y `Mes`
+        # leídos como métrica quedaban fuera de la búsqueda de claves —que
+        # sólo mira identificadores, claves foráneas, categorías y fechas—,
+        # así que las únicas candidatas eran `Estado` (13) y `TipoCliente`
+        # (3): 39 combinaciones para 504 filas. El programa informaba «no se
+        # encontró una columna que identifique cada fila» sobre una tabla
+        # con clave perfecta, y ninguna mejora de la BÚSQUEDA lo arreglaba
+        # porque el problema estaba antes, acá.
+        if _es_parte_de_fecha(nombre, unicos):
+            return FECHA
         return METRICA_MONETARIA if _PAT_MONTO.search(nombre or "") else METRICA
     por_proporcion = unicos <= filas * _MAX_CARDINALIDAD_DIMENSION
     if (unicos <= _DIMENSION_SIEMPRE_HASTA or por_proporcion) and \
@@ -234,15 +270,77 @@ def perfilar(df: pd.DataFrame, catalogo: dict | None = None) -> dict:
 
 
 # --- Claves ----------------------------------------------------------------
+#: Cuántas columnas entran a la búsqueda de clave compuesta. Probar todos los
+#: pares de un dataset ancho es combinatorio; con 8 son 28 pares y se corta.
+#:
+#: Lo que cambió no es el número sino el ORDEN de lo que entra: antes se
+#: tomaban las primeras por posición en el archivo, que no dice nada. Ahora se
+#: ordenan por cantidad de valores distintos, descendente. Una clave compuesta
+#: la forman columnas de cardinalidad alta; con el orden del archivo, en una
+#: tabla de 23 columnas la candidata verdadera se quedaba afuera por estar en
+#: la posición 11.
+_MAX_COLUMNAS_COMPUESTA = 8
+
+#: Cuántas columnas puede tener una clave compuesta.
+#:
+#: Era 2 —sólo pares— y eso NO alcanzaba, medido sobre un archivo real: una
+#: cobranza mensual de 504 filas × 23 columnas cuya clave es
+#: `Año + Mes + Estado + TipoCliente`. Con 4 años, 12 meses y 14 combinaciones
+#: de estado, el par de MAYOR cardinalidad posible da 12 × 14 = 168 valores
+#: para 504 filas: ninguna búsqueda por pares podía encontrarla, por exhaustiva
+#: que fuera. El resultado era «no se encontró una columna que identifique cada
+#: fila» sobre una tabla que tiene clave perfecta.
+#:
+#: 4 y no más porque una clave de 5 columnas ya casi nunca es una clave: es el
+#: conjunto entero de dimensiones de un agregado, y decir «tu clave son todas
+#: las columnas» no le sirve a nadie.
+_MAX_ARIDAD_COMPUESTA = 4
+
+#: Roles que pueden formar parte de una clave. Un importe no entra: ver abajo.
+_ROLES_DE_CLAVE = (CLAVE_FORANEA, IDENTIFICADOR, DIMENSION, FECHA)
+
+
+def _sin_duplicados(df: pd.DataFrame, cols: list[str]) -> bool:
+    try:
+        return not df.duplicated(subset=cols).any()
+    except (KeyError, TypeError):
+        return False
+
+
+def _clave_minima(df: pd.DataFrame, cols: list[str]) -> list[str]:
+    """Saca de `cols` las columnas que no hacen falta para que sea clave.
+
+    La búsqueda avanza agregando columnas, y agregar de a una arrastra
+    pasajeras: una que ayudó cuando el conjunto era chico puede volverse
+    redundante cuando entró otra. Sin esta poda, la clave de la cobranza
+    mensual salía como `Año + Mes + Estado + TipoCliente + FechaObs` — con
+    una columna constante adentro, que no distingue nada.
+    """
+    minima = list(cols)
+    for col in list(cols):
+        if len(minima) <= 1:
+            break
+        tentativa = [c for c in minima if c != col]
+        if _sin_duplicados(df, tentativa):
+            minima = tentativa
+    return minima
+
+
 def claves(df: pd.DataFrame, perfil: dict, nombre: str = "tabla") -> dict:
     """Candidatas a clave primaria y foránea.
 
     La PK compuesta se busca solo si no hay simple, y sobre las columnas cuyo
     ROL puede formar clave: probar todos los pares de un dataset ancho es
     combinatorio y no aporta.
+
+    Cuando no se encuentra ninguna, el resultado trae además `diagnostico`
+    con POR QUÉ. Hay tres caminos distintos que terminan en «no hay clave» y
+    desde afuera se veían iguales; sin saber cuál fue, el usuario no tiene
+    nada que hacer con el mensaje.
     """
     filas = max(len(df), 1)
     pks, fks = [], []
+    descartadas_monto: list[str] = []
     for c in perfil["detalle"]:
         col = c["columna"]
         # Un importe no es una clave por más que sus valores no se repitan.
@@ -250,6 +348,7 @@ def claves(df: pd.DataFrame, perfil: dict, nombre: str = "tabla") -> dict:
         # esperable, no evidencia de nada: proponerlo como PK llena la
         # pantalla de candidatas falsas y entierra la verdadera.
         if c["rol"] == METRICA_MONETARIA:
+            descartadas_monto.append(col)
             continue
         if c["nulos"] == 0 and c["unicos"] == filas and filas > 1:
             pks.append({"columna": col, "tipo": "PK simple", "confianza": "alta"})
@@ -258,22 +357,132 @@ def claves(df: pd.DataFrame, perfil: dict, nombre: str = "tabla") -> dict:
         if c["rol"] in (CLAVE_FORANEA, IDENTIFICADOR) and c["unicos"] < filas * 0.9:
             fks.append(col)
 
+    probadas: list[str] = []
+    total_candidatas = 0
     if not pks and filas > 1:
-        cands = [c["columna"] for c in perfil["detalle"]
-                 if c["rol"] in (CLAVE_FORANEA, IDENTIFICADOR, DIMENSION, FECHA)][:6]
+        elegibles = [c for c in perfil["detalle"] if c["rol"] in _ROLES_DE_CLAVE]
+        total_candidatas = len(elegibles)
+        # Por cardinalidad descendente, no por posición en el archivo.
+        elegibles.sort(key=lambda c: c["unicos"], reverse=True)
+        cands = [c["columna"] for c in elegibles][:_MAX_COLUMNAS_COMPUESTA]
+        probadas = list(cands)
+        # 1) Todos los pares, exhaustivo. Una clave de dos columnas es la que
+        #    de verdad sirve para un join, así que si existe se prefiere.
         for i in range(len(cands)):
             for j in range(i + 1, len(cands)):
                 par = [cands[i], cands[j]]
-                try:
-                    if not df.duplicated(subset=par).any():
-                        pks.append({"columna": " + ".join(par),
-                                    "tipo": "PK compuesta", "confianza": "media"})
-                        break
-                except (KeyError, TypeError):
-                    continue
+                if _sin_duplicados(df, par):
+                    pks.append({"columna": " + ".join(par),
+                                "tipo": "PK compuesta", "confianza": "media"})
+                    break
             if pks:
                 break
-    return {"tabla": nombre, "pk": pks, "fk_candidatas": fks}
+        # 2) Si no hubo par, se sigue agregando columnas. Exhaustivo en
+        #    aridad 3 o 4 sería combinatorio sobre 8 candidatas, así que se
+        #    avanza por cardinalidad descendente —que es el orden que más
+        #    rápido parte el conjunto— y después se poda lo que sobró.
+        if not pks:
+            acumulado: list[str] = []
+            for col in cands:
+                acumulado.append(col)
+                if len(acumulado) < 3:
+                    continue                 # los pares ya se probaron arriba
+                if _sin_duplicados(df, acumulado):
+                    minima = _clave_minima(df, acumulado)
+                    pks.append({"columna": " + ".join(minima),
+                                "tipo": f"PK compuesta ({len(minima)} columnas)",
+                                "confianza": "media"})
+                    break
+                if len(acumulado) >= _MAX_ARIDAD_COMPUESTA:
+                    break
+
+    res = {"tabla": nombre, "pk": pks, "fk_candidatas": fks}
+    if not pks:
+        res["diagnostico"] = _por_que_no_hay_clave(
+            perfil, filas, descartadas_monto, probadas, total_candidatas)
+    return res
+
+
+def _por_que_no_hay_clave(perfil: dict, filas: int, descartadas_monto: list[str],
+                          probadas: list[str], total_candidatas: int) -> dict:
+    """Los números que distinguen los tres caminos a «no hay clave».
+
+    1. Ninguna columna se acerca a ser única  → `mejor` lo dice con cuántas
+       filas repite.
+    2. La única que se acercaba es un importe → `descartadas_monto`.
+    3. La compuesta no se probó, o se probó sobre un subconjunto → `probadas`
+       y `truncado`.
+    """
+    candidatas = [c for c in perfil["detalle"]
+                  if c["rol"] != METRICA_MONETARIA]
+    mejor = max(candidatas, key=lambda c: c["unicos"], default=None)
+    return {
+        "filas": filas,
+        "columnas": len(perfil["detalle"]),
+        "mejor": None if mejor is None else {
+            "columna": mejor["columna"],
+            "unicos": mejor["unicos"],
+            # Cuántas filas NO distingue: es el número que dice si estuvo
+            # cerca o lejos. «487 de 504» no se lee igual que «12 de 504».
+            "repetidas": filas - mejor["unicos"],
+            "nulos_pct": mejor["nulos_pct"],
+            "rol": mejor["rol"],
+        },
+        "descartadas_monto": descartadas_monto,
+        "compuesta_probadas": probadas,
+        "compuesta_truncado": total_candidatas > len(probadas),
+        "compuesta_candidatas": total_candidatas,
+    }
+
+
+def explicar_falta_de_clave(diag: dict) -> str:
+    """El diagnóstico en una frase, para mostrar en vez de «no se encontró».
+
+    Vive acá y no en la app para poder testear el texto sin levantar
+    Streamlit — que es la única forma de verlo, porque la app pide
+    contraseña.
+    """
+    if not diag:
+        return ""
+    partes = [f"Ninguna columna identifica una fila sola entre las "
+              f"{diag['filas']:,} que trae la tabla."]
+
+    mejor = diag.get("mejor")
+    if mejor:
+        partes.append(
+            f"La que más se acerca es **{mejor['columna']}**: "
+            f"{mejor['unicos']:,} valores distintos, o sea que "
+            f"{mejor['repetidas']:,} filas comparten su valor con otra"
+            + (f" (y un {mejor['nulos_pct']}% está vacío)."
+               if mejor["nulos_pct"] else "."))
+
+    if diag.get("descartadas_monto"):
+        partes.append(
+            "No se miraron las columnas de importe —"
+            + ", ".join(f"`{c}`" for c in diag["descartadas_monto"][:4])
+            + "—: que ningún saldo se repita es lo esperable en una muestra "
+              "chica, no evidencia de que sea una clave.")
+
+    probadas = diag.get("compuesta_probadas") or []
+    if not probadas:
+        partes.append(
+            "Tampoco se probó ninguna clave compuesta: para eso hace falta "
+            "al menos una columna leída como identificador, clave foránea, "
+            "categoría o fecha, y acá no quedó ninguna.")
+    else:
+        frase = ("Se probaron todos los pares de " +
+                 ", ".join(f"`{c}`" for c in probadas) + " y ninguno "
+                 "identifica una fila sola")
+        if diag.get("compuesta_truncado"):
+            frase += (f" — de {diag['compuesta_candidatas']} columnas "
+                      f"elegibles se tomaron las {len(probadas)} con más "
+                      "valores distintos")
+        partes.append(frase + ".")
+
+    partes.append(
+        "Si sabés cuál es la clave real, decila: el resto del módulo "
+        "(joins, DDL, modelo dbt) la usa tal cual.")
+    return " ".join(partes)
 
 
 # --- Joins -----------------------------------------------------------------

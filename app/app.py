@@ -1510,7 +1510,12 @@ with tabIngDatos:
                         f"{k['columna']} ({k['tipo']}, confianza {k['confianza']})"
                         for k in _ks["pk"]))
                 else:
-                    st.caption("No se encontró una columna que identifique cada fila.")
+                    # «No se encontró» a secas no le sirve a nadie: hay TRES
+                    # caminos distintos que terminan ahí y desde la pantalla
+                    # se veían iguales. `explicar_falta_de_clave` dice cuál
+                    # fue, con los números de ESTE archivo.
+                    st.caption("**Clave primaria:** " + king.explicar_falta_de_clave(
+                        _ks.get("diagnostico") or {}))
                 if _ks["fk_candidatas"]:
                     st.markdown("**Apuntan a otra tabla:** " +
                                 ", ".join(_ks["fk_candidatas"]))
