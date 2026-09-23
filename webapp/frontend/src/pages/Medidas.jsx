@@ -147,7 +147,15 @@ function Editor({ medidas, columnas, funciones, onGuardado }) {
           <code style={{ fontSize: 12 }}>{columnas.join(" · ")}</code>
           <p style={{ margin: "12px 0 6px" }}><strong>{t("medidas.ayuda_ejemplos")}</strong></p>
           <code style={{ display: "block", fontSize: 12, whiteSpace: "pre-line" }}>
-            {"promedio(monto_deuda)\nsuma(monto_deuda) / contar()\ncontar_si(dias_mora > 90) / contar() * 100"}
+            {/* Los ejemplos SON la documentación: un campo de fórmula en
+                blanco no lo usa nadie porque no se sabe qué se puede escribir.
+                Por eso el tercero es el de agregación con condición — es la
+                forma que casi nadie adivina y la que contesta la pregunta más
+                común de una cartera: cuánta plata hay pasados los 90 días. */}
+            {"promedio(monto_deuda)\n"
+             + "suma_si(monto_deuda, dias_mora > 90)\n"
+             + "suma_si(monto_deuda, dias_mora > 90) / suma(monto_deuda) * 100\n"
+             + "contar_si(dias_mora > 90) / contar() * 100"}
           </code>
         </div>
       </details>

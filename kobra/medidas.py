@@ -40,6 +40,7 @@ from __future__ import annotations
 import ast
 import math
 
+import numpy as np
 import pandas as pd
 
 
@@ -73,11 +74,27 @@ FUNCIONES = {
     "distintos": _distintos,
 }
 
-# `contar` y `contar_si` son aparte: no operan sobre una columna sino sobre
-# filas, así que reciben otra cosa y el evaluador las trata distinto.
-FUNCIONES_FILA = ("contar", "contar_si")
+# Cada agregación acepta una CONDICIÓN opcional como segundo argumento:
+#
+#     suma(monto_deuda, dias_mora > 90)
+#     suma_si(monto_deuda, dias_mora > 90)     # el mismo cálculo, otro nombre
+#
+# Es el equivalente de `CALCULATE(SUM(...), filtro)` en DAX, y era el hueco más
+# grande del módulo. Se podía CONTAR con condición (`contar_si`) pero no sumar
+# ni promediar con condición — o sea que "cuánta plata hay en mora mayor a 90
+# días", que en una cartera de cobranzas es LA métrica, no se podía escribir.
+#
+# Van las dos formas a propósito: el segundo argumento es lo que alguien
+# prueba por intuición, y el nombre `suma_si` es lo que encuentra mirando la
+# lista de funciones al lado de `contar_si`.
+SUFIJO_CONDICIONAL = "_si"
+FUNCIONES_CONDICIONALES = tuple(f"{n}{SUFIJO_CONDICIONAL}" for n in FUNCIONES)
 
-NOMBRES_FUNCION = tuple(FUNCIONES) + FUNCIONES_FILA
+# `contar`, `contar_si` y `si` son aparte: no operan sobre una columna sino
+# sobre filas o sobre valores, así que el evaluador las trata distinto.
+FUNCIONES_FILA = ("contar", "contar_si", "si")
+
+NOMBRES_FUNCION = tuple(FUNCIONES) + FUNCIONES_CONDICIONALES + FUNCIONES_FILA
 
 # Operadores permitidos. La división se maneja aparte para no devolver `inf`
 # cuando el denominador es cero — una medida que dice "infinito" en un tablero
@@ -224,20 +241,79 @@ class _Evaluador(ast.NodeVisitor):
                     "por ejemplo: contar_si(dias_mora > 90)")
             return float(cond.sum())
 
+        if nombre == "si":
+            return self._si(node)
+
+        # `suma_si(col, cond)` es exactamente `suma(col, cond)`.
+        exige_condicion = False
+        if nombre.endswith(SUFIJO_CONDICIONAL) and nombre[:-3] in FUNCIONES:
+            nombre, exige_condicion = nombre[:-3], True
+
         fn = FUNCIONES.get(nombre)
         if fn is None:
             raise FormulaInvalida(
-                f"la función {nombre!r} no existe. Disponibles: "
+                f"la función {node.func.id!r} no existe. Disponibles: "
                 + ", ".join(sorted(NOMBRES_FUNCION)))
-        if len(node.args) != 1:
-            raise FormulaInvalida(f"{nombre}() lleva exactamente una columna")
+
+        if exige_condicion and len(node.args) != 2:
+            raise FormulaInvalida(
+                f"{nombre}{SUFIJO_CONDICIONAL}() lleva una columna y una "
+                f"condición, por ejemplo: {nombre}{SUFIJO_CONDICIONAL}"
+                f"(monto_deuda, dias_mora > 90)")
+        if len(node.args) not in (1, 2):
+            raise FormulaInvalida(
+                f"{nombre}() lleva una columna y, opcionalmente, una condición: "
+                f"{nombre}(monto_deuda) o {nombre}(monto_deuda, dias_mora > 90)")
+
         serie = self.visit(node.args[0])
         if not isinstance(serie, pd.Series):
             raise FormulaInvalida(
                 f"{nombre}() espera una columna, no un número suelto")
+
+        if len(node.args) == 2:
+            cond = self.visit(node.args[1])
+            if not isinstance(cond, pd.Series):
+                raise FormulaInvalida(
+                    f"el segundo argumento de {nombre}() es una condición sobre "
+                    f"una columna, por ejemplo: {nombre}(monto_deuda, dias_mora > 90)")
+            # Las dos salen del mismo DataFrame, así que comparten índice y el
+            # filtro alinea fila con fila.
+            serie = serie[cond]
+
         if serie.empty:
+            # Ninguna fila cumple la condición. `nan` y no 0: "no hay nada que
+            # sumar" no es "la suma es cero", y en un tablero esa diferencia
+            # decide si alguien sale a cobrar.
             return float("nan")
         return fn(serie)
+
+    def _si(self, node):
+        """`si(condicion, valor_si, valor_no)` — el IF de DAX.
+
+        Con una condición por fila devuelve una columna, así que se puede
+        envolver en una agregación:
+
+            suma(si(dias_mora > 90, monto_deuda, 0))
+
+        Con una condición escalar elige una rama, que es lo que sirve para dar
+        un valor por defecto cuando no hay datos:
+
+            si(contar() > 0, suma(monto_deuda) / contar(), 0)
+
+        Las tres ramas se evalúan siempre. Acá eso no cuesta nada —no hay
+        efectos, y una división por cero en la rama no elegida ya devuelve
+        `nan` sin romper— y evita un evaluador perezoso que nadie pidió.
+        """
+        if len(node.args) != 3:
+            raise FormulaInvalida(
+                "si() lleva tres argumentos: condición, valor si se cumple y "
+                "valor si no. Por ejemplo: si(dias_mora > 90, monto_deuda, 0)")
+        cond = self.visit(node.args[0])
+        si_vale = self.visit(node.args[1])
+        no_vale = self.visit(node.args[2])
+        if isinstance(cond, pd.Series):
+            return pd.Series(np.where(cond, si_vale, no_vale), index=cond.index)
+        return si_vale if cond else no_vale
 
 
 def evaluar(formula: str, df: pd.DataFrame) -> float:
@@ -258,15 +334,30 @@ def evaluar(formula: str, df: pd.DataFrame) -> float:
     except SyntaxError as e:
         raise FormulaInvalida(f"no se entiende la fórmula: {e.msg}") from e
 
-    resultado = _Evaluador(df).visit(arbol)
+    try:
+        resultado = _Evaluador(df).visit(arbol)
+    except ArithmeticError as e:
+        # `9**9**9` da OverflowError, no FormulaInvalida, y se escapaba hasta
+        # el endpoint como un 500. Es aritmética que el usuario escribió: el
+        # mensaje le tiene que servir a él, no al log del servidor.
+        raise FormulaInvalida(
+            "el cálculo da un número demasiado grande para representar") from e
     if isinstance(resultado, pd.Series):
         raise FormulaInvalida(
             "la fórmula da una columna entera y no un número. "
             "Envolvela en una agregación, por ejemplo: suma(...) o promedio(...)")
     try:
-        return float(resultado)
+        valor = float(resultado)
     except (TypeError, ValueError) as e:
         raise FormulaInvalida("la fórmula no da un número") from e
+    if math.isinf(valor):
+        # `suma(monto) * 10` sobre montos enormes desborda a `inf` SIN levantar
+        # OverflowError (numpy avisa por warning y sigue). `inf` no es JSON
+        # válido: el `fetch` del navegador falla entero y el tablero queda en
+        # blanco, sin un error a la vista. Se trata como "no se puede calcular".
+        raise FormulaInvalida(
+            "el cálculo da un número demasiado grande para representar")
+    return valor
 
 
 def validar(formula: str, columnas) -> dict:
@@ -310,7 +401,18 @@ class Medida:
         except FormulaInvalida as e:
             return {"nombre": self.nombre, "valor": None, "error": str(e),
                     "formato": self.formato, "descripcion": self.descripcion}
-        if isinstance(valor, float) and math.isnan(valor):
+        except Exception as e:                                    # noqa: BLE001
+            # El `except` ancho es el punto de esta función, no un descuido.
+            # "Nunca lanza" era una promesa a medias: solo atrapaba
+            # FormulaInvalida, así que cualquier otra excepción que se colara
+            # desde pandas o numpy se llevaba puesto el tablero ENTERO por una
+            # medida mal escrita — justo lo que el docstring dice evitar.
+            # Se registra el tipo real para poder arreglarlo, y el usuario ve
+            # que esa medida falló y las otras cinco siguen en pantalla.
+            return {"nombre": self.nombre, "valor": None,
+                    "error": f"no se pudo calcular ({type(e).__name__})",
+                    "formato": self.formato, "descripcion": self.descripcion}
+        if isinstance(valor, float) and not math.isfinite(valor):
             return {"nombre": self.nombre, "valor": None,
                     "error": "sin datos para calcular",
                     "formato": self.formato, "descripcion": self.descripcion}
