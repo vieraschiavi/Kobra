@@ -247,26 +247,82 @@ def cargar_gestiones(_cartera):
     return gen_g(42, cartera=_cartera)
 
 
-def _fuente_activa():
-    """La cartera que mira TODO el tablero: la del cliente si subió una.
+# ----------------------------------------------------------------------------
+# Interruptor global Demo ON/OFF
+# ----------------------------------------------------------------------------
+# UNO solo y arriba de todo, antes de las pestañas. Antes había un «Modo demo»
+# escondido adentro de «Probar mi cartera» y, para que el resto del tablero
+# dejara de mostrar la demo, había que apretar además «Usar en todas las
+# pestañas». Resultado: «por más que cargue cartera sigue apareciendo la demo».
+#
+# El cambio de valor que pide una pestaña (al adoptar una cartera, el
+# interruptor pasa a OFF) no puede escribir la clave del widget después de
+# que se dibujó en esta corrida — Streamlit lo prohíbe —, así que se deja
+# pendiente y se aplica acá, antes de dibujarlo.
+_PEND_DEMO = "_kobra_demo_pendiente"
+if _PEND_DEMO in st.session_state:
+    st.session_state[kfuente.CLAVE_DEMO] = st.session_state.pop(_PEND_DEMO)
+if kfuente.CLAVE_DEMO not in st.session_state:
+    st.session_state[kfuente.CLAVE_DEMO] = kfuente.demo_por_defecto(
+        st.session_state.get(kfuente.CLAVE_SESION))
 
-    Antes esto era `df, metrics, importancia = cargar()` y punto: la
-    cartera propia servía para UNA pestaña y las otras once seguían
-    dibujando los 12.000 deudores sintéticos. El que sube su cartera
-    quiere ver la suya.
+st.sidebar.toggle(
+    "Demo (datos sintéticos)", key=kfuente.CLAVE_DEMO,
+    help="Prendido: la cartera 100 % sintética de demostración. Apagado: TU "
+         "cartera en todas las pestañas. Al cargar una cartera se apaga solo.")
+
+
+def _adoptar_cartera(df_bruto: pd.DataFrame, nombre: str, firma: str = "") -> None:
+    """Deja una cartera del cliente como fuente de TODO el tablero y apaga la demo.
+
+    Levanta `ValueError` con el mensaje de `importar_y_scorear` (qué columna
+    falta y cuáles leyó) para que la pantalla lo muestre tal cual.
+    """
+    from kobra import cartera_manual as _cm_ad
+    st.session_state[kfuente.CLAVE_SESION] = _cm_ad.importar_y_scorear(df_bruto)
+    st.session_state[kfuente.CLAVE_NOMBRE] = nombre
+    # La firma se guarda recién con la cartera ya scoreada: si el archivo
+    # falla, el error se vuelve a mostrar en cada corrida en vez de una vez.
+    st.session_state["cartera_propia_firma"] = firma
+    st.session_state[_PEND_DEMO] = False
+    kauditoria.registrar("cartera_propia_adoptada",
+                         {"filas": int(len(st.session_state[kfuente.CLAVE_SESION]))})
+    st.rerun()
+
+
+# Una cartera que dejó OTRO programa en la sesión (Adium All in One, con lo
+# que el usuario cargó en su panel de datos): se adopta igual que un archivo
+# subido acá, una sola vez por dataset.
+_externa = st.session_state.get(kfuente.CLAVE_EXTERNA)
+if _externa is not None:
+    _df_ext, _nombre_ext = _externa
+    _firma_ext = kfuente.firma(_df_ext)
+    if st.session_state.get("cartera_propia_firma") != _firma_ext:
+        try:
+            _adoptar_cartera(_df_ext, _nombre_ext, _firma_ext)
+        except ValueError as _exc_ext:
+            st.error(f"La cartera «{_nombre_ext}» que vino de afuera no se pudo "
+                     f"usar: {_exc_ext}")
+
+
+def _fuente_activa():
+    """La cartera que mira TODO el tablero, según el interruptor Demo.
 
     Se resuelve acá arriba, antes de las pestañas, porque `df` las
-    alimenta a todas. «Probar mi cartera» sólo deja la cartera scoreada
-    en la sesión y pide un rerun; quién manda lo decide esta función.
+    alimenta a todas: ninguna pestaña lee la demo por su cuenta. Devuelve
+    también el estado (`demo`/`propia`/`sin_datos`) para que la cabecera
+    diga qué se está viendo.
     """
     _demo_df, _met, _imp = cargar()
     _propia = st.session_state.get(kfuente.CLAVE_SESION)
-    if _propia is not None and not _propia.empty:
-        return kfuente.desde_propia(_propia), _imp
-    return kfuente.desde_demo(_demo_df, cargar_gestiones(_demo_df), _met), _imp
+    _estado = kfuente.resolver(bool(st.session_state.get(kfuente.CLAVE_DEMO)), _propia)
+    if _estado == kfuente.PROPIA:
+        return (kfuente.desde_propia(_propia, st.session_state.get(kfuente.CLAVE_NOMBRE, "")),
+                _imp, _estado)
+    return (kfuente.desde_demo(_demo_df, cargar_gestiones(_demo_df), _met), _imp, _estado)
 
 
-fuente, importancia = _fuente_activa()
+fuente, importancia, ESTADO_FUENTE = _fuente_activa()
 df, metrics = fuente.df, fuente.metricas or {}
 
 # El historial sale de la fuente activa: con la cartera del cliente
@@ -298,12 +354,56 @@ with c1:
                 unsafe_allow_html=True)
     st.caption("ProbPago · Agente IA Negociador · Priorización por valor esperado de recupero")
 with c2:
-    st.markdown(
-        f"<div style='text-align:right;color:#9aa4b2;margin-top:18px'>"
-        f"Modelo ProbPago · <b style='color:{PRIMARY}'>AUC {metrics['auc_roc']}</b> · "
-        f"Lift decil 10: <b style='color:{PRIMARY}'>{metrics['lift_decil10']}x</b> · "
-        f"<i>demo sintética</i></div>",
-        unsafe_allow_html=True)
+    # Con la cartera del cliente no hay AUC que mostrar: se midió sobre la de
+    # referencia. `metrics['auc_roc']` sobre `{}` tiraba el tablero ENTERO con
+    # KeyError apenas se adoptaba una cartera propia.
+    if metrics.get("auc_roc") is not None:
+        st.markdown(
+            f"<div style='text-align:right;color:#9aa4b2;margin-top:18px'>"
+            f"Modelo ProbPago · <b style='color:{PRIMARY}'>AUC {metrics['auc_roc']}</b> · "
+            f"Lift decil 10: <b style='color:{PRIMARY}'>{metrics.get('lift_decil10', '—')}x</b> · "
+            f"<i>demo sintética</i></div>",
+            unsafe_allow_html=True)
+    elif ESTADO_FUENTE == kfuente.PROPIA:
+        st.markdown(
+            "<div style='text-align:right;color:#9aa4b2;margin-top:18px'>"
+            "Modelo ProbPago · <i>métricas medidas sobre la cartera de referencia, "
+            "no sobre la tuya</i></div>", unsafe_allow_html=True)
+
+# Qué datos se están viendo, SIEMPRE y arriba de las pestañas: también con la
+# demo. Sin esto no había forma de saber de un vistazo si el tablero mostraba
+# la cartera propia o la sintética.
+_rotulo = kfuente.etiqueta(ESTADO_FUENTE, fuente)
+st.sidebar.markdown(f"**{_rotulo}**")
+if ESTADO_FUENTE == kfuente.DEMO:
+    st.info(f"**{_rotulo}** — 12.000 deudores de mentira para recorrer el producto. "
+            "Cargá tu cartera en «Probar mi cartera» (o acá abajo apagando **Demo**) "
+            "y todas las pestañas pasan a usarla.")
+elif ESTADO_FUENTE == kfuente.PROPIA:
+    st.success(f"**{_rotulo}**")
+
+# Demo apagada y nada cargado: se dice y se pide la cartera ACÁ, en vez de
+# volver a la demo en silencio o reventar en la primera pestaña que lea `df`.
+if ESTADO_FUENTE == kfuente.SIN_DATOS:
+    st.warning(kfuente.aviso_sin_datos())
+    _up_global = st.file_uploader("Tu cartera (CSV o Excel)", type=["csv", "xlsx"],
+                                  key="cartera_sin_datos")
+    if _up_global is not None:
+        from kobra import cartera_manual as _cm_g
+        from kobra import fuentes_datos as _fd_g
+        try:
+            if _up_global.name.lower().endswith(".csv"):
+                _raw_g = _fd_g.leer_subida(_up_global, dtype=str).fillna("")
+            else:
+                _c_g, _hoja_g, _ = _cm_g.desde_excel(_up_global)
+                _raw_g = pd.DataFrame(_c_g)
+            _adoptar_cartera(_raw_g, _up_global.name)
+        except ValueError as _exc_g:
+            st.error(str(_exc_g))
+    if st.button("Volver a la demo", key="volver_demo_sin_datos"):
+        st.session_state[_PEND_DEMO] = True
+        st.rerun()
+    st.stop()
 
 # ----------------------------------------------------------------------------
 # Sidebar · filtros
@@ -320,12 +420,19 @@ prop = st.sidebar.multiselect("Propensión (ProbPago)", ["Alta", "Media", "Baja"
 deptos = sorted(df["departamento"].unique())
 depto = st.sidebar.multiselect("Departamento", deptos, default=deptos)
 monto_min, monto_max = int(df["monto_deuda"].min()), int(df["monto_deuda"].max())
-rango_monto = st.sidebar.slider("Monto de deuda (UYU)", monto_min, monto_max,
-                                (monto_min, monto_max), step=1000)
+if monto_min < monto_max:
+    rango_monto = st.sidebar.slider("Monto de deuda (UYU)", monto_min, monto_max,
+                                    (monto_min, monto_max), step=1000)
+else:
+    # Una cartera propia de una fila (o con todos los montos iguales): un
+    # slider con mínimo == máximo es un error de Streamlit, no un filtro.
+    rango_monto = (monto_min, monto_max)
 prob_min = st.sidebar.slider("ProbPago mínima", 0.0, 1.0, 0.0, 0.05)
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Dataset sintético (Uruguay) · sin nombres de clientes · demo comercial")
+st.sidebar.caption("Dataset sintético (Uruguay) · sin nombres de clientes · demo comercial"
+                   if ESTADO_FUENTE == kfuente.DEMO else
+                   "Tu cartera · procesada en esta sesión, no se sube a ningún lado")
 st.sidebar.markdown("---")
 # Consumo del plan, igual que el chip de la app React: el tope no puede
 # aparecer recién cuando el cliente ya se chocó contra él.
@@ -366,14 +473,23 @@ cartera = f["monto_deuda"].sum()
 recupero = f["valor_esperado_recupero"].sum()
 en_riesgo = f.loc[f["segmento_propension"] == "Baja", "monto_deuda"].sum()
 
+def _uyu(v: float) -> str:
+    """Millones para la demo; el número entero para una cartera chica.
+
+    Con `$U {v/1e6:.1f}M` a secas, una cartera propia de $U 31.000 se leía
+    «$U 0.0M»: parecía vacía, o que el tablero no la había tomado.
+    """
+    return f"$U {v/1e6:,.1f}M" if abs(v) >= 1e6 else f"$U {v:,.0f}"
+
+
 k = st.columns(6)
 k[0].metric("Deudores", f"{len(f):,}")
-k[1].metric("Cartera (UYU)", f"$U {cartera/1e6:,.1f}M")
-k[2].metric("Recupero esperado", f"$U {recupero/1e6:,.1f}M",
+k[1].metric("Cartera (UYU)", _uyu(cartera))
+k[2].metric("Recupero esperado", _uyu(recupero),
             f"{recupero/cartera:.1%} de la cartera")
 k[3].metric("ProbPago promedio", f"{f['probpago'].mean():.1%}")
 k[4].metric("Mora promedio", f"{f['dias_mora'].mean():.0f} días")
-k[5].metric("Cartera en riesgo", f"$U {en_riesgo/1e6:,.1f}M",
+k[5].metric("Cartera en riesgo", _uyu(en_riesgo),
             f"{en_riesgo/cartera:.1%}", delta_color="inverse")
 
 # Qué cartera se está mirando. Va ARRIBA de las pestañas y no adentro de
@@ -385,7 +501,9 @@ if _aviso_fuente:
     _cf1, _cf2 = st.columns([0.78, 0.22])
     _cf1.info(_aviso_fuente)
     if _cf2.button("Volver a la demo", key="volver_demo_global"):
-        st.session_state.pop(kfuente.CLAVE_SESION, None)
+        # Prende el interruptor; la cartera queda en la sesión para volver
+        # a ella apagándolo, sin tener que subirla de nuevo.
+        st.session_state[_PEND_DEMO] = True
         st.rerun()
 
 st.markdown("---")
@@ -708,20 +826,30 @@ with tab3:
 # ---- Tab 4: Modelo ---------------------------------------------------------
 with tab4:
     st.subheader("Cómo funciona ProbPago")
-    mc = st.columns(4)
-    mc[0].metric("AUC-ROC", metrics["auc_roc"])
-    mc[1].metric("AUC-PR", metrics["auc_pr"])
-    mc[2].metric("Lift decil 10", f"{metrics['lift_decil10']}x")
-    mc[3].metric("Tasa pago base", f"{metrics['tasa_pago_base']:.1%}")
-    st.caption(f"Entrenado con {metrics['n_train']:,} casos · validado con "
-               f"{metrics['n_test']:,} · {metrics.get('modelo', 'Gradient Boosting')}. "
-               "`kobra.train` compara LogReg/RF/GBM/HistGB con CV, elige el mejor por "
-               "ROC-AUC y lo calibra — ese es el modelo que se usa acá cuando está entrenado.")
-    st.warning("⚠ **Métricas sobre datos sintéticos (demo).** La etiqueta de pago se genera "
-               "con una función conocida, así que un AUC alto acá es esperable por construcción "
-               "y **no es evidencia de desempeño real**. Con la cartera real del cliente, el "
-               "modelo se selecciona y valida de nuevo con **validación temporal (walk-forward)** "
-               "y features sin leakage. Lo demostrable es la metodología, no este número.")
+    if not metrics:
+        # La cartera del cliente: el modelo no se validó sobre ella, y mostrar
+        # el AUC de la de referencia al lado se leería como «acierta 0,8 sobre
+        # MIS deudores», que nadie midió.
+        st.info("Tu cartera se puntúa con el modelo ProbPago entrenado sobre la cartera "
+                "de referencia. Sus métricas (AUC, lift) **no se midieron sobre tus "
+                "deudores**, así que no se muestran acá. Para medirlas hace falta el "
+                "historial de pagos de tu cartera.")
+    else:
+        mc = st.columns(4)
+        mc[0].metric("AUC-ROC", metrics["auc_roc"])
+        mc[1].metric("AUC-PR", metrics["auc_pr"])
+        mc[2].metric("Lift decil 10", f"{metrics['lift_decil10']}x")
+        mc[3].metric("Tasa pago base", f"{metrics['tasa_pago_base']:.1%}")
+        st.caption(f"Entrenado con {metrics['n_train']:,} casos · validado con "
+                   f"{metrics['n_test']:,} · {metrics.get('modelo', 'Gradient Boosting')}. "
+                   "`kobra.train` compara LogReg/RF/GBM/HistGB con CV, elige el mejor por "
+                   "ROC-AUC y lo calibra — ese es el modelo que se usa acá cuando está entrenado.")
+    if metrics:
+        st.warning("⚠ **Métricas sobre datos sintéticos (demo).** La etiqueta de pago se genera "
+                   "con una función conocida, así que un AUC alto acá es esperable por construcción "
+                   "y **no es evidencia de desempeño real**. Con la cartera real del cliente, el "
+                   "modelo se selecciona y valida de nuevo con **validación temporal (walk-forward)** "
+                   "y features sin leakage. Lo demostrable es la metodología, no este número.")
 
     ci1, ci2 = st.columns(2)
     with ci1:
@@ -987,11 +1115,12 @@ with tab6:
     st.subheader("Gestores & Evolución de la gestión")
     st.caption("Qué características suceden más por tramo/segmento, cómo evolucionan mes a mes, "
                "su impacto en la cobranza y si los gestores mejoran con las herramientas de MV Kobra AI.")
-    st.warning("⚠ **Datos ilustrativos (demo).** El historial de gestiones es sintético y el "
-               "\"efecto MV Kobra AI\" está inyectado por el generador para demostrar la **metodología "
-               "de medición** (grupo con vs. sin herramienta, evolución por cohorte). Los uplifts "
-               "que ves acá **no son resultados medidos**. Con el registro post-llamada, esta "
-               "misma pestaña se alimenta de llamadas reales y los números pasan a ser evidencia.")
+    if not fuente.propia:
+        st.warning("⚠ **Datos ilustrativos (demo).** El historial de gestiones es sintético y el "
+                   "\"efecto MV Kobra AI\" está inyectado por el generador para demostrar la **metodología "
+                   "de medición** (grupo con vs. sin herramienta, evolución por cohorte). Los uplifts "
+                   "que ves acá **no son resultados medidos**. Con el registro post-llamada, esta "
+                   "misma pestaña se alimenta de llamadas reales y los números pasan a ser evidencia.")
 
     # Sin historial —la cartera del cliente no lo trae— esta pestaña no
     # tiene de qué hablar: `gest["mes"]` reventaría con KeyError. Se dice
@@ -1245,7 +1374,10 @@ with tabERP:
     _sin_hist_sab = kfuente.sin_historial(fuente)
     if _sin_hist_sab:
         st.info(_sin_hist_sab)
-    _sab = (pd.DataFrame(columns=["tipo_gestor"]) if gest.empty
+    # Vacía pero con las columnas que se leen abajo: con sólo `tipo_gestor`,
+    # `_sab['resultado']` tiraba el tablero entero con KeyError apenas se
+    # usaba una cartera propia (que no trae historial).
+    _sab = (pd.DataFrame(columns=["tipo_gestor", "resultado"]) if gest.empty
             else kerp.sabana(gest))
     c = st.columns(4)
     c[0].metric("Gestiones", f"{len(_sab):,}")
@@ -2132,10 +2264,14 @@ with tab8:
     # tener ni un archivo a mano; apagado, se carga la propia. Antes la
     # única forma de ver funcionar esta pantalla era tipear tres contactos
     # de mentira en la tabla, que es una demo hecha a mano cada vez.
+    # Ojo: esto NO es el interruptor Demo del tablero (ése está arriba, en la
+    # barra lateral). Son contactos de ejemplo para recorrer SÓLO esta
+    # pestaña; por eso no se llama «Modo demo» — dos interruptores con el
+    # mismo nombre y distinto alcance eran parte de la confusión.
     demo_cartera = st.toggle(
-        "Modo demo", value=False, key="demo_cartera",
-        help="Prendido: cartera 100 % sintética, para recorrer la pantalla "
-             "sin cargar nada. Apagado: tus propios contactos.")
+        "Contactos de ejemplo (sólo esta pestaña)", value=False, key="demo_cartera",
+        help="Prendido: 100 % sintéticos, para recorrer esta pantalla sin cargar "
+             "nada. No cambian lo que muestran las demás pestañas.")
 
     if demo_cartera:
         from kobra import cartera_manual as _cm
@@ -2151,6 +2287,13 @@ with tab8:
                          "Traer de mi base de datos"],
                         horizontal=True, key="modo_cartera")
         contactos = []
+    # De dónde vienen los contactos y si se adoptan SOLOS para todo el tablero.
+    # Un archivo o una consulta a la base son «cargar mi cartera»: se adoptan
+    # sin segundo clic. La tabla editable arranca con tres filas de ejemplo,
+    # así que ahí se sigue pidiendo confirmación — si no, elegir esa opción
+    # ya reemplazaría el tablero por «Contacto 1, 2 y 3».
+    _nombre_carga = ""
+    _auto_adoptar = False
     if modo and modo.startswith("✍"):
         ejemplo = pd.DataFrame({
             "nombre": ["Contacto 1", "Contacto 2", "Contacto 3"],
@@ -2183,6 +2326,7 @@ with tab8:
         if up is not None:
             from kobra import cartera_manual as _cm
             from kobra import fuentes_datos as _fd
+            _nombre_carga = up.name
             if up.name.lower().endswith(".csv"):
                 # Por el lector adaptable y no `pd.read_csv` pelado: un CSV
                 # exportado de cualquier ERP o guardado desde un Excel en
@@ -2204,6 +2348,7 @@ with tab8:
                                f"se detectó en «**{hoja}**» por sus columnas. "
                                "No hace falta que la busques vos.")
             st.dataframe(raw, use_container_width=True, hide_index=True)
+            _auto_adoptar = True
     elif modo:
         st.caption("Conectá tu base (PostgreSQL, MySQL, SQL Server, SQLite… vía SQLAlchemy) "
                    "y traé la cartera con una consulta de **solo lectura**. La consulta debe "
@@ -2227,6 +2372,8 @@ with tab8:
                 st.session_state.pop("contactos_db", None)
                 st.error(f"No se pudo traer la cartera: {str(_db_e)[:300]}")
         contactos = st.session_state.get("contactos_db", [])
+        _nombre_carga = "consulta a tu base"
+        _auto_adoptar = bool(contactos)
         if contactos:
             st.success(f"✓ {len(contactos)} contacto(s) traídos de tu base — listos para negociar.")
             st.dataframe(pd.DataFrame(contactos), use_container_width=True, hide_index=True)
@@ -2235,23 +2382,39 @@ with tab8:
     # devolvía la cartera scoreada «lista para reemplazar los datos de
     # demo del dashboard» —su propio docstring— y nadie la llamaba desde
     # acá: la capacidad estaba escrita y sin enchufar.
-    if contactos:
-        st.markdown("---")
-        _ad1, _ad2 = st.columns([0.62, 0.38])
-        _ad1.markdown(
-            f"**¿Usar estos {len(contactos)} contactos en todo el tablero?** "
-            "Visión general, ProbPago, Cartera & Export y Caso de negocio "
-            "pasan a calcularse con ellos.")
-        if _ad2.button("Usar en todas las pestañas", key="adoptar_cartera"):
-            from kobra import cartera_manual as _cm_ad
+    if contactos and _auto_adoptar:
+        # Firma de lo cargado: se adopta UNA vez por archivo/consulta. Sin
+        # esto, cada rerun volvería a adoptar el mismo archivo — y prender la
+        # Demo después de cargarlo sería imposible, porque el uploader sigue
+        # teniendo el archivo y lo reimpondría en la corrida siguiente.
+        import hashlib as _hl
+        _firma = _hl.sha1(json.dumps(contactos, sort_keys=True, default=str)
+                          .encode("utf-8")).hexdigest()
+        if st.session_state.get("cartera_propia_firma") != _firma:
             try:
-                st.session_state[kfuente.CLAVE_SESION] = \
-                    _cm_ad.importar_y_scorear(pd.DataFrame(contactos))
-                st.rerun()
+                _adoptar_cartera(pd.DataFrame(contactos), _nombre_carga, _firma)
             except ValueError as _exc:
                 # El error de `importar_y_scorear` dice QUÉ columna falta y
                 # cuáles leyó. Va tal cual: un «no se pudo» genérico deja al
                 # usuario adivinando qué tiene que renombrar.
+                st.error(str(_exc))
+        elif ESTADO_FUENTE == kfuente.PROPIA:
+            st.success(f"✓ Estos {len(contactos)} contactos son la fuente de **todas** "
+                       "las pestañas. Prendé **Demo** en la barra lateral para volver "
+                       "a la cartera sintética.")
+        else:
+            st.info("Cargaste esta cartera, pero el interruptor **Demo** está prendido: "
+                    "apagalo en la barra lateral para verla en todas las pestañas.")
+    elif contactos and not demo_cartera:
+        st.markdown("---")
+        _ad1, _ad2 = st.columns([0.62, 0.38])
+        _ad1.markdown(
+            f"**¿Usar estos {len(contactos)} contactos en todo el tablero?** "
+            "Todas las pestañas pasan a calcularse con ellos y la Demo se apaga.")
+        if _ad2.button("Usar en todas las pestañas", key="adoptar_cartera"):
+            try:
+                _adoptar_cartera(pd.DataFrame(contactos), "tabla cargada a mano")
+            except ValueError as _exc:
                 st.error(str(_exc))
 
     usar_claude = st.checkbox(
@@ -2310,8 +2473,13 @@ with tab9:
                "sube MV Kobra AI. El número real se mide en un piloto con grupo de control.")
 
     cA, cB, cC = st.columns(3)
+    # Con la cartera del cliente activa, arranca con SU monto total en vez del
+    # número de ejemplo: la pantalla de «Probar mi cartera» promete que el
+    # caso de negocio pasa a calcularse con ella.
+    _cartera_ini = (float(df["monto_deuda"].sum()) if fuente.propia
+                    else 100_000_000.0)
     cartera = cA.number_input("Cartera gestionable (UYU)", min_value=0.0,
-                              value=100_000_000.0, step=1_000_000.0, format="%.0f")
+                              value=_cartera_ini, step=1_000_000.0, format="%.0f")
     tasa_base = cB.number_input("Tasa de recupero actual (%)", min_value=0.0,
                                 max_value=100.0, value=30.0, step=1.0) / 100
     meses = cC.number_input("Horizonte (meses)", min_value=1, value=12, step=1)
@@ -2358,6 +2526,9 @@ if os.path.exists(_MV_PATH):
         f"vertical-align:middle'>"
         f"<b style='color:#dfe6f0;letter-spacing:.5px'>MV</b></div>",
         unsafe_allow_html=True)
-st.caption("MV Kobra AI · Plataforma de Cobranzas Inteligentes · Demo con datos sintéticos (Uruguay). "
-           "Sin nombres de clientes. Reemplazable por la cartera real de cualquier empresa. "
-           "Un producto de MV.")
+st.caption("MV Kobra AI · Plataforma de Cobranzas Inteligentes · "
+           + ("Demo con datos sintéticos (Uruguay). Sin nombres de clientes. "
+              "Reemplazable por la cartera real de cualquier empresa. "
+              if ESTADO_FUENTE == kfuente.DEMO else
+              f"{kfuente.etiqueta(ESTADO_FUENTE, fuente)}. ")
+           + "Un producto de MV.")
