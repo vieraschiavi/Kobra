@@ -31,6 +31,18 @@ from kobra import cartera_manual, fuente  # noqa: E402
 APP = str(RAIZ / "app" / "app.py")
 
 
+def _deudores_demo() -> str:
+    """Tamaño de la demo tal como está en disco, con el formato del KPI.
+
+    No se fija en 12,000: el CI genera la demo con `--n 3000` para ir más
+    rápido, y un número escrito a mano hacía fallar el test ahí y pasar acá.
+    """
+    import csv
+    with open(RAIZ / "data" / "kobra_cartera.csv", encoding="utf-8") as f:
+        n = sum(1 for _ in csv.reader(f)) - 1
+    return f"{n:,}"
+
+
 def _cartera(n: int) -> pd.DataFrame:
     """Una cartera sintética del tamaño que se pida (ningún dato real)."""
     return pd.DataFrame({
@@ -120,7 +132,7 @@ def test_el_interruptor_esta_arriba_y_arranca_en_demo(app):
     # El primer elemento de la barra lateral: antes de los filtros.
     assert app.sidebar.toggle[0].key == fuente.CLAVE_DEMO
     assert any("Datos: DEMO sintética" in i.value for i in app.info)
-    assert _metrica(app, "Deudores") == "12,000"
+    assert _metrica(app, "Deudores") == _deudores_demo()
 
 
 def test_con_la_cartera_en_sesion_los_kpis_cambian_y_nada_revienta(app):
@@ -139,7 +151,7 @@ def test_con_la_cartera_en_sesion_los_kpis_cambian_y_nada_revienta(app):
 
     # Y prender la Demo vuelve a la demo sin perder la cartera.
     app.toggle(key=fuente.CLAVE_DEMO).set_value(True).run()
-    assert _metrica(app, "Deudores") == "12,000"
+    assert _metrica(app, "Deudores") == _deudores_demo()
     assert app.session_state[fuente.CLAVE_SESION] is not None
 
 
