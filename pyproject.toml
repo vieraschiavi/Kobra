@@ -7,6 +7,12 @@
 target-version = "py311"
 line-length = 100
 extend-exclude = [
+    # Skills de Claude Code: contenido vendorizado, no código del proyecto.
+    # Se copian tal cual de su fuente (p. ej. all-in-one-tech-team, que vive
+    # en la cuenta del dueño) y se actualizan pisándolas con una copia nueva;
+    # si el linter del repo obligara a retocarlas, cada actualización
+    # rompería CI o borraría los retoques. Mismo criterio que node_modules.
+    ".claude/skills",
     "electron/node_modules",
     "webapp/frontend/node_modules",
     "owner/ui_dist",

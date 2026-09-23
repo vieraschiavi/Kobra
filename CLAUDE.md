@@ -55,6 +55,10 @@ sobre datos 100% sintéticos** — el pipeline es real, las métricas de impacto
 5. **Publicá** con `/ship`: checkpoint (commit) → push → PR draft.
 6. Para trabajo pesado, delegá en subagentes (`explorer`, `planificador`, `parallel-worker`,
    `specialist`, `revisor`, `verificador`).
+7. La skill `all-in-one-tech-team` está activa a nivel proyecto (`.claude/skills/`), así que
+   la ve cualquier sesión que abra este repo. Es **vendorizada**: no se edita acá. Para
+   actualizarla se pisa la carpeta entera con la versión nueva de su fuente. Por eso
+   `.claude/skills` está excluida de ruff.
 
 ## Convenciones
 - Datos **siempre sintéticos** — nunca metas datos reales de clientes ni PII.
