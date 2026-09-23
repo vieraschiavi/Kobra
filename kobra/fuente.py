@@ -35,6 +35,21 @@ import pandas as pd
 #: que nada falle.
 CLAVE_SESION = "cartera_propia"
 
+#: Nombre con el que se muestra la cartera propia («Datos: tu cartera
+#: <nombre>»). El del archivo subido, o lo que diga la pantalla que la cargó.
+CLAVE_NOMBRE = "cartera_propia_nombre"
+
+#: El interruptor global Demo ON/OFF. Uno solo para TODO el tablero: antes
+#: había un «Modo demo» adentro de una pestaña y ninguno arriba, así que
+#: nadie podía decir de un vistazo qué datos estaba mirando.
+CLAVE_DEMO = "kobra_demo_on"
+
+#: Los tres estados posibles del tablero. «sin_datos» existe a propósito:
+#: apagar la demo sin haber cargado nada NO vuelve a la demo en silencio
+#: —eso es exactamente «por más que cargue cartera sigue apareciendo la
+#: demo»— sino que se dice y se pide la cartera.
+DEMO, PROPIA, SIN_DATOS = "demo", "propia", "sin_datos"
+
 #: Debajo de esto, los agregados del tablero (deciles, evolución, cortes
 #: por gestor) describen el ruido de la muestra más que a la cartera. No
 #: se bloquea nada —el que sube 12 contactos quiere verlos— pero se dice.
@@ -54,6 +69,8 @@ class Fuente:
     #: sobre ESTA cartera — que es el caso de la del cliente: el modelo
     #: viene entrenado con la de referencia.
     metricas: dict | None = None
+    #: Cómo se llama la cartera en pantalla. Vacío para la demo.
+    nombre: str = ""
 
     @property
     def filas(self) -> int:
@@ -74,7 +91,7 @@ def desde_demo(df: pd.DataFrame, gestiones: pd.DataFrame,
     return Fuente(df=df, propia=False, gestiones=gestiones, metricas=metricas)
 
 
-def desde_propia(df: pd.DataFrame) -> Fuente:
+def desde_propia(df: pd.DataFrame, nombre: str = "") -> Fuente:
     """La del cliente, ya scoreada por `importar_y_scorear`.
 
     Sin gestiones y sin métricas **a propósito**, no por falta de tiempo:
@@ -82,7 +99,53 @@ def desde_propia(df: pd.DataFrame) -> Fuente:
     mostrarle al cliente la evolución de otra gente con el nombre de la
     suya.
     """
-    return Fuente(df=df, propia=True)
+    return Fuente(df=df, propia=True, nombre=nombre or "")
+
+
+def hay_propia(propia) -> bool:
+    """¿Hay una cartera del cliente cargada y con al menos una fila?"""
+    return propia is not None and isinstance(propia, pd.DataFrame) \
+        and not propia.empty
+
+
+def demo_por_defecto(propia) -> bool:
+    """Cómo arranca el interruptor: ON sólo si no hay cartera propia.
+
+    El que ya cargó su cartera no tiene que ir a apagar nada para verla.
+    """
+    return not hay_propia(propia)
+
+
+def resolver(demo_on: bool, propia) -> str:
+    """Qué mira el tablero, a partir del interruptor y de la sesión.
+
+    - Demo ON → la demo, haya o no cartera cargada (se puede volver a
+      mirarla sin perder la propia).
+    - Demo OFF con cartera → la cartera, en TODAS las pestañas.
+    - Demo OFF sin cartera → «sin_datos», explícito. Nunca la demo callada.
+    """
+    if demo_on:
+        return DEMO
+    return PROPIA if hay_propia(propia) else SIN_DATOS
+
+
+def etiqueta(estado: str, f: Fuente | None = None) -> str:
+    """El rótulo corto que va arriba de todo: qué datos se están viendo."""
+    if estado == DEMO:
+        return "Datos: DEMO sintética"
+    if estado == PROPIA and f is not None:
+        nombre = f" «{f.nombre}»" if f.nombre else ""
+        return f"Datos: tu cartera{nombre} · {f.filas:,} fila(s)"
+    return "Datos: ninguno — la demo está apagada y no cargaste tu cartera"
+
+
+def aviso_sin_datos() -> str:
+    """Qué decir cuando se apagó la demo sin cartera cargada."""
+    return ("**Apagaste la demo y todavía no cargaste tu cartera.** El tablero "
+            "no muestra datos de mentira en su lugar: subí tu archivo acá abajo "
+            "(CSV o Excel con columnas nombre, telefono, deuda y opcional "
+            "dias_mora) o prendé de nuevo el interruptor **Demo** para volver "
+            "a la cartera sintética.")
 
 
 def aviso(f: Fuente) -> str:
