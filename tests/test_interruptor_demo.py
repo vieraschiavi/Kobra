@@ -173,3 +173,23 @@ def test_demo_apagada_sin_cartera_avisa_y_no_revienta(app):
     assert any("todavía no cargaste tu cartera" in w.value for w in app.warning)
     # No se dibujan KPIs de la demo en silencio.
     assert not any(m.label == "Deudores" for m in app.metric)
+
+
+def test_una_cartera_que_deja_otro_programa_se_adopta_sola(app):
+    """Adium All in One: lo cargado en el panel de datos de la pestaña Kobra
+    tiene que llegar al tablero. Antes Kobra lo ignoraba y seguía en demo."""
+    app.session_state[fuente.CLAVE_EXTERNA] = (_cartera(25), "consulta SQL de la suite")
+    app.run()
+    assert not app.exception, [e.value for e in app.exception]
+    assert _metrica(app, "Deudores") == "25"
+    assert app.session_state[fuente.CLAVE_DEMO] is False
+    assert any("consulta SQL de la suite" in s.value for s in app.success)
+    # Prender la demo NO la vuelve a imponer: se adopta una vez por dataset.
+    app.toggle(key=fuente.CLAVE_DEMO).set_value(True).run()
+    assert _metrica(app, "Deudores") == _deudores_demo()
+
+
+def test_la_firma_distingue_carteras_distintas():
+    a, b = _cartera(5), _cartera(6)
+    assert fuente.firma(a) == fuente.firma(a.copy())
+    assert fuente.firma(a) != fuente.firma(b)

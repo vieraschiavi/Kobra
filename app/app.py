@@ -290,6 +290,21 @@ def _adoptar_cartera(df_bruto: pd.DataFrame, nombre: str, firma: str = "") -> No
     st.rerun()
 
 
+# Una cartera que dejó OTRO programa en la sesión (Adium All in One, con lo
+# que el usuario cargó en su panel de datos): se adopta igual que un archivo
+# subido acá, una sola vez por dataset.
+_externa = st.session_state.get(kfuente.CLAVE_EXTERNA)
+if _externa is not None:
+    _df_ext, _nombre_ext = _externa
+    _firma_ext = kfuente.firma(_df_ext)
+    if st.session_state.get("cartera_propia_firma") != _firma_ext:
+        try:
+            _adoptar_cartera(_df_ext, _nombre_ext, _firma_ext)
+        except ValueError as _exc_ext:
+            st.error(f"La cartera «{_nombre_ext}» que vino de afuera no se pudo "
+                     f"usar: {_exc_ext}")
+
+
 def _fuente_activa():
     """La cartera que mira TODO el tablero, según el interruptor Demo.
 

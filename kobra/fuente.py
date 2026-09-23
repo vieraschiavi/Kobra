@@ -44,6 +44,22 @@ CLAVE_NOMBRE = "cartera_propia_nombre"
 #: nadie podía decir de un vistazo qué datos estaba mirando.
 CLAVE_DEMO = "kobra_demo_on"
 
+#: Entrada para que OTRO programa le pase una cartera a Kobra: una tupla
+#: `(DataFrame, nombre)` en esta clave de sesión. La usa Adium All in One:
+#: el usuario cargaba un archivo o una consulta SQL en el panel de datos de
+#: la pestaña Kobra, abría Kobra y el tablero seguía en la demo, porque ese
+#: dataset no le llegaba. Kobra la adopta sola, una vez por dataset.
+CLAVE_EXTERNA = "kobra_cartera_externa"
+
+
+def firma(df: pd.DataFrame) -> str:
+    """Huella estable de un DataFrame: la misma cartera no se re-adopta."""
+    import hashlib
+    h = hashlib.sha1(",".join(map(str, df.columns)).encode("utf-8"))
+    h.update(pd.util.hash_pandas_object(df, index=False).values.tobytes())
+    return "ext:" + h.hexdigest()
+
+
 #: Los tres estados posibles del tablero. «sin_datos» existe a propósito:
 #: apagar la demo sin haber cargado nada NO vuelve a la demo en silencio
 #: —eso es exactamente «por más que cargue cartera sigue apareciendo la
