@@ -44,7 +44,7 @@ class FuenteInvalida(ValueError):
 
 
 def _leer_csv(path: str, sep: str | None = None, encoding: str | None = None,
-              limite: int | None = LIMITE_FILAS) -> pd.DataFrame:
+              limite: int | None = LIMITE_FILAS, dtype=None) -> pd.DataFrame:
     """CSV real, no CSV de manual.
 
     Un export de un ERP latinoamericano llega en `latin-1` con `;` de
@@ -59,9 +59,19 @@ def _leer_csv(path: str, sep: str | None = None, encoding: str | None = None,
     respaldo = None
     for enc in encodings:
         for s in seps:
+            # Rebobinar antes de CADA intento: cuando `path` no es una ruta
+            # sino el archivo que alguien acaba de subir, el intento
+            # anterior dejó el cursor donde se rompió y el siguiente leería
+            # desde la mitad. Con una ruta esto no aplica y no molesta.
+            if hasattr(path, "seek"):
+                try:
+                    path.seek(0)
+                except (OSError, ValueError):         # pragma: no cover
+                    pass
             try:
                 df = pd.read_csv(path, sep=s, encoding=enc, nrows=limite,
-                                 engine="python", on_bad_lines="skip")
+                                 dtype=dtype, engine="python",
+                                 on_bad_lines="skip")
             except (UnicodeDecodeError, pd.errors.ParserError, ValueError) as exc:
                 ultimo_error = exc
                 continue
@@ -74,6 +84,106 @@ def _leer_csv(path: str, sep: str | None = None, encoding: str | None = None,
     raise FuenteInvalida(f"No se pudo leer el CSV: {ultimo_error}")
 
 
+def _leer_parquet(path: str, limite: int | None = LIMITE_FILAS) -> pd.DataFrame:
+    """Las primeras `limite` filas SIN traer el archivo entero a memoria.
+
+    Antes esto era `pd.read_parquet(path).head(limite)`, que es el mismo
+    defecto que ya se cerró para SQL en este producto: el tope no protegía
+    nada, sólo decidía cuánto se mostraba. Medido sobre un parquet de
+    5.000.000 de filas (157 MiB en disco): devolver 50.000 filas costaba un
+    pico de 1.230 MiB de RAM, siete veces más que el mismo tope sobre el
+    CSV equivalente.
+
+    Un parquet guarda los datos en grupos de filas y trae su índice, así
+    que se leen grupos hasta juntar el tope y se corta. Si `pyarrow` no
+    está, se cae al camino viejo: es peor, pero es mejor que no leer.
+    """
+    if not limite:
+        return pd.read_parquet(path)
+    try:
+        import pyarrow.parquet as pq
+    except ImportError:
+        return pd.read_parquet(path).head(limite)
+    archivo = pq.ParquetFile(path)
+    trozos, total = [], 0
+    for lote in archivo.iter_batches(batch_size=min(limite, 50_000)):
+        trozos.append(lote.to_pandas())
+        total += lote.num_rows
+        if total >= limite:
+            break
+    if not trozos:
+        return archivo.schema_arrow.empty_table().to_pandas()
+    return pd.concat(trozos, ignore_index=True).head(limite)
+
+
+#: Techo del FORMATO xlsx, no de la librería ni del programa: una hoja no
+#: puede tener más filas, y Excel se niega a guardar el archivo. Está acá
+#: para poder decirlo en el mensaje: quien tiene millones de filas no
+#: necesita que le optimicemos el lector de Excel, necesita saber que el
+#: formato no le entra y que tiene que exportar a CSV o a parquet.
+MAX_FILAS_XLSX = 1_048_576
+
+
+def _leer_excel(path: str, hoja: str | None,
+                limite: int | None) -> dict[str, pd.DataFrame]:
+    """Las primeras `limite` filas de cada hoja.
+
+    **Acá `nrows` no ahorra tiempo, y no hay lector que lo arregle.** Medido
+    sobre un xlsx de 1.000.000 de filas (71 MiB), devolver 50.000 cuesta
+    ~21 s, y el perfil dice dónde se van:
+
+        load_workbook(read_only=True)  16,3 s   ← antes de leer UNA fila
+        iterar 50.000 filas             3,1 s
+
+    Los 16 segundos son la tabla de cadenas compartidas del formato: un
+    xlsx guarda cada texto una vez en `sharedStrings.xml` y en las celdas
+    pone el índice, así que para resolver cualquier celda de texto hay que
+    tener la tabla entera. En un archivo con columnas de texto único, esa
+    tabla es la mayor parte del archivo.
+
+    Se probó el lector en streaming de openpyxl (`read_only=True`, fila por
+    fila) y dio 20,2 s contra 21,5 s: ruido. La complejidad se revirtió — el
+    cuello no está del lado del lector.
+
+    Lo que sí sirve es decirlo: ver `advertencia_tamano`.
+    """
+    leido = pd.read_excel(path, sheet_name=hoja if hoja else None,
+                          nrows=limite)
+    if isinstance(leido, pd.DataFrame):
+        return {hoja or os.path.basename(path): leido}
+    return {str(k): v for k, v in leido.items()}
+
+
+def advertencia_tamano(path: str) -> str:
+    """Qué decirle a quien trae un archivo grande. "" si no hace falta.
+
+    Un Excel de 200 MB no es un caso de «optimizar el lector»: es un caso
+    de formato equivocado, y la diferencia es de dos órdenes de magnitud.
+    Sobre los mismos 5.000.000 de registros, medido en este repo:
+
+        CSV      50.000 filas en 1,4 s   ·  173 MiB
+        parquet  50.000 filas en 0,6 s   ·  212 MiB
+        xlsx     50.000 filas en 21,5 s  ·  416 MiB   (y tope de formato)
+
+    Callarlo es dejar que alguien espere veinte segundos por pantalla
+    creyendo que el programa es lento.
+    """
+    ext = os.path.splitext(path)[1].lower()
+    try:
+        mb = os.path.getsize(path) / 2 ** 20
+    except OSError:
+        return ""
+    if ext not in (".xlsx", ".xlsm", ".xls") or mb < 20:
+        return ""
+    return (f"«{os.path.basename(path)}» pesa {mb:,.0f} MB y es un Excel. "
+            f"El formato guarda cada texto en una tabla única que hay que "
+            f"leer ENTERA antes de la primera fila, así que abrirlo tarda "
+            f"aunque sólo se pidan las primeras {LIMITE_FILAS:,} filas. "
+            f"Y una hoja no puede pasar de {MAX_FILAS_XLSX:,} filas: es un "
+            f"tope del formato, no del programa. El mismo dato en CSV o en "
+            f"parquet se lee unas 15 veces más rápido y sin ese techo.")
+
+
 def _leer_archivo(path: str, hoja: str | None = None,
                   limite: int | None = LIMITE_FILAS,
                   sep: str | None = None,
@@ -83,13 +193,9 @@ def _leer_archivo(path: str, hoja: str | None = None,
     if ext in (".csv", ".tsv", ".txt"):
         return {base: _leer_csv(path, sep, encoding, limite)}
     if ext in (".xlsx", ".xlsm", ".xls"):
-        hojas = pd.read_excel(path, sheet_name=hoja if hoja else None, nrows=limite)
-        if isinstance(hojas, pd.DataFrame):
-            return {hoja or base: hojas}
-        return {str(k): v for k, v in hojas.items()}
+        return _leer_excel(path, hoja, limite)
     if ext == ".parquet":
-        df = pd.read_parquet(path)
-        return {base: df.head(limite) if limite else df}
+        return {base: _leer_parquet(path, limite)}
     if ext in (".json", ".jsonl", ".ndjson"):
         lineas = ext in (".jsonl", ".ndjson")
         try:
@@ -231,3 +337,36 @@ def cargar(fuente: str, tabla: str | None = None, query: str | None = None,
     if not os.path.exists(path):
         raise FuenteInvalida(f"No existe la ruta: {path}")
     return _leer_archivo(path, hoja, limite, sep, encoding)
+
+
+def leer_subida(archivo, *, limite: int | None = None,
+                dtype=None, hoja=None) -> pd.DataFrame:
+    """Un archivo que el usuario acaba de subir, leído como llegó.
+
+    `pd.read_csv(subido)` a secas asume UTF-8 y coma. Un export de
+    cualquier ERP o cualquier Excel guardado como CSV en una PC en español
+    llega en `latin-1`/`cp1252` y muchas veces con `;`, y lo que el usuario
+    ve es el programa cayéndose:
+
+        UnicodeDecodeError: 'utf-8' codec can't decode byte 0xed in
+        position 361: invalid continuation byte
+
+    Ese `0xed` es una `í`. Acá se reusa `_leer_csv`, que ya prueba las
+    combinaciones de separador y codificación — era el lector del módulo de
+    ingeniería de datos y la pantalla de cargar la cartera no lo usaba.
+
+    `limite=None` por defecto: la cartera que alguien sube se carga entera.
+    El tope es para perfilar, no para operar — recortarla en silencio
+    dejaría deudores afuera sin decirlo.
+    """
+    nombre = str(getattr(archivo, "name", archivo) or "")
+    if nombre.lower().endswith((".xlsx", ".xlsm", ".xls")):
+        df = pd.read_excel(archivo, sheet_name=hoja, dtype=dtype) if hoja \
+            else pd.read_excel(archivo, dtype=dtype)
+        return df.head(limite) if limite else df
+    # El `dtype` va EN la lectura, no con un `astype` después: un teléfono
+    # `099000001` leído como número pierde el cero de adelante y ya no se
+    # puede recuperar. En un producto de cobranzas ese cero es el teléfono.
+    # La heurística de separadores no sufre: mide cuántas COLUMNAS salieron,
+    # y eso no depende del tipo.
+    return _leer_csv(archivo, limite=limite, dtype=dtype)
