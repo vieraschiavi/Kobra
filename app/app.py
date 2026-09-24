@@ -878,9 +878,13 @@ with tab5:
     st.caption("Analiza la conversación (WhatsApp o transcripción de llamada) en tiempo real: "
                "sentimiento del cliente, técnicas del gestor, calidad y la próxima jugada sugerida.")
 
+    # Los ejemplos (chat y llamada sintéticos) vienen puestos sólo con la
+    # demo: con la cartera del cliente, precargarlos era seguir mostrando la
+    # demo acá adentro (ver kobra/fuente.precargar_ejemplos).
+    _con_ejemplos = kfuente.precargar_ejemplos(ESTADO_FUENTE)
     ejemplo_path = os.path.join(ROOT, "data", "ejemplo_whatsapp.txt")
     ejemplo_txt = ""
-    if os.path.exists(ejemplo_path):
+    if _con_ejemplos and os.path.exists(ejemplo_path):
         with open(ejemplo_path, encoding="utf-8") as fh:
             ejemplo_txt = fh.read()
 
@@ -988,7 +992,8 @@ with tab5:
                "ritmo). Detecta la tensión del cliente en la voz, más allá de las palabras.")
     audio_up = st.file_uploader("Subir grabación (.wav)", type=["wav"], key="audio_up")
     audio_demo = os.path.join(ROOT, "data", "ejemplo_llamada.wav")
-    usar_demo = st.checkbox("Usar grabación de demo (dual-channel)", value=not audio_up)
+    usar_demo = st.checkbox("Usar grabación de demo (dual-channel)",
+                            value=not audio_up and _con_ejemplos)
 
     audio_path = None
     if audio_up:

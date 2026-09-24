@@ -145,6 +145,20 @@ def resolver(demo_on: bool, propia) -> str:
     return PROPIA if hay_propia(propia) else SIN_DATOS
 
 
+def precargar_ejemplos(estado: str) -> bool:
+    """¿Se precargan la conversación y la grabación de ejemplo del Copiloto?
+
+    Sólo con la demo. Con la cartera del cliente, el Copiloto arrancaba igual
+    con el chat de WhatsApp y la llamada sintéticos ya cargados —y los
+    analizaba solos, vinculables a un deudor REAL de la cartera—: la demo
+    seguía apareciendo en una pestaña con los datos del cliente activos, y la
+    grabación de ejemplo además gastaba cupo de voz del plan. Con la cartera
+    propia los ejemplos siguen a mano (casilla explícita), pero no vienen
+    puestos.
+    """
+    return estado == DEMO
+
+
 def etiqueta(estado: str, f: Fuente | None = None) -> str:
     """El rótulo corto que va arriba de todo: qué datos se están viendo."""
     if estado == DEMO:
