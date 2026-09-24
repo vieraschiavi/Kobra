@@ -45,6 +45,17 @@ DEFAULTS = {
     "gestiones_previas": 2,
 }
 
+#: Minimo y maximo de cada feature en la cartera con la que se entrenó el
+#: modelo (`data/kobra_cartera.csv`, seed 42).
+RANGO_MODELO = {
+    "monto_deuda": (1_890, 8_000_000), "dias_mora": (0, 650),
+    "cuotas_atrasadas": (1, 22), "antiguedad_cliente_meses": (1, 179),
+    "score_buro": (250, 950), "ingreso_estimado": (5_400, 406_000),
+    "pagos_ultimos_12m": (0, 12), "promesas_cumplidas": (0, 5),
+    "promesas_incumplidas": (0, 10), "contactabilidad": (0.02, 0.99),
+    "gestiones_previas": (0, 21),
+}
+
 _TRAMO_BINS = [-1, 30, 60, 90, 180, 10_000]
 _TRAMO_LABELS = ["1-30", "31-60", "61-90", "91-180", "180+"]
 
@@ -90,7 +101,15 @@ def puntuar(model, df: pd.DataFrame) -> pd.DataFrame:
     """
     out = df.copy()
     pipe = getattr(model, "pipeline", model)
-    out["probpago"] = pipe.predict_proba(out[NUM_FEATURES + CAT_FEATURES])[:, 1]
+    # El modelo usa las numericas tal cual: un valor fuera de lo que vio al
+    # entrenarse (mora de 19 años, una deuda de 1.100 millones) lo satura en
+    # 0 % o 100 %. Se recorta SOLO la entrada del modelo; la deuda que se
+    # muestra y se suma queda intacta.
+    X = out[NUM_FEATURES + CAT_FEATURES].copy()
+    for col, (lo, hi) in RANGO_MODELO.items():
+        if col in X.columns:
+            X[col] = pd.to_numeric(X[col], errors="coerce").clip(lo, hi)
+    out["probpago"] = pipe.predict_proba(X)[:, 1]
     out["segmento_propension"] = pd.cut(
         out["probpago"], bins=[-0.01, 0.35, 0.65, 1.01],
         labels=["Baja", "Media", "Alta"])
@@ -181,6 +200,26 @@ _SINONIMOS = {
     "ingreso_estimado": [
         "ingreso_estimado", "ingreso", "ingresos", "salario", "sueldo", "renta",
         "ingreso_mensual", "ingreso_declarado", "ingreso_neto"],
+    # Las features de comportamiento. Antes no tenian sinonimos: un export de
+    # score con PPI, intentos de contacto y tasa de respuesta entraba con esas
+    # columnas ignoradas y el ProbPago se calculaba con los supuestos de
+    # `DEFAULTS` en su lugar.
+    "antiguedad_cliente_meses": [
+        "antiguedad_cliente_meses", "antiguedad_meses", "meses_antiguedad",
+        "meses_cliente", "antiguedad_cliente"],
+    "pagos_ultimos_12m": [
+        "pagos_ultimos_12m", "pagos_12m", "cant_pagos_12m", "pagos_ult_12m",
+        "pagosult12m_cant"],
+    "promesas_cumplidas": [
+        "promesas_cumplidas", "ppi_cumplidas", "promesas_de_pago_cumplidas"],
+    "promesas_incumplidas": [
+        "promesas_incumplidas", "ppi_incumplidas", "promesas_de_pago_incumplidas"],
+    "gestiones_previas": [
+        "gestiones_previas", "gestiones", "cant_gestiones", "cont_intentostotal",
+        "intentos_contacto", "intentos_total"],
+    "contactabilidad": [
+        "contactabilidad", "tasa_contacto", "pct_contacto", "cont_pctrespuesta",
+        "pct_respuesta", "tasa_respuesta"],
     "segmento": ["segmento", "segment", "categoria", "categoria_cliente", "tipo_cliente"],
     "producto": ["producto", "tipo_producto", "linea", "linea_producto", "product"],
     "departamento": [
@@ -238,7 +277,14 @@ def _norm_col(c) -> str:
 _CIENTIFICA = re.compile(r"^[+-]?\d+(?:[.,]\d+)?[eE][+-]?\d+$")
 
 
-def _a_numero(v):
+# Una fecha NO es un numero. `31/03/2026` pasaba el filtro de digitos y
+# entraba como 31.032.026: con el export de score de marzo, la columna
+# `FechaScore` terminaba de «score de buro» y el ProbPago daba 100 % para los
+# 7.859 deudores.
+_FECHA = re.compile(r"^\s*\d{1,4}[/-]\d{1,2}[/-]\d{1,4}(?:[ T].*)?$")
+
+
+def _a_numero(v, punto_decimal: bool = False):
     """Convierte a numero tolerando formato de moneda es/en: '$ 1.234.567,89',
     '1,234,567.89', 'UYU 5.000', '45%'. Devuelve float o NaN.
 
@@ -269,7 +315,7 @@ def _a_numero(v):
     if isinstance(v, (int, float)):
         return float(v)
     s = str(v).strip()
-    if not s:
+    if not s or _FECHA.match(s):
         return float("nan")
     es_pct = "%" in s
 
@@ -307,7 +353,8 @@ def _a_numero(v):
         s = f"{ent.replace(',', '')}.{dec}" if 0 < len(dec) <= 2 else s.replace(",", "")
     else:
         # Solo puntos: si hay varios, o grupos de 3, son miles (1.234.567).
-        if s.count(".") > 1 or re.search(r"\.\d{3}(\D|$)", s + " "):
+        if s.count(".") > 1 or (not punto_decimal
+                                and re.search(r"\.\d{3}(\D|$)", s + " ")):
             s = s.replace(".", "")
     try:
         n = float(s)
@@ -317,13 +364,46 @@ def _a_numero(v):
     return -n if negativo and n > 0 else n
 
 
-def mapear_columnas(columnas) -> dict:
+_ES_FECHA_NOMBRE = re.compile(r"(^|_)(fecha|date|fch)|fecha|date$")
+
+
+def _mismos_numeros(a: str, b: str) -> bool:
+    """«pagos_ult3m» no es «pagos_12m»: si los dos nombres traen numeros,
+    tienen que ser los mismos (un parecido de letras no cambia el periodo)."""
+    na, nb = re.findall(r"\d+", a), re.findall(r"\d+", b)
+    return not (na and nb) or na == nb
+
+
+def _parece_numerica(serie) -> bool:
+    """True si la mayoria de los valores (no vacios) se leen como numero."""
+    muestra = [v for v in serie.head(300).tolist()
+               if not (v is None or (isinstance(v, float) and pd.isna(v))
+                       or str(v).strip() == "")]
+    if not muestra:
+        return True        # columna vacia: no hay evidencia en contra
+    ok = sum(not pd.isna(_a_numero(v)) for v in muestra)
+    return ok / len(muestra) >= 0.6
+
+
+def mapear_columnas(columnas, datos: pd.DataFrame | None = None) -> dict:
     """Devuelve {columna_original: campo_canonico} adivinando a que campo interno
     corresponde cada columna del archivo del cliente. Match en 3 pasadas por
     prioridad: exacto por sinonimo, "contiene" un sinonimo, y parecido (fuzzy).
     Cada campo se asigna a lo sumo una vez (gana la mejor coincidencia)."""
-    norm = {c: _norm_col(c) for c in columnas}
+    # Una columna de fecha no es ningun campo de la cartera: `FechaScore`
+    # terminaba en «score_buro» por terminar en «score».
+    norm = {c: _norm_col(c) for c in columnas
+            if not _ES_FECHA_NOMBRE.search(_norm_col(c))}
     mapeo, usados = {}, set()
+    # Con los datos a mano, un campo numerico solo va a una columna que tiene
+    # numeros: `ScoreCash` (letras A..G) no es el score, `ScoreCash_Numerico` si.
+    no_numericas = set()
+    if datos is not None:
+        no_numericas = {c for c in norm
+                        if c in datos.columns and not _parece_numerica(datos[c])}
+
+    def _sirve(campo, col):
+        return not (campo in _NUMERICAS and col in no_numericas)
 
     def _asignar(campo, col):
         mapeo[col] = campo
@@ -332,7 +412,8 @@ def mapear_columnas(columnas) -> dict:
     # 0) DEUDA por puntaje (mirando TODO el dataset): entre varias columnas de
     #    plata elige la MAS de-deuda. Asi "Deuda Total" le gana a "Ultimo Pago",
     #    e "Importe" le gana a "Cobro Mensual" — no es la primera que aparece.
-    puntajes = {c: _score_deuda(n) for c, n in norm.items()}
+    puntajes = {c: _score_deuda(n) for c, n in norm.items()
+                if _sirve("monto_deuda", c)}
     mejor_col = max(puntajes, key=puntajes.get) if puntajes else None
     if mejor_col is not None and puntajes[mejor_col] >= 1:
         _asignar("monto_deuda", mejor_col)
@@ -343,7 +424,7 @@ def mapear_columnas(columnas) -> dict:
             continue
         for syn in syns:
             hit = next((c for c, n in norm.items()
-                        if n == syn and c not in mapeo), None)
+                        if n == syn and c not in mapeo and _sirve(campo, c)), None)
             if hit is not None:
                 _asignar(campo, hit)
                 break
@@ -352,9 +433,10 @@ def mapear_columnas(columnas) -> dict:
         if campo in usados:
             continue
         for c, n in norm.items():
-            if c in mapeo:
+            if c in mapeo or not _sirve(campo, c):
                 continue
-            if any(f"_{syn}_" in f"_{n}_" or n.startswith(syn) or n.endswith(syn)
+            if any((f"_{syn}_" in f"_{n}_" or n.startswith(syn) or n.endswith(syn))
+                   and _mismos_numeros(n, syn)
                    for syn in syns if len(syn) >= 4):
                 _asignar(campo, c)
                 break
@@ -364,15 +446,55 @@ def mapear_columnas(columnas) -> dict:
             continue
         mejor, mejor_score = None, 0.86
         for c, n in norm.items():
-            if c in mapeo or len(n) < 4:
+            if c in mapeo or len(n) < 4 or not _sirve(campo, c):
                 continue
-            sc = max(difflib.SequenceMatcher(None, n, s).ratio()
-                     for s in syns if len(s) >= 4)
+            sc = max((difflib.SequenceMatcher(None, n, s).ratio()
+                      for s in syns if len(s) >= 4 and _mismos_numeros(n, s)),
+                     default=0.0)
             if sc > mejor_score:
                 mejor, mejor_score = c, sc
         if mejor is not None:
             _asignar(campo, mejor)
     return mapeo
+
+
+_CENTINELAS = (9999, 99999, 999999, -1, -9999)
+
+
+def _punto_es_decimal(serie) -> bool:
+    """El punto es decimal en TODA la columna si ningun valor trae coma ni
+    mas de un punto, y alguno trae 1-2 o 4+ decimales (`1270140.08`).
+
+    Por valor suelto, `1140273.482` es ambiguo y se leia como miles
+    (1.140.273.482): la deuda del deudor mas grande del export de marzo
+    entraba multiplicada por mil. La columna entera desempata.
+    """
+    if serie.dtype.kind in "if":
+        return False
+    txt = [str(v).strip() for v in serie.dropna().head(2000).tolist()]
+    txt = [t for t in txt if t]
+    if not txt or any("," in t or t.count(".") > 1 for t in txt):
+        return False
+    return any(re.search(r"\.(\d{1,2}|\d{4,})$", t) for t in txt)
+
+
+# Antiguedad en dias o en años -> meses, cuando no viene en meses.
+_ANTIGUEDAD = {"antiguedaddias": 1 / 30.44, "antiguedad_dias": 1 / 30.44,
+               "dias_antiguedad": 1 / 30.44, "antiguedadanios": 12.0,
+               "antiguedad_anios": 12.0, "antiguedad_anos": 12.0}
+
+
+def _derivar_unidades(df: pd.DataFrame, mapeo: dict) -> None:
+    """Completa `antiguedad_cliente_meses` desde dias o años (en el lugar)."""
+    if "antiguedad_cliente_meses" in mapeo.values():
+        return
+    for c in df.columns:
+        f = _ANTIGUEDAD.get(_norm_col(c))
+        if f is not None:
+            punto = _punto_es_decimal(df[c])
+            vals = df[c].map(lambda v, _p=punto: _a_numero(v, _p))
+            df["antiguedad_cliente_meses"] = (vals * f).round(1)
+            return
 
 
 def desde_dataframe(df: pd.DataFrame) -> list[dict]:
@@ -383,7 +505,10 @@ def desde_dataframe(df: pd.DataFrame) -> list[dict]:
     (conserva el 0 inicial); columnas numericas y montos con formato de moneda
     coercionados; nombres/vacios tolerados."""
     df = df.copy()
-    mapeo = mapear_columnas(df.columns)
+    # El BOM de un CSV de Excel queda pegado al primer encabezado.
+    df.columns = [str(c).lstrip("\ufeff") for c in df.columns]
+    mapeo = mapear_columnas(df.columns, df)
+    _derivar_unidades(df, mapeo)
     if mapeo:
         df = df.rename(columns=mapeo)
     # Columnas no mapeadas: normalizadas por si ya son un campo interno exacto
@@ -398,7 +523,14 @@ def desde_dataframe(df: pd.DataFrame) -> list[dict]:
             lambda v: "" if pd.isna(v) else str(v).strip())
     for col in _NUMERICAS:
         if col in df.columns:
-            df[col] = df[col].map(_a_numero)
+            pd_ = _punto_es_decimal(df[col])
+            df[col] = df[col].map(lambda v, _p=pd_: _a_numero(v, _p))
+            if col != "monto_deuda":
+                # 9999 / -1 son «sin dato» en los exports de score: tomarlos
+                # como valor real es un score de buro de 9999.
+                df[col] = df[col].where(~df[col].isin(_CENTINELAS))
+    if "contactabilidad" in df.columns and df["contactabilidad"].max() > 1:
+        df["contactabilidad"] = df["contactabilidad"] / 100   # viene en %
     contactos = []
     for row in df.to_dict("records"):
         # descartar filas sin deuda válida y columnas numéricas vacías
