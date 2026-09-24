@@ -71,8 +71,27 @@ from sklearn.tree import DecisionTreeClassifier
 
 SEMILLA = 42          # reproducible, igual que el resto del repo
 
-# Topes para que un archivo grande no cuelgue la máquina del cliente.
-MAX_FILAS = 200_000
+# SIN tope de filas de entrada: se lee y se mide sobre el 100 % del archivo.
+#
+# Lo único acotado es cuántas filas se usan para AJUSTAR los candidatos, y
+# la razón es una medición, no una precaución. Siete columnas sintéticas,
+# 4 núcleos, este repo (tiempo de `fit` de cada candidato):
+#
+#     filas de ajuste   logística  árbol   bosque   boosting
+#        120.000           0,6 s   0,9 s   15,5 s    18,5 s
+#        600.000           2,9 s   5,6 s  154,5 s    (cortado)
+#
+# El bosque escala peor que lineal: con un archivo de 1.000.000 de filas
+# (600.000 de ajuste) sólo el bosque ya pasa los dos minutos y medio, y con
+# diez millones la corrida es de horas con la pantalla congelada. Por encima
+# de `MAX_FILAS_AJUSTE` el tramo de entrenamiento se MUESTREA —al azar, con
+# semilla y estratificado por la clase, nunca `head()`, que sesga por el
+# orden del archivo— y se avisa. Los tramos de selección y holdout se
+# puntúan ENTEROS: la métrica que se le muestra al cliente sale del 100 % de
+# esas filas, y `puntuar()` predice el 100 % de cualquier tabla.
+MAX_FILAS_AJUSTE = 200_000
+# Compatibilidad: quien importaba el tope viejo ahora recibe `None` (sin tope).
+MAX_FILAS = None
 MAX_COLUMNAS = 200
 MIN_FILAS = 60        # por debajo de esto, tres cortes no tienen sentido
 
@@ -138,8 +157,6 @@ def _revisar(df: pd.DataFrame, objetivo: str) -> list[str]:
         raise DatosInsuficientes(
             f"hacen falta al menos {MIN_FILAS} filas para entrenar y medir "
             f"por separado; el archivo tiene {len(df)}")
-    if len(df) > MAX_FILAS:
-        avisos.append(f"se usaron las primeras {MAX_FILAS:,} filas de {len(df):,}")
     if len(df.columns) > MAX_COLUMNAS:
         raise DatosInsuficientes(
             f"demasiadas columnas ({len(df.columns)}); el máximo es {MAX_COLUMNAS}")
@@ -231,7 +248,7 @@ def entrenar(df: pd.DataFrame, objetivo: str,
     El AUC que se reporta sale del holdout, que no se usó para elegir nada.
     """
     avisos = _revisar(df, objetivo)
-    df = df.head(MAX_FILAS).dropna(subset=[objetivo])
+    df = df.dropna(subset=[objetivo])
 
     # El objetivo puede venir como texto ("sí"/"no"): se mapea a 0/1 dejando
     # como 1 el valor menos frecuente, que es el evento de interés en cobranzas
@@ -263,6 +280,16 @@ def entrenar(df: pd.DataFrame, objetivo: str,
                                  if c and c in parte.columns])
         return xx, yy
 
+    filas_tramo_entrenamiento = len(tr)
+    tr = _muestra_estratificada(tr, objetivo, MAX_FILAS_AJUSTE)
+    if len(tr) < filas_tramo_entrenamiento:
+        avisos.append(
+            f"el tramo de entrenamiento tiene {filas_tramo_entrenamiento:,} "
+            f"filas; los modelos se ajustaron con una muestra aleatoria "
+            f"estratificada de {len(tr):,} (semilla {SEMILLA}) para que la "
+            f"corrida termine en minutos. La selección y el holdout se "
+            f"midieron sobre el 100 % de sus filas "
+            f"({len(sel):,} y {len(hold):,})")
     X_tr, y_tr = partir(tr)
     X_sel, y_sel = partir(sel)
     X_hold, y_hold = partir(hold)
@@ -315,13 +342,52 @@ def entrenar(df: pd.DataFrame, objetivo: str,
                        for c in candidatos],
         "corte_temporal": temporal,
         "filas": {"entrenamiento": len(tr), "seleccion": len(sel),
-                  "holdout": len(hold)},
+                  "holdout": len(hold),
+                  "tramo_entrenamiento": filas_tramo_entrenamiento,
+                  "total": int(len(df))},
+        "muestreo_ajuste": len(tr) < filas_tramo_entrenamiento,
         "columnas_usadas": list(X_tr.columns),
         "columnas_descartadas": descartadas,
         "clase_positiva": str(positivo),
         "avisos": avisos,
         "pipeline": ganador["pipeline"],
     }
+
+
+def _muestra_estratificada(df: pd.DataFrame, objetivo: str,
+                           tope: int) -> pd.DataFrame:
+    """Hasta `tope` filas, al azar con semilla, respetando la proporción de
+    cada clase. Sin recorte si ya entra.
+
+    Estratificada porque en cobranzas la clase de interés suele ser la
+    minoría: una muestra simple de un 3 % de positivos puede salir con 2,6 %
+    y mover el umbral del modelo. Al azar y no `head()`: un export viene
+    ordenado (por fecha, por sucursal, por deuda) y las primeras filas no
+    representan al resto. El orden temporal, si lo hay, no se rompe: este
+    tramo ya es entero anterior a selección y holdout.
+    """
+    if len(df) <= tope:
+        return df
+    frac = tope / len(df)
+    partes = [g.sample(n=max(1, int(round(len(g) * frac))),
+                       random_state=SEMILLA)
+              for _, g in df.groupby(objetivo, sort=True)]
+    return pd.concat(partes).sample(frac=1.0, random_state=SEMILLA)
+
+
+def puntuar(resultado: dict, df: pd.DataFrame,
+            lote: int = 250_000) -> pd.Series:
+    """Probabilidad de la clase positiva para CADA fila de `df`.
+
+    Por lotes, para que un archivo de millones de filas no duplique la
+    memoria en el one-hot. Sin tope: se puntúa el 100 %.
+    """
+    pipe = resultado["pipeline"]
+    X = df.reindex(columns=resultado["columnas_usadas"])
+    trozos = [pd.Series(pipe.predict_proba(X.iloc[i:i + lote])[:, 1],
+                        index=X.index[i:i + lote])
+              for i in range(0, len(X), lote)]
+    return pd.concat(trozos) if trozos else pd.Series(dtype=float)
 
 
 def informe(resultado: dict) -> dict:

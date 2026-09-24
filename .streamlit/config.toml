@@ -1,12 +1,16 @@
 [server]
 headless = true
-# Tope de subida, 4 GB. Sin esta línea rige el default de Streamlit —200 MB—
+# Tope de subida: 200.000 MB (~195 GB), o sea sin tope práctico —pedido del
+# dueño: «sin límite de tamaño cada módulo»—. Antes era 4096 (4 GB). Lo que
+# limita de verdad es la RAM de la máquina, no este número; el lector lee
+# el archivo entero por defecto (kobra/fuentes_datos.py, LIMITE_FILAS=None).
+# Sin esta línea rige el default de Streamlit —200 MB—
 # y un export del ERP o una cartera con millones de filas lo pasa sin
 # esfuerzo: el navegador lo rechaza con «File must be 200.0MB or smaller»
 # ANTES de que el programa vea el archivo, así que no hay mensaje nuestro
 # que lo explique ni forma de subirlo partido. El archivo está en la misma
 # máquina que el programa; subirlo no cuesta red, sólo RAM del proceso.
-maxUploadSize = 4096
+maxUploadSize = 200000
 maxMessageSize = 4096
 
 [browser]
