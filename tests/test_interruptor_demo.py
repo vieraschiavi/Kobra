@@ -193,3 +193,34 @@ def test_la_firma_distingue_carteras_distintas():
     a, b = _cartera(5), _cartera(6)
     assert fuente.firma(a) == fuente.firma(a.copy())
     assert fuente.firma(a) != fuente.firma(b)
+
+
+# ==========================================================================
+# el Copiloto: los ejemplos sintéticos sólo vienen puestos con la demo
+# ==========================================================================
+def test_los_ejemplos_del_copiloto_se_precargan_solo_con_la_demo():
+    assert fuente.precargar_ejemplos(fuente.DEMO) is True
+    assert fuente.precargar_ejemplos(fuente.PROPIA) is False
+    assert fuente.precargar_ejemplos(fuente.SIN_DATOS) is False
+
+
+def _conversacion(at) -> str:
+    return next(t.value for t in at.text_area if t.label == "…o pegá la conversación acá")
+
+
+def _usar_grabacion_demo(at) -> bool:
+    return next(c.value for c in at.checkbox if c.label.startswith("Usar grabación de demo"))
+
+
+def test_con_la_cartera_propia_el_copiloto_no_arranca_con_el_chat_de_la_demo(app):
+    """La fuga que quedaba: con la cartera del cliente activa, el Copiloto
+    seguía precargando y analizando el chat y la llamada sintéticos."""
+    assert _conversacion(app).strip()          # con la demo, el ejemplo está
+    assert _usar_grabacion_demo(app) is True
+
+    app.session_state[fuente.CLAVE_SESION] = cartera_manual.importar_y_scorear(_cartera(40))
+    app.session_state[fuente.CLAVE_NOMBRE] = "cartera_prueba.csv"
+    app.toggle(key=fuente.CLAVE_DEMO).set_value(False).run()
+    assert not app.exception, [e.value for e in app.exception]
+    assert _conversacion(app) == ""
+    assert _usar_grabacion_demo(app) is False
