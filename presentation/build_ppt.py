@@ -31,6 +31,7 @@ OUT = os.path.join(ROOT, "presentation", "MVKobraAI_Presentacion_Gerencial.pptx"
 # resto del material.
 sys.path.insert(0, ROOT)
 from marketing import marca as _marca  # noqa: E402
+from presentation import frescura_ppt  # noqa: E402
 
 
 def _c(nombre):
@@ -107,7 +108,9 @@ def _fmt_m(v):
     return f"$U {v/1e6:,.1f}M" if v else "—"
 
 
-def build():
+def build(out=OUT, rutas=None, ahora=None, idioma="es"):
+    """Genera el deck. `rutas`/`ahora` se inyectan en los tests para dibujar la
+    diapositiva de Frescura sobre tablas sintéticas con fechas conocidas."""
     data = _load_kpis()
     k = data.get("kpis", {})
     m = data.get("metrics", {})
@@ -228,6 +231,15 @@ def build():
           "Datos sintéticos ilustrativos: muestran cómo MV Kobra AI prioriza el esfuerzo donde está "
           "el valor recuperable. Con la cartera real, estos KPIs se calculan de verdad.",
           size=14, color=GREY, align=PP_ALIGN.CENTER)
+
+    # ---------- 5b · Frescura de los datos ---------------------------------
+    # Va pegada a los KPIs porque es lo que les pone fecha: un PowerPoint se
+    # reenvía y se proyecta semanas después, y un número viejo se ve igual que
+    # uno de hoy. El veredicto (al día / atrasada / sin cargar) lo da el mismo
+    # motor que la pantalla «Frecuencia de cargas» de la webapp.
+    frescura_ppt.agregar_desde_rutas(
+        prs, rutas if rutas is not None else frescura_ppt.rutas_por_defecto(),
+        idioma=idioma, ahora=ahora, fondo=DARK)
 
     # ---------- 6/7/8 · Capturas del dashboard -----------------------------
     shots = [
@@ -351,8 +363,9 @@ def build():
           "Demo lista para ejecutar · Solicite una prueba con su propia cartera.",
           size=16, color=GREY, align=PP_ALIGN.CENTER)
 
-    prs.save(OUT)
-    print(f"[OK] Presentación generada: {OUT}  ({len(prs.slides.__iter__.__self__._sldIdLst)} slides)")
+    prs.save(out)
+    print(f"[OK] Presentación generada: {out}  ({len(prs.slides)} slides)")
+    return out
 
 
 if __name__ == "__main__":

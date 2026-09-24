@@ -69,6 +69,18 @@ MARCA = {
 # color de marca y le toca lo más importante de cada gráfico.
 ACENTOS = ("green", "blue", "amber")
 
+# Semáforo de estados (al día / atrasada / sin cargar). Son los mismos tres
+# colores que ya usan las píldoras `alta` / `media` / `baja` de la webapp
+# (`webapp/frontend/src/theme.css`): la diapositiva de frescura del deck y la
+# pantalla de Frecuencia de cargas tienen que leerse con el mismo código de
+# color, o un verde en una y un ámbar en la otra parecen dos diagnósticos.
+# El rojo no es de marca y no se usa para nada más: existe solo para alertar.
+SEMAFORO = {
+    "al_dia": "#00c896",     # = green
+    "atrasada": "#f2b441",   # = amber
+    "sin_datos": "#ff7675",  # = --red de la webapp
+}
+
 # Colores propios del isotipo. No son intercambiables con los de arriba: son
 # la identidad gráfica, y cambiarlos es rehacer el logo.
 LOGO = {

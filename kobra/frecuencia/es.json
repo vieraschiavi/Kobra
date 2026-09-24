@@ -52,5 +52,29 @@
     "atrasadas": "{n} atrasada(s): {nombres}",
     "sin_cargar": "{n} sin cargar: {nombres}",
     "separador": " · "
+  },
+  "ppt": {
+    "titulo": "Frescura de los datos",
+    "subtitulo": "Última carga de cada tabla que usa el programa y si llegó tarde · revisado el {cuando}",
+    "col_tabla": "Tabla / dataset",
+    "col_carga": "Última carga",
+    "col_dato": "Fecha del dato",
+    "col_filas": "Filas",
+    "col_esperada": "Frecuencia esperada",
+    "col_estado": "Semáforo",
+    "estado": {
+      "al_dia": "Al día",
+      "atrasada": "Atrasada",
+      "sin_datos": "Sin cargar"
+    },
+    "kpi_total": "Tablas controladas",
+    "kpi_al_dia": "Al día",
+    "kpi_atrasadas": "Atrasadas",
+    "kpi_sin_datos": "Sin cargar",
+    "leyenda": "Umbral de atraso (período esperado × {tolerancia}):",
+    "umbral": "{frecuencia} > {limite}",
+    "umbral_manual": "{frecuencia}: no vence",
+    "proxima": "Próxima carga esperada: {cuando}",
+    "pagina": "página {n} de {total}"
   }
 }

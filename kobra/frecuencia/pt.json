@@ -52,5 +52,29 @@
     "atrasadas": "{n} atrasada(s): {nombres}",
     "sin_cargar": "{n} sem carregar: {nombres}",
     "separador": " · "
+  },
+  "ppt": {
+    "titulo": "Atualidade dos dados",
+    "subtitulo": "Última carga de cada tabela que o programa usa e se chegou atrasada · verificado em {cuando}",
+    "col_tabla": "Tabela / dataset",
+    "col_carga": "Última carga",
+    "col_dato": "Data do dado",
+    "col_filas": "Linhas",
+    "col_esperada": "Frequência esperada",
+    "col_estado": "Semáforo",
+    "estado": {
+      "al_dia": "Em dia",
+      "atrasada": "Atrasada",
+      "sin_datos": "Sem carregar"
+    },
+    "kpi_total": "Tabelas monitoradas",
+    "kpi_al_dia": "Em dia",
+    "kpi_atrasadas": "Atrasadas",
+    "kpi_sin_datos": "Sem carregar",
+    "leyenda": "Limite de atraso (período esperado × {tolerancia}):",
+    "umbral": "{frecuencia} > {limite}",
+    "umbral_manual": "{frecuencia}: não vence",
+    "proxima": "Próxima carga esperada: {cuando}",
+    "pagina": "página {n} de {total}"
   }
 }

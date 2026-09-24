@@ -584,6 +584,10 @@ PROD_ITEMS = [
     "data/generate_dataset.py", "data/generate_gestiones.py",
     "data/generate_audio_demo.py", "data/ejemplo_whatsapp.txt",
     "presentation/build_ppt.py", "assets/brand",
+    # build_ppt.py importa la diapositiva de Frescura y los tokens de marca
+    # (colores y semáforo): sin estos dos, el generador del deck que viaja en
+    # el paquete muere con ImportError al primer uso.
+    "presentation/frescura_ppt.py", "marketing/__init__.py", "marketing/marca.py",
     "requirements.txt", "run.sh", "Dockerfile", "docker-compose.yml",
     "docker-entrypoint.sh", ".dockerignore", "README.md",
     "MANUAL_PUESTA_EN_MARCHA.md", ".github",
