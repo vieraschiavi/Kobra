@@ -16,10 +16,13 @@ lectura de archivos del servidor (`load_file`, `pg_read_file`) y conexiones
 salientes (`dblink`, `openrowset`). Sin esto, una pantalla de "explorá tus
 datos" es una consola SQL con los permisos del servicio.
 
-**2. Todo lectura trae tope de filas.** Un `SELECT *` contra una tabla de
-cientos de millones de filas no es un error del usuario, es lo que cualquiera
-hace la primera vez. El tope convierte "el servidor se quedó sin memoria" en
-"te muestro una muestra".
+**2. Por defecto se lee TODO; el tope existe pero hay que pedirlo.** Antes
+cada lectura traía 50.000 filas y el resto quedaba afuera sin que nadie lo
+viera: el perfil, la calidad y las claves se calculaban sobre un recorte que
+el usuario creía que era su tabla. El dueño lo pidió explícito —«sin límite
+de tamaño cada módulo»— y es lo correcto: recortar en silencio es mentir
+sobre los datos. Quien quiera una muestra pasa `limite=N`, y entonces
+`contar_filas`/`aviso_recorte` dicen cuántas filas había en total.
 """
 from __future__ import annotations
 
@@ -27,10 +30,13 @@ import os
 
 import pandas as pd
 
-# Tope por defecto. Alcanza de sobra para perfilar —los porcentajes de nulos y
-# la cardinalidad se estabilizan mucho antes— y no compromete la memoria del
-# servicio.
-LIMITE_FILAS = 50_000
+# Tope por defecto: NINGUNO. `None` = todas las filas, en todos los lectores.
+# Un tope explícito (`limite=N`) sigue disponible para quien quiera una
+# muestra rápida, y siempre va acompañado del total real (`aviso_recorte`).
+LIMITE_FILAS: int | None = None
+# Tamaño de muestra que se SUGIERE en los textos cuando alguien quiere ir
+# rápido. No se aplica solo en ningún lado.
+MUESTRA_SUGERIDA = 50_000
 # Cuántas tablas se traen cuando el usuario apunta a una base entera sin elegir.
 MAX_TABLAS = 15
 
@@ -43,6 +49,75 @@ class FuenteInvalida(ValueError):
     """La fuente no se puede leer, y el mensaje dice por qué."""
 
 
+#: Filas con las que se DETECTA separador y codificación. Sólo para eso: la
+#: tabla que se devuelve se lee entera (o hasta el tope que se haya pedido).
+MUESTRA_DETECCION = 2_000
+_SEPARADORES = (";", ",", "\t", "|")
+
+
+def _rebobinar(path) -> None:
+    # Cuando `path` no es una ruta sino el archivo que alguien acaba de
+    # subir, el intento anterior dejó el cursor donde se rompió y el
+    # siguiente leería desde la mitad. Con una ruta esto no aplica.
+    if hasattr(path, "seek"):
+        try:
+            path.seek(0)
+        except (OSError, ValueError):             # pragma: no cover
+            pass
+
+
+def _leer_entero(path, s, enc, limite, dtype, muestra) -> pd.DataFrame:
+    """La lectura de verdad, con el motor C cuando se puede.
+
+    Sin tope, el motor `python` —el único que adivina el separador— pasa a
+    ser el cuello: medido sobre un CSV de 1.000.000 de filas, 4,3 s contra
+    0,4 s del motor C. Con el tope viejo de 50.000 filas no se notaba; sin
+    tope, un export de diez millones de filas serían 45 segundos de espera.
+    Así que el separador se resuelve sobre la muestra (el que da la MISMA
+    forma que la detección) y la tabla entera va por el motor C. Si el motor
+    C no puede con el archivo, se cae al `python` de siempre.
+    """
+    candidatos = [s] if s else [c for c in _SEPARADORES
+                                if c in _cabecera(path, enc)]
+    for c in candidatos:
+        _rebobinar(path)
+        try:
+            prueba = pd.read_csv(path, sep=c, encoding=enc, dtype=dtype,
+                                 nrows=len(muestra) or 1,
+                                 on_bad_lines="skip")
+        except (UnicodeDecodeError, pd.errors.ParserError, ValueError):
+            continue
+        if list(prueba.columns) != list(muestra.columns):
+            continue
+        _rebobinar(path)
+        try:
+            return pd.read_csv(path, sep=c, encoding=enc, nrows=limite,
+                               dtype=dtype, on_bad_lines="skip")
+        except pd.errors.ParserError:
+            break
+    _rebobinar(path)
+    return pd.read_csv(path, sep=s, encoding=enc, nrows=limite, dtype=dtype,
+                       engine="python", on_bad_lines="skip")
+
+
+def _cabecera(path, enc) -> str:
+    """La primera línea, para no probar separadores que no aparecen."""
+    _rebobinar(path)
+    try:
+        if hasattr(path, "read"):
+            crudo = path.read(64 * 1024)
+        else:
+            with open(path, "rb") as fh:
+                crudo = fh.read(64 * 1024)
+    except OSError:
+        return ""
+    finally:
+        _rebobinar(path)
+    if isinstance(crudo, bytes):
+        crudo = crudo.decode(enc, errors="ignore")
+    return crudo.splitlines()[0] if crudo else ""
+
+
 def _leer_csv(path: str, sep: str | None = None, encoding: str | None = None,
               limite: int | None = LIMITE_FILAS, dtype=None) -> pd.DataFrame:
     """CSV real, no CSV de manual.
@@ -52,35 +127,42 @@ def _leer_csv(path: str, sep: str | None = None, encoding: str | None = None,
     hasta que una da una tabla con más de una columna: una sola columna casi
     siempre significa que el separador estaba mal, no que la tabla tenga una
     sola columna.
+
+    La prueba se hace sobre las primeras `MUESTRA_DETECCION` filas; la tabla
+    se lee entera después (`limite=None`, el default). Si la codificación
+    elegida falla más adelante en el archivo —un `í` en la fila 300.000—, se
+    sigue con la siguiente combinación en vez de devolver media tabla.
     """
     seps = [sep] if sep else [None, ";", ",", "\t", "|"]
     encodings = [encoding] if encoding else ["utf-8", "utf-8-sig", "latin-1", "cp1252"]
+    n_muestra = min(limite, MUESTRA_DETECCION) if limite else MUESTRA_DETECCION
     ultimo_error = None
     respaldo = None
     for enc in encodings:
         for s in seps:
-            # Rebobinar antes de CADA intento: cuando `path` no es una ruta
-            # sino el archivo que alguien acaba de subir, el intento
-            # anterior dejó el cursor donde se rompió y el siguiente leería
-            # desde la mitad. Con una ruta esto no aplica y no molesta.
-            if hasattr(path, "seek"):
-                try:
-                    path.seek(0)
-                except (OSError, ValueError):         # pragma: no cover
-                    pass
+            _rebobinar(path)
             try:
-                df = pd.read_csv(path, sep=s, encoding=enc, nrows=limite,
-                                 dtype=dtype, engine="python",
-                                 on_bad_lines="skip")
+                muestra = pd.read_csv(path, sep=s, encoding=enc,
+                                      nrows=n_muestra, dtype=dtype,
+                                      engine="python", on_bad_lines="skip")
             except (UnicodeDecodeError, pd.errors.ParserError, ValueError) as exc:
                 ultimo_error = exc
                 continue
-            if df.shape[1] == 1 and s in (None, ","):
-                respaldo = df          # quizá el separador esté mal: seguir probando
+            if muestra.shape[1] == 1 and s in (None, ","):
+                if respaldo is None:
+                    respaldo = (s, enc, muestra)   # quizá el separador esté mal
                 continue
-            return df
+            try:
+                return _leer_entero(path, s, enc, limite, dtype, muestra)
+            except (UnicodeDecodeError, pd.errors.ParserError, ValueError) as exc:
+                ultimo_error = exc
+                continue
     if respaldo is not None:
-        return respaldo
+        s, enc, muestra = respaldo
+        try:
+            return _leer_entero(path, s, enc, limite, dtype, muestra)
+        except (UnicodeDecodeError, pd.errors.ParserError, ValueError) as exc:
+            ultimo_error = exc
     raise FuenteInvalida(f"No se pudo leer el CSV: {ultimo_error}")
 
 
@@ -178,7 +260,7 @@ def advertencia_tamano(path: str) -> str:
     return (f"«{os.path.basename(path)}» pesa {mb:,.0f} MB y es un Excel. "
             f"El formato guarda cada texto en una tabla única que hay que "
             f"leer ENTERA antes de la primera fila, así que abrirlo tarda "
-            f"aunque sólo se pidan las primeras {LIMITE_FILAS:,} filas. "
+            f"aunque sólo se pidan las primeras {MUESTRA_SUGERIDA:,} filas. "
             f"Y una hoja no puede pasar de {MAX_FILAS_XLSX:,} filas: es un "
             f"tope del formato, no del programa. El mismo dato en CSV o en "
             f"parquet se lee unas 15 veces más rápido y sin ese techo.")
@@ -259,7 +341,6 @@ def leer_base(url: str, tabla: str | None = None, query: str | None = None,
     from kobra import consulta_bd as kbd
 
     engine = kbd.conectar(url)
-    limite = limite or LIMITE_FILAS
 
     with engine.connect() as cx:
         cx.execute(text("SELECT 1"))       # que falle acá y no a mitad de la lectura
@@ -269,7 +350,8 @@ def leer_base(url: str, tabla: str | None = None, query: str | None = None,
             ok, problemas, _adv = kbd.validar_sql(query, catalogo)
             if not ok:
                 raise FuenteInvalida("La consulta fue rechazada: " + "; ".join(problemas))
-            return {"consulta": pd.read_sql_query(text(_limitar(url, query, limite)), cx)}
+            sql = _limitar(url, query, limite) if limite else query
+            return {"consulta": pd.read_sql_query(text(sql), cx)}
 
         inspector = inspect(engine)
         disponibles = inspector.get_table_names(schema=esquema)
@@ -290,8 +372,10 @@ def leer_base(url: str, tabla: str | None = None, query: str | None = None,
         for t in objetivo:
             completo = f"{esquema}.{t}" if esquema else t
             try:
-                salida[t] = pd.read_sql_query(
-                    text(_limitar(url, f"SELECT * FROM {completo}", limite)), cx)
+                sql = f"SELECT * FROM {completo}"
+                if limite:
+                    sql = _limitar(url, sql, limite)
+                salida[t] = pd.read_sql_query(text(sql), cx)
             except Exception as exc:            # noqa: BLE001 — una tabla sin permiso no corta el resto
                 fallidas.append(f"{t} ({type(exc).__name__})")
         if not salida:
@@ -355,9 +439,9 @@ def leer_subida(archivo, *, limite: int | None = None,
     combinaciones de separador y codificación — era el lector del módulo de
     ingeniería de datos y la pantalla de cargar la cartera no lo usaba.
 
-    `limite=None` por defecto: la cartera que alguien sube se carga entera.
-    El tope es para perfilar, no para operar — recortarla en silencio
-    dejaría deudores afuera sin decirlo.
+    `limite=None` por defecto: lo que alguien sube se carga entero. Con un
+    tope explícito, `aviso_recorte` dice cuántas filas quedaron afuera —
+    recortar en silencio dejaría deudores afuera sin decirlo.
     """
     nombre = str(getattr(archivo, "name", archivo) or "")
     if nombre.lower().endswith((".xlsx", ".xlsm", ".xls")):
@@ -370,3 +454,89 @@ def leer_subida(archivo, *, limite: int | None = None,
     # La heurística de separadores no sufre: mide cuántas COLUMNAS salieron,
     # y eso no depende del tipo.
     return _leer_csv(archivo, limite=limite, dtype=dtype)
+
+
+def contar_filas(archivo) -> int | None:
+    """Cuántas filas de datos tiene un archivo (sin el encabezado).
+
+    Sirve para que un recorte explícito nunca sea mudo: «se usaron 50.000
+    de 1.234.567» y no «se usaron 50.000». Cuenta saltos de línea en
+    bloques, sin parsear, así que cuesta lo que cuesta leer el archivo del
+    disco. Para parquet usa el índice del propio archivo. `None` si no se
+    puede saber barato (Excel, JSON): ahí el aviso dice «al menos».
+    """
+    nombre = str(getattr(archivo, "name", archivo) or "").lower()
+    try:
+        if nombre.endswith(".parquet"):
+            import pyarrow.parquet as pq
+            return int(pq.ParquetFile(archivo).metadata.num_rows)
+        if not nombre.endswith((".csv", ".tsv", ".txt")):
+            return None
+        if hasattr(archivo, "read"):
+            archivo.seek(0)
+            fh, cerrar = archivo, False
+        else:
+            fh, cerrar = open(archivo, "rb"), True
+        try:
+            lineas, ultimo = 0, b"\n"
+            while True:
+                bloque = fh.read(1 << 20)
+                if not bloque:
+                    break
+                if isinstance(bloque, str):
+                    bloque = bloque.encode("utf-8", "ignore")
+                lineas += bloque.count(b"\n")
+                ultimo = bloque[-1:]
+            if ultimo != b"\n":
+                lineas += 1           # última línea sin salto final
+        finally:
+            if cerrar:
+                fh.close()
+            else:
+                archivo.seek(0)
+        return max(lineas - 1, 0)
+    except (OSError, ValueError, ImportError):
+        return None
+
+
+def aviso_recorte(leidas: int, limite: int | None,
+                  total: int | None) -> str:
+    """El texto del recorte, con el total real. "" si no hubo recorte.
+
+    Sin tope no hay aviso. Con tope, si se sabe el total se lo dice; si no
+    se sabe (Excel), se dice «al menos», que es lo único honesto.
+    """
+    if not limite or leidas < limite:
+        return ""
+    if total is not None and total <= leidas:
+        return ""
+    if total is None:
+        return (f"Se usaron las primeras {leidas:,} filas por el tope "
+                f"elegido; el archivo tiene al menos {leidas + 1:,}.")
+    return (f"Se usaron las primeras {leidas:,} filas de {total:,} por el "
+            f"tope elegido: quedaron afuera {total - leidas:,}.")
+
+
+def partir_para_xlsx(nombre: str, df: pd.DataFrame,
+                     reservadas: int = 1) -> list[tuple[str, pd.DataFrame]]:
+    """Una tabla que puede pasar el techo del formato xlsx, en varias hojas.
+
+    `MAX_FILAS_XLSX` es un límite físico de Excel al ESCRIBIR: una hoja no
+    tiene más de 1.048.576 filas y xlsxwriter levanta una excepción al
+    pasarse. Ahora que la carga no tiene tope, una cartera de dos millones
+    de filas es normal, así que en vez de romper o cortar se parte:
+    «Cartera», «Cartera (2)», «Cartera (3)»… cada una con su encabezado.
+    `reservadas` = filas que ocupa lo que no es dato (encabezado, título,
+    fila de totales).
+    """
+    import re
+    base = re.sub(r"[\[\]:*?/\\]", "-", str(nombre))[:31] or "Datos"
+    por_hoja = MAX_FILAS_XLSX - max(1, int(reservadas))
+    if len(df) <= por_hoja:
+        return [(base, df)]
+    partes = []
+    for i, ini in enumerate(range(0, len(df), por_hoja), start=1):
+        sufijo = "" if i == 1 else f" ({i})"
+        partes.append((base[:31 - len(sufijo)] + sufijo,
+                       df.iloc[ini:ini + por_hoja]))
+    return partes

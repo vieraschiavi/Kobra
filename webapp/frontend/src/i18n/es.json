@@ -898,7 +898,7 @@
     "subtitulo": "Subí una tabla tuya, elegí qué querés predecir y Kobra prueba varios modelos.",
     "paso1": "1. Subí tu archivo",
     "paso2": "2. Elegí qué predecir",
-    "nota_archivo": "CSV o Excel, hasta 50 MB. El archivo no se guarda: se lee, se entrena y se descarta.",
+    "nota_archivo": "CSV o Excel, sin límite de filas. El archivo no se guarda: se lee, se entrena y se descarta.",
     "filas_leidas": "Se leyeron {{n}} filas.",
     "campo_objetivo": "Columna a predecir",
     "campo_fecha": "Columna de fecha (opcional)",

@@ -172,7 +172,10 @@ def _excel(hojas: dict) -> bytes:
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="xlsxwriter") as xl:
         for nombre, df in hojas.items():
-            df.to_excel(xl, sheet_name=nombre, index=False)
+            # Más de 1.048.576 filas no entran en una hoja: se parte.
+            from kobra import fuentes_datos as _fd_x
+            for hoja, trozo in _fd_x.partir_para_xlsx(nombre, df):
+                trozo.to_excel(xl, sheet_name=hoja, index=False)
     return buf.getvalue()
 
 
@@ -1532,6 +1535,9 @@ with tabNL2SQL:
                     st.markdown("##### Resultado")
                     m = st.columns(3)
                     m[0].metric("Filas", f"{len(df_nl):,}")
+                    if r.get("recortado"):
+                        st.warning("ⓘ El resultado llegó al tope de filas pedido: "
+                                   "la suma y el CSV no cubren toda la consulta.")
                     m[1].metric("Columnas", len(df_nl.columns))
                     cols_num = df_nl.select_dtypes(include="number").columns.tolist()
                     if cols_num:
@@ -1584,17 +1590,30 @@ with tabIngDatos:
     if _origen == "Archivo":
         _sub = st.file_uploader("CSV o Excel", type=["csv", "xlsx", "xls"],
                                 key="ing_archivo")
+        _muestra = st.checkbox(
+            "Perfilar sólo una muestra de las primeras "
+            f"{kfuentes.MUESTRA_SUGERIDA:,} filas (más rápido)",
+            value=False, key="ing_muestra",
+            help="Por defecto se lee el archivo entero, sin tope de filas.")
         if _sub is not None:
             try:
                 # El mismo lector adaptable que usa el resto del módulo: acá
                 # también llegaba un CSV en latin-1 y el `except` lo mostraba
                 # como «no pude leer el archivo», que es cierto pero no tiene
                 # arreglo del lado del usuario.
-                _df = kfuentes.leer_subida(_sub, limite=kfuentes.LIMITE_FILAS)
+                # Por defecto se lee el archivo ENTERO: el perfil, la calidad
+                # y las claves se calculan sobre todas las filas. La muestra
+                # es opt-in, y si se usa se dice cuántas quedaron afuera.
+                _tope = kfuentes.MUESTRA_SUGERIDA if _muestra else None
+                _df = kfuentes.leer_subida(_sub, limite=_tope)
                 _tablas = {_sub.name.rsplit(".", 1)[0]: _df}
-                if len(_df) >= kfuentes.LIMITE_FILAS:
-                    st.caption(f"ⓘ Se perfilan las primeras "
-                               f"{kfuentes.LIMITE_FILAS:,} filas.")
+                _aviso = kfuentes.aviso_recorte(
+                    len(_df), _tope,
+                    kfuentes.contar_filas(_sub) if _tope else None)
+                if _aviso:
+                    st.warning("ⓘ " + _aviso)
+                else:
+                    st.caption(f"ⓘ Se perfilan las {len(_df):,} filas del archivo.")
             except Exception as _e:                      # noqa: BLE001
                 st.error(f"No pude leer el archivo: {_e}")
     else:

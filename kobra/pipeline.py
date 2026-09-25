@@ -89,7 +89,9 @@ def run():
 
     with pd.ExcelWriter(os.path.join(OUT_DIR, "kobra_scored.xlsx"),
                         engine="xlsxwriter") as xl:
-        export.to_excel(xl, sheet_name="Cartera_scoreada", index=False)
+        from kobra.fuentes_datos import partir_para_xlsx
+        for hoja, trozo in partir_para_xlsx("Cartera_scoreada", export):
+            trozo.to_excel(xl, sheet_name=hoja, index=False)
         negociador.resumen_estrategias(full).to_excel(
             xl, sheet_name="Resumen_estrategias", index=False)
         model.feature_importance().to_excel(

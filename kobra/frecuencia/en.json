@@ -52,5 +52,29 @@
     "atrasadas": "{n} late: {nombres}",
     "sin_cargar": "{n} never loaded: {nombres}",
     "separador": " · "
+  },
+  "ppt": {
+    "titulo": "Data freshness",
+    "subtitulo": "Last load of every table the program uses, and whether it arrived late · checked on {cuando}",
+    "col_tabla": "Table / dataset",
+    "col_carga": "Last load",
+    "col_dato": "Data date",
+    "col_filas": "Rows",
+    "col_esperada": "Expected frequency",
+    "col_estado": "Status",
+    "estado": {
+      "al_dia": "Up to date",
+      "atrasada": "Late",
+      "sin_datos": "Never loaded"
+    },
+    "kpi_total": "Tables monitored",
+    "kpi_al_dia": "Up to date",
+    "kpi_atrasadas": "Late",
+    "kpi_sin_datos": "Never loaded",
+    "leyenda": "Late threshold (expected period × {tolerancia}):",
+    "umbral": "{frecuencia} > {limite}",
+    "umbral_manual": "{frecuencia}: never expires",
+    "proxima": "Next load expected: {cuando}",
+    "pagina": "page {n} of {total}"
   }
 }

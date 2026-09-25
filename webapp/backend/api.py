@@ -473,11 +473,15 @@ def _excel_formateado(hojas: dict, titulo: str = "") -> bytes:
                                     "num_format": "#,##0.00"})
         f_total_txt = libro.add_format({"bold": True, "top": 2})
 
-        for nombre, df in hojas.items():
-            df = pd.DataFrame(df)
-            # Excel corta los nombres de hoja a 31 caracteres y no acepta []:*?/\
-            hoja = re.sub(r"[\[\]:*?/\\]", "-", str(nombre))[:31] or "Datos"
-            fila0 = 2 if titulo else 0
+        fila0 = 2 if titulo else 0
+        # Una tabla de más de 1.048.576 filas no entra en una hoja: se parte
+        # en «Hoja», «Hoja (2)»… (título + encabezado + totales reservados).
+        # `partir_para_xlsx` también sanea el nombre (31 caracteres, sin
+        # []:*?/\).
+        partes = [pt for n, d in hojas.items()
+                  for pt in kfuentes.partir_para_xlsx(n, pd.DataFrame(d),
+                                                      reservadas=fila0 + 2)]
+        for hoja, df in partes:
             df.to_excel(xl, sheet_name=hoja, index=False, startrow=fila0)
             ws = xl.sheets[hoja]
             if titulo:
@@ -1413,7 +1417,12 @@ def medidas_guardar(lista: list[MedidaIn], u: Usuario = Depends(solo_admin)):
 # AutoML (módulo de la suite)
 # ---------------------------------------------------------------------------
 _MODULO_AUTOML = "el entrenamiento con tus propios datos"
-MAX_MB_DATASET = 50
+# Sin tope práctico de tamaño (pedido del dueño: «sin límite de tamaño cada
+# módulo»). Queda el mecanismo de `_leer_subida` —leer `max+1` bytes— con un
+# techo de 200.000 MB, el mismo que `.streamlit/config.toml`, para que el
+# número sea uno solo en todo el producto. Lo que limita de verdad es la RAM
+# del servidor: en un despliegue compartido, conviene bajarlo por entorno.
+MAX_MB_DATASET = int(os.environ.get("KOBRA_MAX_MB_DATASET", "200000"))
 # El audio de una llamada larga en WAV sin comprimir pesa más que un CSV de
 # cartera, así que va con su propio tope.
 MAX_MB_AUDIO = 100
@@ -1556,8 +1565,8 @@ def _conectar_bd(datos: AutomlBdIn):
         raise HTTPException(400, f"No se pudo conectar a la base: {e}") from e
 
 
-def _tabla_bd(eng, tabla: str, limite: int) -> pd.DataFrame:
-    """Lee `tabla` con tope de filas, citada por SQLAlchemy.
+def _tabla_bd(eng, tabla: str, limite: int | None) -> pd.DataFrame:
+    """Lee `tabla` citada por SQLAlchemy; `limite=None` = todas las filas.
 
     El nombre se valida contra el inspector ANTES de tocarlo: viene del
     pedido HTTP y termina dentro de una consulta — sin esta lista blanca
@@ -1592,23 +1601,31 @@ def automl_bd_columnas(datos: AutomlBdIn, u: Usuario = Depends(solo_admin)):
     kplan.exigir("automl", _MODULO_AUTOML)
     if not datos.tabla:
         raise HTTPException(400, "Falta elegir la tabla.")
-    df = _tabla_bd(_conectar_bd(datos), datos.tabla, limite=200)
-    return {"columnas": list(df.columns), "filas": len(df),
-            "vista": df.head(5).astype(str).to_dict("records")}
+    eng = _conectar_bd(datos)
+    # Vista previa: 5 filas alcanzan para elegir columnas. Pero «filas» es
+    # el TOTAL real de la tabla (COUNT), no lo que trajo la vista previa:
+    # antes decía «200 filas leídas» de una tabla de millones.
+    df = _tabla_bd(eng, datos.tabla, limite=5)
+    from sqlalchemy import MetaData, Table, func, select
+    t = Table(datos.tabla, MetaData(), autoload_with=eng)
+    with eng.connect() as cx:
+        total = int(cx.execute(select(func.count()).select_from(t)).scalar() or 0)
+    return {"columnas": list(df.columns), "filas": total,
+            "vista": df.astype(str).to_dict("records")}
 
 
 @app.post("/api/automl/bd/entrenar")
 def automl_bd_entrenar(datos: AutomlBdIn, u: Usuario = Depends(solo_admin)):
     """Entrena directo desde la base del cliente.
 
-    Se leen hasta MAX_FILAS del propio motor de AutoML: traer una tabla de
-    millones de filas enteras al proceso para después recortarla sería pagar
-    la transferencia dos veces.
+    Se lee la tabla ENTERA (`limite=None`): el AutoML mide sobre el 100 %
+    de las filas y sólo muestrea, con aviso, el tramo de ajuste si es
+    enorme (ver `kobra.automl.MAX_FILAS_AJUSTE`).
     """
     kplan.exigir("automl", _MODULO_AUTOML)
     if not datos.tabla or not datos.objetivo:
         raise HTTPException(400, "Faltan la tabla y/o la columna objetivo.")
-    df = _tabla_bd(_conectar_bd(datos), datos.tabla, limite=kautoml.MAX_FILAS)
+    df = _tabla_bd(_conectar_bd(datos), datos.tabla, limite=None)
     try:
         resultado = kautoml.entrenar(df, datos.objetivo, datos.columna_fecha)
     except kautoml.DatosInsuficientes as e:

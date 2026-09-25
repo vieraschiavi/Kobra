@@ -39,6 +39,9 @@ TESTS = ROOT / "tests"
 # alcanza con tener "packaging" en la lista.
 PROPIOS = {"kobra", "webapp", "backend_venta", "realtime", "data", "marketing",
            "app", "packaging", "tests", "electron", "owner",
+           # El generador del deck gerencial (`presentation/`): la suite
+           # importa su diapositiva de Frescura para probarla.
+           "presentation",
            # Módulos de `packaging/` que la suite importa por nombre (esa
            # carpeta no es un paquete: se agrega a sys.path porque `packaging`
            # ya lo ocupa la librería homónima de PyPI).

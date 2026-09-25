@@ -84,7 +84,11 @@ def a_csv(df: pd.DataFrame) -> bytes:
 def a_excel(df: pd.DataFrame) -> bytes:
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="xlsxwriter") as xl:
-        df.to_excel(xl, sheet_name="Gestiones", index=False)
+        # Sin tope de filas en la carga: si pasa el techo de una hoja de
+        # Excel, se parte en «Gestiones», «Gestiones (2)»…
+        from kobra.fuentes_datos import partir_para_xlsx
+        for hoja, trozo in partir_para_xlsx("Gestiones", df):
+            trozo.to_excel(xl, sheet_name=hoja, index=False)
     return buf.getvalue()
 
 

@@ -249,10 +249,10 @@ def test_una_consulta_a_mano_no_se_ejecuta_cruda():
     assert "validar_sql" in texto, "la consulta del usuario no pasa por la validación"
 
 
-def test_toda_lectura_tiene_tope_de_filas():
-    """Un `SELECT *` contra una tabla de cientos de millones de filas no es un
-    error del usuario: es lo que cualquiera hace la primera vez."""
-    assert fd.LIMITE_FILAS > 0
+def test_sin_tope_por_defecto_pero_el_tope_explicito_envuelve_bien():
+    """Por defecto se lee todo (pedido del dueño: «sin límite de tamaño»).
+    Cuando alguien SÍ pide un tope, se aplica envolviendo la consulta."""
+    assert fd.LIMITE_FILAS is None
     envuelta = fd._limitar("postgresql://x", "SELECT * FROM t", 100)
     assert "LIMIT 100" in envuelta
     # SQL Server no entiende LIMIT.
@@ -619,14 +619,15 @@ def test_el_cero_de_adelante_del_telefono_no_se_pierde():
 
 
 def test_la_cartera_subida_se_carga_entera_y_no_recortada():
-    """El tope de 50.000 filas es para PERFILAR. Aplicarlo a la cartera que
-    alguien sube dejaría deudores afuera sin decir nada."""
-    filas = "\n".join(f"C{i},09900{i:04d},{i * 10}" for i in range(fd.LIMITE_FILAS + 25))
+    """Recortar la cartera que alguien sube dejaría deudores afuera sin
+    decir nada."""
+    n = fd.MUESTRA_SUGERIDA + 25
+    filas = "\n".join(f"C{i},09900{i:04d},{i * 10}" for i in range(n))
     crudo = ("nombre,telefono,deuda\n" + filas + "\n").encode("utf-8")
-    assert len(fd.leer_subida(_Subido(crudo, "cartera.csv"))) == fd.LIMITE_FILAS + 25
-    # Y con tope explícito, se respeta: es lo que pide la pestaña de perfilado.
+    assert len(fd.leer_subida(_Subido(crudo, "cartera.csv"))) == n
+    # Y con tope explícito, se respeta.
     assert len(fd.leer_subida(_Subido(crudo, "cartera.csv"),
-                              limite=fd.LIMITE_FILAS)) == fd.LIMITE_FILAS
+                              limite=fd.MUESTRA_SUGERIDA)) == fd.MUESTRA_SUGERIDA
 
 
 def test_la_pantalla_de_cartera_usa_el_lector_adaptable():

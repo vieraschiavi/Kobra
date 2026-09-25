@@ -420,11 +420,29 @@ def calcular_confianza(conf_modelo: float | None, similitud: float | None,
 
 
 # ---------------------------------------------------------------------------
-# 5) Ejecución segura — límite de filas automático según el dialecto
+# 5) Ejecución segura — sin tope de filas por defecto; tope opcional por dialecto
 # ---------------------------------------------------------------------------
-def ejecutar_sql(sql: str, engine, limite: int = 500) -> tuple[list[str], list[tuple], str]:
+def ejecutar_sql(sql: str, engine, limite: int | None = None
+                 ) -> tuple[list[str], list[tuple], str]:
+    """Ejecuta una consulta YA validada. `limite=None` (default) = todas las
+    filas que devuelva la consulta.
+
+    Antes el default era 500 y el resultado no era sólo una vista: la
+    pantalla suma la primera columna numérica («Σ monto») y ofrece bajar el
+    CSV. Con el tope, una consulta de 12.000 pagos mostraba la suma de 500
+    y el CSV traía 500, sin decirlo. La mayoría de las preguntas en lenguaje
+    natural son agregados (pocas filas); las que no, traen lo que piden.
+    La seguridad no dependía del tope: la da `validar_sql` (sólo lectura,
+    una sentencia, catálogo real).
+    """
     from sqlalchemy import text
 
+    if not limite:
+        with engine.connect() as con:
+            res = con.execute(text(sql))
+            return list(res.keys()), [tuple(r) for r in res.fetchall()], sql
+
+    limite = int(limite)
     sql_l = sql.lower()
     dialecto = engine.dialect.name
     if dialecto == "mssql":
@@ -456,7 +474,7 @@ class MotorConsultaBD:
         self.recuperador = RecuperadorEsquema(self.fichas)
 
     def responder(self, pregunta: str, api_key: str | None = None, k: int = 4,
-                 limite_filas: int = 500) -> dict:
+                 limite_filas: int | None = None) -> dict:
         from kobra import auditoria as kauditoria
 
         relevantes = self.recuperador.recuperar(pregunta, k=k)
@@ -492,6 +510,9 @@ class MotorConsultaBD:
                 resultado["columnas"] = cols
                 resultado["filas"] = filas
                 resultado["sql_ejecutado"] = sql_exec
+                # Con un tope explícito, que no pase por el total: se marca.
+                resultado["recortado"] = bool(limite_filas) and \
+                    len(filas) >= int(limite_filas)
             except Exception as e:
                 resultado["error"] = str(e)[:400]
 

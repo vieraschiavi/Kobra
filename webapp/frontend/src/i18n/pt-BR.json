@@ -898,7 +898,7 @@
     "subtitulo": "Envie uma tabela sua, escolha o que quer prever e o Kobra testa vários modelos.",
     "paso1": "1. Envie seu arquivo",
     "paso2": "2. Escolha o que prever",
-    "nota_archivo": "CSV ou Excel, até 50 MB. O arquivo não é salvo: é lido, treina e é descartado.",
+    "nota_archivo": "CSV ou Excel, sem limite de linhas. O arquivo não é salvo: é lido, treina e é descartado.",
     "filas_leidas": "Foram lidas {{n}} linhas.",
     "campo_objetivo": "Coluna a prever",
     "campo_fecha": "Coluna de data (opcional)",

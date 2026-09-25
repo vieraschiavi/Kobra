@@ -898,7 +898,7 @@
     "subtitulo": "Upload a table of your own, choose what you want to predict, and Kobra tests several models.",
     "paso1": "1. Upload your file",
     "paso2": "2. Choose what to predict",
-    "nota_archivo": "CSV or Excel, up to 50 MB. The file is not stored: it is read, used to train, and discarded.",
+    "nota_archivo": "CSV or Excel, no row limit. The file is not stored: it is read, used to train, and discarded.",
     "filas_leidas": "{{n}} rows were read.",
     "campo_objetivo": "Column to predict",
     "campo_fecha": "Date column (optional)",
