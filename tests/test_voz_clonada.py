@@ -47,6 +47,8 @@ def vc(tmp_path, monkeypatch):
     importlib.reload(kconfig)
     from kobra import voz_clonada
     importlib.reload(voz_clonada)
+    # La muestra del motor gratis va a la carpeta de datos: nunca al repo.
+    monkeypatch.setattr(voz_clonada.krutas, "DIR_DATOS", str(tmp_path / "datos"))
     yield voz_clonada
     monkeypatch.undo()
     importlib.reload(kconfig)
@@ -337,3 +339,127 @@ def test_api_elegir_rechaza_un_id_raro_y_desactivar_vuelve_a_twilio(api_voz):
                     json={"voice_id": "../../etc"}).status_code == 400
     cli.post("/api/voz/clonada/elegir", json={"voice_id": "vozDeLaCuenta1"})
     assert cli.post("/api/voz/clonada/desactivar").json()["motor_llamadas"] == "twilio"
+
+
+# ---------------------------------------------------------------------------
+# Motor gratis, en el equipo (Chatterbox): para escuchar y demos, no llamadas
+# ---------------------------------------------------------------------------
+def _wav_estereo(segundos: float, sr: int = 16000) -> bytes:
+    buf = io.BytesIO()
+    t = np.arange(int(segundos * sr)) / sr
+    onda = (0.2 * np.sin(2 * np.pi * 180 * t)).astype(np.float32)
+    sf.write(buf, np.stack([onda, onda], axis=1), sr, format="WAV")
+    return buf.getvalue()
+
+
+def test_la_muestra_gratis_queda_mono_en_la_carpeta_de_datos(vc, tmp_path):
+    vc.guardar_muestra_local("grabacion.wav", _wav_estereo(12), "Martín")
+    ruta = vc.ruta_muestra_local()
+    assert ruta.startswith(str(tmp_path / "datos"))
+    info = sf.info(ruta)
+    assert info.channels == 1 and round(info.duration) == 12
+    local = vc.estado()["local"]
+    assert local["hay_muestra"] is True and local["nombre"] == "Martín"
+
+
+def test_la_muestra_gratis_no_cambia_la_voz_de_las_llamadas(vc):
+    """Tarda segundos por frase: en una llamada serían silencios largos."""
+    vc.guardar_muestra_local("grabacion.wav", _wav(12), "Martín")
+    assert vc.voz_activa() == ""
+    assert vc.estado()["motor_llamadas"] == "twilio"
+
+
+def test_un_mp3_sin_ffmpeg_pide_grabar_o_subir_wav(vc, monkeypatch):
+    import shutil
+    monkeypatch.setattr(shutil, "which", lambda nombre: None)
+    with pytest.raises(vc.MuestraInvalida, match="subí un .wav"):
+        vc.guardar_muestra_local("voz.mp3", b"ID3algo", "Martín")
+    assert not os.path.exists(vc.ruta_muestra_local())
+
+
+def test_borrar_la_muestra_la_saca_del_disco(vc):
+    vc.guardar_muestra_local("grabacion.wav", _wav(12), "Martín")
+    vc.borrar_muestra_local()
+    assert not os.path.exists(vc.ruta_muestra_local())
+    local = vc.estado()["local"]
+    assert local["hay_muestra"] is False and local["nombre"] is None
+    vc.borrar_muestra_local()        # dos veces no rompe
+
+
+def test_probar_gratis_explica_que_falta(vc, monkeypatch):
+    from kobra import voz_clon_local
+    monkeypatch.setattr(voz_clon_local, "motor_disponible", lambda: "")
+    assert "pip install chatterbox-tts" in vc.probar_local()["error"]
+    monkeypatch.setattr(voz_clon_local, "motor_disponible", lambda: "chatterbox")
+    assert "Primero grabá" in vc.probar_local()["error"]
+
+
+def test_probar_gratis_usa_la_muestra_guardada_y_devuelve_wav(vc, monkeypatch):
+    from kobra import voz_clon_local
+    pedidos = []
+    monkeypatch.setattr(voz_clon_local, "motor_disponible", lambda: "chatterbox")
+    monkeypatch.setattr(voz_clon_local, "sintetizar", lambda texto, **k: (
+        pedidos.append((texto, k)) or {"ok": True, "audio": b"RIFF", "caracteres": len(texto),
+                                       "costo_est_usd": 0.0, "error": None}))
+    vc.guardar_muestra_local("grabacion.wav", _wav(12), "Martín")
+    assert vc.probar_local("Hola", idioma="pt")["audio"] == b"RIFF"
+    texto, k = pedidos[0]
+    assert texto == "Hola" and k["referencia"] == vc.ruta_muestra_local()
+    assert k["formato"] == "wav" and k["idioma"] == "pt"
+
+
+def test_el_clonador_local_usa_un_wav_directo_si_no_hay_ffmpeg(tmp_path, monkeypatch):
+    """El instalador no trae ffmpeg: con la grabación de la pantalla (WAV) no
+    hace falta."""
+    import shutil
+
+    from kobra import voz_clon_local
+    monkeypatch.setattr(shutil, "which", lambda nombre: None)
+    ruta = tmp_path / "m.wav"
+    ruta.write_bytes(_wav(3))
+    assert voz_clon_local._referencia_wav(str(ruta)) == str(ruta)
+
+
+def test_api_clonar_gratis_guarda_la_muestra_y_no_toca_las_llamadas(api_voz, monkeypatch):
+    api = api_voz(["voz"])
+    import requests
+
+    from kobra import voz_clon_local
+    monkeypatch.setattr(requests, "post", lambda *a, **k: pytest.fail("el motor gratis no usa la red"))
+    cli = _cliente(api)
+
+    monkeypatch.setattr(voz_clon_local, "motor_disponible", lambda: "")
+    r = cli.post("/api/voz/clonada", data={"nombre": "Martín", "consentimiento": "true",
+                                           "motor": "local"},
+                 files={"archivo": ("grabacion.wav", _wav(20), "audio/wav")})
+    assert r.status_code == 400 and "pip install chatterbox-tts" in r.json()["detail"]
+
+    monkeypatch.setattr(voz_clon_local, "motor_disponible", lambda: "chatterbox")
+    r = cli.post("/api/voz/clonada", data={"nombre": "Martín", "consentimiento": "true",
+                                           "motor": "local"},
+                 files={"archivo": ("grabacion.wav", _wav(20), "audio/wav")})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["local"]["hay_muestra"] is True and d["motor_llamadas"] == "twilio"
+
+    monkeypatch.setattr(voz_clon_local, "sintetizar", lambda texto, **k: {
+        "ok": True, "audio": b"RIFFwav", "caracteres": len(texto), "costo_est_usd": 0.0,
+        "error": None})
+    r = cli.post("/api/voz/clonada/probar", json={"motor": "local", "texto": "Hola"})
+    assert r.status_code == 200 and r.headers["content-type"] == "audio/wav"
+    assert r.content == b"RIFFwav"
+
+    assert cli.delete("/api/voz/clonada/local").json()["local"]["hay_muestra"] is False
+
+
+def test_api_motor_gratis_tambien_exige_consentimiento_y_plan(api_voz, monkeypatch):
+    from kobra import voz_clon_local
+    monkeypatch.setattr(voz_clon_local, "motor_disponible", lambda: "chatterbox")
+    api = api_voz(["voz"])
+    datos = {"nombre": "Martín", "consentimiento": "false", "motor": "local"}
+    archivo = {"archivo": ("grabacion.wav", _wav(20), "audio/wav")}
+    assert _cliente(api).post("/api/voz/clonada", data=datos, files=archivo).status_code == 400
+    api = api_voz(["whatsapp"])
+    r = _cliente(api).post("/api/voz/clonada", data={**datos, "consentimiento": "true"},
+                           files=archivo)
+    assert r.status_code == 403

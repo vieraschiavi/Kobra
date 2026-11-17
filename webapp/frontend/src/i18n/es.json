@@ -1231,7 +1231,7 @@
   },
   "voz_clonada": {
     "titulo": "Voz clonada del Gestor IA",
-    "subtitulo": "Grabá tu voz un minuto y el Gestor IA llama con ella. Tres pasos, sin salir de Kobra: grabar, clonar y escuchar. El clonado lo hace ElevenLabs con tu propia cuenta.",
+    "subtitulo": "Grabá tu voz un minuto y el Gestor IA llama con ella. Tres pasos, sin salir de Kobra: grabar, clonar y escuchar. Elegí el motor: ElevenLabs para las llamadas en vivo, o el gratis que corre en tu equipo para escucharla y para demos.",
     "estado_activa": "Las llamadas salen con la voz «{{nombre}}».",
     "estado_twilio": "Las llamadas salen con la voz estándar de Twilio.",
     "desactivar": "Volver a la voz estándar",
@@ -1264,6 +1264,19 @@
     "elegir_existente": "— Elegí una voz de tu cuenta —",
     "elegida_ok": "Voz elegida: ya está activa en las llamadas.",
     "desactivada": "Listo: las llamadas vuelven a la voz estándar de Twilio.",
-    "nota_llamadas": "Rige desde la próxima frase de la próxima llamada, sin reiniciar nada. Cada frase hablada consume caracteres de tu plan de ElevenLabs; las que se repiten (saludo, despedida) se reutilizan y no se cobran de nuevo."
+    "nota_llamadas": "Rige desde la próxima frase de la próxima llamada, sin reiniciar nada. Cada frase hablada consume caracteres de tu plan de ElevenLabs; las que se repiten (saludo, despedida) se reutilizan y no se cobran de nuevo.",
+    "motor_titulo": "Motor de clonado",
+    "motor_elevenlabs": "ElevenLabs · llamadas en vivo",
+    "motor_elevenlabs_ayuda": "La voz que usa el Gestor IA en las llamadas. Responde al instante. Cobra por carácter en tu cuenta de ElevenLabs.",
+    "motor_local": "Gratis · en tu equipo",
+    "motor_local_ayuda": "Sin costo y tu voz no sale de la máquina. Para escucharla y para demos: tarda unos segundos por frase, así que no cambia la voz de las llamadas.",
+    "local_no_instalado": "El motor gratis no está instalado en este equipo. Instalalo con «pip install chatterbox-tts» y volvé a abrir Kobra. La primera vez descarga el modelo (unos GB).",
+    "clonar_local": "Clonar gratis",
+    "local_ok": "Listo: tu voz quedó guardada en este equipo. Las llamadas siguen con su voz de siempre.",
+    "local_guardada": "Voz gratis guardada en este equipo: «{{nombre}}» (para escuchar y demos).",
+    "local_borrar": "Borrar la muestra",
+    "local_borrada": "Listo: la muestra de tu voz se borró de este equipo.",
+    "generando_local": "Generando en tu equipo… (puede tardar un minuto; la primera vez, más)",
+    "nota_local": "El motor gratis corre en esta máquina: no tiene costo y tu voz no sale de ella. Para las llamadas en vivo usá ElevenLabs."
   }
 }

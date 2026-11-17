@@ -4,6 +4,10 @@
 //   1. grabar (o subir) una muestra,  2. clonar,  3. escucharla.
 // Antes había que clonar en elevenlabs.io, copiar el id y volver — y ni así
 // sonaba en las llamadas (ver kobra/voz_clonada.py::voz_activa).
+//
+// Dos motores: ElevenLabs (el de las llamadas en vivo) y uno gratis que corre
+// en el equipo (Chatterbox) para escuchar la voz y para demos. El gratis
+// tarda segundos por frase, así que NO cambia la voz de las llamadas.
 
 import React, { useEffect, useRef, useState } from "react";
 import { api, getSesion } from "../api.js";
@@ -44,6 +48,7 @@ function Paso({ n, titulo, children, apagado }) {
 
 export default function VozClonada() {
   const [est, setEst] = useState(null);
+  const [motor, setMotor] = useState("elevenlabs");   // "elevenlabs" | "local"
   const [errorCarga, setErrorCarga] = useState("");
   const [muestra, setMuestra] = useState(null);       // { archivo, nombreArchivo, segundos }
   const [grabando, setGrabando] = useState(false);
@@ -60,7 +65,13 @@ export default function VozClonada() {
   const reloj = useRef(null);
 
   const cargar = () => api("/api/voz/clonada")
-    .then((d) => { setEst(d); setTexto((x) => x || d.frase_prueba); })
+    .then((d) => {
+      setEst(d);
+      setTexto((x) => x || d.frase_prueba);
+      // Sin key de ElevenLabs pero con el motor gratis instalado, se arranca
+      // por el que ya anda.
+      if (!d.hay_key && d.clonador_local) setMotor("local");
+    })
     .catch((e) => setErrorCarga(e.message));
   useEffect(() => {
     cargar();
@@ -123,9 +134,11 @@ export default function VozClonada() {
       fd.append("nombre", nombre.trim());
       fd.append("consentimiento", consiento ? "true" : "false");
       fd.append("quitar_ruido", quitarRuido ? "true" : "false");
+      fd.append("motor", motor);
       const d = await (await enviar("/api/voz/clonada", fd)).json();
       setEst(d);
-      setNota({ ok: true, texto: [t("voz_clonada.clonada_ok"), d.aviso].filter(Boolean).join(" ") });
+      setNota({ ok: true, texto: [t(motor === "local" ? "voz_clonada.local_ok" : "voz_clonada.clonada_ok"),
+                                  d.aviso].filter(Boolean).join(" ") });
       await probar();
     } catch (e) {
       setNota({ ok: false, texto: e.message });
@@ -137,7 +150,7 @@ export default function VozClonada() {
   const probar = async () => {
     setOcupado("probar");
     try {
-      const r = await enviar("/api/voz/clonada/probar", { texto });
+      const r = await enviar("/api/voz/clonada/probar", { texto, motor });
       setAudioUrl(URL.createObjectURL(await r.blob()));
     } catch (e) {
       setNota({ ok: false, texto: e.message });
@@ -162,6 +175,16 @@ export default function VozClonada() {
     } catch (e) { setNota({ ok: false, texto: e.message }); }
   };
 
+  const borrarLocal = async () => {
+    try {
+      setEst(await api("/api/voz/clonada/local", { metodo: "DELETE" }));
+      setAudioUrl("");
+      setNota({ ok: true, texto: t("voz_clonada.local_borrada") });
+    } catch (e) { setNota({ ok: false, texto: e.message }); }
+  };
+
+  const cambiarMotor = (m) => { setMotor(m); setNota(null); setAudioUrl(""); };
+
   const desactivar = async () => {
     try {
       setEst(await api("/api/voz/clonada/desactivar", { metodo: "POST" }));
@@ -171,8 +194,13 @@ export default function VozClonada() {
   };
 
   const activa = est.motor_llamadas === "elevenlabs";
+  const local = motor === "local";
+  // ¿El motor elegido puede trabajar? ElevenLabs necesita la key; el gratis,
+  // estar instalado en este equipo.
+  const listo = local ? !!est.clonador_local : est.hay_key;
+  const hayVozParaProbar = local ? est.local.hay_muestra : activa;
   const corta = muestra?.segundos != null && muestra.segundos < est.duracion_minima_s;
-  const puedeClonar = est.hay_key && muestra && !corta && nombre.trim() && consiento && !ocupado;
+  const puedeClonar = listo && muestra && !corta && nombre.trim() && consiento && !ocupado;
 
   return (
     <div className="card" style={{ maxWidth: 720, marginTop: 18 }}>
@@ -191,11 +219,38 @@ export default function VozClonada() {
       {est.forzada_por_entorno && (
         <p style={{ color: "var(--amber)", fontSize: 12.5 }}>{t("voz_clonada.forzada_entorno")}</p>
       )}
-      {!est.hay_key && (
-        <p style={{ color: "var(--amber)", fontSize: 12.5 }}>{t("voz_clonada.falta_key")}</p>
+      {est.local.hay_muestra && (
+        <div className="toolbar" style={{ alignItems: "center", gap: 12, marginTop: 8, fontSize: 12.5 }}>
+          <span>{t("voz_clonada.local_guardada", { nombre: est.local.nombre || "—" })}</span>
+          <button className="btn ghost" onClick={borrarLocal}>{t("voz_clonada.local_borrar")}</button>
+        </div>
       )}
 
-      <Paso n="1" titulo={t("voz_clonada.paso1")} apagado={!est.hay_key}>
+      <div role="radiogroup" aria-label={t("voz_clonada.motor_titulo")}
+           style={{ display: "grid", gap: 10, marginTop: 14,
+                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+        {["elevenlabs", "local"].map((m) => (
+          <button key={m} type="button" role="radio" aria-checked={motor === m}
+                  onClick={() => cambiarMotor(m)}
+                  style={{ textAlign: "left", padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+                           background: motor === m ? "rgba(124,194,66,.12)" : "var(--navy-800)",
+                           border: `1px solid ${motor === m ? "var(--green)" : "var(--line)"}`,
+                           color: "inherit" }}>
+            <strong style={{ fontSize: 13.5 }}>{t(`voz_clonada.motor_${m}`)}</strong>
+            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
+              {t(`voz_clonada.motor_${m}_ayuda`)}
+            </div>
+          </button>
+        ))}
+      </div>
+      {!local && !est.hay_key && (
+        <p style={{ color: "var(--amber)", fontSize: 12.5 }}>{t("voz_clonada.falta_key")}</p>
+      )}
+      {local && !est.clonador_local && (
+        <p style={{ color: "var(--amber)", fontSize: 12.5 }}>{t("voz_clonada.local_no_instalado")}</p>
+      )}
+
+      <Paso n="1" titulo={t("voz_clonada.paso1")} apagado={!listo}>
         <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 8px" }}>
           {t("voz_clonada.paso1_ayuda", { minimo: est.duracion_minima_s })}
         </p>
@@ -209,13 +264,16 @@ export default function VozClonada() {
               ■ {t("voz_clonada.parar")} · {segundos}s
             </button>
           ) : (
-            <button className="btn" onClick={empezar} disabled={!est.hay_key || !!ocupado}>
+            <button className="btn" onClick={empezar} disabled={!listo || !!ocupado}>
               ● {t("voz_clonada.grabar")}
             </button>
           )}
           <span style={{ color: "var(--muted)", fontSize: 12.5 }}>{t("voz_clonada.o")}</span>
-          <input type="file" accept=".wav,.mp3,.m4a,audio/wav,audio/mpeg,audio/mp4"
-                 aria-label={t("voz_clonada.archivo_aria")} disabled={!est.hay_key || grabando}
+          {/* El motor gratis lee un .mp3/.m4a solo con ffmpeg instalado. */}
+          <input type="file"
+                 accept={local && !est.local.ffmpeg ? ".wav,audio/wav"
+                                                    : ".wav,.mp3,.m4a,audio/wav,audio/mpeg,audio/mp4"}
+                 aria-label={t("voz_clonada.archivo_aria")} disabled={!listo || grabando}
                  onChange={(e) => elegirArchivo(e.target.files[0] || null)} />
         </div>
         {muestra && (
@@ -235,31 +293,37 @@ export default function VozClonada() {
                  aria-label={t("voz_clonada.nombre_ph")} placeholder={t("voz_clonada.nombre_ph")}
                  onChange={(e) => setNombre(e.target.value)} />
           <button className="btn" disabled={!puedeClonar} onClick={clonar}>
-            {ocupado === "clonar" ? t("voz_clonada.clonando") : t("voz_clonada.clonar")}
+            {ocupado === "clonar" ? t("voz_clonada.clonando")
+              : t(local ? "voz_clonada.clonar_local" : "voz_clonada.clonar")}
           </button>
         </div>
         <label style={{ display: "flex", gap: 8, fontSize: 12.5, marginTop: 8, alignItems: "flex-start" }}>
           <input type="checkbox" checked={consiento} onChange={(e) => setConsiento(e.target.checked)} />
           {t("voz_clonada.consentimiento")}
         </label>
-        <label style={{ display: "flex", gap: 8, fontSize: 12.5, marginTop: 6, alignItems: "center" }}>
-          <input type="checkbox" checked={quitarRuido} onChange={(e) => setQuitarRuido(e.target.checked)} />
-          {t("voz_clonada.quitar_ruido")}
-        </label>
+        {!local && (
+          <label style={{ display: "flex", gap: 8, fontSize: 12.5, marginTop: 6, alignItems: "center" }}>
+            <input type="checkbox" checked={quitarRuido} onChange={(e) => setQuitarRuido(e.target.checked)} />
+            {t("voz_clonada.quitar_ruido")}
+          </label>
+        )}
       </Paso>
 
-      <Paso n="3" titulo={t("voz_clonada.paso3")} apagado={!activa}>
+      <Paso n="3" titulo={t("voz_clonada.paso3")} apagado={!hayVozParaProbar}>
         <textarea value={texto} rows={2} maxLength={300} style={{ width: "100%" }}
                   aria-label={t("voz_clonada.texto_aria")} onChange={(e) => setTexto(e.target.value)} />
         <div className="toolbar" style={{ alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button className="btn ghost" disabled={!activa || !!ocupado || !texto.trim()} onClick={probar}>
-            {ocupado === "probar" ? t("voz_clonada.generando") : `▶ ${t("voz_clonada.escuchar")}`}
+          <button className="btn ghost" disabled={!hayVozParaProbar || !!ocupado || !texto.trim()}
+                  onClick={probar}>
+            {ocupado === "probar"
+              ? t(local ? "voz_clonada.generando_local" : "voz_clonada.generando")
+              : `▶ ${t("voz_clonada.escuchar")}`}
           </button>
           {audioUrl && <audio src={audioUrl} controls autoPlay style={{ height: 34 }} />}
         </div>
       </Paso>
 
-      {est.hay_key && (
+      {!local && est.hay_key && (
         <div style={{ marginTop: 14, fontSize: 12.5 }}>
           {voces === null ? (
             <button className="btn ghost" onClick={verVoces}>{t("voz_clonada.ver_voces")}</button>
@@ -278,7 +342,9 @@ export default function VozClonada() {
           {nota.texto}
         </p>
       )}
-      <p style={{ color: "var(--faint)", fontSize: 11.5, marginBottom: 0 }}>{t("voz_clonada.nota_llamadas")}</p>
+      <p style={{ color: "var(--faint)", fontSize: 11.5, marginBottom: 0 }}>
+        {t(local ? "voz_clonada.nota_local" : "voz_clonada.nota_llamadas")}
+      </p>
     </div>
   );
 }

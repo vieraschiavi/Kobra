@@ -9,10 +9,15 @@ copiar el `voice_id`, volver y elegirlo. Y aun así no llegaba a las llamadas
 (ver `voz_activa`). Este módulo lo deja en tres pasos sin salir de Kobra:
 **grabar o subir una muestra → clonar → escucharla**.
 
-El clonado lo hace ElevenLabs (Instant Voice Cloning, `POST /v1/voices/add`).
-Es el único motor con latencia de llamada en vivo: el clonador local
-(`voz_clon_local`, gratis) tarda segundos por frase en CPU y sirve para los
-audios de la demo, no para una conversación por teléfono.
+Dos motores:
+
+  * **ElevenLabs** (Instant Voice Cloning, `POST /v1/voices/add`): el de las
+    llamadas en vivo. Es el único con latencia de conversación telefónica.
+  * **Gratis, en el equipo** (`voz_clon_local`, Chatterbox de Resemble AI,
+    licencia MIT): clona sin costo y sin que la voz salga de la máquina. Tarda
+    segundos por frase en CPU, así que sirve para escuchar la voz y para las
+    demos, no para una conversación por teléfono: NO cambia la voz de las
+    llamadas. La muestra queda en la carpeta de datos y se puede borrar.
 
 Consentimiento: clonar una voz ajena sin permiso es suplantación. Por eso
 `clonar` exige que quien clona declare tener el consentimiento de la persona
@@ -21,10 +26,17 @@ dueña de la voz, y el endpoint lo deja en la auditoría.
 from __future__ import annotations
 
 import os
+import threading
 import time
 
 from kobra import config as kconfig
+from kobra import rutas as krutas
 from kobra import voz_tts
+
+MOTORES = ("elevenlabs", "local")
+# El modelo local ocupa varios GB de RAM y la CPU entera: dos pruebas a la vez
+# lo cargarían dos veces o se pisarían. Va de a una.
+_LOCK_LOCAL = threading.Lock()
 
 # Formatos que acepta la subida. El navegador graba en webm/opus, pero la
 # pantalla lo pasa a WAV antes de mandarlo, así que el servidor no necesita
@@ -222,12 +234,83 @@ def probar(texto: str | None = None, api_key: str | None = None) -> dict:
                               modelo=voz_tts.MODELO_LLAMADAS)
 
 
+def ruta_muestra_local() -> str:
+    """Dónde queda la muestra del motor gratis: en la carpeta de datos del
+    cliente, nunca en el repo ni en una carpeta temporal que se borra sola."""
+    return os.path.join(krutas.DIR_DATOS, "voz", "muestra_local.wav")
+
+
+def guardar_muestra_local(nombre_archivo: str, contenido: bytes, nombre: str) -> None:
+    """Guarda la muestra para el motor gratis como WAV mono.
+
+    Un WAV (lo que graba la pantalla) se convierte acá mismo, sin ffmpeg: el
+    instalador no lo trae. Un .mp3/.m4a sí necesita ffmpeg para decodificarse.
+    """
+    import io
+    import shutil
+    import subprocess
+    import tempfile
+
+    import soundfile as sf
+    destino = ruta_muestra_local()
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+    temporal = destino + ".tmp.wav"
+    if nombre_archivo.lower().endswith(".wav"):
+        datos, sr = sf.read(io.BytesIO(contenido), always_2d=True)
+        sf.write(temporal, datos.mean(axis=1), sr, format="WAV")
+    else:
+        if shutil.which("ffmpeg") is None:
+            raise MuestraInvalida("Con el motor gratis, grabá desde acá o subí un .wav: "
+                                  "un .mp3 o .m4a necesita ffmpeg instalado.")
+        with tempfile.TemporaryDirectory() as tmp:
+            origen = os.path.join(tmp, "muestra" + os.path.splitext(nombre_archivo)[1].lower())
+            with open(origen, "wb") as f:
+                f.write(contenido)
+            r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", origen,
+                                "-vn", "-ac", "1", "-ar", "24000", temporal],
+                               capture_output=True)
+        if r.returncode != 0:
+            raise MuestraInvalida("No pude leer ese audio: está dañado o no es audio.")
+    os.replace(temporal, destino)   # atómico: una muestra a medio escribir nunca queda como la vigente
+    kconfig.guardar_extra("VOZ_LOCAL_NOMBRE", (nombre or "").strip()[:100])
+    _olvidar_cache()
+
+
+def borrar_muestra_local() -> None:
+    """Borra la muestra del equipo. Es la voz de una persona: se tiene que
+    poder sacar del disco tan fácil como se puso."""
+    try:
+        os.remove(ruta_muestra_local())
+    except FileNotFoundError:
+        pass
+    kconfig.guardar_extra("VOZ_LOCAL_NOMBRE", None)
+    _olvidar_cache()
+
+
+def probar_local(texto: str | None = None, idioma: str = "es") -> dict:
+    """Una frase con la voz clonada gratis, en WAV. Mismo dict que `probar`."""
+    from kobra import voz_clon_local
+    texto = (texto or FRASE_PRUEBA).strip()[:MAX_CARACTERES_PRUEBA]
+    fallo = {"ok": False, "audio": None, "caracteres": len(texto), "costo_est_usd": 0.0}
+    if not voz_clon_local.motor_disponible():
+        return {**fallo, "error": "El motor gratis no está instalado en este equipo "
+                                  "(pip install chatterbox-tts)."}
+    if not os.path.exists(ruta_muestra_local()):
+        return {**fallo, "error": "Primero grabá o subí la muestra de tu voz."}
+    with _LOCK_LOCAL:
+        return voz_clon_local.sintetizar(texto, referencia=ruta_muestra_local(),
+                                         idioma=idioma, formato="wav")
+
+
 def estado() -> dict:
     """Lo que necesita la pantalla para saber en qué paso está quien configura."""
+    import shutil
+
     from kobra import voz_clon_local
     _olvidar_cache()
     extras = _extras()
     voice_id = voz_activa()
+    hay_muestra_local = os.path.exists(ruta_muestra_local())
     return {
         "hay_key": bool(api_key_elevenlabs()),
         "motor_llamadas": "elevenlabs" if voice_id else "twilio",
@@ -238,6 +321,9 @@ def estado() -> dict:
         # está, clonar desde acá no cambia la voz y la pantalla lo avisa.
         "forzada_por_entorno": bool(os.getenv("ELEVENLABS_VOICE_ID") or os.getenv("TTS_PROVIDER")),
         "clonador_local": voz_clon_local.motor_disponible() or None,
+        "local": {"hay_muestra": hay_muestra_local,
+                  "nombre": (extras.get("VOZ_LOCAL_NOMBRE") or None) if hay_muestra_local else None,
+                  "ffmpeg": shutil.which("ffmpeg") is not None},
         "duracion_minima_s": DURACION_MINIMA_S,
         "duracion_recomendada_s": DURACION_RECOMENDADA_S,
         "max_mb": MAX_MB_MUESTRA,

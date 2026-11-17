@@ -833,6 +833,15 @@ entorno, al arrancar. Lo configura únicamente el admin de la instalación, y
 para un cliente con licencia necesita el módulo `voz` (la edición Owner pasa
 siempre).
 
+La misma pantalla ofrece un **motor gratis, en el equipo** (Chatterbox de
+Resemble AI, licencia MIT, vía `kobra/voz_clon_local.py`): clona sin costo y
+sin que la voz salga de la máquina, para escucharla y para demos. Tarda
+segundos por frase en CPU, así que **no cambia la voz de las llamadas** — en
+vivo sigue ElevenLabs. Se instala aparte (`pip install chatterbox-tts`; la
+primera vez descarga el modelo, unos GB) y no necesita ffmpeg para lo que se
+graba en la pantalla. La muestra queda en `<carpeta de datos>/voz/` y se borra
+desde la misma pantalla.
+
 ### 📣 Campaña automática de contacto — `kobra/campana.py`
 
 Orquesta el contacto saliente **sin intervención manual**, corriendo dentro

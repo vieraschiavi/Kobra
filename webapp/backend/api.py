@@ -3220,9 +3220,17 @@ def voz_clonada_estado(u: Usuario = Depends(_admin_de_la_instalacion)):
 async def voz_clonada_crear(archivo: UploadFile = File(...), nombre: str = Form(...),
                             consentimiento: bool = Form(False),
                             quitar_ruido: bool = Form(False),
+                            motor: str = Form("elevenlabs"),
                             u: Usuario = Depends(_admin_de_la_instalacion)):
-    """Clona la voz de la muestra y la deja activa en las llamadas."""
+    """Clona la voz de la muestra.
+
+    `motor="elevenlabs"` la deja activa en las llamadas. `motor="local"` la
+    guarda para el motor gratis del equipo: sirve para escucharla y para las
+    demos, y NO cambia la voz de las llamadas (tarda segundos por frase).
+    """
     kplan.exigir("voz", "la voz clonada")
+    if motor not in kvozc.MOTORES:
+        raise HTTPException(400, f"Motor desconocido (válidos: {', '.join(kvozc.MOTORES)}).")
     if not consentimiento:
         raise HTTPException(400, "Confirmá que la voz es tuya o que tenés el "
                                  "consentimiento de su dueño para clonarla.")
@@ -3231,6 +3239,23 @@ async def voz_clonada_crear(archivo: UploadFile = File(...), nombre: str = Form(
         muestra = kvozc.validar_muestra(archivo.filename or "", contenido)
     except kvozc.MuestraInvalida as e:
         raise HTTPException(400, str(e)) from e
+
+    if motor == "local":
+        from kobra import voz_clon_local
+        if not voz_clon_local.motor_disponible():
+            raise HTTPException(400, "El motor gratis no está instalado en este equipo. "
+                                     "Instalalo con: pip install chatterbox-tts")
+        try:
+            await run_in_threadpool(kvozc.guardar_muestra_local, archivo.filename or "",
+                                    contenido, nombre)
+        except kvozc.MuestraInvalida as e:
+            raise HTTPException(400, str(e)) from e
+        kauditoria.registrar("voz_clonada_local", {"nombre": nombre.strip()[:100],
+                                                   "consentimiento_declarado": True,
+                                                   "duracion_s": muestra["duracion_s"]},
+                             rol=u.rol)
+        return {**kvozc.estado(), "aviso": muestra["aviso"], "requiere_verificacion": False}
+
     res = await run_in_threadpool(kvozc.clonar, nombre, [(archivo.filename, contenido)],
                                   None, quitar_ruido)
     if not res["ok"]:
@@ -3280,16 +3305,37 @@ def voz_clonada_desactivar(u: Usuario = Depends(_admin_de_la_instalacion)):
 
 class VozPruebaIn(BaseModel):
     texto: str = ""
+    motor: str = "elevenlabs"
 
 
 @app.post("/api/voz/clonada/probar")
 async def voz_clonada_probar(datos: VozPruebaIn, u: Usuario = Depends(_admin_de_la_instalacion)):
-    """Una frase con la voz activa, en MP3, para escucharla antes de llamar."""
+    """Una frase con la voz clonada, para escucharla.
+
+    ElevenLabs devuelve MP3 con el modelo de llamadas (lo que va a sonar por
+    teléfono). El motor gratis devuelve WAV y tarda: la primera vez además
+    descarga el modelo.
+    """
+    if datos.motor == "local":
+        idioma = kpaises.obtener(_pais_de(u.empresa)).idioma
+        res = await run_in_threadpool(kvozc.probar_local, datos.texto, idioma)
+        if not res["ok"]:
+            raise HTTPException(400, res["error"])
+        return Response(content=res["audio"], media_type="audio/wav",
+                        headers={"Cache-Control": "no-store"})
     res = await run_in_threadpool(kvozc.probar, datos.texto)
     if not res["ok"]:
         raise HTTPException(502 if kvozc.voz_activa() else 400, res["error"])
     return Response(content=res["audio"], media_type="audio/mpeg",
                     headers={"Cache-Control": "no-store"})
+
+
+@app.delete("/api/voz/clonada/local")
+def voz_clonada_local_borrar(u: Usuario = Depends(_admin_de_la_instalacion)):
+    """Borra del disco la muestra del motor gratis."""
+    kvozc.borrar_muestra_local()
+    kauditoria.registrar("voz_local_borrada", {}, rol=u.rol)
+    return kvozc.estado()
 
 
 # Deudor sintético por default de la demo del Gestor IA — el caso que se le

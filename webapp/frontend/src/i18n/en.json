@@ -1231,7 +1231,7 @@
   },
   "voz_clonada": {
     "titulo": "AI Agent cloned voice",
-    "subtitulo": "Record your voice for a minute and the AI Agent calls with it. Three steps, without leaving Kobra: record, clone and listen. Cloning is done by ElevenLabs with your own account.",
+    "subtitulo": "Record your voice for a minute and the AI Agent calls with it. Three steps, without leaving Kobra: record, clone and listen. Pick the engine: ElevenLabs for live calls, or the free one that runs on your computer to listen to it and for demos.",
     "estado_activa": "Calls go out with the voice “{{nombre}}”.",
     "estado_twilio": "Calls go out with Twilio's standard voice.",
     "desactivar": "Back to the standard voice",
@@ -1264,6 +1264,19 @@
     "elegir_existente": "— Pick a voice from your account —",
     "elegida_ok": "Voice selected: it's already active on calls.",
     "desactivada": "Done: calls are back to Twilio's standard voice.",
-    "nota_llamadas": "Takes effect from the next sentence of the next call, no restart needed. Each spoken sentence uses characters from your ElevenLabs plan; repeated ones (greeting, goodbye) are reused and not charged again."
+    "nota_llamadas": "Takes effect from the next sentence of the next call, no restart needed. Each spoken sentence uses characters from your ElevenLabs plan; repeated ones (greeting, goodbye) are reused and not charged again.",
+    "motor_titulo": "Cloning engine",
+    "motor_elevenlabs": "ElevenLabs · live calls",
+    "motor_elevenlabs_ayuda": "The voice the AI Agent uses on calls. Responds instantly. Charged per character on your ElevenLabs account.",
+    "motor_local": "Free · on your computer",
+    "motor_local_ayuda": "No cost, and your voice never leaves the machine. For listening and demos: it takes a few seconds per sentence, so it doesn't change the voice used on calls.",
+    "local_no_instalado": "The free engine isn't installed on this computer. Install it with “pip install chatterbox-tts” and reopen Kobra. The first time it downloads the model (a few GB).",
+    "clonar_local": "Clone for free",
+    "local_ok": "Done: your voice is saved on this computer. Calls keep their usual voice.",
+    "local_guardada": "Free voice saved on this computer: “{{nombre}}” (for listening and demos).",
+    "local_borrar": "Delete the sample",
+    "local_borrada": "Done: your voice sample was deleted from this computer.",
+    "generando_local": "Generating on your computer… (may take a minute; longer the first time)",
+    "nota_local": "The free engine runs on this machine: no cost, and your voice never leaves it. For live calls, use ElevenLabs."
   }
 }

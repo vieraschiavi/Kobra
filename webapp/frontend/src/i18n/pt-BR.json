@@ -1231,7 +1231,7 @@
   },
   "voz_clonada": {
     "titulo": "Voz clonada do Gestor IA",
-    "subtitulo": "Grave sua voz por um minuto e o Gestor IA liga com ela. Três passos, sem sair do Kobra: gravar, clonar e ouvir. A clonagem é feita pela ElevenLabs com a sua própria conta.",
+    "subtitulo": "Grave sua voz por um minuto e o Gestor IA liga com ela. Três passos, sem sair do Kobra: gravar, clonar e ouvir. Escolha o motor: ElevenLabs para as ligações ao vivo, ou o gratuito que roda no seu computador para ouvi-la e para demos.",
     "estado_activa": "As ligações saem com a voz «{{nombre}}».",
     "estado_twilio": "As ligações saem com a voz padrão da Twilio.",
     "desactivar": "Voltar à voz padrão",
@@ -1264,6 +1264,19 @@
     "elegir_existente": "— Escolha uma voz da sua conta —",
     "elegida_ok": "Voz escolhida: já está ativa nas ligações.",
     "desactivada": "Pronto: as ligações voltam à voz padrão da Twilio.",
-    "nota_llamadas": "Vale a partir da próxima frase da próxima ligação, sem reiniciar nada. Cada frase falada consome caracteres do seu plano ElevenLabs; as que se repetem (saudação, despedida) são reaproveitadas e não são cobradas de novo."
+    "nota_llamadas": "Vale a partir da próxima frase da próxima ligação, sem reiniciar nada. Cada frase falada consome caracteres do seu plano ElevenLabs; as que se repetem (saudação, despedida) são reaproveitadas e não são cobradas de novo.",
+    "motor_titulo": "Motor de clonagem",
+    "motor_elevenlabs": "ElevenLabs · ligações ao vivo",
+    "motor_elevenlabs_ayuda": "A voz que o Gestor IA usa nas ligações. Responde na hora. Cobra por caractere na sua conta ElevenLabs.",
+    "motor_local": "Grátis · no seu computador",
+    "motor_local_ayuda": "Sem custo e sua voz não sai da máquina. Para ouvi-la e para demos: leva alguns segundos por frase, então não muda a voz das ligações.",
+    "local_no_instalado": "O motor gratuito não está instalado neste computador. Instale com «pip install chatterbox-tts» e abra o Kobra de novo. Na primeira vez ele baixa o modelo (alguns GB).",
+    "clonar_local": "Clonar grátis",
+    "local_ok": "Pronto: sua voz ficou salva neste computador. As ligações continuam com a voz de sempre.",
+    "local_guardada": "Voz grátis salva neste computador: «{{nombre}}» (para ouvir e para demos).",
+    "local_borrar": "Apagar a amostra",
+    "local_borrada": "Pronto: a amostra da sua voz foi apagada deste computador.",
+    "generando_local": "Gerando no seu computador… (pode levar um minuto; na primeira vez, mais)",
+    "nota_local": "O motor gratuito roda nesta máquina: não tem custo e sua voz não sai dela. Para as ligações ao vivo use a ElevenLabs."
   }
 }
