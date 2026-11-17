@@ -101,3 +101,7 @@ packaging/Owner.bat
 .env.*
 !.env.example
 *.env
+
+# Candado del scheduler de campañas (realtime/server.py): uno por instalación,
+# se crea en la carpeta de datos — en desarrollo, la raíz del repo.
+.scheduler.lock

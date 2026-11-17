@@ -1466,7 +1466,9 @@ with tabNL2SQL:
 
     if conectar_click:
         if nl_url.strip():
-            kconfig.guardar({"CONSULTA_DB_URL": nl_url.strip()})
+            # `guardar_extra` y no `guardar`: `guardar` descarta en silencio lo
+            # que no está en `kconfig.CLAVES`, y la URL se perdía al recargar.
+            kconfig.guardar_extra("CONSULTA_DB_URL", nl_url.strip())
             st.cache_resource.clear()
         else:
             st.error("Falta la URL de conexión.")
@@ -2082,8 +2084,9 @@ with tab7:
                     kconfig.guardar_extra("TTS_PROVIDER", "elevenlabs" if voice_id else "twilio")
                     kauditoria.registrar("voz_premium_configurada",
                                          {"activada": bool(voice_id)}, rol=ROL_ACTIVO)
-                    st.success("✓ Guardado. Se aplica en el próximo arranque de `realtime/server.py` "
-                              "(o inmediatamente si ya está corriendo con auto-reload).")
+                    st.success("✓ Guardado. Rige desde la próxima frase de las llamadas, sin "
+                              "reiniciar `realtime/server.py`. Para clonar una voz nueva "
+                              "grabándola, usá Configuración → Voz clonada en la app web.")
                 st.caption(f"Costo de referencia: ~US$ {voz_tts.COSTO_POR_1000_CHARS_USD:.2f} "
                           "cada 1.000 caracteres hablados (verificá contra tu plan real de "
                           "ElevenLabs antes de fijar el precio del plan que lo incluya).")

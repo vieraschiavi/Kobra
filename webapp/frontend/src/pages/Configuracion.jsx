@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { api, getSesion } from "../api.js";
 import { t } from "../i18n/index.js";
+import VozClonada from "../components/VozClonada.jsx";
 
 function ImportarCartera() {
   const [origen, setOrigen] = useState(null);
@@ -575,6 +576,7 @@ export default function Configuracion() {
       <ImportarCartera />
       <EscenariosDemo />
       <ProveedorIA />
+      <VozClonada />
       <CarpetaDatos />
       <InformeSemanal />
       <AltaEmpresa />

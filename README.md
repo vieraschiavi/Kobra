@@ -822,6 +822,17 @@ fijo de un plan no termine subsidiando un costo variable no cotizado. Si
 falla o no está configurada, cae solo a Twilio/Polly — nunca corta la
 llamada.
 
+**Voz clonada en tres pasos** (`kobra/voz_clonada.py`, app web →
+**Configuración → Voz clonada del Gestor IA**): grabar un minuto con el
+micrófono (o subir un `.wav`/`.mp3`), clonar y escucharla. El clonado lo hace
+ElevenLabs (Instant Voice Cloning) con la cuenta del cliente; exige declarar
+el consentimiento del dueño de la voz y queda en la auditoría. La voz elegida
+rige desde la próxima frase de la próxima llamada, sin reiniciar el servidor.
+Antes no llegaba nunca a las llamadas: el servidor leía la voz solo del
+entorno, al arrancar. Lo configura únicamente el admin de la instalación, y
+para un cliente con licencia necesita el módulo `voz` (la edición Owner pasa
+siempre).
+
 ### 📣 Campaña automática de contacto — `kobra/campana.py`
 
 Orquesta el contacto saliente **sin intervención manual**, corriendo dentro
