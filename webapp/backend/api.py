@@ -40,7 +40,18 @@ from datetime import datetime, timezone
 
 import pandas as pd
 import portalocker
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -77,6 +88,8 @@ from kobra import proyectos as kpro  # noqa: E402
 from kobra import rutas as krutas  # noqa: E402
 from kobra import seguimiento as kseg  # noqa: E402
 from kobra import vocabulario as kvocab  # noqa: E402
+from kobra import voz_clonada as kvozc  # noqa: E402
+from kobra import voz_tts as voz_tts_mod  # noqa: E402
 
 # Escribible siempre (ver kobra/rutas.py): en dev/tests es el repo (ROOT),
 # igual que antes; instalado, es una carpeta propia del usuario, nunca
@@ -191,6 +204,23 @@ def usuario_actual(authorization: str = Header(default="")) -> Usuario:
 def solo_admin(u: Usuario = Depends(usuario_actual)) -> Usuario:
     if u.rol != "admin":
         raise HTTPException(403, "Esta acción es solo para el rol Administrador.")
+    return u
+
+
+def _admin_de_la_instalacion(u: Usuario = Depends(solo_admin)) -> Usuario:
+    """Admin de la empresa principal: el único que toca lo que es UNO por
+    instalación y no uno por empresa.
+
+    En hosted multi-empresa hay cosas compartidas por todo el despliegue: las
+    claves de Twilio, del LLM y de ElevenLabs, la voz de las llamadas, el
+    destino del informe semanal, el alta de empresas nuevas. Con `solo_admin`
+    a secas, el admin de CUALQUIER empresa las pisaba para todas — y el alta
+    le copiaba 2000 deudores de la cartera real de la principal (revisión de
+    producción). En la app instalada hay una sola empresa, la principal, así
+    que para ese caso no cambia nada.
+    """
+    if u.empresa != EMPRESA_DEFAULT:
+        raise HTTPException(403, "Esto lo configura el administrador de la instalación.")
     return u
 
 
@@ -705,6 +735,10 @@ CSP_UI = ("default-src 'self'; script-src 'self'; "
 
 @app.middleware("http")
 async def _cabeceras_seguridad(request: Request, call_next):
+    # Con varios workers, la clave guardada en Configuración llega solo al
+    # worker que atendió ese pedido; los demás la toman de acá (ver
+    # kconfig.refrescar).
+    kconfig.refrescar()
     respuesta = await call_next(request)
     for k, v in CABECERAS_SEGURIDAD.items():
         respuesta.headers.setdefault(k, v)
@@ -925,7 +959,7 @@ def marca_leer(u: Usuario = Depends(usuario_actual)):
 
 
 @app.post("/api/marca")
-def marca_guardar(datos: MarcaIn, u: Usuario = Depends(solo_admin)):
+def marca_guardar(datos: MarcaIn, u: Usuario = Depends(_admin_de_la_instalacion)):
     """Configura la marca del cliente. Enterprise y solo el administrador.
 
     `solo_admin` no es decorativo: esto cambia lo que ve todo el equipo del
@@ -939,7 +973,7 @@ def marca_guardar(datos: MarcaIn, u: Usuario = Depends(solo_admin)):
 
 
 @app.delete("/api/marca")
-def marca_borrar(u: Usuario = Depends(solo_admin)):
+def marca_borrar(u: Usuario = Depends(_admin_de_la_instalacion)):
     """Vuelve a la marca de fábrica."""
     kplan.exigir("white_label", "la marca blanca")
     return kmarca.borrar()
@@ -1936,7 +1970,7 @@ def informe_ejecutivo(u: Usuario = Depends(usuario_actual)):
 # requiere ese proceso corriendo 24/7, igual que la campaña automática)
 # ---------------------------------------------------------------------------
 @app.get("/api/informe/programacion")
-def informe_programacion(u: Usuario = Depends(solo_admin)):
+def informe_programacion(u: Usuario = Depends(_admin_de_la_instalacion)):
     return {"activo": bool(kconfig.leer_extra("INFORME_EMAIL_ACTIVO")),
             "destino": kconfig.leer_extra("INFORME_EMAIL_DESTINO", "") or "",
             "smtp_configurado": bool(os.getenv("SMTP_HOST") and os.getenv("SMTP_USER"))}
@@ -1948,7 +1982,7 @@ class ProgramacionIn(BaseModel):
 
 
 @app.post("/api/informe/programacion")
-def informe_programacion_guardar(datos: ProgramacionIn, u: Usuario = Depends(solo_admin)):
+def informe_programacion_guardar(datos: ProgramacionIn, u: Usuario = Depends(_admin_de_la_instalacion)):
     destino = datos.destino.strip()
     if datos.activo and ("@" not in destino or "." not in destino.split("@")[-1]):
         raise HTTPException(400, "Ingresá un email de destino válido para activar el envío.")
@@ -1968,7 +2002,7 @@ def informe_programacion_guardar(datos: ProgramacionIn, u: Usuario = Depends(sol
 # `solo_admin` no es decorativo: esto elige una carpeta arbitraria del disco y
 # copia datos ahí. Un gestor no tiene por qué poder mover la base de la empresa.
 @app.get("/api/almacenamiento")
-def almacenamiento(u: Usuario = Depends(solo_admin)):
+def almacenamiento(u: Usuario = Depends(_admin_de_la_instalacion)):
     return krutas.estado()
 
 
@@ -1978,7 +2012,7 @@ class AlmacenamientoIn(BaseModel):
 
 
 @app.post("/api/almacenamiento")
-def almacenamiento_guardar(datos: AlmacenamientoIn, u: Usuario = Depends(solo_admin)):
+def almacenamiento_guardar(datos: AlmacenamientoIn, u: Usuario = Depends(_admin_de_la_instalacion)):
     carpeta = datos.carpeta.strip()
     if not carpeta:
         # Vaciar el campo = volver a la carpeta por defecto. No se copia nada:
@@ -2008,7 +2042,7 @@ def almacenamiento_guardar(datos: AlmacenamientoIn, u: Usuario = Depends(solo_ad
 
 
 @app.post("/api/informe/enviar-ahora")
-def informe_enviar_ahora(u: Usuario = Depends(solo_admin)):
+def informe_enviar_ahora(u: Usuario = Depends(_admin_de_la_instalacion)):
     """Envío inmediato de prueba (valida el SMTP sin esperar al lunes)."""
     destino = (kconfig.leer_extra("INFORME_EMAIL_DESTINO", "") or "").strip()
     if not destino:
@@ -2034,7 +2068,7 @@ class AltaTenantIn(BaseModel):
 
 
 @app.post("/api/tenant/alta")
-def tenant_alta(datos: AltaTenantIn, u: Usuario = Depends(solo_admin)):
+def tenant_alta(datos: AltaTenantIn, u: Usuario = Depends(_admin_de_la_instalacion)):
     """Crea una empresa nueva con una muestra sintética de la demo, lista
     para entrar (login con la misma contraseña + nombre de empresa). Cierra
     el aprovisionamiento manual que quedaba documentado como pendiente."""
@@ -2044,8 +2078,22 @@ def tenant_alta(datos: AltaTenantIn, u: Usuario = Depends(solo_admin)):
     destino = _dir_tenant(slug)
     if os.path.exists(destino):
         raise HTTPException(409, f"La empresa '{slug}' ya existe.")
+    # La contraseña se valida ANTES de tocar el disco: validada después, una
+    # contraseña corta dejaba la carpeta creada y sin credencial, y el
+    # reintento chocaba con "ya existe" — una empresa sin puerta para siempre.
+    clave = (datos.password or "").strip() or secrets.token_urlsafe(12)
+    if len(clave) < 8:
+        raise HTTPException(400, "La contraseña de la empresa necesita al menos "
+                                 "8 caracteres.")
 
-    scored = _scored(EMPRESA_DEFAULT).sample(n=2000, random_state=42)
+    # SIEMPRE la cartera sintética, nunca `_scored`: con la principal en modo
+    # real, `_scored` devuelve la cartera REAL importada, y el alta le copiaba
+    # 2000 deudores reales a la empresa nueva.
+    ruta_demo = _datos_de(EMPRESA_DEFAULT)["scored"]
+    if not os.path.exists(ruta_demo):
+        raise HTTPException(404, "No está la cartera de demostración para copiar.")
+    demo = _csv(ruta_demo, "la cartera de demostración")
+    scored = demo.sample(n=min(2000, len(demo)), random_state=42)
     os.makedirs(destino, exist_ok=True)
     scored.to_csv(os.path.join(destino, "kobra_scored.csv"), index=False)
     g = _gestiones(EMPRESA_DEFAULT)
@@ -2054,10 +2102,6 @@ def tenant_alta(datos: AltaTenantIn, u: Usuario = Depends(solo_admin)):
             os.path.join(destino, "kobra_gestiones.csv"), index=False)
     # La credencial del tenant nuevo. Sin esto la empresa queda creada pero
     # sin puerta: el login exige una contraseña propia de esa empresa.
-    clave = (datos.password or "").strip() or secrets.token_urlsafe(12)
-    if len(clave) < 8:
-        raise HTTPException(400, "La contraseña de la empresa necesita al menos "
-                                 "8 caracteres.")
     kauth.establecer_password("admin", clave, empresa=slug)
     return {"empresa": slug, "deudores": int(len(scored)),
             # Se devuelve una vez y no se guarda en claro en ningún lado: de la
@@ -2777,7 +2821,7 @@ def tenant_pais_guardar(datos: PaisIn, u: Usuario = Depends(solo_admin)):
 
 
 @app.get("/api/config/estado")
-def config_estado(u: Usuario = Depends(solo_admin)):
+def config_estado(u: Usuario = Depends(_admin_de_la_instalacion)):
     return kconfig.estado()
 
 
@@ -2786,7 +2830,7 @@ class ConfigIn(BaseModel):
 
 
 @app.post("/api/config")
-def config_guardar(datos: ConfigIn, u: Usuario = Depends(solo_admin)):
+def config_guardar(datos: ConfigIn, u: Usuario = Depends(_admin_de_la_instalacion)):
     validas = {k: v for k, v in datos.claves.items()
                if k in kconfig.CLAVES and isinstance(v, str) and v.strip()}
     if not validas:
@@ -2796,7 +2840,7 @@ def config_guardar(datos: ConfigIn, u: Usuario = Depends(solo_admin)):
 
 
 @app.get("/api/config/proveedor_ia")
-def proveedor_ia_estado(u: Usuario = Depends(solo_admin)):
+def proveedor_ia_estado(u: Usuario = Depends(_admin_de_la_instalacion)):
     """Con qué proveedor Y modelo de IA (traé tu propia cuenta corporativa)
     razona el Asistente, el Copiloto y el Gestor IA — Claude, Gemini,
     ChatGPT/OpenAI o Grok. Eligiendo el modelo el cliente regula su consumo
@@ -2817,7 +2861,7 @@ class ProveedorIAIn(BaseModel):
 
 
 @app.post("/api/config/proveedor_ia")
-def proveedor_ia_guardar(datos: ProveedorIAIn, u: Usuario = Depends(solo_admin)):
+def proveedor_ia_guardar(datos: ProveedorIAIn, u: Usuario = Depends(_admin_de_la_instalacion)):
     if datos.proveedor not in kllm.PROVEEDORES:
         raise HTTPException(400, f"Proveedor '{datos.proveedor}' no soportado "
                                  f"(válidos: {', '.join(kllm.PROVEEDORES)}).")
@@ -2828,7 +2872,7 @@ def proveedor_ia_guardar(datos: ProveedorIAIn, u: Usuario = Depends(solo_admin))
 
 
 @app.post("/api/config/proveedor_ia/actualizar_modelos")
-def proveedor_ia_actualizar_modelos(datos: ProveedorIAIn, u: Usuario = Depends(solo_admin)):
+def proveedor_ia_actualizar_modelos(datos: ProveedorIAIn, u: Usuario = Depends(_admin_de_la_instalacion)):
     """Botón "Actualizar": consulta a la API del proveedor por sus últimos
     modelos publicados (con la key del cliente) y cachea el catálogo."""
     if datos.proveedor not in kllm.PROVEEDORES:
@@ -3162,6 +3206,136 @@ async def voz_analizar(archivo: UploadFile = File(...), id_deudor: str | None = 
             "modo_transcripcion": res["modo_transcripcion"], "turnos": res["turnos"],
             "copiloto": res["copiloto"], "calidad": res["calidad"],
             "tecnicas": res["tecnicas"], "plan": plan_estado_actual}
+
+
+# ---------------------------------------------------------------------------
+# Voz clonada del Gestor IA (ver kobra/voz_clonada.py)
+# ---------------------------------------------------------------------------
+@app.get("/api/voz/clonada")
+def voz_clonada_estado(u: Usuario = Depends(_admin_de_la_instalacion)):
+    return kvozc.estado()
+
+
+@app.post("/api/voz/clonada")
+async def voz_clonada_crear(archivo: UploadFile = File(...), nombre: str = Form(...),
+                            consentimiento: bool = Form(False),
+                            quitar_ruido: bool = Form(False),
+                            motor: str = Form("elevenlabs"),
+                            u: Usuario = Depends(_admin_de_la_instalacion)):
+    """Clona la voz de la muestra.
+
+    `motor="elevenlabs"` la deja activa en las llamadas. `motor="local"` la
+    guarda para el motor gratis del equipo: sirve para escucharla y para las
+    demos, y NO cambia la voz de las llamadas (tarda segundos por frase).
+    """
+    kplan.exigir("voz", "la voz clonada")
+    if motor not in kvozc.MOTORES:
+        raise HTTPException(400, f"Motor desconocido (válidos: {', '.join(kvozc.MOTORES)}).")
+    if not consentimiento:
+        raise HTTPException(400, "Confirmá que la voz es tuya o que tenés el "
+                                 "consentimiento de su dueño para clonarla.")
+    contenido = await _leer_subida(archivo, kvozc.MAX_MB_MUESTRA)
+    try:
+        muestra = kvozc.validar_muestra(archivo.filename or "", contenido)
+    except kvozc.MuestraInvalida as e:
+        raise HTTPException(400, str(e)) from e
+
+    if motor == "local":
+        from kobra import voz_clon_local
+        if not voz_clon_local.motor_disponible():
+            raise HTTPException(400, "El motor gratis no está instalado en este equipo. "
+                                     "Instalalo con: pip install chatterbox-tts")
+        try:
+            await run_in_threadpool(kvozc.guardar_muestra_local, archivo.filename or "",
+                                    contenido, nombre)
+        except kvozc.MuestraInvalida as e:
+            raise HTTPException(400, str(e)) from e
+        kauditoria.registrar("voz_clonada_local", {"nombre": nombre.strip()[:100],
+                                                   "consentimiento_declarado": True,
+                                                   "duracion_s": muestra["duracion_s"]},
+                             rol=u.rol)
+        return {**kvozc.estado(), "aviso": muestra["aviso"], "requiere_verificacion": False}
+
+    res = await run_in_threadpool(kvozc.clonar, nombre, [(archivo.filename, contenido)],
+                                  None, quitar_ruido)
+    if not res["ok"]:
+        raise HTTPException(502, res["error"])
+    kvozc.activar(res["voice_id"], nombre)
+    # Clonar una voz es un acto con implicancias legales: queda quién lo hizo
+    # y que declaró tener el consentimiento. Nunca el audio.
+    kauditoria.registrar("voz_clonada", {"nombre": nombre.strip()[:100],
+                                         "consentimiento_declarado": True,
+                                         "duracion_s": muestra["duracion_s"]},
+                         rol=u.rol)
+    return {**kvozc.estado(), "aviso": muestra["aviso"],
+            "requiere_verificacion": res["requiere_verificacion"]}
+
+
+@app.get("/api/voz/voces")
+def voz_voces(u: Usuario = Depends(_admin_de_la_instalacion)):
+    """Voces ya existentes en la cuenta de ElevenLabs (clonadas allá o de la
+    Voice Library), para elegir una sin volver a clonar."""
+    key = kvozc.api_key_elevenlabs()
+    if not key:
+        raise HTTPException(400, "Falta ELEVENLABS_API_KEY.")
+    return {"voces": voz_tts_mod.voces_disponibles(key)}
+
+
+class VozElegidaIn(BaseModel):
+    voice_id: str
+    nombre: str = ""
+
+
+@app.post("/api/voz/clonada/elegir")
+def voz_clonada_elegir(datos: VozElegidaIn, u: Usuario = Depends(_admin_de_la_instalacion)):
+    voice_id = datos.voice_id.strip()
+    if not re.fullmatch(r"[A-Za-z0-9]{8,64}", voice_id):
+        raise HTTPException(400, "Ese id de voz no es válido.")
+    kvozc.activar(voice_id, datos.nombre)
+    kauditoria.registrar("voz_elegida", {"nombre": datos.nombre.strip()[:100]}, rol=u.rol)
+    return kvozc.estado()
+
+
+@app.post("/api/voz/clonada/desactivar")
+def voz_clonada_desactivar(u: Usuario = Depends(_admin_de_la_instalacion)):
+    kvozc.desactivar()
+    kauditoria.registrar("voz_desactivada", {}, rol=u.rol)
+    return kvozc.estado()
+
+
+class VozPruebaIn(BaseModel):
+    texto: str = ""
+    motor: str = "elevenlabs"
+
+
+@app.post("/api/voz/clonada/probar")
+async def voz_clonada_probar(datos: VozPruebaIn, u: Usuario = Depends(_admin_de_la_instalacion)):
+    """Una frase con la voz clonada, para escucharla.
+
+    ElevenLabs devuelve MP3 con el modelo de llamadas (lo que va a sonar por
+    teléfono). El motor gratis devuelve WAV y tarda: la primera vez además
+    descarga el modelo.
+    """
+    if datos.motor == "local":
+        idioma = kpaises.obtener(_pais_de(u.empresa)).idioma
+        res = await run_in_threadpool(kvozc.probar_local, datos.texto, idioma)
+        if not res["ok"]:
+            raise HTTPException(400, res["error"])
+        return Response(content=res["audio"], media_type="audio/wav",
+                        headers={"Cache-Control": "no-store"})
+    res = await run_in_threadpool(kvozc.probar, datos.texto)
+    if not res["ok"]:
+        raise HTTPException(502 if kvozc.voz_activa() else 400, res["error"])
+    return Response(content=res["audio"], media_type="audio/mpeg",
+                    headers={"Cache-Control": "no-store"})
+
+
+@app.delete("/api/voz/clonada/local")
+def voz_clonada_local_borrar(u: Usuario = Depends(_admin_de_la_instalacion)):
+    """Borra del disco la muestra del motor gratis."""
+    kvozc.borrar_muestra_local()
+    kauditoria.registrar("voz_local_borrada", {}, rol=u.rol)
+    return kvozc.estado()
 
 
 # Deudor sintético por default de la demo del Gestor IA — el caso que se le

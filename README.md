@@ -822,6 +822,26 @@ fijo de un plan no termine subsidiando un costo variable no cotizado. Si
 falla o no está configurada, cae solo a Twilio/Polly — nunca corta la
 llamada.
 
+**Voz clonada en tres pasos** (`kobra/voz_clonada.py`, app web →
+**Configuración → Voz clonada del Gestor IA**): grabar un minuto con el
+micrófono (o subir un `.wav`/`.mp3`), clonar y escucharla. El clonado lo hace
+ElevenLabs (Instant Voice Cloning) con la cuenta del cliente; exige declarar
+el consentimiento del dueño de la voz y queda en la auditoría. La voz elegida
+rige desde la próxima frase de la próxima llamada, sin reiniciar el servidor.
+Antes no llegaba nunca a las llamadas: el servidor leía la voz solo del
+entorno, al arrancar. Lo configura únicamente el admin de la instalación, y
+para un cliente con licencia necesita el módulo `voz` (la edición Owner pasa
+siempre).
+
+La misma pantalla ofrece un **motor gratis, en el equipo** (Chatterbox de
+Resemble AI, licencia MIT, vía `kobra/voz_clon_local.py`): clona sin costo y
+sin que la voz salga de la máquina, para escucharla y para demos. Tarda
+segundos por frase en CPU, así que **no cambia la voz de las llamadas** — en
+vivo sigue ElevenLabs. Se instala aparte (`pip install chatterbox-tts`; la
+primera vez descarga el modelo, unos GB) y no necesita ffmpeg para lo que se
+graba en la pantalla. La muestra queda en `<carpeta de datos>/voz/` y se borra
+desde la misma pantalla.
+
 ### 📣 Campaña automática de contacto — `kobra/campana.py`
 
 Orquesta el contacto saliente **sin intervención manual**, corriendo dentro
