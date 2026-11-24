@@ -62,6 +62,7 @@ def _referencia_wav(referencia: str | None) -> str | None:
     para que el CLIENTE de la demo no suene igual que el gestor — si los dos
     salen de la misma muestra clonada, la llamada parece una persona hablando
     sola y se pierde la ilusión de conversación."""
+    import shutil
     import subprocess
     import tempfile
     if referencia is SIN_CLONAR:
@@ -69,6 +70,11 @@ def _referencia_wav(referencia: str | None) -> str | None:
     ref = referencia or REFERENCIA_DEFAULT
     if not os.path.exists(ref):
         raise FileNotFoundError(f"No encuentro la muestra de voz: {ref}")
+    # Una muestra que ya es WAV (la que graba la pantalla de voz clonada) el
+    # modelo la lee directo y la remuestrea él. Sin esto, clonar gratis exigía
+    # ffmpeg, que es una dependencia de SISTEMA que el instalador no trae.
+    if ref.lower().endswith(".wav") and shutil.which("ffmpeg") is None:
+        return ref
     destino = os.path.join(tempfile.mkdtemp(), "referencia.wav")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", ref,
                     "-vn", "-ac", "1", "-ar", "24000", destino], check=True)
@@ -183,7 +189,7 @@ def _toma_creible(muestras: int, sr: int, texto: str) -> bool:
 
 def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = None,
                modelo: str | None = None, referencia: str | None = None,
-               idioma: str = "es") -> dict:
+               idioma: str = "es", formato: str = "mp3") -> dict:
     """Sintetiza `texto` clonando la voz de `referencia`.
 
     Misma firma y mismo dict de retorno que `voz_tts.sintetizar`, para que sea
@@ -191,6 +197,9 @@ def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = No
     "error"}. `voice_id`/`api_key`/`modelo` se aceptan y se ignoran — existen
     solo para que el llamador no tenga que saber qué motor está usando.
     El costo siempre es 0: corre local.
+
+    `formato="wav"` devuelve WAV sin pasar por ffmpeg: es lo que usa la
+    pantalla para escuchar la voz, y el navegador lo reproduce igual.
 
     Nunca levanta excepción: ante cualquier fallo devuelve ok=False con el
     motivo, para no cortar un build por un problema de audio.
@@ -238,9 +247,12 @@ def sintetizar(texto: str, voice_id: str | None = None, api_key: str | None = No
             trozos.append(np.zeros(int(sr * 0.18), dtype=np.float32))
         audio = np.concatenate(trozos[:-1]) if len(trozos) > 1 else trozos[0]
 
-        # A MP3 (lo que consume el dashboard estático), vía ffmpeg por stdin.
         buf = io.BytesIO()
         sf.write(buf, audio, sr, format="WAV")
+        if formato == "wav":
+            return {"ok": True, "audio": buf.getvalue(), "caracteres": caracteres,
+                    "costo_est_usd": 0.0, "error": None}
+        # A MP3 (lo que consume el dashboard estático), vía ffmpeg por stdin.
         import subprocess
         mp3 = subprocess.run(
             ["ffmpeg", "-y", "-loglevel", "error", "-f", "wav", "-i", "pipe:0",

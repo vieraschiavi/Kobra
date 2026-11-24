@@ -57,6 +57,7 @@ from kobra import concurrencia as kconc  # noqa: E402
 from kobra import config as kconfig  # noqa: E402
 from kobra import limitador as klimite  # noqa: E402
 from kobra import plan as kplan  # noqa: E402
+from kobra import voz_clonada as kvoz_clonada  # noqa: E402
 from realtime import (
     acceso,  # noqa: E402
     connectors,  # noqa: E402
@@ -122,6 +123,18 @@ app.add_middleware(acceso.Candado)
 # último agregado es el primero en correr. El freno tiene que ir antes que la
 # comparación del token — si no, una ráfaga contra el token nunca se frena.
 app.add_middleware(klimite.LimitadorGeneral)
+
+
+@app.middleware("http")
+async def _credenciales_al_dia(request: Request, call_next):
+    """Las API keys cargadas o rotadas en Configuración rigen sin reiniciar.
+
+    Este proceso vive días y `kconfig.aplicar()` corre una vez, al importar.
+    Rotar el token de Twilio en la pantalla dejaba acá el viejo: la firma de
+    cada webhook daba inválida y todas las llamadas se cortaban con 403.
+    """
+    kconfig.refrescar()
+    return await call_next(request)
 
 
 def _es_twilio(request: Request, form: dict) -> bool:
@@ -553,10 +566,11 @@ _LANG_TTS = os.getenv("TWILIO_TTS_LANG",
 _LANG_ASR = os.getenv("TWILIO_ASR_LANG", "es-UY")
 
 # --- Voz premium opcional (ElevenLabs) ---------------------------------
-# Se activa con ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID configurados. Si
-# falla o falta cualquiera, cae solo a <Say>/Polly — nunca corta la llamada.
-_TTS_PROVIDER = os.getenv("TTS_PROVIDER", "twilio")     # "twilio" | "elevenlabs"
-_ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "")
+# Se activa con una voz elegida o clonada en Configuración (o con
+# ELEVENLABS_VOICE_ID en el entorno). Si falla o falta la key, cae solo a
+# <Say>/Polly — nunca corta la llamada. La voz se resuelve en CADA frase
+# (`voz_clonada.voz_activa`), no al importar: elegirla o clonarla desde la
+# pantalla rige desde la próxima frase, sin reiniciar este servidor.
 _AUDIO_CACHE_MAX = 200
 _AUDIO_CACHE: "OrderedDict[str, bytes]" = OrderedDict()   # token -> audio mp3
 # Frases repetidas (saludos, "no le entendí", despedidas) no se vuelven a
@@ -574,15 +588,17 @@ def _cachear_audio(audio: bytes) -> str:
 
 
 def _say(texto: str, request: "Request | None" = None) -> str:
-    if _TTS_PROVIDER == "elevenlabs" and _ELEVENLABS_VOICE_ID and request is not None:
+    voice_id = kvoz_clonada.voz_activa() if request is not None else ""
+    if voice_id:
         import hashlib
-        clave = hashlib.md5(f"{_ELEVENLABS_VOICE_ID}|{texto}".encode()).hexdigest()
+        clave = hashlib.md5(f"{voice_id}|{texto}".encode()).hexdigest()
         token = _TTS_TEXT_CACHE.get(clave)
         if token and token in _AUDIO_CACHE:
             return f'<Play>{_public_base(request)}/voz/audio/{token}.mp3</Play>'
         # Modelo flash (~75 ms) en vez de multilingual v2 (cientos de ms):
         # es la diferencia entre una conversación fluida y una con "lag".
-        r = voz_tts.sintetizar(texto, _ELEVENLABS_VOICE_ID, modelo=voz_tts.MODELO_LLAMADAS)
+        r = voz_tts.sintetizar(texto, voice_id, api_key=kvoz_clonada.api_key_elevenlabs(),
+                               modelo=voz_tts.MODELO_LLAMADAS)
         if r["ok"]:
             token = _cachear_audio(r["audio"])
             _TTS_TEXT_CACHE[clave] = token
@@ -938,6 +954,7 @@ CAMPANA_INTERVALO_MIN = int(os.getenv("CAMPANA_INTERVALO_MIN", "60"))
 
 
 def _job_campana():
+    kconfig.refrescar(ttl_seg=0)
     if not kconfig.leer_extra("CAMPANA_ACTIVA"):
         return
     base_url = os.getenv("PUBLIC_BASE_URL")
@@ -945,7 +962,10 @@ def _job_campana():
     if not base_url or not contactos_csv:
         return   # sin URL pública o sin cartera de contactos reales, no hay a dónde llamar/escribir
 
-    gestiones_csv = os.path.join(ROOT, "data", "kobra_gestiones.csv")
+    # Rutas de DATOS del cliente (`registro`, sobre krutas.DIR_DATOS), no del
+    # repo: instalado, `KOBRA_DATA_DIR` apunta a otra carpeta y `ROOT/data`
+    # no tiene las gestiones reales — la campaña no encontraba a quién llamar.
+    gestiones_csv = registro.GESTIONES_CSV
     if not os.path.exists(gestiones_csv):
         return
     import pandas as pd
@@ -964,20 +984,26 @@ def _job_informe_semanal():
     """Manda el Informe Ejecutivo en PDF por email (lunes de mañana). Se
     activa desde ⚙️ Configuración de la webapp (INFORME_EMAIL_ACTIVO +
     INFORME_EMAIL_DESTINO); usa el SMTP corporativo ya configurado."""
+    kconfig.refrescar(ttl_seg=0)
     if not kconfig.leer_extra("INFORME_EMAIL_ACTIVO"):
         return
     destino = (kconfig.leer_extra("INFORME_EMAIL_DESTINO", "") or "").strip()
-    scored_csv = os.path.join(ROOT, "outputs", "kobra_scored.csv")
+    # La cartera VIGENTE (la real si el cliente la importó, la misma que elige
+    # el botón demo), en la carpeta de datos del cliente. Antes leía siempre
+    # `ROOT/outputs/kobra_scored.csv`: instalado no existía y el informe no
+    # salía; en el repo, con la cartera real activa, mandaba la demo.
+    scored_csv = registro.ruta_cartera()
     if not destino or not os.path.exists(scored_csv):
         return
     import pandas as pd
 
     from kobra import informe_ejecutivo as kinforme
     from kobra import paises as kpaises_mod
+    from kobra import rutas as krutas_mod
     scored = pd.read_csv(scored_csv)
-    gestiones_csv = os.path.join(ROOT, "data", "kobra_gestiones.csv")
+    gestiones_csv = registro.GESTIONES_CSV
     gestiones = pd.read_csv(gestiones_csv) if os.path.exists(gestiones_csv) else None
-    pais_json = os.path.join(ROOT, "data", "pais.json")
+    pais_json = os.path.join(krutas_mod.DIR_DATOS, "data", "pais.json")
     codigo = kpaises_mod.PAIS_DEFAULT
     if os.path.exists(pais_json):
         import json as _json
@@ -987,7 +1013,8 @@ def _job_informe_semanal():
         except (OSError, ValueError):
             pass
     r = kinforme.enviar_por_email(destino, scored, gestiones,
-                                  empresa="principal", codigo_pais=codigo)
+                                  empresa="principal", codigo_pais=codigo,
+                                  datos_demo=scored_csv != registro.CARTERA_REAL_CSV)
     kauditoria.registrar("informe_semanal_enviado" if r["ok"] else "informe_semanal_error",
                         {"destino": destino, "detalle": r["detalle"]})
 
@@ -996,20 +1023,73 @@ def _job_informe_semanal():
 INFORME_EMAIL_DIA = os.getenv("INFORME_EMAIL_DIA", "mon")
 INFORME_EMAIL_HORA = int(os.getenv("INFORME_EMAIL_HORA", "8"))
 
-try:
+def _crear_scheduler():
     from apscheduler.schedulers.background import BackgroundScheduler
-    _scheduler = BackgroundScheduler()
-    _scheduler.add_job(_job_campana, "interval", minutes=CAMPANA_INTERVALO_MIN,
-                       id="campana_automatica")
-    _scheduler.add_job(_job_informe_semanal, "cron",
-                       day_of_week=INFORME_EMAIL_DIA, hour=INFORME_EMAIL_HORA,
-                       id="informe_semanal")
+    sched = BackgroundScheduler()
+    sched.add_job(_job_campana, "interval", minutes=CAMPANA_INTERVALO_MIN,
+                  id="campana_automatica")
+    sched.add_job(_job_informe_semanal, "cron",
+                  day_of_week=INFORME_EMAIL_DIA, hour=INFORME_EMAIL_HORA,
+                  id="informe_semanal")
+    return sched
+
+
+# UN solo scheduler por instalación, aunque haya varios procesos.
+#
+# Antes arrancaba en cada importación del módulo. Con `KOBRA_WORKERS=3`
+# uvicorn importa el módulo en el proceso padre y dos veces por worker
+# (`__mp_main__` y `realtime.server`): 7 schedulers. Las 7 corridas leían
+# "a quién ya contacté hoy" antes de que alguna escribiera, así que el mismo
+# deudor recibía hasta 7 llamadas o WhatsApp por corrida, y el informe del
+# lunes llegaba 7 veces (revisión de producción).
+#
+# Lo arranca el proceso que consigue el candado de archivo, y lo tiene hasta
+# morir (el sistema lo suelta solo, incluso si el proceso se cae). Los demás
+# reintentan cada minuto: si el que lo tenía muere, otro toma la posta.
+_CANDADO_SCHEDULER = None
+_scheduler = None
+
+
+def _intentar_ser_el_scheduler() -> bool:
+    global _CANDADO_SCHEDULER, _scheduler
+    if _scheduler is not None:
+        return True
+    import portalocker
+
+    from kobra import rutas as krutas_mod
+    os.makedirs(krutas_mod.DIR_DATOS, exist_ok=True)
+    candado = portalocker.Lock(os.path.join(krutas_mod.DIR_DATOS, ".scheduler.lock"),
+                               mode="a", timeout=0, fail_when_locked=True)
+    try:
+        candado.acquire()
+    except (portalocker.exceptions.LockException, OSError):
+        return False
+    _CANDADO_SCHEDULER = candado
+    _scheduler = _crear_scheduler()
     _scheduler.start()
     import atexit
     atexit.register(lambda: _scheduler.shutdown(wait=False))
-except ImportError:
-    pass   # apscheduler no instalado: la campaña automática queda desactivada, el resto del servicio funciona igual
+    return True
 
+
+def _arrancar_scheduler() -> None:
+    try:
+        import apscheduler  # noqa: F401
+    except ImportError:
+        return   # sin apscheduler la campaña automática queda desactivada; el resto anda igual
+    if _intentar_ser_el_scheduler():
+        return
+    import threading
+
+    def _esperar_turno():
+        import time
+        while not _intentar_ser_el_scheduler():
+            time.sleep(60)
+
+    threading.Thread(target=_esperar_turno, name="kobra-scheduler-espera", daemon=True).start()
+
+
+_arrancar_scheduler()
 
 if __name__ == "__main__":
     import uvicorn

@@ -231,11 +231,60 @@ def limpiar():
         os.environ.pop(k, None)
 
 
+# Las API keys que ya estaban en el entorno al arrancar las puso quien lanzó
+# el proceso (Docker, Railway, la shell): esas mandan y `refrescar` no las
+# pisa. Las demás vienen del almacén y se pueden rotar desde la pantalla.
+_DEL_LANZADOR = frozenset(k for k in CLAVES if os.environ.get(k))
+_ultimo_refresco = 0.0
+
+
 def aplicar():
-    """Carga las keys guardadas al entorno (sin pisar variables ya presentes)."""
+    """Carga las API keys guardadas al entorno (sin pisar variables ya presentes).
+
+    Solo las de `CLAVES`, y solo si son texto. Antes exportaba TODO lo
+    guardado, y lo guardado también tiene valores que no son API keys: la
+    pantalla guarda `INFORME_EMAIL_ACTIVO=True` (un bool), y `os.environ`
+    solo acepta texto — después de activar el informe semanal, el siguiente
+    arranque de la API, del servidor de llamadas y del dashboard moría con
+    `TypeError: str expected, not bool` antes de servir nada. Y exportar los
+    extras los congelaba en el entorno: la voz de las llamadas guardada al
+    arrancar le ganaba para siempre a la que se eligiera después en pantalla.
+    Todo extra se lee con `leer_extra`, así que no hace falta en el entorno.
+    """
     for k, v in cargar().items():
-        if v and not os.environ.get(k):
+        if k in CLAVES and isinstance(v, str) and v and not os.environ.get(k):
             os.environ[k] = v
+
+
+def refrescar(ttl_seg: float = 10.0) -> None:
+    """Vuelve a leer las API keys guardadas, a lo sumo cada `ttl_seg`.
+
+    El servidor de llamadas y la campaña son procesos que viven días, y
+    `aplicar()` corre una vez al arrancar. Si después alguien carga o rota el
+    token de Twilio en Configuración (otro proceso), este seguía con el
+    viejo: la firma de cada webhook daba inválida y TODAS las llamadas se
+    cortaban con un 403 hasta reiniciar a mano. Se llama en cada request y en
+    cada corrida del scheduler; el TTL lo deja en una lectura cada 10 s.
+    """
+    global _ultimo_refresco
+    import logging
+    import time
+    ahora = time.monotonic()
+    if ahora - _ultimo_refresco < ttl_seg:
+        return
+    _ultimo_refresco = ahora
+    try:
+        guardadas = cargar()
+    except Exception:
+        # Se siguen usando las que ya están: una falla al leer el almacén no
+        # puede dejar al servidor sin credenciales en medio de una llamada.
+        logging.getLogger(__name__).warning("No pude releer la configuración guardada",
+                                            exc_info=True)
+        return
+    for k in CLAVES:
+        v = guardadas.get(k)
+        if k not in _DEL_LANZADOR and isinstance(v, str) and v.strip():
+            os.environ[k] = v.strip()
 
 
 def estado() -> dict:

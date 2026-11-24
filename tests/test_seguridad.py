@@ -120,18 +120,48 @@ def test_no_acumula_cubos_para_siempre():
     assert lim.metricas()["claves_vivas"] < 5000, "no purgó los cubos viejos"
 
 
-@pytest.mark.parametrize("cabeceras,esperado", [
-    ({"x-forwarded-for": "203.0.113.9, 10.0.0.1"}, "203.0.113.9"),
-    ({"x-real-ip": "203.0.113.7"}, "203.0.113.7"),
-    ({}, "127.0.0.1"),
+@pytest.mark.parametrize("cabeceras,proxies,esperado", [
+    # Un proxy propio (default): la entrada que agregó él, la de la derecha.
+    ({"x-forwarded-for": "203.0.113.9"}, None, "203.0.113.9"),
+    # Dos proxies propios (CDN + nginx): la segunda desde la derecha.
+    ({"x-forwarded-for": "203.0.113.9, 10.0.0.1"}, "2", "203.0.113.9"),
+    ({"x-real-ip": "203.0.113.7"}, None, "203.0.113.7"),
+    ({}, None, "127.0.0.1"),
+    # Sin proxy delante, la cabecera no vale nada.
+    ({"x-forwarded-for": "203.0.113.9"}, "0", "127.0.0.1"),
 ])
-def test_identifica_al_cliente_real_detras_del_proxy(cabeceras, esperado):
+def test_identifica_al_cliente_real_detras_del_proxy(cabeceras, proxies, esperado, monkeypatch):
     """Detrás de Vercel o nginx, `request.client.host` es la IP del proxy:
     todas las peticiones del mundo compartirían un solo cubo."""
+    if proxies is None:
+        monkeypatch.delenv("KOBRA_PROXIES_CONFIABLES", raising=False)
+    else:
+        monkeypatch.setenv("KOBRA_PROXIES_CONFIABLES", proxies)
+
     class Req:
         headers = cabeceras
         client = type("C", (), {"host": "127.0.0.1"})()
     assert klimite.ip_de(Req()) == esperado
+
+
+def test_rotar_x_forwarded_for_no_esquiva_el_freno(monkeypatch):
+    """Revisión de producción: la PRIMERA entrada de la cadena la escribe el
+    cliente. Tomándola, rotar una IP inventada en cada intento era fuerza
+    bruta ilimitada. El proxy agrega al final la IP real, y esa no cambia."""
+    monkeypatch.delenv("KOBRA_PROXIES_CONFIABLES", raising=False)
+    lim = klimite.Limitador(permitidos=3, ventana_seg=60, reloj=Reloj())
+
+    class Req:
+        client = type("C", (), {"host": "10.0.0.2"})()
+
+    rechazados = 0
+    for i in range(10):
+        Req.headers = {"x-forwarded-for": f"198.51.100.{i}, 203.0.113.9"}
+        try:
+            lim.intentar(f"login:{klimite.ip_de(Req())}")
+        except klimite.LimiteIntentos:
+            rechazados += 1
+    assert rechazados == 7
 
 
 # --- 2) La API aplica el freno de verdad -----------------------------------

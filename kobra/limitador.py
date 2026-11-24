@@ -112,17 +112,36 @@ def ip_de(request) -> str:
 
     Detrás de Vercel o nginx, `request.client.host` es la IP del proxy: todas
     las peticiones del mundo compartirían un solo cubo y el primer atacante
-    dejaría afuera a todos los usuarios legítimos. `x-forwarded-for` trae la
-    cadena y la primera entrada es el cliente real.
+    dejaría afuera a todos los usuarios legítimos. Por eso se mira
+    `x-forwarded-for`.
+
+    Pero NO su primera entrada: esa la escribe el cliente. Cada proxy AGREGA
+    al final la IP de quien se le conectó, así que lo único confiable es lo
+    que agregaron los proxies propios — contando desde la derecha. Tomando la
+    primera, rotar `X-Forwarded-For: <ip inventada>` en cada intento daba
+    fuerza bruta ilimitada sobre el login (revisión de producción: 30 intentos,
+    cero 429).
+
+    `KOBRA_PROXIES_CONFIABLES` dice cuántos proxies propios hay delante (1 por
+    defecto: Vercel, Railway o un nginx). Con 0 no se confía en la cabecera
+    — es lo correcto si el servidor está expuesto sin proxy.
     """
-    xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        return xff.split(",")[0].strip()
+    try:
+        confiables = max(int(os.getenv("KOBRA_PROXIES_CONFIABLES", "1")), 0)
+    except ValueError:
+        confiables = 1
+    cliente = getattr(getattr(request, "client", None), "host", None) or "desconocido"
+    if confiables == 0:
+        return cliente
+    cadena = [ip.strip() for ip in request.headers.get("x-forwarded-for", "").split(",")
+              if ip.strip()]
+    if cadena:
+        # Con menos entradas que proxies, la más vieja es lo mejor que hay.
+        return cadena[-min(confiables, len(cadena))]
     real = request.headers.get("x-real-ip")
     if real:
         return real.strip()
-    cliente = getattr(request, "client", None)
-    return getattr(cliente, "host", None) or "desconocido"
+    return cliente
 
 
 def intentos_por_worker(workers: int = 1) -> dict:
